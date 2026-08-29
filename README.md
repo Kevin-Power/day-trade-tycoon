@@ -1,0 +1,49 @@
+# 當沖大富翁 · Day Trade Tycoon
+
+台股當沖教室。盤面比照券商現股當沖：自選、五檔、江波、委託單、庫存／委託／成交。
+
+目前走 **模擬撮合**。下單畫面已與實盤共用同一張委託單；接上券商 API 之後只換 `src/lib/broker` 這層，不必重做 UI。
+
+## 教室裡有什麼
+
+- 課綱凍結 **2026/08/24–08/26**（證交所每 5 秒加權指數）
+- 線上教室每個交易日 **13:50** 後自動抓最新完整盤做自由練習
+- 個股用當日公開開高低收套上同一條大盤節奏（**不是逐筆成交**）
+- 紅漲綠跌、1 張 = 1,000 股、±10% 漲跌停、來回成本約 0.32%
+
+## 本機跑
+
+```bash
+npm install
+npm run dev
+```
+
+預覽綁在 `0.0.0.0:8080`。
+
+地端教室包：
+
+```bash
+npm run build:offline
+```
+
+解壓 `public/daytrade-tycoon-offline.zip`，雙擊 `START.bat`，不必連網。地端只用內建教材週。
+
+## 下單通路（之後接實盤）
+
+| 檔案 | 用途 |
+| --- | --- |
+| `src/lib/broker/types.ts` | 委託意圖、TIF、盤別 |
+| `src/lib/broker/index.ts` | `getBroker("sim" \| "live")` |
+| `src/routes/api/broker/order.ts` | 實盤 hop，尚未接線時回 501 |
+
+模擬盤帳號 `CLASSROOM-SIM`，TIF 目前僅 **ROD**。實盤需要：
+
+1. 伺服器環境變數 `BROKER_BASE_URL`（不要放 `VITE_`）
+2. 把 `liveBroker()` 改成打 `/api/broker/order`
+3. 上實盤前務必加登入，金鑰只放伺服器
+
+點委託單上的「實盤」會提示尚未接線，不會真的送券商。
+
+## 授權
+
+給股文觀指教室使用。未另聲明則保留權利。

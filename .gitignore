@@ -1,0 +1,17 @@
+node_modules
+.vercel
+dist
+dist-offline
+dist-offline-pack
+screenshots
+artifacts
+.grok
+.env
+.env.*
+*.log
+.DS_Store
+coverage
+tmp
+/tmp
+AGENTS.md
+attachments
