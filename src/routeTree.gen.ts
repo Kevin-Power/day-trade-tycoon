@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ManualRouteImport } from './routes/manual'
 import { Route as ApiTapeRouteImport } from './routes/api/tape'
 import { Route as ApiBrokerOrderRouteImport } from './routes/api/broker/order'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ManualRoute = ManualRouteImport.update({
+  id: '/manual',
+  path: '/manual',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTapeRoute = ApiTapeRouteImport.update({
@@ -31,30 +37,34 @@ const ApiBrokerOrderRoute = ApiBrokerOrderRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/manual': typeof ManualRoute
   '/api/tape': typeof ApiTapeRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/manual': typeof ManualRoute
   '/api/tape': typeof ApiTapeRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/manual': typeof ManualRoute
   '/api/tape': typeof ApiTapeRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/tape' | '/api/broker/order'
+  fullPaths: '/' | '/manual' | '/api/tape' | '/api/broker/order'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/tape' | '/api/broker/order'
-  id: '__root__' | '/' | '/api/tape' | '/api/broker/order'
+  to: '/' | '/manual' | '/api/tape' | '/api/broker/order'
+  id: '__root__' | '/' | '/manual' | '/api/tape' | '/api/broker/order'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ManualRoute: typeof ManualRoute
   ApiTapeRoute: typeof ApiTapeRoute
   ApiBrokerOrderRoute: typeof ApiBrokerOrderRoute
 }
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/manual': {
+      id: '/manual'
+      path: '/manual'
+      fullPath: '/manual'
+      preLoaderRoute: typeof ManualRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/tape': {
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ManualRoute: ManualRoute,
   ApiTapeRoute: ApiTapeRoute,
   ApiBrokerOrderRoute: ApiBrokerOrderRoute,
 }

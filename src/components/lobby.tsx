@@ -1,4 +1,5 @@
 import { Activity, BookOpen, ChevronRight, Clock3, Download, HardDrive, Shield, Target, TrendingUp } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { nextRank, rankFor, SCENARIOS } from "@/lib/game/scenarios";
 import { lessonById, PRINCIPLES } from "@/lib/game/curriculum";
@@ -45,6 +46,14 @@ export function Lobby() {
           <span className="hidden rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs tracking-wide text-tape sm:inline">
             模擬盤
           </span>
+          <Link
+            to="/manual"
+            className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-border-strong bg-surface px-3 text-xs text-fg hover:bg-elevated"
+          >
+            <BookOpen className="size-3.5" />
+            <span className="hidden sm:inline">說明書</span>
+            <span className="sm:hidden">說明</span>
+          </Link>
           {CLASSROOM_OFFLINE ? (
             <span className="rounded-xs border border-border-strong bg-elevated px-2 py-1 text-micro text-muted">
               地端教室 · 離線
@@ -84,6 +93,22 @@ export function Lobby() {
           <span className="text-micro text-muted sm:ml-auto">
             委託單與實盤共用。券商 API 尚未接線，點實盤會提示。
           </span>
+        </section>
+
+        <section className="mb-8 flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium">給金主的說明書</div>
+            <p className="mt-1 text-pretty text-micro leading-relaxed text-muted">
+              學員怎麼玩、資料哪裡來、模擬跟實盤差在哪。可列印、可下載 PDF。
+            </p>
+          </div>
+          <Link
+            to="/manual"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-sm bg-header-2 px-3 text-xs text-fg hover:bg-header"
+          >
+            <BookOpen className="size-3.5" />
+            打開說明書
+          </Link>
         </section>
 
         <section className="mb-8 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">

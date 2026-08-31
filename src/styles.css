@@ -246,3 +246,63 @@
 .pane-sunken {
   box-shadow: inset 1px 1px 0 #000, inset -1px -1px 0 #3a4c60;
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm 14mm 16mm;
+  }
+
+  html,
+  body,
+  #app {
+    height: auto !important;
+    background: #fff !important;
+    color: #16181d !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .manual-sheet {
+    --color-bg: #ffffff;
+    --color-bg-1: #ffffff;
+    --color-fg: #16181d;
+    --color-muted: #4a5568;
+    --color-subtle: #5c6778;
+    --color-surface: #f6f8fb;
+    --color-surface-2: #eef2f6;
+    --color-elevated: #e6ebf2;
+    --color-border: #d4dce6;
+    --color-border-strong: #b7c3d0;
+    --color-header: #163a6b;
+    --color-header-2: #1e4d88;
+    --color-tape: #8a6d12;
+    --color-warn: #9a6b00;
+    background: #fff !important;
+    color: #16181d !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .manual-sheet header {
+    display: none !important;
+  }
+
+  .manual-section {
+    break-inside: avoid;
+  }
+
+  .manual-sheet a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .pane-title {
+    background: #163a6b !important;
+    color: #fff !important;
+    box-shadow: none !important;
+  }
+}
+
