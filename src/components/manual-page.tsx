@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Download, Printer } from "lucide-react";
+import { ArrowLeft, Download, LogOut, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useGate } from "@/lib/gate/context";
 
 const VERSION = "2026-08-31 討論稿";
 const PDF_HREF = "/daytrade-tycoon-manual.pdf";
@@ -22,6 +23,7 @@ const TOC = [
 ] as const;
 
 export function ManualPage() {
+  const { lock } = useGate();
   return (
     <div className="manual-sheet min-h-dvh bg-bg text-fg">
       <header className="no-print sticky top-0 z-20 border-b border-border bg-bg/92 backdrop-blur-sm">
@@ -51,6 +53,14 @@ export function ManualPage() {
               <Printer className="size-3.5" />
               列印
             </Button>
+            <button
+              type="button"
+              onClick={lock}
+              className="inline-flex size-9 items-center justify-center rounded-sm border border-border-strong bg-surface text-muted hover:bg-elevated hover:text-fg"
+              aria-label="登出"
+            >
+              <LogOut className="size-3.5" />
+            </button>
           </div>
         </div>
       </header>
@@ -150,12 +160,12 @@ function What() {
   return (
     <Section id="what" n="01" title="這是什麼、給誰用">
       <p className="text-pretty leading-relaxed text-muted">
-        學員進大廳選一盤，進盤室後看到的是國票風格的現股當沖：黃帶、紫量、紅漲綠跌、1 張＝1,000 股。時間軸從 09:00 走到 13:30，可加速、可暫停。課綱會在關鍵分鐘自動停下來講。
+        學員先過入場密碼，再進大廳選一盤。進盤室後看到的是國票風格的現股當沖：黃帶、紫量、紅漲綠跌、1 張＝1,000 股。時間軸從 09:00 走到 13:30，可加速、可暫停。課綱會在關鍵分鐘自動停下來講。
       </p>
       <div className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
         <Fact label="給誰" body="股文觀指常態班／每日學習班學員。講師帶打、學員自己復盤。" />
         <Fact label="不給誰" body="要跟單、要保證獲利、要把教室當券商下單的人。那不是這份產品。" />
-        <Fact label="戰績怎麼存" body="存在該機瀏覽器。沒有帳號、沒有雲端同步。換電腦就換一份成績。" />
+        <Fact label="戰績怎麼存" body="進教室要入場密碼（講師發，全班同一組）。戰績存在該機瀏覽器，沒有雲端帳號。" />
       </div>
     </Section>
   );
@@ -392,13 +402,13 @@ function Agenda() {
           建議先賣教室。課綱、地端包、每日練習已經能開班。實盤是下一張合約，不該擋這一期開課。
         </Step>
         <Step n="2" title="授權怎麼算？">
-          可以談：班級授權、地端包授權、講師帳。現在沒有按人頭雲端帳號，因為登入還沒做。
+          可以談：班級授權、地端包授權、講師帳。現在是全班同一組入場密碼，還沒有按人頭雲端帳號。
         </Step>
         <Step n="3" title="要不要接哪一家券商？">
           下單畫面已預留。選哪一家、測試帳、正式帳、誰付 API 費，是金主跟券商的事。教室端只換 adapter。
         </Step>
         <Step n="4" title="學員資料放哪？">
-          現在放本機。若要跨機戰績、排行、繳費，再做登入。沒有登入就上實盤，不建議。
+          入場之後戰績仍放本機。若要跨機戰績、排行、繳費，再做每人帳號。沒有身份就上實盤，不建議。
         </Step>
         <Step n="5" title="對外怎麼講？">
           可以講：真實加權 5 秒、真實當日開高低收、券商風格盤面、課綱帶打。不可以講：逐筆行情、已經能實盤下單、保證會賺。

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ManualRouteImport } from './routes/manual'
+import { Route as ApiGateRouteImport } from './routes/api/gate'
 import { Route as ApiTapeRouteImport } from './routes/api/tape'
 import { Route as ApiBrokerOrderRouteImport } from './routes/api/broker/order'
 
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 const ManualRoute = ManualRouteImport.update({
   id: '/manual',
   path: '/manual',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGateRoute = ApiGateRouteImport.update({
+  id: '/api/gate',
+  path: '/api/gate',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTapeRoute = ApiTapeRouteImport.update({
@@ -38,12 +44,14 @@ const ApiBrokerOrderRoute = ApiBrokerOrderRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/manual': typeof ManualRoute
+  '/api/gate': typeof ApiGateRoute
   '/api/tape': typeof ApiTapeRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/manual': typeof ManualRoute
+  '/api/gate': typeof ApiGateRoute
   '/api/tape': typeof ApiTapeRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
 }
@@ -51,20 +59,28 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/manual': typeof ManualRoute
+  '/api/gate': typeof ApiGateRoute
   '/api/tape': typeof ApiTapeRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/manual' | '/api/tape' | '/api/broker/order'
+  fullPaths: '/' | '/manual' | '/api/gate' | '/api/tape' | '/api/broker/order'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/manual' | '/api/tape' | '/api/broker/order'
-  id: '__root__' | '/' | '/manual' | '/api/tape' | '/api/broker/order'
+  to: '/' | '/manual' | '/api/gate' | '/api/tape' | '/api/broker/order'
+  id:
+    | '__root__'
+    | '/'
+    | '/manual'
+    | '/api/gate'
+    | '/api/tape'
+    | '/api/broker/order'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ManualRoute: typeof ManualRoute
+  ApiGateRoute: typeof ApiGateRoute
   ApiTapeRoute: typeof ApiTapeRoute
   ApiBrokerOrderRoute: typeof ApiBrokerOrderRoute
 }
@@ -83,6 +99,13 @@ declare module '@tanstack/react-router' {
       path: '/manual'
       fullPath: '/manual'
       preLoaderRoute: typeof ManualRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/gate': {
+      id: '/api/gate'
+      path: '/api/gate'
+      fullPath: '/api/gate'
+      preLoaderRoute: typeof ApiGateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/tape': {
@@ -105,6 +128,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ManualRoute: ManualRoute,
+  ApiGateRoute: ApiGateRoute,
   ApiTapeRoute: ApiTapeRoute,
   ApiBrokerOrderRoute: ApiBrokerOrderRoute,
 }

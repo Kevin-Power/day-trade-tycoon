@@ -1,4 +1,4 @@
-import { Activity, BookOpen, ChevronRight, Clock3, Download, HardDrive, Shield, Target, TrendingUp } from "lucide-react";
+import { Activity, BookOpen, ChevronRight, Clock3, Download, HardDrive, LogOut, Shield, Target, TrendingUp } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { nextRank, rankFor, SCENARIOS } from "@/lib/game/scenarios";
@@ -9,6 +9,7 @@ import { cn, formatMoney, formatPct, formatSigned } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
 import { LiveTape } from "@/components/live-tape";
 import { WEEK_SESSIONS, formatIndex } from "@/lib/market/week";
+import { useGate } from "@/lib/gate/context";
 
 const WEEK_ORDER = ["mon", "tue", "wed"] as const;
 const CLASSROOM_OFFLINE = import.meta.env.BASE_URL === "./";
@@ -20,6 +21,7 @@ export function Lobby() {
   const rank = rankFor(profile.careerPnl);
   const nxt = nextRank(profile.careerPnl);
   const winRate = profile.sessions ? profile.wins / profile.sessions : 0;
+  const { lock } = useGate();
 
   return (
     <div className="relative min-h-dvh overflow-x-hidden bg-bg text-fg">
@@ -73,6 +75,14 @@ export function Lobby() {
             <div className="text-micro text-muted">目前段位</div>
             <div className="text-sm font-medium">{rank.title}</div>
           </div>
+          <button
+            type="button"
+            onClick={lock}
+            className="inline-flex size-9 items-center justify-center rounded-sm border border-border-strong bg-surface text-muted hover:bg-elevated hover:text-fg"
+            aria-label="登出"
+          >
+            <LogOut className="size-3.5" />
+          </button>
         </div>
       </header>
 
