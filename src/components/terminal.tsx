@@ -118,26 +118,32 @@ export function Terminal() {
       <AccountBar />
       <NewsBar />
 
-      <div className="flex min-h-0 flex-1 lg:hidden">
+      <div className="term-mobile min-h-0 flex-1">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {mobileTab === "watch" && <Watchlist />}
           {mobileTab === "chart" && (
             <div className="flex min-h-0 flex-1 flex-col">
-              <IndexPane />
-              <SelectedChart />
+              <div className="min-h-0 flex-1">
+                <IndexPane />
+              </div>
+              <div className="min-h-0 flex-[1.3]">
+                <SelectedChart />
+              </div>
             </div>
           )}
           {mobileTab === "trade" && (
             <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-              <QuotePanel />
               <OrderTicket />
+              <div className="min-h-48 shrink-0 border-t border-border">
+                <QuotePanel />
+              </div>
             </div>
           )}
           {mobileTab === "pos" && <PositionsDock />}
         </div>
       </div>
 
-      <div className="term-grid hidden min-h-0 flex-1 gap-px bg-border lg:grid">
+      <div className="term-desk term-grid min-h-0 flex-1 gap-px bg-border">
         <div className="term-watch min-h-0 overflow-hidden">
           <Watchlist />
         </div>
@@ -171,10 +177,10 @@ export function Terminal() {
         <span className="hidden font-mono sm:inline">
           加權 {formatIndex(idx.last)} {formatPct(idx.changePct)} · {idx.turnoverYi.toFixed(0)} 億 · Enter 送單 · Space 暫停
         </span>
-        <span className="lg:hidden">{formatTime(engine.t)}</span>
+        <span className="term-mobile-nav">{formatTime(engine.t)}</span>
       </footer>
 
-      <nav className="grid grid-cols-4 border-t border-border bg-surface lg:hidden">
+      <nav className="term-mobile-nav grid grid-cols-4 border-t border-border bg-surface">
         {MOBILE_TABS.map((t) => (
           <button
             key={t.id}
