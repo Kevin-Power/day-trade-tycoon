@@ -172,11 +172,13 @@ export const useGame = create<GameStore>((set, get) => ({
   setSpeed: (n) => set({ speed: n }),
 
   select: (code) => {
-    const { engine, ticket } = get();
+    const { engine, ticket, frame } = get();
     const q = engine?.quote(code);
     const price = q ? (ticket.side === "buy" ? q.ask : q.bid) : ticket.price;
     set({
       selected: code,
+      mobileTab: "chart",
+      frame: frame + 1,
       ticket: {
         ...ticket,
         price: roundToTick(price),
