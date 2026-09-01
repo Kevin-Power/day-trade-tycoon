@@ -107,7 +107,7 @@ export function Lobby() {
 
         <section className="mb-8 flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center">
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium">給金主的說明書</div>
+            <div className="text-sm font-medium">給石大哥的說明書</div>
             <p className="mt-1 text-pretty text-micro leading-relaxed text-muted">
               學員怎麼玩、資料哪裡來、模擬跟實盤差在哪。可列印、可下載 PDF。
             </p>

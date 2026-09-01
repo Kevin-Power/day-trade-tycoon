@@ -10,7 +10,7 @@ const PDF_HREF = "/daytrade-tycoon-manual.pdf";
 const GITHUB = "https://github.com/Kevin-Power/day-trade-tycoon";
 
 const TOC = [
-  { id: "brief", n: "00", label: "給金主先看的一頁" },
+  { id: "brief", n: "00", label: "給石大哥看的一頁" },
   { id: "what", n: "01", label: "這是什麼、給誰用" },
   { id: "play", n: "02", label: "學員怎麼玩" },
   { id: "lessons", n: "03", label: "本週課綱" },
@@ -19,7 +19,7 @@ const TOC = [
   { id: "offline", n: "06", label: "地端教室" },
   { id: "rules", n: "07", label: "規則與成本" },
   { id: "risk", n: "08", label: "不承諾什麼" },
-  { id: "agenda", n: "09", label: "跟金主要對的五件事" },
+  { id: "agenda", n: "09", label: "跟石大哥要對的五件事" },
 ] as const;
 
 export function ManualPage() {
@@ -102,7 +102,7 @@ function Cover() {
         當沖大富翁
       </h1>
       <p className="mt-4 max-w-2xl text-pretty text-base leading-relaxed text-muted">
-        給金主與講師坐下來對的那一份。盤面像券商現股當沖；加權用證交所每 5 秒指數；撮合是教室的；實盤 API 還沒接。
+        給石大哥與講師坐下來對的那一份。盤面像券商現股當沖；加權用證交所每 5 秒指數；撮合是教室的；實盤 API 還沒接。
       </p>
       <ul className="mt-6 flex flex-wrap gap-2 text-micro">
         <Chip>模擬撮合已開</Chip>
@@ -133,7 +133,7 @@ function Nav() {
 
 function Brief() {
   return (
-    <Section id="brief" n="00" title="給金主先看的一頁">
+    <Section id="brief" n="00" title="給石大哥看的一頁">
       <p className="text-pretty leading-relaxed text-muted">
         股文觀指要的不是再做一個看盤軟體，是讓學員在像真的盤面上，把判斷、費稅、停損、部位、收盤平倉練到肌肉記得。這套就是那間教室。
       </p>
@@ -150,7 +150,7 @@ function Brief() {
         </table>
       </div>
       <blockquote className="mt-6 border-l-2 border-tape pl-4 text-sm leading-relaxed text-fg">
-        一句話：路徑用官方指數、盤面像真的、下單是教室的。金主如果聽到「已經可以實盤下單」，那是講錯了。
+        一句話：路徑用官方指數、盤面像真的、下單是教室的。石大哥如果聽到「已經可以實盤下單」，那是講錯了。
       </blockquote>
     </Section>
   );
@@ -243,7 +243,7 @@ function Data() {
   return (
     <Section id="data" n="04" title="資料哪裡來">
       <p className="text-pretty leading-relaxed text-muted">
-        跟金主討論時這張表最重要。教室用真實大盤當骨架，個股不是證交所逐筆。講成「跟券商看的一模一樣」，是誇大。
+        跟石大哥討論時這張表最重要。教室用真實大盤當骨架，個股不是證交所逐筆。講成「跟券商看的一模一樣」，是誇大。
       </p>
       <div className="mt-5 overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-xl text-left text-sm">
@@ -396,7 +396,7 @@ function Risk() {
 
 function Agenda() {
   return (
-    <Section id="agenda" n="09" title="跟金主要對的五件事">
+    <Section id="agenda" n="09" title="跟石大哥要對的五件事">
       <ol className="space-y-4 text-sm leading-relaxed">
         <Step n="1" title="先賣教室，還是先等實盤？">
           建議先賣教室。課綱、地端包、每日練習已經能開班。實盤是下一張合約，不該擋這一期開課。
@@ -405,7 +405,7 @@ function Agenda() {
           可以談：班級授權、地端包授權、講師帳。現在是全班同一組入場密碼，還沒有按人頭雲端帳號。
         </Step>
         <Step n="3" title="要不要接哪一家券商？">
-          下單畫面已預留。選哪一家、測試帳、正式帳、誰付 API 費，是金主跟券商的事。教室端只換 adapter。
+          下單畫面已預留。選哪一家、測試帳、正式帳、誰付 API 費，是石大哥跟券商的事。教室端只換 adapter。
         </Step>
         <Step n="4" title="學員資料放哪？">
           入場之後戰績仍放本機。若要跨機戰績、排行、繳費，再做每人帳號。沒有身份就上實盤，不建議。
@@ -425,7 +425,7 @@ function Colophon() {
       <p className="mt-1">
         原始碼 {GITHUB}
       </p>
-      <p className="mt-1">本文件可列印、可下載 PDF，給金主與講師當面過。內容以產品現況為準，實盤未接線前請勿對外宣稱可下真單。</p>
+      <p className="mt-1">本文件可列印、可下載 PDF，給石大哥與講師當面過。內容以產品現況為準，實盤未接線前請勿對外宣稱可下真單。</p>
     </footer>
   );
 }
