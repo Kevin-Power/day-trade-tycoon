@@ -201,13 +201,34 @@
   background: #0c1016;
 }
 
+.term-mobile {
+  display: flex;
+  min-height: 0;
+}
+.term-mobile-nav {
+  display: grid;
+}
+.term-desk {
+  display: none;
+}
+
 .term-grid {
-  grid-template-columns: minmax(280px, 1.35fr) minmax(240px, 1.15fr) minmax(240px, 1fr);
-  grid-template-rows: minmax(160px, 0.85fr) minmax(220px, 1.15fr) minmax(220px, 1fr);
+  grid-template-columns: minmax(220px, 1.2fr) minmax(0, 1.2fr) minmax(220px, 1fr);
+  grid-template-rows: minmax(0, 0.9fr) minmax(0, 1.25fr) 176px;
   grid-template-areas:
     "watch index index"
     "watch chart quote"
     "ticket ticket pos";
+}
+
+@media (min-width: 720px) {
+  .term-mobile,
+  .term-mobile-nav {
+    display: none !important;
+  }
+  .term-desk {
+    display: grid !important;
+  }
 }
 
 .term-watch {
@@ -305,4 +326,3 @@
     box-shadow: none !important;
   }
 }
-
