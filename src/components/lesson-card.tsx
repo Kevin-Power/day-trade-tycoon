@@ -12,7 +12,7 @@ export function LessonCard() {
   if (!beat || !lesson) return null;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-16 z-40 flex justify-center px-3 lg:inset-x-auto lg:bottom-4 lg:left-2 lg:top-auto lg:justify-start">
+    <div className="pointer-events-none absolute inset-x-0 bottom-16 z-40 flex justify-center px-3 desk:inset-x-auto desk:bottom-4 desk:right-3 desk:left-auto desk:top-auto desk:justify-end">
       <div
         role="dialog"
         aria-labelledby="lesson-title"
