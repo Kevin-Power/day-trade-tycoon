@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, ArrowLeftRight, Briefcase, List } from "lucide-react";
+import {
+  Activity,
+  ArrowLeftRight,
+  Briefcase,
+  List,
+  Monitor,
+  MonitorSmartphone,
+  Smartphone,
+} from "lucide-react";
 import { AccountBar, NewsBar, SessionControls } from "@/components/account-bar";
 import { TapeChart } from "@/components/charts";
 import { LessonCard } from "@/components/lesson-card";
@@ -9,7 +17,7 @@ import { QuotePanel } from "@/components/quote-book";
 import { ResultScreen } from "@/components/result-screen";
 import { Watchlist } from "@/components/watchlist";
 import { PaneTab, PaneTitle } from "@/components/ui/pane";
-import { persistOnHide, useGame, type MobileTab } from "@/lib/game/store";
+import { persistOnHide, useGame, type LayoutPref, type MobileTab } from "@/lib/game/store";
 import { lessonById } from "@/lib/game/curriculum";
 import { venueLabel } from "@/lib/broker";
 import { cn, formatLots, formatPct, formatTime } from "@/lib/utils";
@@ -20,19 +28,65 @@ import { formatIndex } from "@/lib/market/week";
 /** Same breakpoint as `.term-desk` in styles.css. */
 const DESK_QUERY = "(min-width: 720px)";
 
-/** Render only one of the two layouts so hidden panes don't keep painting. */
-function useIsDesk() {
-  const [desk, setDesk] = useState(() =>
+/**
+ * Which layout to render. Only one is mounted so hidden panes don't keep
+ * painting. `auto` follows the viewport width; a projector zoomed to 200%+
+ * or a laptop with 175% display scaling can drop under the breakpoint, so the
+ * user can pin 桌機版 (or 手機版) from the top menu.
+ */
+function useIsDesk(pref: LayoutPref) {
+  const [wide, setWide] = useState(() =>
     typeof window === "undefined" ? true : window.matchMedia(DESK_QUERY).matches,
   );
   useEffect(() => {
     const mq = window.matchMedia(DESK_QUERY);
-    const onChange = () => setDesk(mq.matches);
+    const onChange = () => setWide(mq.matches);
     onChange();
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);
-  return desk;
+  if (pref === "desk") return true;
+  if (pref === "phone") return false;
+  return wide;
+}
+
+const LAYOUTS: { id: LayoutPref; label: string; hint: string; icon: typeof Monitor }[] = [
+  { id: "auto", label: "自動", hint: "依視窗寬度切換", icon: MonitorSmartphone },
+  { id: "desk", label: "桌機", hint: "鎖定桌機版（投影、放大時用）", icon: Monitor },
+  { id: "phone", label: "手機", hint: "鎖定手機版", icon: Smartphone },
+];
+
+function LayoutSwitch() {
+  const pref = useGame((s) => s.layoutPref);
+  const setPref = useGame((s) => s.setLayoutPref);
+  return (
+    <div
+      role="group"
+      aria-label="版面"
+      className="inline-flex h-6 items-stretch overflow-hidden rounded-sm border border-border-strong/60 bg-bg/40 p-0.5"
+    >
+      {LAYOUTS.map((l) => {
+        const on = pref === l.id;
+        const Icon = l.icon;
+        return (
+          <button
+            key={l.id}
+            type="button"
+            aria-pressed={on}
+            title={`版面：${l.label} · ${l.hint}`}
+            onClick={() => setPref(l.id)}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-xs px-1.5 text-2xs transition-colors",
+              on ? "bg-header-2 text-fg" : "text-fg/60 hover:bg-white/10 hover:text-fg",
+            )}
+          >
+            <Icon className="size-3.5" />
+            <span className="hidden lg:inline">{l.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 const MOBILE_TABS: { id: MobileTab; label: string; icon: typeof List }[] = [
@@ -57,7 +111,8 @@ export function Terminal() {
   const setMobileTab = useGame((s) => s.setMobileTab);
   const activeBeat = useGame((s) => s.activeBeat);
   const venue = useGame((s) => s.venue);
-  const desk = useIsDesk();
+  const layoutPref = useGame((s) => s.layoutPref);
+  const desk = useIsDesk(layoutPref);
   const raf = useRef(0);
   const last = useRef(0);
   const acc = useRef(0);
@@ -123,7 +178,10 @@ export function Terminal() {
   const lesson = lessonById(scenario.id);
 
   return (
-    <div className="relative flex h-dvh min-h-0 flex-col overflow-hidden bg-bg text-fg">
+    <div
+      data-layout={desk ? "desk" : "phone"}
+      className="relative flex h-dvh min-h-0 flex-col overflow-hidden bg-bg text-fg"
+    >
       <TopMenu
         name={lesson ? `${lesson.no} ${scenario.name}` : scenario.name}
         paused={paused}
@@ -137,7 +195,7 @@ export function Terminal() {
 
       {/* Phone: one pane at a time. */}
       {!desk && (
-        <div className="term-mobile min-h-0 flex-1">
+        <div className="term-mobile flex min-h-0 flex-1">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {mobileTab === "watch" && <Watchlist />}
             {mobileTab === "chart" && (
@@ -165,48 +223,52 @@ export function Terminal() {
 
       {/* Desk: 自選 | 加權 / 江波 / 帳務 | 五檔 + 委託單 */}
       {desk && (
-        <div className="term-desk term-grid min-h-0 flex-1 gap-px bg-border">
-          <div className="term-watch min-h-0 overflow-hidden">
-            <Watchlist />
-          </div>
-          <div className="term-index min-h-0 overflow-hidden">
-            <IndexPane />
-          </div>
-          <div className="term-chart min-h-0 overflow-hidden">
-            <SelectedChart />
-          </div>
-          <div className="term-dock min-h-0 overflow-hidden">
-            <PositionsDock />
-          </div>
-          <div className="term-rail min-h-0 overflow-hidden">
-            <TradeRail />
+        <div className="term-scroll min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
+          <div className="term-desk term-grid grid h-full min-w-[48rem] gap-px bg-border">
+            <div className="term-watch min-h-0 overflow-hidden">
+              <Watchlist />
+            </div>
+            <div className="term-index min-h-0 overflow-hidden">
+              <IndexPane />
+            </div>
+            <div className="term-chart min-h-0 overflow-hidden">
+              <SelectedChart />
+            </div>
+            <div className="term-dock min-h-0 overflow-hidden">
+              <PositionsDock />
+            </div>
+            <div className="term-rail min-h-0 overflow-hidden">
+              <TradeRail />
+            </div>
           </div>
         </div>
       )}
 
       <StatusBar />
 
-      <nav className="term-mobile-nav grid-cols-4 border-t border-border bg-surface">
-        {MOBILE_TABS.map((t) => {
-          const on = mobileTab === t.id;
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setMobileTab(t.id)}
-              aria-pressed={on}
-              className={cn(
-                "flex h-12 flex-col items-center justify-center gap-0.5 text-2xs transition-colors",
-                on ? "bg-header text-fg" : "text-muted hover:text-fg",
-              )}
-            >
-              <Icon className="size-4" />
-              {t.label}
-            </button>
-          );
-        })}
-      </nav>
+      {!desk && (
+        <nav className="term-mobile-nav grid grid-cols-4 border-t border-border bg-surface">
+          {MOBILE_TABS.map((t) => {
+            const on = mobileTab === t.id;
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setMobileTab(t.id)}
+                aria-pressed={on}
+                className={cn(
+                  "flex h-12 flex-col items-center justify-center gap-0.5 text-2xs transition-colors",
+                  on ? "bg-header text-fg" : "text-muted hover:text-fg",
+                )}
+              >
+                <Icon className="size-4" />
+                {t.label}
+              </button>
+            );
+          })}
+        </nav>
+      )}
 
       {phase === "result" && <ResultScreen />}
       <LessonCard />
@@ -251,16 +313,16 @@ function TopMenu({
   venue: string;
 }) {
   return (
-    <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border bg-header px-2 text-xs">
+    <div className="flex h-8 shrink-0 items-center gap-2 overflow-hidden whitespace-nowrap border-b border-border bg-header px-2 text-xs">
       <MarkTiny />
-      <span className="font-medium tracking-wide">當沖大富翁</span>
-      <span className="rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs tracking-wide text-tape">
+      <span className="shrink-0 font-medium tracking-wide">當沖大富翁</span>
+      <span className="shrink-0 rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs tracking-wide text-tape">
         {venue}
       </span>
-      <span className="hidden rounded-xs border border-border-strong/60 px-1.5 py-0.5 text-2xs text-fg/85 sm:inline">
+      <span className="hidden shrink-0 rounded-xs border border-border-strong/60 px-1.5 py-0.5 text-2xs text-fg/85 md:inline">
         現股當沖
       </span>
-      <span className="hidden rounded-xs border border-border-strong bg-bg px-1.5 py-0.5 font-mono text-micro sm:inline">
+      <span className="hidden shrink-0 rounded-xs border border-border-strong bg-bg px-1.5 py-0.5 font-mono text-micro sm:inline">
         {code}.TW
       </span>
       <span className="ml-auto hidden truncate font-mono text-micro text-fg/80 md:inline">
@@ -268,13 +330,14 @@ function TopMenu({
       </span>
       <span
         className={cn(
-          "ml-auto rounded-xs px-1.5 py-0.5 font-mono text-2xs tabular md:ml-0",
+          "ml-auto shrink-0 rounded-xs px-1.5 py-0.5 font-mono text-2xs tabular md:ml-0",
           paused ? "bg-warn/20 text-warn" : "bg-bg/40 text-fg/85",
         )}
       >
         {paused ? "PAUSE" : `${speed}x`}
       </span>
       <div className="mx-0.5 hidden h-4 w-px bg-white/15 sm:block" />
+      <LayoutSwitch />
       <SessionControls />
     </div>
   );

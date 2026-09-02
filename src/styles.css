@@ -217,23 +217,15 @@
 /* ---------------------------------------------------------------------------
  * Trading desk layout
  *
- * < 720px   phone: one pane at a time, bottom tab bar.
- * >= 720px  desk: three columns —
+ * Which one mounts is decided in terminal.tsx: viewport width (720px) by
+ * default, or the 版面 switch in the top menu when the user pins one.
+ *
+ * phone: one pane at a time, bottom tab bar.
+ * desk:  three columns —
  *             自選 (full height) | 加權 / 江波 / 帳務 | 五檔 + 委託單 (full height)
  *           The right rail is a flex column: the ticket keeps its natural height
  *           and the book takes whatever is left, so the ticket is never squeezed.
  * ------------------------------------------------------------------------- */
-.term-mobile {
-  display: flex;
-  min-height: 0;
-}
-.term-mobile-nav {
-  display: grid;
-}
-.term-desk {
-  display: none;
-}
-
 .term-grid {
   grid-template-columns: minmax(200px, 0.9fr) minmax(0, 2.1fr) minmax(280px, 21rem);
   grid-template-rows: minmax(120px, 0.55fr) minmax(0, 1.45fr) minmax(150px, 0.6fr);
@@ -241,16 +233,6 @@
     "watch index rail"
     "watch chart rail"
     "watch dock rail";
-}
-
-@media (min-width: 720px) {
-  .term-mobile,
-  .term-mobile-nav {
-    display: none !important;
-  }
-  .term-desk {
-    display: grid !important;
-  }
 }
 
 @media (min-width: 1100px) {
@@ -333,7 +315,7 @@
   }
 }
 
-/* Lesson pop-over: bottom sheet on phones, over the chart's top-right on the desk. */
+/* Lesson pop-over: bottom sheet on the phone layout, over the chart's top-right on the desk. */
 .lesson-dock {
   position: absolute;
   z-index: 40;
@@ -341,22 +323,20 @@
   right: 0.75rem;
   bottom: 5.5rem;
 }
-@media (min-width: 720px) {
-  .lesson-dock {
-    left: auto;
-    bottom: auto;
-    top: 5.25rem;
-    right: calc(21rem + 0.75rem);
-    width: 21rem;
-  }
+[data-layout="desk"] .lesson-dock {
+  left: auto;
+  bottom: auto;
+  top: 5.25rem;
+  right: calc(21rem + 0.75rem);
+  width: 21rem;
 }
 @media (min-width: 1100px) {
-  .lesson-dock {
+  [data-layout="desk"] .lesson-dock {
     right: calc(22rem + 0.75rem);
   }
 }
 @media (min-width: 1600px) {
-  .lesson-dock {
+  [data-layout="desk"] .lesson-dock {
     right: calc(23rem + 0.75rem);
   }
 }

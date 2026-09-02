@@ -1,24 +1,35 @@
 import { create } from "zustand";
 import { gradeFor, scenarioById, type Scenario } from "@/lib/game/scenarios";
-import { applySession, loadProfile, loadTeachMode, saveProfile, saveTeachMode } from "@/lib/game/persist";
+import {
+  applySession,
+  loadLayoutPref,
+  loadProfile,
+  loadTeachMode,
+  saveLayoutPref,
+  saveProfile,
+  saveTeachMode,
+  type LayoutPref,
+} from "@/lib/game/persist";
 import { playError, playFill, unlockAudio } from "@/lib/game/audio";
 import { DayMarket, describeFill } from "@/lib/market/engine";
 import { STOCK_BY_CODE } from "@/lib/market/universe";
-import { EMPTY_PROFILE, type Fill, type Profile, type SessionRecord, type Side } from "@/lib/game/types";
+import {
+  EMPTY_PROFILE,
+  type Fill,
+  type Profile,
+  type SessionRecord,
+  type Side,
+} from "@/lib/game/types";
 import { roundToTick } from "@/lib/market/ticks";
 import { toast } from "sonner";
-import {
-  beatKey,
-  lessonById,
-  openingBeat,
-  type LessonBeat,
-} from "@/lib/game/curriculum";
+import { beatKey, lessonById, openingBeat, type LessonBeat } from "@/lib/game/curriculum";
 import { getBroker, SIM_ACCOUNT, type TimeInForce, type Venue } from "@/lib/broker";
 
 export type MobileTab = "watch" | "chart" | "trade" | "pos";
 export type RightTab = "pos" | "orders" | "fills";
 export type Phase = "lobby" | "live" | "result";
 export type ChartStyle = "jiangbo" | "tape";
+export type { LayoutPref };
 
 type Ticket = {
   side: Side;
@@ -42,6 +53,7 @@ type GameStore = {
   rightTab: RightTab;
   chartStyle: ChartStyle;
   teachMode: boolean;
+  layoutPref: LayoutPref;
   activeBeat: LessonBeat | null;
   dismissedBeats: string[];
   profile: Profile;
@@ -62,6 +74,7 @@ type GameStore = {
   setRightTab: (t: RightTab) => void;
   setChartStyle: (s: ChartStyle) => void;
   setTeachMode: (on: boolean) => void;
+  setLayoutPref: (pref: LayoutPref) => void;
   dismissBeat: () => void;
   checkBeats: () => void;
   bump: () => void;
@@ -92,6 +105,7 @@ export const useGame = create<GameStore>((set, get) => ({
   rightTab: "pos",
   chartStyle: "jiangbo",
   teachMode: true,
+  layoutPref: "auto",
   activeBeat: null,
   dismissedBeats: [],
   profile: { ...EMPTY_PROFILE },
@@ -101,7 +115,12 @@ export const useGame = create<GameStore>((set, get) => ({
   sound: true,
 
   hydrate: () => {
-    set({ profile: loadProfile(), hydrated: true, teachMode: loadTeachMode() });
+    set({
+      profile: loadProfile(),
+      hydrated: true,
+      teachMode: loadTeachMode(),
+      layoutPref: loadLayoutPref(),
+    });
   },
 
   start: (scenarioId) => {
@@ -214,6 +233,10 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!on) set({ teachMode: false, activeBeat: null, paused: false });
     else set({ teachMode: true });
   },
+  setLayoutPref: (pref) => {
+    saveLayoutPref(pref);
+    set({ layoutPref: pref });
+  },
   dismissBeat: () => {
     const { scenario, activeBeat, dismissedBeats } = get();
     if (!activeBeat || !scenario) {
@@ -233,7 +256,8 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!lesson) return;
     const minute = engine.t / 60;
     const hit = lesson.beats.find(
-      (b) => minute + 0.02 >= b.atMinute && !dismissedBeats.includes(beatKey(scenario.id, b.atMinute)),
+      (b) =>
+        minute + 0.02 >= b.atMinute && !dismissedBeats.includes(beatKey(scenario.id, b.atMinute)),
     );
     if (hit) set({ activeBeat: hit, paused: true });
   },
