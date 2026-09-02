@@ -10,6 +10,14 @@ function readToken(name: string, fallback: string) {
   return v || fallback;
 }
 
+/** "#rrggbb" → "rgba(r, g, b, a)"; anything else passes through untouched. */
+function withAlpha(hex: string, a: number) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1]!, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
 function tokens() {
   return {
     bg: readToken("--color-bg", "#000000"),
@@ -108,7 +116,24 @@ export function TapeChart({
     const ro = new ResizeObserver(draw);
     ro.observe(parent);
     return () => ro.disconnect();
-  }, [bars, ticks, prev, high, low, last, open, cost, poc, fills, newsAt, showVolume, startT, endT, now, variant]);
+  }, [
+    bars,
+    ticks,
+    prev,
+    high,
+    low,
+    last,
+    open,
+    cost,
+    poc,
+    fills,
+    newsAt,
+    showVolume,
+    startT,
+    endT,
+    now,
+    variant,
+  ]);
 
   return <canvas ref={ref} className="block h-full w-full" />;
 }
@@ -138,7 +163,7 @@ function paint(
 ) {
   const c = tokens();
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#000000";
+  ctx.fillStyle = c.bg;
   ctx.fillRect(0, 0, w, h);
 
   const isIndex = opt.variant === "index";
@@ -146,7 +171,7 @@ function paint(
   const padL = isIndex ? 62 : 52;
   const padR = isIndex ? 72 : 58;
   const padT = 8;
-  const volH = opt.showVolume ? Math.max(32, h * 0.2) : 0;
+  const volH = opt.showVolume ? Math.max(28, h * 0.17) : 0;
   const padB = 18 + volH;
   const plotW = w - padL - padR;
   const plotH = h - padT - padB;
@@ -195,8 +220,9 @@ function paint(
   ctx.fillStyle = c.muted;
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  for (let i = 0; i <= 5; i++) {
-    const p = yMax - ((yMax - yMin) * i) / 5;
+  const rows = plotH < 90 ? 2 : plotH < 150 ? 3 : plotH < 240 ? 4 : 5;
+  for (let i = 0; i <= rows; i++) {
+    const p = yMax - ((yMax - yMin) * i) / rows;
     const y = yOf(p);
     ctx.beginPath();
     ctx.moveTo(padL, y);
@@ -307,39 +333,68 @@ function paint(
 
   if (isWave && opt.ticks.length > 1) {
     const n = opt.ticks.length;
-    ctx.lineWidth = 1.55;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
+    // Split the tape into runs above / below yesterday's close, so each run
+    // can be shaded toward the reference line and stroked in its own colour.
+    type Run = { above: boolean; pts: [number, number][] };
+    const runs: Run[] = [];
     const t0 = opt.ticks[0]!;
-    let runAbove = t0.p >= opt.prev;
-    ctx.beginPath();
-    ctx.strokeStyle = runAbove ? c.up : c.down;
-    ctx.moveTo(xOfT(t0.t), yOf(t0.p));
+    let run: Run = { above: t0.p >= opt.prev, pts: [[xOfT(t0.t), yOf(t0.p)]] };
     for (let i = 1; i < n; i++) {
       const a = opt.ticks[i - 1]!;
       const b = opt.ticks[i]!;
       const above = b.p >= opt.prev;
-      if (above !== runAbove) {
+      if (above !== run.above) {
         const den = b.p - a.p;
         const u = Math.abs(den) < 1e-9 ? 0 : (opt.prev - a.p) / den;
         const uu = Math.min(1, Math.max(0, u));
         const xCross = xOfT(a.t) + (xOfT(b.t) - xOfT(a.t)) * uu;
-        ctx.lineTo(xCross, yOf(opt.prev));
-        ctx.stroke();
-        runAbove = above;
-        ctx.beginPath();
-        ctx.strokeStyle = runAbove ? c.up : c.down;
-        ctx.moveTo(xCross, yOf(opt.prev));
+        run.pts.push([xCross, prevY]);
+        runs.push(run);
+        run = { above, pts: [[xCross, prevY]] };
       }
-      ctx.lineTo(xOfT(b.t), yOf(b.p));
+      run.pts.push([xOfT(b.t), yOf(b.p)]);
     }
-    ctx.stroke();
+    runs.push(run);
+
+    for (const r of runs) {
+      if (r.pts.length < 2) continue;
+      ctx.beginPath();
+      ctx.moveTo(r.pts[0]![0], prevY);
+      for (const [x, y] of r.pts) ctx.lineTo(x, y);
+      ctx.lineTo(r.pts[r.pts.length - 1]![0], prevY);
+      ctx.closePath();
+      ctx.fillStyle = withAlpha(r.above ? c.up : c.down, 0.14);
+      ctx.fill();
+    }
+
+    ctx.lineWidth = 1.55;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    for (const r of runs) {
+      ctx.beginPath();
+      ctx.strokeStyle = r.above ? c.up : c.down;
+      r.pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+      ctx.stroke();
+    }
     const lastTk = opt.ticks[n - 1]!;
     ctx.beginPath();
     ctx.fillStyle = color;
     ctx.arc(xOfT(lastTk.t), yOf(opt.last), 2.6, 0, Math.PI * 2);
     ctx.fill();
   } else {
+    if (opt.bars.length) {
+      const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+      grad.addColorStop(0, withAlpha(color, 0.22));
+      grad.addColorStop(1, withAlpha(color, 0));
+      ctx.beginPath();
+      ctx.moveTo(xOfT(opt.bars[0]!.t), padT + plotH);
+      for (const b of opt.bars) ctx.lineTo(xOfT(b.t), yOf(b.c));
+      ctx.lineTo(nowX, yOf(opt.last));
+      ctx.lineTo(nowX, padT + plotH);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
     ctx.strokeStyle = color;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
