@@ -138,6 +138,24 @@ export function Lobby({ onOpenManual, onOpenHandbook }: LobbyProps = {}) {
 
         <section className="mb-8 flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center">
           <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium">課堂教材</div>
+            <p className="mt-1 text-pretty text-micro leading-relaxed text-muted">
+              學員講義：規則與成本算式、當沖六式、名詞表、常見錯誤、課綱、交易計畫表。
+              另附講師教案。整份可列印成 A4 發下去。
+            </p>
+          </div>
+          <DocLink
+            to="/handbook"
+            onOpen={onOpenHandbook}
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-sm bg-header-2 px-3 text-xs text-fg hover:bg-header"
+          >
+            <GraduationCap className="size-3.5" />
+            打開教材
+          </DocLink>
+        </section>
+
+        <section className="mb-8 flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
             <div className="text-sm font-medium">給石大哥的說明書</div>
             <p className="mt-1 text-pretty text-micro leading-relaxed text-muted">
               學員怎麼玩、資料哪裡來、模擬跟實盤差在哪。可列印、可下載 PDF。

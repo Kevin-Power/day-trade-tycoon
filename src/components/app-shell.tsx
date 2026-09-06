@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Toaster } from "sonner";
+import { HandbookPage } from "@/components/handbook-page";
 import { Lobby } from "@/components/lobby";
 import { ManualPage } from "@/components/manual-page";
 import { Terminal } from "@/components/terminal";
@@ -36,6 +37,8 @@ export function AppShell() {
     <>
       {doc === "manual" ? (
         <ManualPage onBack={back} />
+      ) : doc === "handbook" ? (
+        <HandbookPage onBack={back} />
       ) : phase === "lobby" ? (
         <Lobby onOpenManual={() => setDoc("manual")} onOpenHandbook={() => setDoc("handbook")} />
       ) : (
