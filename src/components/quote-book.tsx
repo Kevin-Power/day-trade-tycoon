@@ -19,8 +19,9 @@ export function QuotePanel() {
   if (!q) return null;
 
   const innerPct = q.inner + q.outer === 0 ? 50 : (q.inner / (q.inner + q.outer)) * 100;
-  const stats: { label: string; value: string; tone?: string }[] = [
-    { label: "成交", value: formatPrice(q.last), tone: toneClass(q.change) },
+  const flash = q.flash === 1 ? "flash-up" : q.flash === -1 ? "flash-down" : undefined;
+  const stats: { label: string; value: string; tone?: string; flash?: string }[] = [
+    { label: "成交", value: formatPrice(q.last), tone: toneClass(q.change), flash },
     {
       label: "漲跌",
       value: `${q.change >= 0 ? "▲" : "▼"}${formatPrice(Math.abs(q.change))}`,
@@ -54,7 +55,7 @@ export function QuotePanel() {
 
       <div className="quote-stats shrink-0 gap-x-3 gap-y-px border-b border-border px-2 py-1 text-2xs">
         {stats.map((s) => (
-          <KV key={s.label} k={s.label} v={s.value} tone={s.tone} />
+          <KV key={s.label} k={s.label} v={s.value} tone={s.tone} className={s.flash} />
         ))}
       </div>
 

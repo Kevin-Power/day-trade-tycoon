@@ -8,6 +8,13 @@ import { cn, formatLots, formatMoney, formatSigned, formatTime } from "@/lib/uti
 const TH = "whitespace-nowrap px-2 py-1 text-right font-medium";
 const TD = "whitespace-nowrap px-2 py-[3px] text-right tabular";
 
+function pnlPct(p: { uPnl: number; avg: number; lots: number }) {
+  const basis = Math.abs(p.avg * p.lots) * 1000;
+  if (basis <= 0) return "0.00%";
+  const n = (p.uPnl / basis) * 100;
+  return `${n > 0 ? "+" : ""}${n.toFixed(2)}%`;
+}
+
 export function PositionsDock() {
   const engine = useGame((s) => s.engine);
   const tab = useGame((s) => s.rightTab);
@@ -62,12 +69,13 @@ export function PositionsDock() {
                 <th className={TH}>均價</th>
                 <th className={TH}>現價</th>
                 <th className={TH}>未實現</th>
+                <th className={TH}>損益%</th>
               </tr>
             </thead>
             <tbody>
               {pos.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-2 py-6 text-center text-muted">
+                  <td colSpan={7} className="px-2 py-6 text-center text-muted">
                     尚無庫存。買進或先賣都會出現在這裡。
                   </td>
                 </tr>
@@ -94,6 +102,7 @@ export function PositionsDock() {
                   <td className={cn(TD, "font-medium", toneClass(p.uPnl))}>
                     {formatSigned(p.uPnl, 0)}
                   </td>
+                  <td className={cn(TD, toneClass(p.uPnl))}>{pnlPct(p)}</td>
                 </tr>
               ))}
             </tbody>

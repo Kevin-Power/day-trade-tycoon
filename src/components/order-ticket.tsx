@@ -4,7 +4,7 @@ import { KV, PaneTitle, Segmented } from "@/components/ui/pane";
 import { Arrow, toneClass } from "@/components/signed";
 import { useGame } from "@/lib/game/store";
 import { SIM_ACCOUNT, type TimeInForce, type Venue } from "@/lib/broker";
-import { formatPrice, LOT_SHARES, ROUND_TRIP_RATE, stepTick } from "@/lib/market/ticks";
+import { commission, formatPrice, LOT_SHARES, ROUND_TRIP_RATE, stepTick } from "@/lib/market/ticks";
 import { cn, formatMoney, formatPct } from "@/lib/utils";
 
 const TIF: TimeInForce[] = ["ROD", "IOC", "FOK"];
@@ -28,6 +28,7 @@ export function OrderTicket() {
   const venue = useGame((s) => s.venue);
   const setVenue = useGame((s) => s.setVenue);
   const accountId = useGame((s) => s.accountId);
+  const scenario = useGame((s) => s.scenario);
   const frame = useGame((s) => s.frame);
   void frame;
   const q = engine?.quote(selected);
@@ -43,7 +44,19 @@ export function OrderTicket() {
   const thin = Math.abs(vsVwap) < ROUND_TRIP_RATE * 100 * 0.9;
   const st = engine?.stats();
   const tooBig = st ? notional > st.equity * 0.3 : false;
-  const hasPosition = (engine?.positions.get(selected)?.lots ?? 0) !== 0;
+  const posLots = engine?.positions.get(selected)?.lots ?? 0;
+  const hasPosition = posLots !== 0;
+  const canShort = scenario?.allowShort ?? false;
+  // Lots the sim would accept for a buy right now: cash after commission, then the
+  // day-trade leverage cap (only binding while adding long exposure).
+  const perLot = unit * LOT_SHARES;
+  const maxBuy = (() => {
+    if (!engine || !scenario || !st || perLot <= 0) return 0;
+    const byCash = Math.floor(st.cash / (perLot + commission(perLot)));
+    const room = engine.equity() * scenario.leverage - engine.grossExposure();
+    const byCap = posLots >= 0 ? Math.floor(room / perLot) : 200;
+    return Math.max(0, Math.min(200, byCash, byCap));
+  })();
 
   return (
     <div className="flex flex-col bg-surface">
@@ -186,6 +199,40 @@ export function OrderTicket() {
                 {n} 張
               </button>
             ))}
+          </div>
+        </Row>
+
+        <Row label={null}>
+          <div className="flex flex-wrap items-center gap-x-3 text-2xs text-muted">
+            <button
+              type="button"
+              onClick={() => setTicket({ lots: maxBuy })}
+              disabled={maxBuy < 1}
+              title="帶入目前可買張數"
+              className="transition-colors hover:text-fg disabled:opacity-60"
+            >
+              可買 <span className="font-mono tabular text-fg">{maxBuy}</span> 張
+            </button>
+            <button
+              type="button"
+              onClick={() => setTicket({ lots: Math.abs(posLots) })}
+              disabled={!hasPosition}
+              title="帶入庫存張數"
+              className="transition-colors hover:text-fg disabled:opacity-60"
+            >
+              庫存{" "}
+              <span
+                className={cn(
+                  "font-mono tabular",
+                  posLots > 0 ? "text-up" : posLots < 0 ? "text-down" : "text-fg",
+                )}
+              >
+                {posLots > 0 ? "+" : ""}
+                {posLots}
+              </span>{" "}
+              張
+            </button>
+            {!buy && posLots <= 0 && !canShort && <span className="text-warn">本課不可先賣</span>}
           </div>
         </Row>
 

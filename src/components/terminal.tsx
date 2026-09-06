@@ -22,7 +22,7 @@ import { lessonById } from "@/lib/game/curriculum";
 import { venueLabel } from "@/lib/broker";
 import { cn, formatLots, formatPct, formatTime } from "@/lib/utils";
 import { Arrow, toneClass } from "@/components/signed";
-import { formatPrice } from "@/lib/market/ticks";
+import { formatPrice, stepTick } from "@/lib/market/ticks";
 import { formatIndex } from "@/lib/market/week";
 
 /** Same breakpoint as `.term-desk` in styles.css. */
@@ -155,19 +155,50 @@ export function Terminal() {
     return () => document.removeEventListener("visibilitychange", onHide);
   }, []);
 
+  // Desk hotkeys: Space 暫停 · Enter 送單 · B/S 買賣 · ↑↓ 調價一檔 · +/- 張數
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const st = useGame.getState();
       if (e.code === "Space") {
         e.preventDefault();
-        if (useGame.getState().activeBeat) dismissBeat();
+        if (st.activeBeat) dismissBeat();
         else togglePause();
+        return;
       }
+      if (st.activeBeat) return;
       if (e.key === "Enter") {
         e.preventDefault();
-        if (useGame.getState().activeBeat) return;
         submit();
+        return;
+      }
+      const k = e.key.toLowerCase();
+      if (k === "b" || k === "s") {
+        st.setTicket({ side: k === "b" ? "buy" : "sell" });
+        return;
+      }
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const q = st.engine?.quote(st.selected);
+        const cur =
+          st.ticket.price > 0
+            ? st.ticket.price
+            : st.ticket.side === "buy"
+              ? (q?.ask ?? 0)
+              : (q?.bid ?? 0);
+        if (cur > 0) {
+          st.setTicket({ price: stepTick(cur, e.key === "ArrowUp" ? 1 : -1), type: "limit" });
+        }
+        return;
+      }
+      if (e.key === "+" || e.key === "=") {
+        st.setTicket({ lots: Math.min(200, st.ticket.lots + 1) });
+        return;
+      }
+      if (e.key === "-" || e.key === "_") {
+        st.setTicket({ lots: Math.max(1, st.ticket.lots - 1) });
       }
     };
     window.addEventListener("keydown", onKey);
@@ -383,7 +414,7 @@ function StatusBar() {
         · {idx.turnoverYi.toFixed(0)} 億
       </span>
       <span className="ml-auto hidden shrink-0 md:inline">
-        Enter 送單 · Space 暫停 · 點五檔帶價
+        Enter 送單 · Space 暫停 · B/S 買賣 · ↑↓ 調價 · +− 張數 · 點五檔帶價
       </span>
       <span className="shrink-0 tabular text-fg/80 md:ml-0 ml-auto">{formatTime(engine.t)}</span>
     </footer>

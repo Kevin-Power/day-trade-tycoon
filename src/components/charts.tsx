@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import type { Bar, TickPt } from "@/lib/game/types";
 import { formatPrice } from "@/lib/market/ticks";
 import { formatIndex } from "@/lib/market/week";
@@ -52,6 +52,25 @@ type LineChartProps = {
   variant?: "index" | "stock" | "jiangbo";
 };
 
+/** Plot geometry `paint` used, so the crosshair overlay can map pixels back to time/price. */
+type Scale = {
+  padL: number;
+  padR: number;
+  padT: number;
+  plotW: number;
+  plotH: number;
+  yMin: number;
+  yMax: number;
+  startT: number;
+  xSpan: number;
+  viewEnd: number;
+  isIndex: boolean;
+};
+
+type Hover = { x: number; y: number };
+
+type Variant = "index" | "stock" | "jiangbo";
+
 export function TapeChart({
   bars,
   ticks,
@@ -70,29 +89,54 @@ export function TapeChart({
   now,
   variant = "stock",
 }: LineChartProps) {
+  const wrapRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<HTMLCanvasElement>(null);
+  const scaleRef = useRef<Scale | null>(null);
+  const hoverRef = useRef<Hover | null>(null);
+  // Latest series for the crosshair read-out, without re-binding pointer handlers every frame.
+  const dataRef = useRef({ bars, ticks, prev, variant });
+  dataRef.current = { bars, ticks, prev, variant };
+
+  const drawCross = useCallback(() => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    const ctx = overlay.getContext("2d");
+    if (!ctx) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const w = overlay.width / dpr;
+    const h = overlay.height / dpr;
+    ctx.clearRect(0, 0, w, h);
+    const hv = hoverRef.current;
+    const scale = scaleRef.current;
+    if (!hv || !scale) return;
+    paintCrosshair(ctx, w, h, scale, hv, dataRef.current);
+  }, []);
 
   useEffect(() => {
     const canvas = ref.current;
-    if (!canvas) return;
-    const parent = canvas.parentElement;
-    if (!parent) return;
+    const overlay = overlayRef.current;
+    const parent = wrapRef.current;
+    if (!canvas || !overlay || !parent) return;
 
     const draw = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const w = parent.clientWidth;
       const h = parent.clientHeight;
       if (w < 8 || h < 8) return;
-      if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
-        canvas.width = Math.floor(w * dpr);
-        canvas.height = Math.floor(h * dpr);
-        canvas.style.width = `${w}px`;
-        canvas.style.height = `${h}px`;
+      for (const el of [canvas, overlay]) {
+        if (el.width !== Math.floor(w * dpr) || el.height !== Math.floor(h * dpr)) {
+          el.width = Math.floor(w * dpr);
+          el.height = Math.floor(h * dpr);
+          el.style.width = `${w}px`;
+          el.style.height = `${h}px`;
+        }
       }
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      paint(ctx, w, h, {
+      scaleRef.current = paint(ctx, w, h, {
         bars,
         ticks,
         prev,
@@ -110,6 +154,7 @@ export function TapeChart({
         now,
         variant,
       });
+      drawCross();
     };
 
     draw();
@@ -133,9 +178,149 @@ export function TapeChart({
     endT,
     now,
     variant,
+    drawCross,
   ]);
 
-  return <canvas ref={ref} className="block h-full w-full" />;
+  const onMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    hoverRef.current = { x: e.clientX - r.left, y: e.clientY - r.top };
+    drawCross();
+  };
+  const onLeave = () => {
+    hoverRef.current = null;
+    drawCross();
+  };
+
+  return (
+    <div
+      ref={wrapRef}
+      className="relative h-full w-full cursor-crosshair touch-none"
+      onPointerMove={onMove}
+      onPointerDown={onMove}
+      onPointerLeave={onLeave}
+    >
+      <canvas ref={ref} className="block h-full w-full" />
+      <canvas
+        ref={overlayRef}
+        className="pointer-events-none absolute inset-0 block h-full w-full"
+        aria-hidden
+      />
+    </div>
+  );
+}
+
+/** Closest sample to `t` in a series sorted by time. */
+function nearest<T extends { t: number }>(arr: T[], t: number): T | null {
+  if (!arr.length) return null;
+  let lo = 0;
+  let hi = arr.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (arr[mid]!.t < t) lo = mid + 1;
+    else hi = mid;
+  }
+  const a = arr[lo]!;
+  const b = arr[lo - 1];
+  return b && Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a;
+}
+
+/** Dashed crosshair, axis tags and a read-out of the sample under the cursor. */
+function paintCrosshair(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  s: Scale,
+  hv: Hover,
+  data: { bars: Bar[]; ticks: TickPt[]; prev: number; variant: Variant },
+) {
+  void h;
+  const { padL, padT, plotW, plotH } = s;
+  if (hv.x < padL || hv.x > padL + plotW || hv.y < padT || hv.y > padT + plotH) return;
+  const c = tokens();
+  const tOfX = (x: number) => s.startT + ((x - padL) / plotW) * s.xSpan;
+  const xOfT = (t: number) => padL + ((t - s.startT) / s.xSpan) * plotW;
+  const yOf = (p: number) => padT + ((s.yMax - p) / (s.yMax - s.yMin)) * plotH;
+  const pOfY = (y: number) => s.yMax - ((y - padT) / plotH) * (s.yMax - s.yMin);
+  const label = (p: number) => (s.isIndex ? formatIndex(p) : formatPrice(p));
+
+  const t = tOfX(hv.x);
+  let pt: { t: number; p: number; v?: number } | null = null;
+  if (data.variant === "jiangbo" && data.ticks.length) {
+    const tk = nearest(data.ticks, t);
+    if (tk) pt = { t: tk.t, p: tk.p };
+  } else {
+    const b = nearest(data.bars, t);
+    if (b) pt = { t: b.t, p: b.c, v: b.v };
+  }
+  const snapX = pt ? xOfT(pt.t) : hv.x;
+  const font = "10px IBM Plex Mono, ui-monospace, monospace";
+
+  ctx.save();
+  ctx.setLineDash([3, 3]);
+  ctx.strokeStyle = withAlpha(c.fg, 0.45);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(snapX, padT);
+  ctx.lineTo(snapX, padT + plotH);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(padL, hv.y);
+  ctx.lineTo(padL + plotW, hv.y);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.font = font;
+  ctx.textBaseline = "middle";
+
+  const ptxt = label(pOfY(hv.y));
+  const pw = ctx.measureText(ptxt).width + 8;
+  ctx.fillStyle = c.fg;
+  ctx.fillRect(padL - pw - 2, hv.y - 8, pw, 16);
+  ctx.fillStyle = c.bg;
+  ctx.textAlign = "right";
+  ctx.fillText(ptxt, padL - 6, hv.y);
+
+  const ttxt = formatTime(pt ? pt.t : t);
+  const tw = ctx.measureText(ttxt).width + 10;
+  const tx = Math.min(Math.max(snapX - tw / 2, padL), padL + plotW - tw);
+  ctx.fillStyle = c.fg;
+  ctx.fillRect(tx, padT + plotH + 1, tw, 14);
+  ctx.fillStyle = c.bg;
+  ctx.textAlign = "center";
+  ctx.fillText(ttxt, tx + tw / 2, padT + plotH + 8);
+
+  if (!pt) return;
+  const chg = data.prev > 0 ? ((pt.p - data.prev) / data.prev) * 100 : 0;
+  const tone = chg >= 0 ? c.up : c.down;
+  const lines: { text: string; color: string }[] = [
+    { text: `${label(pt.p)}  ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%`, color: tone },
+  ];
+  if (!s.isIndex && pt.v !== undefined) {
+    lines.push({ text: `量 ${Math.round(pt.v)} 張`, color: c.muted });
+  }
+  const boxW = Math.max(...lines.map((l) => ctx.measureText(l.text).width)) + 14;
+  const boxH = lines.length * 14 + 8;
+  let bx = snapX + 12;
+  if (bx + boxW > padL + plotW) bx = snapX - 12 - boxW;
+  const by = Math.min(Math.max(hv.y - boxH - 10, padT + 2), padT + plotH - boxH - 2);
+  ctx.fillStyle = withAlpha(c.bg, 0.92);
+  ctx.fillRect(bx, by, boxW, boxH);
+  ctx.strokeStyle = c.grid;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bx + 0.5, by + 0.5, boxW - 1, boxH - 1);
+  ctx.textAlign = "left";
+  lines.forEach((l, i) => {
+    ctx.fillStyle = l.color;
+    ctx.fillText(l.text, bx + 7, by + 11 + i * 14);
+  });
+
+  ctx.beginPath();
+  ctx.arc(snapX, yOf(pt.p), 3, 0, Math.PI * 2);
+  ctx.fillStyle = tone;
+  ctx.fill();
+  ctx.strokeStyle = c.bg;
+  ctx.lineWidth = 1;
+  ctx.stroke();
 }
 
 function paint(
@@ -158,9 +343,9 @@ function paint(
     startT: number;
     endT: number;
     now: number;
-    variant: "index" | "stock" | "jiangbo";
+    variant: Variant;
   },
-) {
+): Scale | null {
   const c = tokens();
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = c.bg;
@@ -175,7 +360,7 @@ function paint(
   const padB = 18 + volH;
   const plotW = w - padL - padR;
   const plotH = h - padT - padB;
-  if (plotW < 10 || plotH < 10) return;
+  if (plotW < 10 || plotH < 10) return null;
 
   const highs = opt.bars.map((b) => b.h);
   const lows = opt.bars.map((b) => b.l);
@@ -511,4 +696,18 @@ function paint(
       ctx.fillText(m.text, padL + 4, Math.min(padT + plotH - 6, m.y));
     }
   }
+
+  return {
+    padL,
+    padR,
+    padT,
+    plotW,
+    plotH,
+    yMin,
+    yMax,
+    startT: opt.startT,
+    xSpan,
+    viewEnd,
+    isIndex,
+  };
 }

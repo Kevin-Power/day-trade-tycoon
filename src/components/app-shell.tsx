@@ -26,7 +26,9 @@ export function AppShell() {
       {phase === "lobby" ? <Lobby /> : <Terminal />}
       <Toaster
         theme="dark"
-        position="top-right"
+        position="top-center"
+        offset="76px"
+        duration={2600}
         toastOptions={{
           className: "font-sans text-sm",
           style: {
