@@ -21,8 +21,15 @@ export function stepTick(price: number, dir: number): number {
   return roundToTick(price + dir * t);
 }
 
+/**
+ * Limit up must never exceed +10%, so the tick lands DOWN — rounding to the
+ * nearest tick can overshoot the statutory cap (prev 138.00 → 152.00 is
+ * +10.15%). Mirrors limitDown(), which rounds up so it never breaches -10%.
+ */
 export function limitUp(prevClose: number): number {
-  return roundToTick(prevClose * 1.1);
+  const raw = prevClose * 1.1;
+  const t = tickSize(raw);
+  return Math.round(Math.floor(raw / t) * t * 1e6) / 1e6;
 }
 
 export function limitDown(prevClose: number): number {
