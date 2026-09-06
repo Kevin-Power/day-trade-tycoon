@@ -8,6 +8,12 @@ import type {
   WorksheetChapter,
 } from "@/lib/handbook/types";
 import { GLOSSARY } from "@/lib/handbook/glossary";
+import { START } from "@/lib/handbook/start";
+import { COST } from "@/lib/handbook/cost";
+import { PRINCIPLE_NOTES } from "@/lib/handbook/principles";
+import { MISTAKES } from "@/lib/handbook/mistakes";
+import { PLANS } from "@/lib/handbook/plans";
+import { WORKSHEET } from "@/lib/handbook/worksheet";
 
 /**
  * 教材內容。
@@ -28,5 +34,11 @@ export type HandbookContent = {
 };
 
 export const HANDBOOK: HandbookContent = {
+  start: START,
+  cost: COST,
+  principles: PRINCIPLE_NOTES,
   glossary: GLOSSARY,
+  mistakes: MISTAKES,
+  plans: PLANS,
+  worksheet: WORKSHEET,
 };

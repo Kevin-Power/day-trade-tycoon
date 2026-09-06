@@ -170,6 +170,7 @@ function Cost() {
       <Table
         head={["股價", "一檔", "一張來回成本", "要幾檔才打平"]}
         rows={COST.breakeven.map((b) => [b.price, b.tick, b.cost, b.ticksToBreakeven])}
+        cols={[{ strong: true, mono: true }, { mono: true }, { mono: true }, { mono: true }]}
       />
       <Callout>{COST.takeaway}</Callout>
     </Section>
@@ -380,10 +381,21 @@ function Plans() {
             <Quote>{l.openQuestion}</Quote>
 
             <H4>課堂流程</H4>
-            <Table
-              head={["時間", "講師動作", "要講的重點"]}
-              rows={l.timeline.map((t) => [t.at, t.doWhat, t.sayWhat])}
-            />
+            <div className="grid gap-2">
+              {l.timeline.map((t, i) => (
+                <div key={i} className="rounded-sm border border-border bg-bg px-3 py-2">
+                  <div className="font-mono text-micro text-tape">{t.at}</div>
+                  <p className="mt-1 text-pretty text-xs leading-relaxed">
+                    <span className="mr-2 text-muted">做</span>
+                    {t.doWhat}
+                  </p>
+                  <p className="mt-1 text-pretty text-xs leading-relaxed text-muted">
+                    <span className="mr-2 text-fg/70">說</span>
+                    {t.sayWhat}
+                  </p>
+                </div>
+              ))}
+            </div>
 
             <H4>要盯的錯誤</H4>
             <Bullets items={l.watchFor} tone="warn" />
@@ -564,11 +576,18 @@ function Ordered({ items }: { items: string[] }) {
 
 function RateTable({ rows }: { rows: { label: string; value: string; note: string }[] }) {
   return (
-    <Table head={["項目", "數字", "說明"]} rows={rows.map((r) => [r.label, r.value, r.note])} />
+    <Table
+      head={["項目", "數字", "說明"]}
+      rows={rows.map((r) => [r.label, r.value, r.note])}
+      cols={[{ strong: true }, { mono: true }, { muted: true }]}
+    />
   );
 }
 
-function Table({ head, rows }: { head: string[]; rows: string[][] }) {
+/** 欄位樣式由呼叫端指定；用欄位位置猜會把長句欄位設成不換行，撐爆表格。 */
+type Col = { strong?: boolean; mono?: boolean; muted?: boolean; nowrap?: boolean };
+
+function Table({ head, rows, cols }: { head: string[]; rows: string[][]; cols?: Col[] }) {
   return (
     <div className="term-scroll overflow-x-auto">
       <table className="w-full border-collapse text-left text-xs">
@@ -589,9 +608,10 @@ function Table({ head, rows }: { head: string[]; rows: string[][] }) {
                   key={j}
                   className={cn(
                     "py-1.5 pr-3 leading-relaxed",
-                    j === 0 && "whitespace-nowrap font-medium",
-                    j === 1 && "whitespace-nowrap font-mono tabular",
-                    j > 1 && "text-muted",
+                    cols?.[j]?.strong && "font-medium",
+                    cols?.[j]?.mono && "whitespace-nowrap font-mono tabular",
+                    cols?.[j]?.muted && "text-muted",
+                    cols?.[j]?.nowrap && "whitespace-nowrap",
                   )}
                 >
                   {c}
