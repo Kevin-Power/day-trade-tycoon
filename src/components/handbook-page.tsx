@@ -237,11 +237,11 @@ function GlossarySection() {
                 </div>
                 <p className="mt-1 text-pretty text-sm leading-relaxed">{t.oneLine}</p>
                 <p className="mt-1.5 text-pretty text-xs leading-relaxed text-muted">
-                  <span className="text-fg/70">盤面哪裡看　</span>
+                  <span className="mr-2 text-fg/70">盤面哪裡看</span>
                   {t.where}
                 </p>
                 <p className="mt-1 text-pretty text-xs leading-relaxed text-warn">
-                  <span className="opacity-70">常見誤解　</span>
+                  <span className="mr-2 opacity-70">常見誤解</span>
                   {t.misread}
                 </p>
               </div>
@@ -369,7 +369,7 @@ function Plans() {
               <span className="text-base font-medium">{l.skill}</span>
             </div>
             <p className="mt-1.5 text-sm leading-relaxed">
-              <span className="text-muted">目標　</span>
+              <span className="mr-2 text-muted">目標</span>
               {l.goal}
             </p>
 
@@ -440,7 +440,9 @@ function Form({
     <div className="manual-section mt-6 rounded-md border border-border-strong bg-surface p-4">
       <div className="flex items-baseline justify-between gap-3 border-b border-border pb-2">
         <h3 className="text-base font-medium">{title}</h3>
-        <span className="font-mono text-micro text-muted">日期 ____ / ____　姓名 ________</span>
+        <span className="font-mono text-micro text-muted">
+          日期 ____ / ____ <span className="ml-3">姓名 ________</span>
+        </span>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-muted">{intro}</p>
       <div className="mt-3 grid gap-3">
