@@ -92,7 +92,13 @@ export function SessionControls() {
   const leave = useGame((s) => s.leave);
   const teachMode = useGame((s) => s.teachMode);
   const setTeachMode = useGame((s) => s.setTeachMode);
+  const engine = useGame((s) => s.engine);
+  const frame = useGame((s) => s.frame);
+  void frame;
   const [sound, setSound] = useState(isSoundEnabled);
+  // 提前結算會市價平掉未平倉部位，那和被收盤鐘聲代平是同一件事，會記一次六式 06。
+  // 先講清楚，不要等結算頁才讓學員發現被扣分。
+  const holding = engine?.openPositions().length ?? 0;
 
   return (
     <div className="flex shrink-0 items-center gap-1">
@@ -121,9 +127,20 @@ export function SessionControls() {
         <BookOpen className="size-3.5" />
         <span className="hidden sm:inline">教學</span>
       </Button>
-      <Button size="xs" variant="outline" onClick={settle} className="px-1.5 sm:px-2">
+      <Button
+        size="xs"
+        variant="outline"
+        onClick={settle}
+        title={
+          holding > 0
+            ? `還有 ${holding} 檔未平倉。提前結算會市價代平，等同違反六式 06，評等會降一級。先自己平倉再結算。`
+            : "結束這一盤並看結算"
+        }
+        className={cn("px-1.5 sm:px-2", holding > 0 && "border-warn/60 text-warn")}
+      >
         <Square className="size-3.5" />
         <span className="hidden sm:inline">提前結算</span>
+        {holding > 0 && <span className="font-mono text-2xs">{holding}</span>}
       </Button>
       <Button size="xs" variant="ghost" onClick={leave} className="px-1.5 text-fg/85 sm:px-2">
         <LogOut className="size-3.5" />

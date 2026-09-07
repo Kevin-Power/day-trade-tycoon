@@ -18,6 +18,8 @@ export type Scenario = {
   indexDrift: number;
   indexVol: number;
   shock?: { atMinute: number; ret: number; headline: string };
+  /** 開盤預設選股。買不起或超過權益三成時，引擎會自動換一檔。 */
+  focus?: string;
   coach: string[];
 };
 
@@ -36,6 +38,8 @@ export const SCENARIOS: Scenario[] = [
     leverage: 1,
     seed: 8261,
     sessionId: "wed",
+    // 本金 100 萬。台積電一張 240 萬，開盤預設選它學員第一槍必被退件。
+    focus: "2317",
     indexDrift: 0,
     indexVol: 0,
     coach: [
@@ -71,7 +75,7 @@ export const SCENARIOS: Scenario[] = [
     name: "8/25 早盤下殺",
     tag: "本週 · 停損",
     blurb: "週二實盤前 90 分鐘。開盤 20 秒殺到 44,422，全日低點 44,210 要到 11:00。先練停損。",
-    objective: "低點出現後 10 分鐘內把風險降下來。",
+    objective: "每次進場都先寫停損，觸價就出，全程不加碼攤平。",
     minutes: 90,
     startMinute: 0,
     speed: 6,
@@ -246,12 +250,30 @@ export function nextRank(careerPnl: number) {
   return RANKS[idx + 1] ?? null;
 }
 
-export function gradeFor(pnlPct: number, trades: number, maxDd: number): string {
+export const GRADE_LADDER = ["F", "D", "C", "B", "A", "S"] as const;
+
+function baseGradeIndex(pnlPct: number, maxDd: number): number {
+  if (pnlPct >= 2 && maxDd <= 0.02) return 5;
+  if (pnlPct >= 1) return 4;
+  if (pnlPct >= 0.3) return 3;
+  if (pnlPct >= 0) return 2;
+  if (pnlPct > -1) return 1;
+  return 0;
+}
+
+/**
+ * 損益定底、紀律定升降。只看損益的話，守紀律的小賠拿 D、亂做但賭對的拿 S，
+ * 教室等於在獎勵運氣。全程沒違規升一級，每違規一項降一級（最多三級）。
+ */
+export function gradeFor(
+  pnlPct: number,
+  trades: number,
+  maxDd: number,
+  violations = 0,
+): string {
   if (trades === 0) return "觀盤";
-  if (pnlPct >= 2 && maxDd <= 0.02) return "S";
-  if (pnlPct >= 1) return "A";
-  if (pnlPct >= 0.3) return "B";
-  if (pnlPct >= 0) return "C";
-  if (pnlPct > -1) return "D";
-  return "F";
+  const base = baseGradeIndex(pnlPct, maxDd);
+  const adjusted = violations === 0 ? base + 1 : base - Math.min(3, violations);
+  const idx = Math.max(0, Math.min(GRADE_LADDER.length - 1, adjusted));
+  return GRADE_LADDER[idx]!;
 }

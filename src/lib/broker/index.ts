@@ -29,6 +29,7 @@ function simBroker(engine: DayMarket | null): BrokerPort {
         type: intent.type,
         lots: intent.lots,
         price: intent.price,
+        stop: intent.stop,
       });
     },
     cancel(orderId: string) {

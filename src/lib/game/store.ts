@@ -37,6 +37,8 @@ type Ticket = {
   lots: number;
   price: number;
   tif: TimeInForce;
+  /** 學員寫下的停損價，0 表示沒寫。系統不代為出場。 */
+  stop: number;
 };
 
 type GameStore = {
@@ -98,7 +100,7 @@ export const useGame = create<GameStore>((set, get) => ({
   selected: "2330",
   speed: 8,
   paused: false,
-  ticket: { side: "buy", type: "limit", lots: 1, price: 0, tif: "ROD" },
+  ticket: { side: "buy", type: "limit", lots: 1, price: 0, tif: "ROD", stop: 0 },
   venue: "sim",
   accountId: SIM_ACCOUNT,
   mobileTab: "watch",
@@ -128,7 +130,7 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!sc) return;
     unlockAudio();
     const engine = new DayMarket(sc);
-    const q = engine.quote("2330") ?? engine.allQuotes()[0];
+    const q = engine.quote(engine.defaultFocus()) ?? engine.allQuotes()[0];
     const code = q?.code ?? "2330";
     const px = q ? q.ask : 0;
     const teach = get().teachMode;
@@ -140,7 +142,7 @@ export const useGame = create<GameStore>((set, get) => ({
       selected: code,
       speed: sc.speed,
       paused: !!beat,
-      ticket: { side: "buy", type: "limit", lots: 1, price: roundToTick(px), tif: "ROD" },
+      ticket: { side: "buy", type: "limit", lots: 1, price: roundToTick(px), tif: "ROD", stop: 0 },
       mobileTab: "watch",
       rightTab: "pos",
       lastResult: null,
@@ -165,9 +167,7 @@ export const useGame = create<GameStore>((set, get) => ({
   settle: () => {
     const { engine, scenario, profile } = get();
     if (!engine || !scenario) return;
-    if (!engine.ended) {
-      engine.step(engine.endT - engine.t + 1);
-    }
+    engine.endNow();
     const st = engine.stats();
     const rec: SessionRecord = {
       id: `S${Date.now()}`,
@@ -180,7 +180,8 @@ export const useGame = create<GameStore>((set, get) => ({
       wins: st.wins,
       fees: st.fees,
       maxDrawdown: st.maxDrawdown,
-      grade: gradeFor(st.pnlPct, st.trades, st.maxDrawdown),
+      violations: engine.violations(),
+      grade: gradeFor(st.pnlPct, st.trades, st.maxDrawdown, engine.violations()),
       title: scenario.name,
     };
     const next = applySession(profile, rec);
@@ -201,6 +202,8 @@ export const useGame = create<GameStore>((set, get) => ({
       ticket: {
         ...ticket,
         price: roundToTick(price),
+        // 停損是綁在標的上的，換股就得重寫。
+        stop: engine?.stops.get(code) ?? 0,
       },
     });
   },
@@ -209,9 +212,12 @@ export const useGame = create<GameStore>((set, get) => ({
     const { ticket, engine, selected } = get();
     const next = { ...ticket, ...patch };
     if (patch.price !== undefined && !(patch.price > 0)) return;
+    if (patch.stop !== undefined && patch.stop < 0) return;
     if (patch.side && engine) {
       const q = engine.quote(selected);
       if (q) next.price = roundToTick(patch.side === "buy" ? q.ask : q.bid);
+      // 買改賣時原本寫在下方的停損就站錯邊了，清掉比留著誤導好。
+      if (patch.side !== ticket.side) next.stop = 0;
     }
     set({ ticket: next });
   },
@@ -280,6 +286,7 @@ export const useGame = create<GameStore>((set, get) => ({
       tif: ticket.tif,
       lots: ticket.lots,
       price,
+      stop: ticket.stop > 0 ? ticket.stop : undefined,
     });
     if (!res.ok) {
       playError();

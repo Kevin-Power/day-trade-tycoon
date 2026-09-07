@@ -104,6 +104,8 @@ export type SessionRecord = {
   wins: number;
   fees: number;
   maxDrawdown: number;
+  /** 這盤記到的六式違規次數。舊存檔沒有這欄，讀取時當 0。 */
+  violations?: number;
   grade: string;
   title: string;
 };

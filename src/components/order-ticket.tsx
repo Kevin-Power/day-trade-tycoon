@@ -4,19 +4,29 @@ import { KV, PaneTitle, Segmented } from "@/components/ui/pane";
 import { Arrow, toneClass } from "@/components/signed";
 import { useGame } from "@/lib/game/store";
 import { SIM_ACCOUNT, type TimeInForce, type Venue } from "@/lib/broker";
-import { commission, formatPrice, LOT_SHARES, ROUND_TRIP_RATE, stepTick } from "@/lib/market/ticks";
+import {
+  commission,
+  formatPrice,
+  LOT_SHARES,
+  ROUND_TRIP_RATE,
+  roundToTick,
+  stepTick,
+} from "@/lib/market/ticks";
 import { cn, formatMoney, formatPct } from "@/lib/utils";
 
 const TIF: TimeInForce[] = ["ROD", "IOC", "FOK"];
 const QUICK_LOTS = [1, 2, 5, 10];
+const QUICK_STOPS = [0.01, 0.02, 0.03];
 
 type OrderType = "limit" | "market";
 
 /**
  * Brokerage-style vertical ticket. Sized by its content so it never gets
  * squeezed: on the desk it sits under the book in the right rail, on phones
- * it is the top of the 下單 tab. Kept under ~340px tall so a 768px-high
- * laptop still shows the whole ticket without scrolling.
+ * it is the top of the 下單 tab. When the rail is shorter than the ticket
+ * (768px laptops, or Windows at 175% scaling) the fields scroll and the
+ * 送出 row stays pinned to the bottom — that button must never be the part
+ * that gets cut off.
  */
 export function OrderTicket() {
   const engine = useGame((s) => s.engine);
@@ -58,14 +68,32 @@ export function OrderTicket() {
     return Math.max(0, Math.min(200, byCash, byCap));
   })();
 
+  // 六式 04：停損寫在進場。這裡只是把它寫下來，系統不會代為出場。
+  const dir = buy ? 1 : -1;
+  const stop = ticket.stop;
+  const stopSet = stop > 0;
+  const stopValid = stopSet && unit > 0 && (stop - unit) * dir < 0;
+  const stopPct = stopValid ? ((stop - unit) / unit) * 100 : 0;
+  const riskAmount = stopValid ? Math.abs(unit - stop) * ticket.lots * LOT_SHARES : 0;
+  const riskPct = stopValid && st && st.equity > 0 ? (riskAmount / st.equity) * 100 : 0;
+  // 只有「開新倉／加碼」才需要停損；要平倉的單不該被念。
+  const entering = posLots === 0 || posLots * dir > 0;
+  const needStop = entering && !stopSet;
+  const warnings = [
+    tooBig ? "超過權益 30%，先降張數。" : null,
+    needStop ? "還沒寫停損。進場同時就要決定出場價。" : null,
+    stopSet && !stopValid ? (buy ? "停損價要低於買進價。" : "停損價要高於賣出價。") : null,
+    thin ? "偏離均價不夠費稅，這筆要靠方向。" : null,
+  ].filter((x): x is string => x !== null);
+
   return (
-    <div className="flex flex-col bg-surface">
+    <div className="flex min-h-0 flex-col bg-surface">
       <PaneTitle className="justify-between px-2">
         <span>委託下單</span>
         <span className="font-mono text-micro text-fg/80">{accountId || SIM_ACCOUNT}</span>
       </PaneTitle>
 
-      <div className="flex h-7 items-center gap-2 border-b border-border bg-elevated/50 px-2 text-2xs">
+      <div className="flex h-7 shrink-0 items-center gap-2 border-b border-border bg-elevated/50 px-2 text-2xs">
         <span className="text-muted">通路</span>
         <Segmented<Venue>
           value={venue}
@@ -87,7 +115,7 @@ export function OrderTicket() {
         />
       </div>
 
-      <div className="flex h-8 items-baseline gap-1.5 border-b border-border px-2 pt-1.5">
+      <div className="flex h-8 shrink-0 items-baseline gap-1.5 border-b border-border px-2 pt-1.5">
         <span className="font-mono text-base leading-none tabular">{selected}</span>
         <span className="text-sm leading-none">{name}</span>
         {q && (
@@ -99,7 +127,7 @@ export function OrderTicket() {
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5 p-2">
+      <div className="term-scroll flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-2 pb-0">
         <div className="grid grid-cols-2 gap-1" role="group" aria-label="買賣別">
           <button
             type="button"
@@ -202,6 +230,53 @@ export function OrderTicket() {
           </div>
         </Row>
 
+        <Row label={<span className="pl-1 text-2xs text-muted">停損</span>}>
+          <Stepper
+            onDec={() => setTicket({ stop: stepTick(stop > 0 ? stop : unit, -1) })}
+            onInc={() => setTicket({ stop: stepTick(stop > 0 ? stop : unit, 1) })}
+          >
+            <input
+              type="number"
+              inputMode="decimal"
+              step="any"
+              aria-label="停損價"
+              value={stop || ""}
+              placeholder="未寫"
+              onChange={(e) => setTicket({ stop: Math.max(0, Number(e.target.value) || 0) })}
+              className={cn(
+                "h-full w-full bg-transparent text-center font-mono text-sm tabular outline-none placeholder:text-warn/70",
+                stopSet && !stopValid && "text-warn",
+              )}
+            />
+          </Stepper>
+        </Row>
+
+        <Row label={null}>
+          <div className="grid grid-cols-4 gap-1">
+            {QUICK_STOPS.map((pct) => (
+              <button
+                key={pct}
+                type="button"
+                disabled={unit <= 0}
+                onClick={() => setTicket({ stop: roundToTick(unit * (1 - dir * pct)) })}
+                title={`停損設在進場價 ${buy ? "下方" : "上方"} ${(pct * 100).toFixed(0)}%`}
+                className="h-5 rounded-xs border border-border bg-bg font-mono text-2xs text-muted transition-colors hover:border-border-strong hover:text-fg disabled:opacity-60"
+              >
+                {buy ? "−" : "+"}
+                {(pct * 100).toFixed(0)}%
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setTicket({ stop: 0 })}
+              disabled={!stopSet}
+              className="h-5 rounded-xs border border-border bg-bg text-2xs text-muted transition-colors hover:border-border-strong hover:text-fg disabled:opacity-60"
+            >
+              清除
+            </button>
+          </div>
+        </Row>
+
         <Row label={null}>
           <div className="flex flex-wrap items-center gap-x-3 text-2xs text-muted">
             <button
@@ -241,15 +316,26 @@ export function OrderTicket() {
           <KV k="來回成本" v={`${(ROUND_TRIP_RATE * 100).toFixed(2)}%`} />
           <KV k="距昨收" v={formatPct(vsPrev)} tone={toneClass(vsPrev)} />
           <KV k="距均價" v={formatPct(vsVwap)} tone={toneClass(vsVwap)} />
+          <KV
+            k="停損風險"
+            v={stopValid ? formatMoney(riskAmount) : "未寫"}
+            valueClassName={stopValid ? undefined : "text-warn"}
+          />
+          <KV
+            k="佔權益"
+            v={stopValid ? `${riskPct.toFixed(2)}%（${formatPct(stopPct)}）` : "—"}
+          />
         </div>
 
-        {(thin || tooBig) && (
-          <p className="flex items-start gap-1 text-2xs leading-snug text-warn">
+        {warnings.slice(0, 2).map((w) => (
+          <p key={w} className="flex items-start gap-1 text-2xs leading-snug text-warn">
             <span aria-hidden>⚠</span>
-            <span>{tooBig ? "超過權益 30%，先降張數。" : "偏離均價不夠費稅，這筆要靠方向。"}</span>
+            <span>{w}</span>
           </p>
-        )}
+        ))}
+      </div>
 
+      <div className="shrink-0 p-2">
         <div className="flex gap-1.5">
           <Button
             size="md"

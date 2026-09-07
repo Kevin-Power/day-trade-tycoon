@@ -317,11 +317,12 @@ export function Terminal() {
 /** Right rail: book on top takes the slack, ticket below keeps its natural height. */
 function TradeRail() {
   return (
-    <div className="cq-rail term-scroll flex h-full min-h-0 flex-col overflow-y-auto bg-bg">
-      <div className="min-h-[15rem] flex-1 overflow-hidden">
+    <div className="cq-rail flex h-full min-h-0 flex-col bg-bg">
+      <div className="min-h-[9rem] flex-1 overflow-hidden">
         <QuotePanel />
       </div>
-      <div className="shrink-0 border-t border-border-strong">
+      {/* 委託單依內容定高；擠不下時由它自己內部捲，送出鈕釘在底部不會被切掉。 */}
+      <div className="flex min-h-0 flex-col border-t border-border-strong">
         <OrderTicket />
       </div>
     </div>
@@ -477,6 +478,8 @@ function SelectedChart() {
   if (!q) return null;
   const pos = engine.positions.get(q.code);
   const cost = pos && pos.lots !== 0 ? pos.avg : undefined;
+  const stop = pos && pos.lots !== 0 ? engine.stops.get(q.code) : undefined;
+  const stopHit = engine.breachedStops.has(q.code);
   const wave = chartStyle === "jiangbo";
   const tone = toneClass(q.change);
   return (
@@ -512,6 +515,7 @@ function SelectedChart() {
           open={q.open}
           cost={cost}
           poc={engine.poc(q.code) ?? undefined}
+          stop={stop}
           fills={engine.fills
             .filter((f) => f.code === q.code)
             .map((f) => ({ t: f.time, p: f.price, side: f.side }))}
@@ -530,6 +534,13 @@ function SelectedChart() {
           <Legend k="昨收" v={formatPrice(q.prevClose)} tone="text-tape" />
           <Legend k="量" v={`${formatLots(q.volume)} 張`} />
           {cost !== undefined && <Legend k="成本" v={formatPrice(cost)} tone="text-warn" />}
+          {stop !== undefined && (
+            <Legend
+              k={stopHit ? "停損 ⚠" : "停損"}
+              v={formatPrice(stop)}
+              tone={stopHit ? "text-warn" : "text-down"}
+            />
+          )}
         </div>
       </div>
     </div>

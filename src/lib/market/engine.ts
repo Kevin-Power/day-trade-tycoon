@@ -35,6 +35,59 @@ export type PlaceResult =
   | { ok: true; order: Order; fills: Fill[] }
   | { ok: false; reason: string };
 
+/**
+ * 教室只計「機械上可判定」的違規，每一項都對得上六式其中一式。
+ * 判斷不了的（例如「這筆有沒有想清楚」）就不計，寧可漏算也不要冤枉。
+ */
+export type DisciplineKey =
+  | "noStop"
+  | "stopBreached"
+  | "averageDown"
+  | "oversize"
+  | "forcedClose";
+
+export const DISCIPLINE_RULES: { key: DisciplineKey; principle: string; label: string; fix: string }[] = [
+  {
+    key: "noStop",
+    principle: "04",
+    label: "進場沒寫停損",
+    fix: "送單前把停損價填進委託單，讓出場條件先於進場存在。",
+  },
+  {
+    key: "stopBreached",
+    principle: "04",
+    label: "觸及自己寫的停損卻沒出場",
+    fix: "碰到就出，不要改停損。改一次，下次就會再改。",
+  },
+  {
+    key: "averageDown",
+    principle: "03",
+    label: "虧損部位加碼攤平",
+    fix: "只加碼已經賺錢的方向。虧了要降張數，不是加張數。",
+  },
+  {
+    key: "oversize",
+    principle: "05",
+    label: "單檔超過權益三成",
+    fix: "進場前先算「這張佔權益幾成」，超過就減張數。",
+  },
+  {
+    key: "forcedClose",
+    principle: "06",
+    label: "收盤被系統市價代平",
+    fix: "13:20 前自己平掉，不要把出場交給收盤鐘聲。",
+  },
+];
+
+export type DisciplineLog = Record<DisciplineKey, number>;
+
+export function emptyDiscipline(): DisciplineLog {
+  return { noStop: 0, stopBreached: 0, averageDown: 0, oversize: 0, forcedClose: 0 };
+}
+
+/** 單檔部位相對權益的上限，對應六式 05「部位三成」。 */
+export const POSITION_CAP = 0.3;
+
 type BookLevel = { price: number; lots: number };
 
 type StockState = {
@@ -113,6 +166,15 @@ export class DayMarket {
   private roundTrips: { pnl: number }[] = [];
   private lastCoachAt = -999;
   coachLine: string;
+
+  /** 學員自己寫下的停損價。系統不代為出場，只記錄與示警。 */
+  stops = new Map<string, number>();
+  discipline: DisciplineLog = emptyDiscipline();
+  /** 已經計過違規的部位，避免同一段部位每秒重複扣分。 */
+  private flaggedStop = new Set<string>();
+  private flaggedSize = new Set<string>();
+  /** 破線但學員還沒出場的部位，供畫面示警。 */
+  breachedStops = new Set<string>();
 
   constructor(scenario: Scenario) {
     this.scenario = scenario;
@@ -270,6 +332,7 @@ export class DayMarket {
     }
 
     this.matchResting();
+    this.updateStops();
     this.updateEquityStats();
     this.refreshCoach();
     this.updateWarning();
@@ -277,7 +340,7 @@ export class DayMarket {
 
   private tickStock(st: StockState, dt: number) {
     const pxPath = sample5(st.path, this.t);
-    let px = clampLimit(pxPath, st.prev);
+    const px = clampLimit(pxPath, st.prev);
     const prevLast = st.last;
     st.last = px;
     st.high = Math.max(st.high, px);
@@ -479,6 +542,8 @@ export class DayMarket {
     type: "limit" | "market";
     lots: number;
     price?: number;
+    /** 學員寫下的停損價。只在建倉／加碼時採用，平倉時忽略。 */
+    stop?: number;
   }): PlaceResult {
     if (this.ended) return { ok: false, reason: "已收盤" };
     const st = this.stocks.get(input.code);
@@ -524,6 +589,24 @@ export class DayMarket {
       return { ok: false, reason: `超過當沖額度（${this.scenario.leverage} 倍）` };
     }
 
+    const dir = input.side === "buy" ? 1 : -1;
+    const entering = posLots === 0 || posLots * dir > 0;
+    if (entering && input.stop != null && input.stop > 0) {
+      const stop = roundToTick(input.stop);
+      // 停損寫在獲利側等於沒寫：價格永遠碰不到，紀律無從檢查。
+      if ((stop - px) * dir >= 0) {
+        return {
+          ok: false,
+          reason:
+            input.side === "buy" ? "停損價要低於買進價" : "停損價要高於賣出價",
+        };
+      }
+      this.stops.set(input.code, stop);
+    }
+
+    const preAvg = pos?.avg ?? 0;
+    const preLast = st.last;
+
     const order: Order = {
       id: `O${this.seq++}`,
       code: input.code,
@@ -540,6 +623,15 @@ export class DayMarket {
     if (order.status === "pending" && input.type === "market") {
       order.status = "cancelled";
       return { ok: false, reason: "無對手量，未成交" };
+    }
+    if (fills.length > 0 && entering) {
+      if (posLots === 0) {
+        // 六式 04：進場當下沒有出場條件，就是這一項。
+        if (!(this.stops.get(input.code)! > 0)) this.discipline.noStop += 1;
+      } else if ((preLast - preAvg) * Math.sign(posLots) < 0) {
+        // 六式 03：往虧損的方向加碼。
+        this.discipline.averageDown += 1;
+      }
     }
     return { ok: true, order, fills };
   }
@@ -567,10 +659,25 @@ export class DayMarket {
     for (const c of codes) this.flatten(c);
   }
 
+  /**
+   * 提前結算：就地平倉收盤。settle() 原本寫 step(endT - t + 1) 想快轉到收盤，
+   * 但 step() 每次最多推 8 秒（那是為了不讓畫面迴圈卡住），所以那行從來沒到底：
+   * 按下「提前結算」時部位還開著，結算數字是未出場的帳面市值。
+   * 而且學員按的是「我不做了」，把行情快轉三小時也不是他要的。
+   */
+  endNow() {
+    if (this.ended) return;
+    this.forceFlatten();
+    this.ended = true;
+    this.warning = "提前結算，未平倉部位已市價出場。";
+  }
+
   private forceFlatten() {
     for (const o of this.orders) {
       if (o.status === "pending" || o.status === "partial") o.status = "cancelled";
     }
+    // 六式 06：收盤還要系統代平，算一次，不論剩幾檔。
+    if (this.openPositions().length > 0) this.discipline.forcedClose += 1;
     this.flattenAll();
   }
 
@@ -731,7 +838,13 @@ export class DayMarket {
     return g;
   }
 
-  openPositions(): (Position & { last: number; name: string; uPnl: number })[] {
+  openPositions(): (Position & {
+    last: number;
+    name: string;
+    uPnl: number;
+    stop: number | null;
+    stopBreached: boolean;
+  })[] {
     const out = [];
     for (const pos of this.positions.values()) {
       if (pos.lots === 0) continue;
@@ -742,6 +855,8 @@ export class DayMarket {
         last: st.last,
         name: st.def.name,
         uPnl: pos.lots * (st.last - pos.avg) * LOT_SHARES,
+        stop: this.stops.get(pos.code) ?? null,
+        stopBreached: this.breachedStops.has(pos.code),
       });
     }
     return out;
@@ -753,6 +868,90 @@ export class DayMarket {
     const dd = (this.peakEquity - eq) / this.peakEquity;
     this.maxDrawdown = Math.max(this.maxDrawdown, dd);
     this.peakGross = Math.max(this.peakGross, this.grossExposure());
+
+    for (const pos of this.positions.values()) {
+      if (pos.lots === 0) {
+        this.flaggedSize.delete(pos.code);
+        continue;
+      }
+      const st = this.stocks.get(pos.code);
+      if (!st) continue;
+      const share = (Math.abs(pos.lots) * st.last * LOT_SHARES) / Math.max(1, eq);
+      // 六式 05：同一段部位只記一次，超標後又縮回來不會再扣。
+      if (share > POSITION_CAP + 1e-6 && !this.flaggedSize.has(pos.code)) {
+        this.flaggedSize.add(pos.code);
+        this.discipline.oversize += 1;
+      }
+    }
+  }
+
+  /**
+   * 停損只記錄與示警，不代學員出場：六式 04 練的是自己按下那一鍵，
+   * 系統代砍就沒有東西可以練。
+   */
+  private updateStops() {
+    for (const [code, stop] of this.stops) {
+      const pos = this.positions.get(code);
+      if (!pos || pos.lots === 0) {
+        this.stops.delete(code);
+        this.breachedStops.delete(code);
+        this.flaggedStop.delete(code);
+        continue;
+      }
+      const st = this.stocks.get(code);
+      if (!st) continue;
+      const hit = pos.lots > 0 ? st.last <= stop + 1e-9 : st.last >= stop - 1e-9;
+      if (!hit) {
+        this.breachedStops.delete(code);
+        continue;
+      }
+      this.breachedStops.add(code);
+      if (!this.flaggedStop.has(code)) {
+        this.flaggedStop.add(code);
+        this.discipline.stopBreached += 1;
+      }
+    }
+  }
+
+  /**
+   * 開盤預設選股。台積電一張 240 萬，六堂課裡沒有一堂的權益三成吃得下，
+   * 以前寫死選 2330，學員第一次送單只會拿到「可用餘額不足」。
+   * 改成挑「一張放得進權益三成」的最大流動性標的，本金改了也不會再脫鉤。
+   */
+  defaultFocus(): string {
+    const budget = this.capital * POSITION_CAP;
+    const fits = (st: StockState | undefined) => !!st && st.open * LOT_SHARES <= budget;
+    const wanted = this.scenario.focus ? this.stocks.get(this.scenario.focus) : undefined;
+    if (fits(wanted)) return wanted!.def.code;
+    const best = [...this.stocks.values()]
+      .filter(fits)
+      .sort((a, b) => b.def.liquidity - a.def.liquidity)[0];
+    // 全部都買不起時退回最便宜的一檔，至少讓學員看得到報價。
+    return (
+      best?.def.code ??
+      [...this.stocks.values()].sort((a, b) => a.open - b.open)[0]?.def.code ??
+      UNIVERSE[0]!.code
+    );
+  }
+
+  /** 一張佔權益幾成，委託單用來提示六式 05。 */
+  lotShareOfEquity(code: string, price: number): number {
+    return (price * LOT_SHARES) / Math.max(1, this.equity());
+  }
+
+  /** 這盤總違規次數，結算評等用。 */
+  violations(): number {
+    return Object.values(this.discipline).reduce((a, b) => a + b, 0);
+  }
+
+  /** 有記到的違規項目，附上對應的六式與可立即執行的替代動作。 */
+  disciplineNotes(): { label: string; principle: string; count: number; fix: string }[] {
+    return DISCIPLINE_RULES.filter((r) => this.discipline[r.key] > 0).map((r) => ({
+      label: r.label,
+      principle: r.principle,
+      count: this.discipline[r.key],
+      fix: r.fix,
+    }));
   }
 
   private refreshCoach() {
@@ -765,6 +964,13 @@ export class DayMarket {
   }
 
   private updateWarning() {
+    if (this.breachedStops.size > 0) {
+      const names = [...this.breachedStops]
+        .map((c) => this.stocks.get(c)?.def.name ?? c)
+        .join("、");
+      this.warning = `${names} 已觸及你寫的停損，系統不會代你出場。`;
+      return;
+    }
     const left = this.endT - this.t;
     if (left <= 10 * 60 && left > 0 && this.openPositions().length) {
       this.warning = `距離收盤 ${Math.ceil(left / 60)} 分鐘，未平倉將強制市價出場。`;

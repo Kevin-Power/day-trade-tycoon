@@ -43,6 +43,8 @@ type LineChartProps = {
   open?: number;
   cost?: number;
   poc?: number;
+  /** 學員自己寫下的停損價。 */
+  stop?: number;
   fills?: { t: number; p: number; side: "buy" | "sell" }[];
   newsAt?: number[];
   showVolume?: boolean;
@@ -81,6 +83,7 @@ export function TapeChart({
   open,
   cost,
   poc,
+  stop,
   fills,
   newsAt,
   showVolume,
@@ -146,6 +149,7 @@ export function TapeChart({
         open: open ?? last,
         cost,
         poc,
+        stop,
         fills: fills ?? [],
         newsAt: newsAt ?? [],
         showVolume: !!showVolume,
@@ -171,6 +175,7 @@ export function TapeChart({
     open,
     cost,
     poc,
+    stop,
     fills,
     newsAt,
     showVolume,
@@ -337,6 +342,7 @@ function paint(
     open: number;
     cost?: number;
     poc?: number;
+    stop?: number;
     fills: { t: number; p: number; side: "buy" | "sell" }[];
     newsAt: number[];
     showVolume: boolean;
@@ -372,6 +378,7 @@ function paint(
     opt.high,
     opt.cost ?? opt.last,
     opt.poc ?? opt.last,
+    opt.stop ?? opt.last,
     ...highs,
     ...tickPx,
   );
@@ -382,6 +389,7 @@ function paint(
     opt.low,
     opt.cost ?? opt.last,
     opt.poc ?? opt.last,
+    opt.stop ?? opt.last,
     ...lows,
     ...tickPx,
   );
@@ -492,6 +500,19 @@ function paint(
     ctx.setLineDash([1, 4]);
     ctx.strokeStyle = c.vol;
     ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(w - padR, y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  if (opt.stop && opt.stop > 0 && !isIndex) {
+    const y = yOf(opt.stop);
+    ctx.save();
+    ctx.setLineDash([2, 2]);
+    ctx.strokeStyle = c.down;
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.moveTo(padL, y);
     ctx.lineTo(w - padR, y);
@@ -679,9 +700,14 @@ function paint(
     if (opt.poc && opt.poc > 0) {
       marks.push({ text: "堆", y: yOf(opt.poc), color: c.vol });
     }
+    // 當日高低就只是當日高低。六式 03 說支撐壓力看堆積，標成「壓／撐」
+    // 等於在圖上教相反的東西，所以這裡只標「高／低」。
     if (isWave && Math.abs(opt.high - opt.low) > Math.abs(opt.prev) * 0.0012) {
-      marks.push({ text: "壓", y: yOf(opt.high), color: c.up });
-      marks.push({ text: "撐", y: yOf(opt.low), color: c.down });
+      marks.push({ text: "高", y: yOf(opt.high), color: c.muted });
+      marks.push({ text: "低", y: yOf(opt.low), color: c.muted });
+    }
+    if (opt.stop && opt.stop > 0) {
+      marks.push({ text: "損", y: yOf(opt.stop), color: c.down });
     }
     marks.sort((a, b) => a.y - b.y);
     for (let i = 1; i < marks.length; i++) {

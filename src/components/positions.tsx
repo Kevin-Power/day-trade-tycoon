@@ -68,6 +68,9 @@ export function PositionsDock() {
                 <th className={TH}>張數</th>
                 <th className={TH}>均價</th>
                 <th className={TH}>現價</th>
+                <th className={TH} title="進場時自己寫下的停損價。系統不代為出場。">
+                  停損
+                </th>
                 <th className={TH}>未實現</th>
                 <th className={TH}>損益%</th>
               </tr>
@@ -75,7 +78,7 @@ export function PositionsDock() {
             <tbody>
               {pos.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-2 py-6 text-center text-muted">
+                  <td colSpan={8} className="px-2 py-6 text-center text-muted">
                     尚無庫存。買進或先賣都會出現在這裡。
                   </td>
                 </tr>
@@ -99,6 +102,22 @@ export function PositionsDock() {
                   </td>
                   <td className={TD}>{formatPrice(p.avg)}</td>
                   <td className={TD}>{formatPrice(p.last)}</td>
+                  <td
+                    className={cn(
+                      TD,
+                      p.stop == null ? "text-warn" : p.stopBreached ? "text-warn" : "text-muted",
+                    )}
+                    title={
+                      p.stop == null
+                        ? "這筆沒有寫停損"
+                        : p.stopBreached
+                          ? "已觸及停損，系統不會代你出場"
+                          : undefined
+                    }
+                  >
+                    {p.stop == null ? "未寫" : formatPrice(p.stop)}
+                    {p.stopBreached && " !"}
+                  </td>
                   <td className={cn(TD, "font-medium", toneClass(p.uPnl))}>
                     {formatSigned(p.uPnl, 0)}
                   </td>

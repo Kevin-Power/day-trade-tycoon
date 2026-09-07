@@ -17,6 +17,8 @@ export function ResultScreen() {
   const rank = rankFor(profile.careerPnl);
   const lesson = lessonById(scenario.id);
   const nxt = nextLesson(scenario.id);
+  const notes = engine.disciplineNotes();
+  const violations = rec.violations ?? 0;
   const review = lesson
     ? debrief(lesson, {
         trades: st.trades,
@@ -60,6 +62,32 @@ export function ResultScreen() {
           <Cell label="勝率" value={rec.trades ? `${((rec.wins / rec.trades) * 100).toFixed(0)}%` : "—"} />
           <Cell label="費稅" value={formatMoney(rec.fees, 0)} />
           <Cell label="最大回撤" value={`${(rec.maxDrawdown * 100).toFixed(2)}%`} />
+        </div>
+
+        <div className="mt-4 rounded-md border border-border bg-bg px-3 py-3">
+          <div className="flex items-baseline justify-between">
+            <span className="text-micro tracking-wide text-muted">紀律</span>
+            <span className={cn("text-xs", notes.length === 0 ? "text-up" : "text-warn")}>
+              {notes.length === 0 ? "全程沒有違反六式，評等升一級" : `違反 ${violations} 次，評等降 ${Math.min(3, violations)} 級`}
+            </span>
+          </div>
+          {notes.length === 0 ? (
+            <p className="mt-2 text-sm leading-relaxed text-muted">
+              停損有寫、沒有攤平、部位沒超過三成、收盤自己平掉。做對的事比這一盤賺多少重要。
+            </p>
+          ) : (
+            <ul className="mt-2 space-y-2 text-sm leading-relaxed">
+              {notes.map((n) => (
+                <li key={n.label}>
+                  <span className="text-fg">
+                    第 {n.principle} 式 · {n.label}
+                  </span>
+                  <span className="ml-1.5 font-mono text-2xs text-muted">×{n.count}</span>
+                  <div className="text-muted">{n.fix}</div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {review && (
