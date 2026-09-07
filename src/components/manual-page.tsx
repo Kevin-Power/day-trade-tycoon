@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { DocLink } from "@/components/doc-link";
 import { ArrowLeft, Download, LogOut, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -22,19 +22,20 @@ const TOC = [
   { id: "agenda", n: "09", label: "跟石大哥要對的五件事" },
 ] as const;
 
-export function ManualPage() {
+export function ManualPage({ onBack }: { onBack?: () => void } = {}) {
   const { lock } = useGate();
   return (
     <div className="manual-sheet min-h-dvh bg-bg text-fg">
       <header className="no-print sticky top-0 z-20 border-b border-border bg-bg/92 backdrop-blur-sm">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <Link
+          <DocLink
             to="/"
+            onOpen={onBack}
             className="inline-flex h-9 items-center gap-1.5 rounded-sm px-2 text-xs text-muted hover:bg-elevated hover:text-fg"
           >
             <ArrowLeft className="size-3.5" />
             回大廳
-          </Link>
+          </DocLink>
           <div className="flex items-center gap-2">
             <a
               href={PDF_HREF}
@@ -44,12 +45,7 @@ export function ManualPage() {
               <Download className="size-3.5" />
               下載 PDF
             </a>
-            <Button
-              type="button"
-              size="sm"
-              variant="header"
-              onClick={() => window.print()}
-            >
+            <Button type="button" size="sm" variant="header" onClick={() => window.print()}>
               <Printer className="size-3.5" />
               列印
             </Button>
@@ -102,7 +98,8 @@ function Cover() {
         當沖大富翁
       </h1>
       <p className="mt-4 max-w-2xl text-pretty text-base leading-relaxed text-muted">
-        給石大哥與講師坐下來對的那一份。盤面像券商現股當沖；加權用證交所每 5 秒指數；撮合是教室的；實盤 API 還沒接。
+        給石大哥與講師坐下來對的那一份。盤面像券商現股當沖；加權用證交所每 5
+        秒指數；撮合是教室的；實盤 API 還沒接。
       </p>
       <ul className="mt-6 flex flex-wrap gap-2 text-micro">
         <Chip>模擬撮合已開</Chip>
@@ -140,10 +137,19 @@ function Brief() {
       <div className="mt-5 overflow-hidden rounded-lg border border-border">
         <table className="w-full text-left text-sm">
           <tbody>
-            <Row k="產品" v="台股現股當沖模擬教室。盤面比照券商：自選、江波、五檔、委託、庫存／成交。" />
-            <Row k="現況" v="模擬撮合已開。學員可上課、可地端離線打、線上教室交易日 13:50 後可練最新完整盤。" />
+            <Row
+              k="產品"
+              v="台股現股當沖模擬教室。盤面比照券商：自選、江波、五檔、委託、庫存／成交。"
+            />
+            <Row
+              k="現況"
+              v="模擬撮合已開。學員可上課、可地端離線打、線上教室交易日 13:50 後可練最新完整盤。"
+            />
             <Row k="還沒有" v="券商實盤下單、學員帳號登入、真錢、保證獲利。" />
-            <Row k="資料邊界" v="加權＝證交所官方 5 秒指數。個股＝公開日成交套上同一條大盤節奏，不是逐筆成交。" />
+            <Row
+              k="資料邊界"
+              v="加權＝證交所官方 5 秒指數。個股＝公開日成交套上同一條大盤節奏，不是逐筆成交。"
+            />
             <Row k="之後接實盤" v="下單畫面已共用。接上券商只換 adapter，不必重做盤室。" />
             <Row k="商業用途" v="教室授權、班費、地端包。不是投顧、不是訊號、不是代操。" />
           </tbody>
@@ -160,12 +166,16 @@ function What() {
   return (
     <Section id="what" n="01" title="這是什麼、給誰用">
       <p className="text-pretty leading-relaxed text-muted">
-        學員先過入場密碼，再進大廳選一盤。進盤室後看到的是國票風格的現股當沖：黃帶、紫量、紅漲綠跌、1 張＝1,000 股。時間軸從 09:00 走到 13:30，可加速、可暫停。課綱會在關鍵分鐘自動停下來講。
+        學員先過入場密碼，再進大廳選一盤。進盤室後看到的是國票風格的現股當沖：黃帶、紫量、紅漲綠跌、1
+        張＝1,000 股。時間軸從 09:00 走到 13:30，可加速、可暫停。課綱會在關鍵分鐘自動停下來講。
       </p>
       <div className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
         <Fact label="給誰" body="股文觀指常態班／每日學習班學員。講師帶打、學員自己復盤。" />
         <Fact label="不給誰" body="要跟單、要保證獲利、要把教室當券商下單的人。那不是這份產品。" />
-        <Fact label="戰績怎麼存" body="進教室要入場密碼（講師發，全班同一組）。戰績存在該機瀏覽器，沒有雲端帳號。" />
+        <Fact
+          label="戰績怎麼存"
+          body="進教室要入場密碼（講師發，全班同一組）。戰績存在該機瀏覽器，沒有雲端帳號。"
+        />
       </div>
     </Section>
   );
@@ -176,16 +186,20 @@ function Play() {
     <Section id="play" n="02" title="學員怎麼玩">
       <ol className="space-y-4 text-sm leading-relaxed">
         <Step n="1" title="大廳選課">
-          建議依序：開盤觀察 → 週一殺盤 → 早盤下殺 → V 轉 → 週三攻高 → 期末考。線上教室另外有「自由練習」，是教材週之後的完整交易日。
+          建議依序：開盤觀察 → 週一殺盤 → 早盤下殺 → V 轉 → 週三攻高 →
+          期末考。線上教室另外有「自由練習」，是教材週之後的完整交易日。
         </Step>
         <Step n="2" title="先聽講解，再動手">
-          進盤室會先暫停。黃虛線是昨收、藍線是均價。Space 繼續。教學模式會在關鍵分鐘再停一次，把該看的指給你。
+          進盤室會先暫停。黃虛線是昨收、藍線是均價。Space
+          繼續。教學模式會在關鍵分鐘再停一次，把該看的指給你。
         </Step>
         <Step n="3" title="看盤，再下單">
-          左欄自選、中間江波／分價、右欄五檔與內外盤。委託單選買進或賣出、限價或市價、張數、價格。Enter 送單，Space 暫停。模擬盤目前只吃 ROD。
+          左欄自選、中間江波／分價、右欄五檔與內外盤。委託單選買進或賣出、限價或市價、張數、價格。Enter
+          送單，Space 暫停。模擬盤目前只吃 ROD。
         </Step>
         <Step n="4" title="部位與出場">
-          單檔建議不超過權益 30%。進場同時寫停損。13:20 還沒平，就是紀律破了；系統會在收盤前市價清倉。
+          單檔建議不超過權益 30%。進場同時寫停損。13:20
+          還沒平，就是紀律破了；系統會在收盤前市價清倉。
         </Step>
         <Step n="5" title="復盤">
           收盤後對照課綱：有沒有追價、有沒有被費稅吃掉、有沒有攤平。戰績寫進生涯損益，用來升段位，不是用來對外吹牛。
@@ -210,7 +224,8 @@ function Lessons() {
   return (
     <Section id="lessons" n="03" title="本週課綱">
       <p className="text-pretty leading-relaxed text-muted">
-        教材凍結在 2026/08/24–08/26 三個交易日。路徑不改，是因為暫停點綁在真實分鐘：週三 09:00:20 的低點、週二 11:00 的低點，不能每天被新盤蓋掉。
+        教材凍結在 2026/08/24–08/26 三個交易日。路徑不改，是因為暫停點綁在真實分鐘：週三 09:00:20
+        的低點、週二 11:00 的低點，不能每天被新盤蓋掉。
       </p>
       <div className="mt-5 overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-xl text-left text-sm">
@@ -223,12 +238,16 @@ function Lessons() {
             </tr>
           </thead>
           <tbody className="text-fg">
-            <Tr cells={["第 1 課", "8/26 開盤 45 分", "成本與第一槍", "09:00:20 探 44,926 再拉回"]} />
+            <Tr
+              cells={["第 1 課", "8/26 開盤 45 分", "成本與第一槍", "09:00:20 探 44,926 再拉回"]}
+            />
             <Tr cells={["第 2 課", "8/24 全日", "不接飛刀", "開高走低，收在最低 44,762"]} />
             <Tr cells={["第 3 課", "8/25 早盤 90 分", "停損寫在進場", "開盤 20 秒殺到 44,422"]} />
             <Tr cells={["第 4 課", "8/25 10:00 起", "順勢抱單", "11:00 印出 44,210，收在最高"]} />
             <Tr cells={["第 5 課", "8/26 全日", "停利比停損難", "收 45,833，漲 663 點"]} />
-            <Tr cells={["期末考", "8/26 全日 × 2 倍額度", "自己執行六式", "本金 500 萬，錯一次很痛"]} />
+            <Tr
+              cells={["期末考", "8/26 全日 × 2 倍額度", "自己執行六式", "本金 500 萬，錯一次很痛"]}
+            />
           </tbody>
         </table>
       </div>
@@ -291,11 +310,7 @@ function Data() {
               ]}
             />
             <Tr
-              cells={[
-                "教材週 8/24–26",
-                "上述官方數列，已內建",
-                "凍結。每日更新不會覆蓋這三天",
-              ]}
+              cells={["教材週 8/24–26", "上述官方數列，已內建", "凍結。每日更新不會覆蓋這三天"]}
             />
             <Tr
               cells={[
@@ -318,7 +333,8 @@ function Broker() {
   return (
     <Section id="broker" n="05" title="模擬盤與之後的實盤">
       <p className="text-pretty leading-relaxed text-muted">
-        委託單已經做成券商那張：帳號、盤別現股當沖、通路模擬／實盤、TIF ROD／IOC／FOK、買進賣出、限價市價、張數與價格。現在通路停在模擬，帳號 CLASSROOM-SIM。
+        委託單已經做成券商那張：帳號、盤別現股當沖、通路模擬／實盤、TIF
+        ROD／IOC／FOK、買進賣出、限價市價、張數與價格。現在通路停在模擬，帳號 CLASSROOM-SIM。
       </p>
       <div className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
         <Fact
@@ -348,7 +364,8 @@ function Offline() {
   return (
     <Section id="offline" n="06" title="地端教室">
       <p className="text-pretty leading-relaxed text-muted">
-        教室電腦常常不能連外網。大廳可下載地端包，解壓後雙擊 START.bat，瀏覽器開起來就能打。不必安裝、不必帳號、不必網路。
+        教室電腦常常不能連外網。大廳可下載地端包，解壓後雙擊
+        START.bat，瀏覽器開起來就能打。不必安裝、不必帳號、不必網路。
       </p>
       <ul className="mt-4 space-y-2 text-sm leading-relaxed text-muted">
         <li>地端只內建教材週 8/24–8/26。不會去抓最新盤，免得教室斷線或被擋。</li>
@@ -405,13 +422,15 @@ function Agenda() {
           可以談：班級授權、地端包授權、講師帳。現在是全班同一組入場密碼，還沒有按人頭雲端帳號。
         </Step>
         <Step n="3" title="要不要接哪一家券商？">
-          下單畫面已預留。選哪一家、測試帳、正式帳、誰付 API 費，是石大哥跟券商的事。教室端只換 adapter。
+          下單畫面已預留。選哪一家、測試帳、正式帳、誰付 API 費，是石大哥跟券商的事。教室端只換
+          adapter。
         </Step>
         <Step n="4" title="學員資料放哪？">
           入場之後戰績仍放本機。若要跨機戰績、排行、繳費，再做每人帳號。沒有身份就上實盤，不建議。
         </Step>
         <Step n="5" title="對外怎麼講？">
-          可以講：真實加權 5 秒、真實當日開高低收、券商風格盤面、課綱帶打。不可以講：逐筆行情、已經能實盤下單、保證會賺。
+          可以講：真實加權 5
+          秒、真實當日開高低收、券商風格盤面、課綱帶打。不可以講：逐筆行情、已經能實盤下單、保證會賺。
         </Step>
       </ol>
     </Section>
@@ -422,10 +441,11 @@ function Colophon() {
   return (
     <footer className="mt-16 border-t border-border pt-6 text-micro leading-relaxed text-subtle">
       <p>當沖大富翁 · 股文觀指教室 · {VERSION}</p>
+      <p className="mt-1">原始碼 {GITHUB}</p>
       <p className="mt-1">
-        原始碼 {GITHUB}
+        本文件可列印、可下載
+        PDF，給石大哥與講師當面過。內容以產品現況為準，實盤未接線前請勿對外宣稱可下真單。
       </p>
-      <p className="mt-1">本文件可列印、可下載 PDF，給石大哥與講師當面過。內容以產品現況為準，實盤未接線前請勿對外宣稱可下真單。</p>
     </footer>
   );
 }
@@ -489,7 +509,12 @@ function Step({ n, title, children }: { n: string; title: string; children: Reac
 function Row({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
   return (
     <tr className="border-t border-border first:border-t-0">
-      <th className={cn("w-28 px-3 py-2 align-top font-medium text-muted sm:w-36", mono && "font-mono")}>
+      <th
+        className={cn(
+          "w-28 px-3 py-2 align-top font-medium text-muted sm:w-36",
+          mono && "font-mono",
+        )}
+      >
         {k}
       </th>
       <td className="px-3 py-2 text-pretty">{v}</td>
@@ -522,4 +547,3 @@ function Mark() {
     </svg>
   );
 }
-

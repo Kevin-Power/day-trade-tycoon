@@ -49,8 +49,6 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-2xl: 24px;
-
-  --min-width-watchlist: 56rem;
 }
 
 @layer base {
@@ -83,6 +81,17 @@
   ::selection {
     background: color-mix(in oklab, var(--color-header-2) 70%, white);
     color: var(--color-fg);
+  }
+
+  /* Ticket steppers draw their own +/- buttons; hide the native spinners. */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
   }
 }
 
@@ -189,6 +198,10 @@
   }
 }
 
+.term-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #2a3a4e #0c1016;
+}
 .term-scroll::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -201,71 +214,141 @@
   background: #0c1016;
 }
 
-.term-mobile {
-  display: flex;
-  min-height: 0;
-}
-.term-mobile-nav {
-  display: grid;
-}
-.term-desk {
-  display: none;
-}
-
+/* ---------------------------------------------------------------------------
+ * Trading desk layout
+ *
+ * Which one mounts is decided in terminal.tsx: viewport width (720px) by
+ * default, or the 版面 switch in the top menu when the user pins one.
+ *
+ * phone: one pane at a time, bottom tab bar.
+ * desk:  three columns —
+ *             自選 (full height) | 加權 / 江波 / 帳務 | 五檔 + 委託單 (full height)
+ *           The right rail is a flex column: the ticket keeps its natural height
+ *           and the book takes whatever is left, so the ticket is never squeezed.
+ * ------------------------------------------------------------------------- */
 .term-grid {
-  grid-template-columns: minmax(220px, 1.2fr) minmax(0, 1.2fr) minmax(220px, 1fr);
-  grid-template-rows: minmax(0, 0.9fr) minmax(0, 1.25fr) 176px;
+  grid-template-columns: minmax(200px, 0.9fr) minmax(0, 2.1fr) minmax(280px, 21rem);
+  grid-template-rows: minmax(120px, 0.55fr) minmax(0, 1.45fr) minmax(150px, 0.6fr);
   grid-template-areas:
-    "watch index index"
-    "watch chart quote"
-    "ticket ticket pos";
+    "watch index rail"
+    "watch chart rail"
+    "watch dock rail";
 }
 
-@media (min-width: 720px) {
-  .term-mobile,
-  .term-mobile-nav {
-    display: none !important;
+@media (min-width: 1100px) {
+  .term-grid {
+    grid-template-columns: minmax(300px, 0.95fr) minmax(0, 2fr) 22rem;
   }
-  .term-desk {
-    display: grid !important;
+}
+
+@media (min-width: 1600px) {
+  .term-grid {
+    grid-template-columns: minmax(340px, 1fr) minmax(0, 2.3fr) 23rem;
+    grid-template-rows: minmax(140px, 0.5fr) minmax(0, 1.55fr) minmax(170px, 0.55fr);
   }
 }
 
 .term-watch {
   grid-area: watch;
 }
-
 .term-index {
   grid-area: index;
 }
-
 .term-chart {
   grid-area: chart;
 }
-
-.term-quote {
-  grid-area: quote;
+.term-dock {
+  grid-area: dock;
+}
+.term-rail {
+  grid-area: rail;
 }
 
-.term-ticket {
-  grid-area: ticket;
+/* Panes size their columns by their own width, not the viewport. */
+.cq-watch {
+  container: watch / inline-size;
+}
+.cq-rail {
+  container: rail / inline-size;
 }
 
-.term-pos {
-  grid-area: pos;
+.wl-sm,
+.wl-md,
+.wl-lg,
+.wl-xl,
+.wl-meta {
+  display: none;
+}
+@container watch (min-width: 19rem) {
+  .wl-sm {
+    display: table-cell;
+  }
+}
+@container watch (min-width: 22rem) {
+  .wl-meta {
+    display: inline;
+  }
+}
+@container watch (min-width: 26rem) {
+  .wl-md {
+    display: table-cell;
+  }
+}
+@container watch (min-width: 33rem) {
+  .wl-lg {
+    display: table-cell;
+  }
+}
+@container watch (min-width: 44rem) {
+  .wl-xl {
+    display: table-cell;
+  }
+}
+
+.quote-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@container rail (min-width: 21rem) {
+  .quote-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Lesson pop-over: bottom sheet on the phone layout, over the chart's top-right on the desk. */
+.lesson-dock {
+  position: absolute;
+  z-index: 40;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 5.5rem;
+}
+[data-layout="desk"] .lesson-dock {
+  left: auto;
+  bottom: auto;
+  top: 5.25rem;
+  right: calc(21rem + 0.75rem);
+  width: 21rem;
+}
+@media (min-width: 1100px) {
+  [data-layout="desk"] .lesson-dock {
+    right: calc(22rem + 0.75rem);
+  }
+}
+@media (min-width: 1600px) {
+  [data-layout="desk"] .lesson-dock {
+    right: calc(23rem + 0.75rem);
+  }
 }
 
 .pane-title {
-  background: linear-gradient(180deg, #2a5ea8 0%, #163a6b 55%, #122f58 100%);
+  background: linear-gradient(180deg, #1e4f8f 0%, #173d70 55%, #143564 100%);
   color: var(--color-fg);
   font-size: 0.75rem;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   font-weight: 500;
-  box-shadow: inset 0 1px 0 #5a8fd0, inset 0 -1px 0 #0c2240;
-}
-
-.pane-sunken {
-  box-shadow: inset 1px 1px 0 #000, inset -1px -1px 0 #3a4c60;
+  border-bottom: 1px solid #0b2244;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.09);
 }
 
 @media print {

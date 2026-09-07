@@ -63,3 +63,28 @@ export function applySession(profile: Profile, rec: SessionRecord): Profile {
   saveProfile(next);
   return next;
 }
+
+const LAYOUT_KEY = "day-tycoon-layout";
+
+/** 版面：auto 依視窗寬度切換；desk / phone 為使用者鎖定（投影、放大時用）。 */
+export type LayoutPref = "auto" | "desk" | "phone";
+
+export function loadLayoutPref(): LayoutPref {
+  if (typeof window === "undefined") return "auto";
+  try {
+    const v = window.localStorage.getItem(LAYOUT_KEY);
+    return v === "desk" || v === "phone" ? v : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+export function saveLayoutPref(pref: LayoutPref) {
+  if (typeof window === "undefined") return;
+  try {
+    if (pref === "auto") window.localStorage.removeItem(LAYOUT_KEY);
+    else window.localStorage.setItem(LAYOUT_KEY, pref);
+  } catch {
+    /* quota / private mode */
+  }
+}

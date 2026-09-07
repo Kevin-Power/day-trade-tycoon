@@ -14,6 +14,8 @@ export type OrderIntent = {
   tif: TimeInForce;
   lots: number;
   price?: number;
+  /** 進場時寫下的停損價。券商 API 接上後對應到停損委託。 */
+  stop?: number;
 };
 
 export type BrokerAck =

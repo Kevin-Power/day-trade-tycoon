@@ -1,8 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { toneClass } from "@/components/signed";
+import { PaneTab, PaneTitle } from "@/components/ui/pane";
 import { useGame } from "@/lib/game/store";
 import { formatPrice } from "@/lib/market/ticks";
 import { cn, formatLots, formatMoney, formatSigned, formatTime } from "@/lib/utils";
+
+const TH = "whitespace-nowrap px-2 py-1 text-right font-medium";
+const TD = "whitespace-nowrap px-2 py-[3px] text-right tabular";
+
+function pnlPct(p: { uPnl: number; avg: number; lots: number }) {
+  const basis = Math.abs(p.avg * p.lots) * 1000;
+  if (basis <= 0) return "0.00%";
+  const n = (p.uPnl / basis) * 100;
+  return `${n > 0 ? "+" : ""}${n.toFixed(2)}%`;
+}
 
 export function PositionsDock() {
   const engine = useGame((s) => s.engine);
@@ -17,50 +28,57 @@ export function PositionsDock() {
   const pos = engine.openPositions();
   const orders = engine.orders.filter((o) => o.status === "pending" || o.status === "partial");
   const fills = engine.fills;
+  const unrealized = pos.reduce((sum, p) => sum + p.uPnl, 0);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-bg">
-      <div className="pane-title flex h-7 items-center gap-1 px-1">
+      <PaneTitle>
         {(
           [
-            ["orders", `委託 ${orders.length}`],
-            ["fills", `成交 ${fills.length}`],
-            ["pos", `庫存 ${pos.length}`],
+            ["orders", "委託", orders.length],
+            ["fills", "成交", fills.length],
+            ["pos", "庫存", pos.length],
           ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setTab(id)}
-            className={cn(
-              "h-6 rounded-xs px-2 text-micro",
-              tab === id ? "bg-header-2 text-fg" : "text-fg/70 hover:text-fg",
-            )}
-          >
+        ).map(([id, label, n]) => (
+          <PaneTab key={id} active={tab === id} onClick={() => setTab(id)}>
             {label}
-          </button>
+            <span className={cn("ml-1 font-mono tabular", n > 0 ? "text-fg" : "text-fg/50")}>
+              {n}
+            </span>
+          </PaneTab>
         ))}
+        {pos.length > 0 && (
+          <span className="ml-2 hidden font-mono text-micro tabular sm:inline">
+            <span className="text-fg/70">未實現 </span>
+            <span className={toneClass(unrealized)}>{formatSigned(unrealized, 0)}</span>
+          </span>
+        )}
         <div className="flex-1" />
         <Button size="xs" variant="outline" onClick={flattenAll} disabled={pos.length === 0}>
           全部平倉
         </Button>
-      </div>
+      </PaneTitle>
       <div className="term-scroll min-h-0 flex-1 overflow-auto">
         {tab === "pos" && (
           <table className="w-full border-collapse font-mono text-micro">
-            <thead className="sticky top-0 bg-surface-2 text-muted">
+            <thead className="sticky top-0 z-10 bg-surface-2 text-2xs text-muted shadow-[inset_0_-1px_0_var(--color-border-strong)]">
               <tr>
-                {["商品", "買賣", "張數", "均價", "現價", "未實現"].map((h) => (
-                  <th key={h} className="px-2 py-1 text-left font-medium">
-                    {h}
-                  </th>
-                ))}
+                <th className={cn(TH, "text-left")}>商品</th>
+                <th className={TH}>買賣</th>
+                <th className={TH}>張數</th>
+                <th className={TH}>均價</th>
+                <th className={TH}>現價</th>
+                <th className={TH} title="進場時自己寫下的停損價。系統不代為出場。">
+                  停損
+                </th>
+                <th className={TH}>未實現</th>
+                <th className={TH}>損益%</th>
               </tr>
             </thead>
             <tbody>
               {pos.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-2 py-6 text-center text-muted">
+                  <td colSpan={8} className="px-2 py-6 text-center text-muted">
                     尚無庫存。買進或先賣都會出現在這裡。
                   </td>
                 </tr>
@@ -69,21 +87,41 @@ export function PositionsDock() {
                 <tr
                   key={p.code}
                   onClick={() => select(p.code)}
-                  className="cursor-pointer border-b border-border/70 hover:bg-elevated"
+                  className="cursor-pointer border-b border-border/70 transition-colors hover:bg-elevated"
                 >
-                  <td className="px-2 py-1">
-                    {p.code} {p.name}
+                  <td className={cn(TD, "text-left")}>
+                    <span className="text-muted">{p.code}</span>{" "}
+                    <span className="font-sans text-xs">{p.name}</span>
                   </td>
-                  <td className={cn("px-2 py-1", p.lots > 0 ? "text-up" : "text-down")}>
+                  <td className={cn(TD, p.lots > 0 ? "text-up" : "text-down")}>
                     {p.lots > 0 ? "買" : "賣"}
                   </td>
-                  <td className={cn("px-2 py-1 tabular", p.lots > 0 ? "text-up" : "text-down")}>
+                  <td className={cn(TD, p.lots > 0 ? "text-up" : "text-down")}>
                     {p.lots > 0 ? "+" : ""}
                     {formatLots(p.lots)}
                   </td>
-                  <td className="px-2 py-1 tabular">{formatPrice(p.avg)}</td>
-                  <td className="px-2 py-1 tabular">{formatPrice(p.last)}</td>
-                  <td className={cn("px-2 py-1 tabular", toneClass(p.uPnl))}>{formatSigned(p.uPnl, 0)}</td>
+                  <td className={TD}>{formatPrice(p.avg)}</td>
+                  <td className={TD}>{formatPrice(p.last)}</td>
+                  <td
+                    className={cn(
+                      TD,
+                      p.stop == null ? "text-warn" : p.stopBreached ? "text-warn" : "text-muted",
+                    )}
+                    title={
+                      p.stop == null
+                        ? "這筆沒有寫停損"
+                        : p.stopBreached
+                          ? "已觸及停損，系統不會代你出場"
+                          : undefined
+                    }
+                  >
+                    {p.stop == null ? "未寫" : formatPrice(p.stop)}
+                    {p.stopBreached && " !"}
+                  </td>
+                  <td className={cn(TD, "font-medium", toneClass(p.uPnl))}>
+                    {formatSigned(p.uPnl, 0)}
+                  </td>
+                  <td className={cn(TD, toneClass(p.uPnl))}>{pnlPct(p)}</td>
                 </tr>
               ))}
             </tbody>
@@ -91,13 +129,14 @@ export function PositionsDock() {
         )}
         {tab === "orders" && (
           <table className="w-full border-collapse font-mono text-micro">
-            <thead className="sticky top-0 bg-surface-2 text-muted">
+            <thead className="sticky top-0 z-10 bg-surface-2 text-2xs text-muted shadow-[inset_0_-1px_0_var(--color-border-strong)]">
               <tr>
-                {["時間", "買賣", "商品", "價格", "量", ""].map((h) => (
-                  <th key={h} className="px-2 py-1 text-left font-medium">
-                    {h}
-                  </th>
-                ))}
+                <th className={cn(TH, "text-left")}>時間</th>
+                <th className={TH}>買賣</th>
+                <th className={cn(TH, "text-left")}>商品</th>
+                <th className={TH}>價格</th>
+                <th className={TH}>成交/委託</th>
+                <th className={TH} />
               </tr>
             </thead>
             <tbody>
@@ -110,17 +149,21 @@ export function PositionsDock() {
               )}
               {orders.map((o) => (
                 <tr key={o.id} className="border-b border-border/70">
-                  <td className="px-2 py-1 tabular text-muted">{formatTime(o.time)}</td>
-                  <td className={cn("px-2 py-1", o.side === "buy" ? "text-up" : "text-down")}>
+                  <td className={cn(TD, "text-left text-muted")}>{formatTime(o.time)}</td>
+                  <td className={cn(TD, o.side === "buy" ? "text-up" : "text-down")}>
                     {o.side === "buy" ? "買" : "賣"}
                   </td>
-                  <td className="px-2 py-1">{o.code}</td>
-                  <td className="px-2 py-1 tabular">{o.type === "market" ? "市價" : formatPrice(o.price)}</td>
-                  <td className="px-2 py-1 tabular">
+                  <td className={cn(TD, "text-left")}>{o.code}</td>
+                  <td className={TD}>{o.type === "market" ? "市價" : formatPrice(o.price)}</td>
+                  <td className={TD}>
                     {o.filled}/{o.lots}
                   </td>
-                  <td className="px-2 py-1">
-                    <button type="button" className="text-muted hover:text-fg" onClick={() => cancelOrder(o.id)}>
+                  <td className={TD}>
+                    <button
+                      type="button"
+                      className="rounded-xs border border-border px-1.5 py-px text-2xs text-muted transition-colors hover:border-up hover:text-up"
+                      onClick={() => cancelOrder(o.id)}
+                    >
                       刪單
                     </button>
                   </td>
@@ -131,13 +174,14 @@ export function PositionsDock() {
         )}
         {tab === "fills" && (
           <table className="w-full border-collapse font-mono text-micro">
-            <thead className="sticky top-0 bg-surface-2 text-muted">
+            <thead className="sticky top-0 z-10 bg-surface-2 text-2xs text-muted shadow-[inset_0_-1px_0_var(--color-border-strong)]">
               <tr>
-                {["時間", "買賣", "商品", "價格", "張", "費稅"].map((h) => (
-                  <th key={h} className="px-2 py-1 text-left font-medium">
-                    {h}
-                  </th>
-                ))}
+                <th className={cn(TH, "text-left")}>時間</th>
+                <th className={TH}>買賣</th>
+                <th className={cn(TH, "text-left")}>商品</th>
+                <th className={TH}>價格</th>
+                <th className={TH}>張</th>
+                <th className={TH}>費稅</th>
               </tr>
             </thead>
             <tbody>
@@ -150,14 +194,14 @@ export function PositionsDock() {
               )}
               {fills.map((f) => (
                 <tr key={f.id} className="border-b border-border/70">
-                  <td className="px-2 py-1 tabular text-muted">{formatTime(f.time)}</td>
-                  <td className={cn("px-2 py-1", f.side === "buy" ? "text-up" : "text-down")}>
+                  <td className={cn(TD, "text-left text-muted")}>{formatTime(f.time)}</td>
+                  <td className={cn(TD, f.side === "buy" ? "text-up" : "text-down")}>
                     {f.side === "buy" ? "買" : "賣"}
                   </td>
-                  <td className="px-2 py-1">{f.code}</td>
-                  <td className="px-2 py-1 tabular">{formatPrice(f.price)}</td>
-                  <td className="px-2 py-1 tabular">{f.lots}</td>
-                  <td className="px-2 py-1 tabular text-muted">{formatMoney(f.fee + f.tax)}</td>
+                  <td className={cn(TD, "text-left")}>{f.code}</td>
+                  <td className={TD}>{formatPrice(f.price)}</td>
+                  <td className={TD}>{f.lots}</td>
+                  <td className={cn(TD, "text-muted")}>{formatMoney(f.fee + f.tax)}</td>
                 </tr>
               ))}
             </tbody>

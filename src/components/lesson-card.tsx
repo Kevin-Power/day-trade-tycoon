@@ -12,17 +12,19 @@ export function LessonCard() {
   if (!beat || !lesson) return null;
 
   return (
-    <div className="pointer-events-none absolute right-3 top-20 z-40 flex justify-end px-0">
+    <div className="lesson-dock pointer-events-none flex justify-end">
       <div
         role="dialog"
         aria-labelledby="lesson-title"
-        className="pointer-events-auto w-full max-w-lg overflow-hidden rounded-md border border-border-strong bg-surface shadow-[var(--shadow-panel)] lg:w-80"
+        className="pointer-events-auto w-full overflow-hidden rounded-md border border-border-strong bg-surface shadow-[var(--shadow-panel)]"
       >
         <div className="pane-title flex h-7 items-center justify-between px-2.5">
           <span>
             {lesson.no} · {lesson.skill}
           </span>
-          <span className="font-mono text-micro text-fg/80">{formatTime(beat.atMinute * 60).slice(0, 5)}</span>
+          <span className="font-mono text-micro text-fg/80">
+            {formatTime(beat.atMinute * 60).slice(0, 5)}
+          </span>
         </div>
         <div className="p-2.5">
           <h3 id="lesson-title" className="text-sm font-medium">

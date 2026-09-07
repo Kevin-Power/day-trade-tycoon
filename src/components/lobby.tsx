@@ -1,5 +1,23 @@
-import { Activity, BookOpen, ChevronRight, Clock3, Download, HardDrive, LogOut, Shield, Target, TrendingUp } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import {
+  Activity,
+  BookOpen,
+  ChevronRight,
+  Clock3,
+  Download,
+  GraduationCap,
+  HardDrive,
+  LogOut,
+  Shield,
+  Target,
+  TrendingUp,
+} from "lucide-react";
+
+type LobbyProps = {
+  /** Offline pack has no router — the shell passes these to switch views instead. */
+  onOpenManual?: () => void;
+  onOpenHandbook?: () => void;
+};
+import { DocLink } from "@/components/doc-link";
 import { Button } from "@/components/ui/button";
 import { nextRank, rankFor, SCENARIOS } from "@/lib/game/scenarios";
 import { lessonById, PRINCIPLES } from "@/lib/game/curriculum";
@@ -14,7 +32,7 @@ import { useGate } from "@/lib/gate/context";
 const WEEK_ORDER = ["mon", "tue", "wed"] as const;
 const CLASSROOM_OFFLINE = import.meta.env.BASE_URL === "./";
 
-export function Lobby() {
+export function Lobby({ onOpenManual, onOpenHandbook }: LobbyProps = {}) {
   const profile = useGame((s) => s.profile);
   const start = useGame((s) => s.start);
   const hydrated = useGame((s) => s.hydrated);
@@ -48,14 +66,24 @@ export function Lobby() {
           <span className="hidden rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs tracking-wide text-tape sm:inline">
             模擬盤
           </span>
-          <Link
+          <DocLink
+            to="/handbook"
+            onOpen={onOpenHandbook}
+            className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-border-strong bg-surface px-3 text-xs text-fg hover:bg-elevated"
+          >
+            <GraduationCap className="size-3.5" />
+            <span className="hidden sm:inline">教材</span>
+            <span className="sm:hidden">教材</span>
+          </DocLink>
+          <DocLink
             to="/manual"
+            onOpen={onOpenManual}
             className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-border-strong bg-surface px-3 text-xs text-fg hover:bg-elevated"
           >
             <BookOpen className="size-3.5" />
             <span className="hidden sm:inline">說明書</span>
             <span className="sm:hidden">說明</span>
-          </Link>
+          </DocLink>
           {CLASSROOM_OFFLINE ? (
             <span className="rounded-xs border border-border-strong bg-elevated px-2 py-1 text-micro text-muted">
               地端教室 · 離線
@@ -93,16 +121,37 @@ export function Lobby() {
             當沖大富翁
           </h1>
           <p className="mt-4 max-w-xl text-pretty text-sm leading-relaxed text-muted sm:text-base">
-            加權為證交所每 5 秒指數。課綱凍結 8/24–8/26。下單畫面比照券商現股當沖：模擬撮合已開，實盤 API 接上後只換通路。
+            加權為證交所每 5 秒指數。課綱凍結
+            8/24–8/26。下單畫面比照券商現股當沖：模擬撮合已開，實盤 API 接上後只換通路。
           </p>
         </section>
 
         <section className="mb-8 flex flex-col gap-1 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
-          <span className="w-fit rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs tracking-wide text-tape">模擬盤</span>
+          <span className="w-fit rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs tracking-wide text-tape">
+            模擬盤
+          </span>
           <span className="text-sm">現股當沖 · 帳號 CLASSROOM-SIM</span>
           <span className="text-micro text-muted sm:ml-auto">
             委託單與實盤共用。券商 API 尚未接線，點實盤會提示。
           </span>
+        </section>
+
+        <section className="mb-8 flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium">課堂教材</div>
+            <p className="mt-1 text-pretty text-micro leading-relaxed text-muted">
+              學員講義：規則與成本算式、當沖六式、名詞表、常見錯誤、課綱、交易計畫表。
+              另附講師教案。整份可列印成 A4 發下去。
+            </p>
+          </div>
+          <DocLink
+            to="/handbook"
+            onOpen={onOpenHandbook}
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-sm bg-header-2 px-3 text-xs text-fg hover:bg-header"
+          >
+            <GraduationCap className="size-3.5" />
+            打開教材
+          </DocLink>
         </section>
 
         <section className="mb-8 flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center">
@@ -112,13 +161,14 @@ export function Lobby() {
               學員怎麼玩、資料哪裡來、模擬跟實盤差在哪。可列印、可下載 PDF。
             </p>
           </div>
-          <Link
+          <DocLink
             to="/manual"
+            onOpen={onOpenManual}
             className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-sm bg-header-2 px-3 text-xs text-fg hover:bg-header"
           >
             <BookOpen className="size-3.5" />
             打開說明書
-          </Link>
+          </DocLink>
         </section>
 
         <section className="mb-8 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
@@ -146,13 +196,14 @@ export function Lobby() {
         <LiveTape />
 
         <section className="mb-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
-          <HeroStat label="生涯損益" value={formatSigned(profile.careerPnl, 0)} tone={profile.careerPnl} />
+          <HeroStat
+            label="生涯損益"
+            value={formatSigned(profile.careerPnl, 0)}
+            tone={profile.careerPnl}
+          />
           <HeroStat label="已完成盤數" value={String(profile.sessions)} />
           <HeroStat label="勝率" value={`${(winRate * 100).toFixed(0)}%`} />
-          <HeroStat
-            label="下一階"
-            value={nxt ? `${nxt.title} · ${nxt.need}` : "已達頂點"}
-          />
+          <HeroStat label="下一階" value={nxt ? `${nxt.title} · ${nxt.need}` : "已達頂點"} />
         </section>
 
         <section>
@@ -164,49 +215,51 @@ export function Lobby() {
             {SCENARIOS.map((sc) => {
               const lesson = lessonById(sc.id);
               return (
-              <article
-                key={sc.id}
-                className="group flex flex-col rounded-lg border border-border bg-surface p-4 shadow-[var(--shadow-panel)] transition-[border-color] duration-150 hover:border-border-strong"
-              >
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <span className="rounded-xs bg-elevated px-1.5 py-0.5 text-2xs tracking-wide text-muted">
-                    {lesson ? `${lesson.no} · ${lesson.skill}` : sc.tag}
-                  </span>
-                  <span className="font-mono text-micro text-muted">
-                    {sc.minutes} 分 · {sc.speed}x
-                  </span>
-                </div>
-                <h3 className="text-lg font-medium">{sc.name}</h3>
-                <p className="mt-2 flex-1 text-pretty text-sm leading-relaxed text-muted">{sc.blurb}</p>
-                <ul className="mt-3 space-y-1 text-micro text-subtle">
-                  <li className="flex items-center gap-1.5">
-                    <Target className="size-3.5" />
-                    {sc.objective}
-                  </li>
-                  {lesson && (
-                    <li className="flex items-center gap-1.5">
-                      <BookOpen className="size-3.5" />
-                      {lesson.principle}
-                    </li>
-                  )}
-                  <li className="flex items-center gap-1.5">
-                    <Shield className="size-3.5" />
-                    本金 {formatMoney(sc.capital)} · {sc.leverage}x 額度
-                    {sc.allowShort ? " · 可先賣" : " · 僅先買"}
-                  </li>
-                </ul>
-                <Button
-                  className="mt-4 w-full"
-                  onClick={() => {
-                    unlockAudio();
-                    playOpen();
-                    start(sc.id);
-                  }}
+                <article
+                  key={sc.id}
+                  className="group flex flex-col rounded-lg border border-border bg-surface p-4 shadow-[var(--shadow-panel)] transition-[border-color] duration-150 hover:border-border-strong"
                 >
-                  進入盤室
-                  <ChevronRight className="size-4" />
-                </Button>
-              </article>
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <span className="rounded-xs bg-elevated px-1.5 py-0.5 text-2xs tracking-wide text-muted">
+                      {lesson ? `${lesson.no} · ${lesson.skill}` : sc.tag}
+                    </span>
+                    <span className="font-mono text-micro text-muted">
+                      {sc.minutes} 分 · {sc.speed}x
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-medium">{sc.name}</h3>
+                  <p className="mt-2 flex-1 text-pretty text-sm leading-relaxed text-muted">
+                    {sc.blurb}
+                  </p>
+                  <ul className="mt-3 space-y-1 text-micro text-subtle">
+                    <li className="flex items-center gap-1.5">
+                      <Target className="size-3.5" />
+                      {sc.objective}
+                    </li>
+                    {lesson && (
+                      <li className="flex items-center gap-1.5">
+                        <BookOpen className="size-3.5" />
+                        {lesson.principle}
+                      </li>
+                    )}
+                    <li className="flex items-center gap-1.5">
+                      <Shield className="size-3.5" />
+                      本金 {formatMoney(sc.capital)} · {sc.leverage}x 額度
+                      {sc.allowShort ? " · 可先賣" : " · 僅先買"}
+                    </li>
+                  </ul>
+                  <Button
+                    className="mt-4 w-full"
+                    onClick={() => {
+                      unlockAudio();
+                      playOpen();
+                      start(sc.id);
+                    }}
+                  >
+                    進入盤室
+                    <ChevronRight className="size-4" />
+                  </Button>
+                </article>
               );
             })}
           </div>
@@ -229,7 +282,9 @@ export function Lobby() {
           <div className="rounded-lg border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-medium">近況戰績</h2>
             {(!hydrated || profile.history.length === 0) && (
-              <p className="py-8 text-center text-sm text-muted">還沒有戰績。先打第 1 課 開盤觀察。</p>
+              <p className="py-8 text-center text-sm text-muted">
+                還沒有戰績。先打第 1 課 開盤觀察。
+              </p>
             )}
             {hydrated && profile.history.length > 0 && (
               <div className="term-scroll overflow-auto">
@@ -246,8 +301,12 @@ export function Lobby() {
                     {profile.history.slice(0, 8).map((h) => (
                       <tr key={h.id} className="border-t border-border">
                         <td className="py-1.5">{h.scenarioName}</td>
-                        <td className={cn("py-1.5 tabular", toneClass(h.pnl))}>{formatSigned(h.pnl, 0)}</td>
-                        <td className={cn("py-1.5 tabular", toneClass(h.pnlPct))}>{formatPct(h.pnlPct)}</td>
+                        <td className={cn("py-1.5 tabular", toneClass(h.pnl))}>
+                          {formatSigned(h.pnl, 0)}
+                        </td>
+                        <td className={cn("py-1.5 tabular", toneClass(h.pnlPct))}>
+                          {formatPct(h.pnlPct)}
+                        </td>
                         <td className="py-1.5">{h.grade}</td>
                       </tr>
                     ))}
@@ -261,11 +320,14 @@ export function Lobby() {
             <ul className="space-y-3 text-sm leading-relaxed text-muted">
               <li className="flex gap-2">
                 <Clock3 className="mt-0.5 size-4 shrink-0 text-fg" />
-                時間軸 09:00–13:30。加權＝證交所每 5 秒指數；個股＝公開日成交套大盤節奏（非逐筆）。下單走模擬撮合。實盤 API 接上後只換 adapter。
+                時間軸 09:00–13:30。加權＝證交所每 5
+                秒指數；個股＝公開日成交套大盤節奏（非逐筆）。下單走模擬撮合。實盤 API 接上後只換
+                adapter。
               </li>
               <li className="flex gap-2">
                 <TrendingUp className="mt-0.5 size-4 shrink-0 text-fg" />
-                紅漲綠跌、1 張 = 1,000 股、±10% 漲跌停、五檔撮合。個股預設江波圖，分價表看堆積。教學模式會在關鍵分鐘暫停。
+                紅漲綠跌、1 張 = 1,000 股、±10%
+                漲跌停、五檔撮合。個股預設江波圖，分價表看堆積。教學模式會在關鍵分鐘暫停。
               </li>
               <li className="flex gap-2">
                 <Activity className="mt-0.5 size-4 shrink-0 text-fg" />
@@ -287,7 +349,12 @@ function HeroStat({ label, value, tone }: { label: string; value: string; tone?:
   return (
     <div className="bg-surface px-4 py-3">
       <div className="text-micro text-muted">{label}</div>
-      <div className={cn("mt-1 font-mono text-lg tabular", tone !== undefined ? toneClass(tone) : "text-fg")}>
+      <div
+        className={cn(
+          "mt-1 font-mono text-lg tabular",
+          tone !== undefined ? toneClass(tone) : "text-fg",
+        )}
+      >
         {value}
       </div>
     </div>
