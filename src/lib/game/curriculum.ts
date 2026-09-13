@@ -1,4 +1,4 @@
-import type { Side } from "@/lib/game/types";
+import type { Side } from "./types.ts";
 
 export type LessonBeat = {
   atMinute: number;

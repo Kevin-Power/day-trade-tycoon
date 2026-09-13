@@ -1,5 +1,5 @@
-import { passRulesOf, type PassRule } from "@/lib/game/curriculum";
-import type { Fill, Side } from "@/lib/game/types";
+import { passRulesOf, type PassRule } from "./curriculum.ts";
+import type { Fill, Side } from "./types.ts";
 
 export type RuleVerdict = {
   rule: PassRule;
@@ -16,6 +16,8 @@ export type PassInput = {
   endT: number;
   positionsOpen: number;
   fills: Fill[];
+  /** 收盤時系統強制平倉（學員未自行平倉） */
+  forcedClose?: boolean;
   /** 曾經持有的最大張數時間軸，用於攤平判定 */
   lotSeries?: { t: number; lots: number; avg: number }[];
 };
@@ -94,8 +96,16 @@ export function evaluatePass(input: PassInput): { passed: boolean; verdicts: Rul
         return { rule, passed: ok, detail: `最大回撤 ${(input.maxDrawdown * 100).toFixed(2)}%（門檻 ${(max * 100).toFixed(0)}%）` };
       }
       case "flatten_before_close": {
-        const ok = input.positionsOpen === 0;
-        return { rule, passed: ok, detail: ok ? "收盤時無庫存" : "收盤時仍有未平倉" };
+        const ok = input.positionsOpen === 0 && !input.forcedClose;
+        return {
+          rule,
+          passed: ok,
+          detail: input.forcedClose
+            ? "收盤時仍有未平倉，由系統市價出場"
+            : ok
+              ? "收盤時無庫存"
+              : "收盤時仍有未平倉",
+        };
       }
       case "no_average_down": {
         const r = averagedDown(input.fills);
@@ -120,7 +130,7 @@ export function evaluatePass(input: PassInput): { passed: boolean; verdicts: Rul
         return { rule, passed: n >= min, detail: `獲利當沖 ${n} 筆` };
       }
       case "risk_down_after_low": {
-        const stillOpen = input.positionsOpen > 0;
+        const stillOpen = input.positionsOpen > 0 || !!input.forcedClose;
         return { rule, passed: !stillOpen || input.maxDrawdown <= 0.04, detail: stillOpen ? "低點後仍有部位" : "風險已降下" };
       }
       default:

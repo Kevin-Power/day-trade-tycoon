@@ -190,6 +190,7 @@ export const useGame = create<GameStore>((set, get) => ({
           endT: engine.t,
           positionsOpen: [...engine.positions.values()].filter((p) => p.lots !== 0).length,
           fills: engine.fills,
+          forcedClose: engine.forcedClose,
         })
       : { passed: true, verdicts: [] };
     const rec: SessionRecord = {

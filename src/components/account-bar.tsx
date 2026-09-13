@@ -92,7 +92,7 @@ export function AccountBar() {
         </Button>
         <Button size="xs" variant="outline" onClick={settle}>
           <Square className="size-3.5" />
-          提前結算
+          結束本盤
         </Button>
         <Button size="xs" variant="ghost" onClick={leave}>
           回大廳
