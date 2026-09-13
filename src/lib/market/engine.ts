@@ -68,6 +68,8 @@ export class DayMarket {
 
   t = 0;
   ended = false;
+  /** 收盤時仍有庫存、由系統市價出場。不改撮合，只給復盤判定用。 */
+  forcedClose = false;
   cash: number;
   realized = 0;
   feesPaid = 0;
@@ -101,6 +103,7 @@ export class DayMarket {
     pcb: 0,
     panel: 0,
     petro: 0,
+    thermal: 0,
     other: 0,
   };
   private rng: Rng;
@@ -568,6 +571,7 @@ export class DayMarket {
   }
 
   private forceFlatten() {
+    if ([...this.positions.values()].some((p) => p.lots !== 0)) this.forcedClose = true;
     for (const o of this.orders) {
       if (o.status === "pending" || o.status === "partial") o.status = "cancelled";
     }

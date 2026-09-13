@@ -20,12 +20,13 @@ export function PositionsDock() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-bg">
-      <div className="pane-title flex h-7 items-center gap-1 px-1">
+      <div className="pane-title flex h-8 items-center gap-1 px-1">
         {(
           [
             ["orders", `委託 ${orders.length}`],
             ["fills", `成交 ${fills.length}`],
             ["pos", `庫存 ${pos.length}`],
+            ["strat", "策略"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -33,8 +34,8 @@ export function PositionsDock() {
             type="button"
             onClick={() => setTab(id)}
             className={cn(
-              "h-6 rounded-xs px-2 text-micro",
-              tab === id ? "bg-header-2 text-fg" : "text-fg/70 hover:text-fg",
+              "h-7 border-b-2 px-2 text-sm",
+              tab === id ? "border-tape bg-header-2/70 text-fg" : "border-transparent text-fg/70 hover:text-fg",
             )}
           >
             {label}
@@ -47,7 +48,7 @@ export function PositionsDock() {
       </div>
       <div className="term-scroll min-h-0 flex-1 overflow-auto">
         {tab === "pos" && (
-          <table className="w-full border-collapse font-mono text-micro">
+          <table className="w-full border-collapse font-mono text-sm">
             <thead className="sticky top-0 bg-surface-2 text-muted">
               <tr>
                 {["商品", "買賣", "張數", "均價", "現價", "未實現"].map((h) => (
@@ -90,7 +91,7 @@ export function PositionsDock() {
           </table>
         )}
         {tab === "orders" && (
-          <table className="w-full border-collapse font-mono text-micro">
+          <table className="w-full border-collapse font-mono text-sm">
             <thead className="sticky top-0 bg-surface-2 text-muted">
               <tr>
                 {["時間", "買賣", "商品", "價格", "量", ""].map((h) => (
@@ -130,7 +131,7 @@ export function PositionsDock() {
           </table>
         )}
         {tab === "fills" && (
-          <table className="w-full border-collapse font-mono text-micro">
+          <table className="w-full border-collapse font-mono text-sm">
             <thead className="sticky top-0 bg-surface-2 text-muted">
               <tr>
                 {["時間", "買賣", "商品", "價格", "張", "費稅"].map((h) => (
@@ -162,6 +163,14 @@ export function PositionsDock() {
               ))}
             </tbody>
           </table>
+        )}
+        {tab === "strat" && (
+          <div className="space-y-2 px-3 py-3 text-sm leading-relaxed text-muted">
+            {(engine.scenario.coach ?? []).map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+            <p className="text-micro text-subtle">盤口策略無法離線回測，只提供即時訊號。</p>
+          </div>
         )}
       </div>
     </div>

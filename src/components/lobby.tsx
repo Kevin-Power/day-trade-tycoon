@@ -1,27 +1,47 @@
-import { Activity, BookOpen, ChevronRight, Clock3, Download, HardDrive, LogOut, Shield, Target, TrendingUp } from "lucide-react";
+import { Activity, BookOpen, ChevronRight, Clock3, Shield, Target, TrendingUp } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { nextRank, rankFor, SCENARIOS } from "@/lib/game/scenarios";
-import { lessonById, PRINCIPLES } from "@/lib/game/curriculum";
+import { nextRank, SCENARIOS } from "@/lib/game/scenarios";
+import { lessonById } from "@/lib/game/curriculum";
 import { useGame } from "@/lib/game/store";
 import { playOpen, unlockAudio } from "@/lib/game/audio";
 import { cn, formatMoney, formatPct, formatSigned } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
 import { LiveTape } from "@/components/live-tape";
+import { PreopenBoard } from "@/components/preopen-board";
+import { MisSnapshot } from "@/components/mis-snapshot";
+import { Leaderboard } from "@/components/leaderboard";
 import { WEEK_SESSIONS, formatIndex } from "@/lib/market/week";
-import { useGate } from "@/lib/gate/context";
+import { UserButton } from "@/lib/auth/gates";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { loadMyProfile, upsertMyProfile } from "@/lib/classroom-db";
+import backtest from "@/lib/game/strategy-backtest.json";
+import { useEffect, useState } from "react";
 
 const WEEK_ORDER = ["mon", "tue", "wed"] as const;
-const CLASSROOM_OFFLINE = import.meta.env.BASE_URL === "./";
 
 export function Lobby() {
   const profile = useGame((s) => s.profile);
   const start = useGame((s) => s.start);
   const hydrated = useGame((s) => s.hydrated);
-  const rank = rankFor(profile.careerPnl);
   const nxt = nextRank(profile.careerPnl);
   const winRate = profile.sessions ? profile.wins / profile.sessions : 0;
-  const { lock } = useGate();
+  const { user, isPending } = useCurrentUserState();
+  const passed = profile.history.filter((h) => h.passed).length;
+  const empty = profile.sessions === 0;
+  const [stratOpen, setStratOpen] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
+  const [tosOpen, setTosOpen] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    void loadMyProfile()
+      .then((p) => {
+        setRole(p?.role ?? null);
+        if (!p?.tos_accepted_at) setTosOpen(true);
+      })
+      .catch(() => setTosOpen(true));
+  }, [user]);
 
   return (
     <div className="relative min-h-dvh overflow-x-hidden bg-bg text-fg">
@@ -53,73 +73,71 @@ export function Lobby() {
             className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-border-strong bg-surface px-3 text-xs text-fg hover:bg-elevated"
           >
             <BookOpen className="size-3.5" />
-            <span className="hidden sm:inline">說明書</span>
+            <span className="hidden sm:inline">教室說明書</span>
             <span className="sm:hidden">說明</span>
           </Link>
-          {CLASSROOM_OFFLINE ? (
-            <span className="rounded-xs border border-border-strong bg-elevated px-2 py-1 text-micro text-muted">
-              地端教室 · 離線
-            </span>
+          {role === "teacher" ? (
+            <Link to="/teacher" className="hidden text-xs text-muted hover:text-fg sm:inline">
+              教師
+            </Link>
+          ) : null}
+          {isPending ? (
+            <div className="size-9 animate-pulse rounded-sm bg-elevated" />
+          ) : user ? (
+            <UserButton />
           ) : (
-            <a
-              href="/daytrade-tycoon-offline.zip"
-              download="當沖大富翁-地端教室.zip"
-              className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-border-strong bg-surface px-3 text-xs text-fg hover:bg-elevated"
+            <Link
+              to="/login"
+              className="inline-flex h-9 items-center rounded-sm border border-border-strong bg-surface px-3 text-xs hover:bg-elevated"
             >
-              <Download className="size-3.5" />
-              <span className="hidden sm:inline">下載地端教室</span>
-              <span className="sm:hidden">地端</span>
-            </a>
+              登入
+            </Link>
           )}
-          <div className="text-right">
-            <div className="text-micro text-muted">目前段位</div>
-            <div className="text-sm font-medium">{rank.title}</div>
-          </div>
-          <button
-            type="button"
-            onClick={lock}
-            className="inline-flex size-9 items-center justify-center rounded-sm border border-border-strong bg-surface text-muted hover:bg-elevated hover:text-fg"
-            aria-label="登出"
-          >
-            <LogOut className="size-3.5" />
-          </button>
         </div>
       </header>
 
       <main className="relative mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
         <section className="stagger-in mb-8 max-w-3xl pt-4 sm:pt-10">
-          <p className="mb-3 text-xs tracking-[0.28em] text-muted">本週實盤 · 2026/08/24–08/26</p>
+          <p className="mb-3 text-xs tracking-[0.28em] text-muted">教材週 · 2026/08/24–08/26</p>
           <h1 className="text-balance text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
             當沖大富翁
           </h1>
           <p className="mt-4 max-w-xl text-pretty text-sm leading-relaxed text-muted sm:text-base">
-            加權為證交所每 5 秒指數。課綱凍結 8/24–8/26。下單畫面比照券商現股當沖：模擬撮合已開，實盤 API 接上後只換通路。
+            固定教材，三天涵蓋殺盤、V轉、攻高三種盤型。加權為證交所每 5 秒指數。下單走模擬撮合，不是實盤。
           </p>
         </section>
 
-        <section className="mb-8 flex flex-col gap-1 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
-          <span className="w-fit rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs tracking-wide text-tape">模擬盤</span>
-          <span className="text-sm">現股當沖 · 帳號 CLASSROOM-SIM</span>
-          <span className="text-micro text-muted sm:ml-auto">
-            委託單與實盤共用。券商 API 尚未接線，點實盤會提示。
-          </span>
-        </section>
-
-        <section className="mb-8 flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center">
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium">給石大哥的說明書</div>
-            <p className="mt-1 text-pretty text-micro leading-relaxed text-muted">
-              學員怎麼玩、資料哪裡來、模擬跟實盤差在哪。可列印、可下載 PDF。
-            </p>
-          </div>
-          <Link
-            to="/manual"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-sm bg-header-2 px-3 text-xs text-fg hover:bg-header"
-          >
-            <BookOpen className="size-3.5" />
-            打開說明書
-          </Link>
-        </section>
+        {empty ? (
+          <section className="mb-8 rounded-lg border border-border-strong bg-surface p-5">
+            <p className="text-sm font-medium">還沒開始。</p>
+            <p className="mt-1 text-sm text-muted">第 1 課只打開盤 30 分，約 10 分鐘可打完。</p>
+            <Button
+              className="mt-4"
+              onClick={() => {
+                unlockAudio();
+                playOpen();
+                start("wed-open");
+              }}
+            >
+              從第 1 課開始
+              <ChevronRight className="size-4" />
+            </Button>
+          </section>
+        ) : (
+          <section className="mb-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
+            <HeroStat label="生涯損益" value={formatSigned(profile.careerPnl, 0)} tone={profile.careerPnl} />
+            <HeroStat label="已完成盤數" value={String(profile.sessions)} />
+            <HeroStat label="勝率" value={`${(winRate * 100).toFixed(0)}%`} />
+            <div className="bg-surface px-4 py-3">
+              <div className="text-micro text-muted">下一階</div>
+              <div className="mt-1 font-mono text-lg tabular">{nxt ? `${nxt.title}` : "已達頂點"}</div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-xs bg-elevated">
+                <div className="h-full bg-header-2" style={{ width: `${Math.min(100, (passed / 6) * 100)}%` }} />
+              </div>
+              <div className="mt-1 text-micro text-subtle">已通過 {Math.min(passed, 6)} / 6 課</div>
+            </div>
+          </section>
+        )}
 
         <section className="mb-8 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
           {WEEK_ORDER.map((id) => {
@@ -143,22 +161,14 @@ export function Lobby() {
           })}
         </section>
 
+        <PreopenBoard />
+        <MisSnapshot />
         <LiveTape />
-
-        <section className="mb-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
-          <HeroStat label="生涯損益" value={formatSigned(profile.careerPnl, 0)} tone={profile.careerPnl} />
-          <HeroStat label="已完成盤數" value={String(profile.sessions)} />
-          <HeroStat label="勝率" value={`${(winRate * 100).toFixed(0)}%`} />
-          <HeroStat
-            label="下一階"
-            value={nxt ? `${nxt.title} · ${nxt.need}` : "已達頂點"}
-          />
-        </section>
 
         <section>
           <div className="mb-3 flex items-end justify-between">
             <h2 className="text-sm font-medium tracking-wide">本週課綱</h2>
-            <span className="text-micro text-muted">建議依序打。進入後先講解，Space 繼續。</span>
+            <span className="text-micro text-muted">進入後先講解，Space 繼續。</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {SCENARIOS.map((sc) => {
@@ -213,23 +223,40 @@ export function Lobby() {
         </section>
 
         <section className="mt-8">
-          <h2 className="mb-3 text-sm font-medium tracking-wide">當沖六式</h2>
-          <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
-            {PRINCIPLES.map((p) => (
-              <div key={p.no} className="bg-surface px-4 py-3">
-                <div className="font-mono text-micro text-muted">{p.no}</div>
-                <div className="mt-1 text-sm font-medium">{p.title}</div>
-                <p className="mt-1 text-pretty text-xs leading-relaxed text-muted">{p.body}</p>
-              </div>
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => setStratOpen((v) => !v)}
+            className="mb-3 flex w-full items-center justify-between text-left"
+          >
+            <h2 className="text-sm font-medium tracking-wide">當沖策略 / 盤口策略</h2>
+            <span className="text-micro text-subtle">{stratOpen ? "收合" : "展開八張卡"}</span>
+          </button>
+          {stratOpen && (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {backtest.daytrade.map((s) => (
+                <div key={s.id} className="rounded-lg border border-border bg-surface p-3">
+                  <div className="text-sm font-medium">{s.name}</div>
+                  <p className="mt-1 font-mono text-micro text-muted">
+                    3 日 · 訊號 {s.signals} 次 · 勝率 {(s.winRate * 100).toFixed(0)}% · 平均 R {s.avgR}
+                  </p>
+                  <p className="mt-1 text-micro text-subtle">教材週回測，非未來績效</p>
+                </div>
+              ))}
+              {backtest.book.map((s) => (
+                <div key={s.id} className="rounded-lg border border-border bg-surface p-3">
+                  <div className="text-sm font-medium">{s.name}</div>
+                  <p className="mt-1 text-micro text-muted">盤口策略無法離線回測，只提供即時訊號</p>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
-        <section className="mt-10 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+        <section className="mt-8 grid gap-3 lg:grid-cols-2">
           <div className="rounded-lg border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-medium">近況戰績</h2>
             {(!hydrated || profile.history.length === 0) && (
-              <p className="py-8 text-center text-sm text-muted">還沒有戰績。先打第 1 課 開盤觀察。</p>
+              <p className="py-8 text-center text-sm text-muted">還沒有戰績。先打第 1 課。</p>
             )}
             {hydrated && profile.history.length > 0 && (
               <div className="term-scroll overflow-auto">
@@ -238,16 +265,20 @@ export function Lobby() {
                     <tr>
                       <th className="py-1 font-medium">關卡</th>
                       <th className="py-1 font-medium">損益</th>
-                      <th className="py-1 font-medium">報酬</th>
+                      <th className="py-1 font-medium">通過</th>
                       <th className="py-1 font-medium">評等</th>
                     </tr>
                   </thead>
                   <tbody>
                     {profile.history.slice(0, 8).map((h) => (
                       <tr key={h.id} className="border-t border-border">
-                        <td className="py-1.5">{h.scenarioName}</td>
+                        <td className="py-1.5">
+                          <Link to="/session/$id/review" params={{ id: h.id }} className="hover:text-tape">
+                            {h.scenarioName}
+                          </Link>
+                        </td>
                         <td className={cn("py-1.5 tabular", toneClass(h.pnl))}>{formatSigned(h.pnl, 0)}</td>
-                        <td className={cn("py-1.5 tabular", toneClass(h.pnlPct))}>{formatPct(h.pnlPct)}</td>
+                        <td className="py-1.5">{h.passed === false ? "未過" : h.passed ? "通過" : "—"}</td>
                         <td className="py-1.5">{h.grade}</td>
                       </tr>
                     ))}
@@ -256,29 +287,35 @@ export function Lobby() {
               </div>
             )}
           </div>
-          <div className="rounded-lg border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-medium">教室規則</h2>
-            <ul className="space-y-3 text-sm leading-relaxed text-muted">
-              <li className="flex gap-2">
-                <Clock3 className="mt-0.5 size-4 shrink-0 text-fg" />
-                時間軸 09:00–13:30。加權＝證交所每 5 秒指數；個股＝公開日成交套大盤節奏（非逐筆）。下單走模擬撮合。實盤 API 接上後只換 adapter。
-              </li>
-              <li className="flex gap-2">
-                <TrendingUp className="mt-0.5 size-4 shrink-0 text-fg" />
-                紅漲綠跌、1 張 = 1,000 股、±10% 漲跌停、五檔撮合。個股預設江波圖，分價表看堆積。教學模式會在關鍵分鐘暫停。
-              </li>
-              <li className="flex gap-2">
-                <Activity className="mt-0.5 size-4 shrink-0 text-fg" />
-                手續費約 0.0855%（最低 20 元），當沖稅 0.15%。來回成本約 0.32%。
-              </li>
-              <li className="flex gap-2">
-                <HardDrive className="mt-0.5 size-4 shrink-0 text-fg" />
-                地端包與線上同一套。解壓後雙擊 START.bat，教室電腦不必連網。戰績存在該機瀏覽器。
-              </li>
-            </ul>
-          </div>
+          <Leaderboard />
         </section>
+
+        <section className="mt-8 rounded-lg border border-border bg-surface p-4">
+          <h2 className="mb-3 text-sm font-medium">教室規則</h2>
+          <ul className="space-y-3 text-sm leading-relaxed text-muted">
+            <li className="flex gap-2">
+              <Clock3 className="mt-0.5 size-4 shrink-0 text-fg" />
+              時間軸 09:00–13:30。加權＝證交所 5 秒指數；個股套大盤節奏（非逐筆）。
+            </li>
+            <li className="flex gap-2">
+              <TrendingUp className="mt-0.5 size-4 shrink-0 text-fg" />
+              紅漲綠跌、1 張 = 1,000 股、±10% 漲跌停。教學模式會在關鍵分鐘暫停。
+            </li>
+            <li className="flex gap-2">
+              <Activity className="mt-0.5 size-4 shrink-0 text-fg" />
+              來回成本約 0.32%。收盤前未平倉將市價出場。
+            </li>
+          </ul>
+          <Link to="/manual" className="mt-4 inline-flex text-xs text-tape hover:underline">
+            為什麼這間教室沒有主機代管 →
+          </Link>
+        </section>
+
+        <p className="mt-10 text-pretty text-micro leading-relaxed text-subtle">
+          本站為模擬教學環境，所有行情為歷史或延遲資料，不構成任何投資建議或勸誘。模擬績效不代表實盤結果。資料來源：TWSE MIS，僅供教學展示，非即時報價。
+        </p>
       </main>
+      {tosOpen && user ? <TosModal onDone={() => setTosOpen(false)} /> : null}
     </div>
   );
 }
@@ -305,5 +342,38 @@ function Mark() {
       <path d="M24 24 V11 H27 V24 Z" fill="#17c964" />
       <path d="M25.5 8 V11 M25.5 24 V30" stroke="#17c964" strokeWidth="1.4" />
     </svg>
+  );
+}
+
+function TosModal({ onDone }: { onDone: () => void }) {
+  const [ok, setOk] = useState(false);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-bg/80 p-4">
+      <div className="w-full max-w-md rounded-lg border border-border-strong bg-surface p-5">
+        <h2 className="text-lg font-medium">模擬教學免責</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          本站為模擬教學環境，所有行情為歷史或延遲資料，不構成任何投資建議或勸誘。模擬績效不代表實盤結果。
+        </p>
+        <label className="mt-4 flex items-start gap-2 text-sm text-muted">
+          <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} className="mt-0.5" />
+          我已閱讀並同意。
+        </label>
+        <Button
+          className="mt-4 w-full"
+          disabled={!ok || busy}
+          onClick={() => {
+            setBusy(true);
+            void upsertMyProfile({
+              data: { displayName: "學員", classCode: "GWVGZ", acceptTos: true },
+            })
+              .then(onDone)
+              .finally(() => setBusy(false));
+          }}
+        >
+          同意並進入
+        </Button>
+      </div>
+    </div>
   );
 }

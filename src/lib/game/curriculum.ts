@@ -1,10 +1,26 @@
-import type { Side } from "@/lib/game/types";
+import type { Side } from "./types.ts";
 
 export type LessonBeat = {
   atMinute: number;
   title: string;
   body: string;
   hint: string;
+};
+
+export type PassRule = {
+  id: string;
+  label: string;
+  /** 機器可判定的規則代碼，實作見 pass-rules.ts */
+  code:
+    | "max_dd"
+    | "flatten_before_close"
+    | "no_average_down"
+    | "profit_gt_fees"
+    | "min_hold_minutes"
+    | "risk_down_after_low"
+    | "positive_pnl"
+    | "min_winning_trade";
+  params?: Record<string, number>;
 };
 
 export type Lesson = {
@@ -14,7 +30,10 @@ export type Lesson = {
   principle: string;
   prep: string[];
   beats: LessonBeat[];
+  /** 關鍵分鐘暫停。未填則用 beats（略過開場 0 分，改由講解卡負責）。 */
+  checkpoints?: LessonBeat[];
   review: string[];
+  passRules?: PassRule[];
 };
 
 /** 教室六式：每盤都用，不隨關卡改。 */
@@ -42,7 +61,7 @@ export const LESSONS: Lesson[] = [
       {
         atMinute: 0,
         title: "開盤觀察：先看線，再出手",
-        body: "這是 8/26 證交所 5 秒指數前 45 分鐘。09:00:20 急殺至 44,926，再拉回。江波上看昨收（黃）與均價（藍）。第一根量能通常是雜訊。",
+        body: "這是 8/26 證交所 5 秒指數前 30 分鐘。09:00:20 急殺至 44,926，再拉回。江波上看昨收（黃）與均價（藍）。第一根量能通常是雜訊。",
         hint: "選台積電，對照昨收。不要在 09:00 追價。",
       },
       {
@@ -58,7 +77,7 @@ export const LESSONS: Lesson[] = [
         hint: "看五檔有沒有買盤變厚，而不是看感覺。",
       },
       {
-        atMinute: 36,
+        atMinute: 24,
         title: "檢查費稅",
         body: "若已進場，問兩件事：這筆有沒有蓋過 0.32%？部位有沒有超過 30%？沒有就平，不要加碼報復。",
         hint: "看均價與成本線。不夠就出場。",
@@ -294,6 +313,68 @@ export function openingBeat(scenarioId: string, startMinute: number): LessonBeat
   const lesson = lessonById(scenarioId);
   if (!lesson) return null;
   return lesson.beats.find((b) => b.atMinute >= startMinute - 0.05) ?? null;
+}
+
+export function checkpointsOf(lesson: Lesson): LessonBeat[] {
+  if (lesson.id === "tue-dump") {
+    return [
+      {
+        atMinute: 0.333,
+        title: "09:00:20 · 開盤急殺",
+        body: "加權前 20 秒殺到 44,422。這分鐘看的是停損有沒有寫在進場前，不是猜低點。",
+        hint: "張數先 1–2 張。破預設價就出，不要攤。",
+      },
+      {
+        atMinute: 120,
+        title: "11:00 · 全日低點 44,210",
+        body: "低點印在這一分鐘。印出來還要等站上均價，才是跟的條件。現在加碼是接飛刀。",
+        hint: "先降風險。沒站上均價就看。",
+      },
+    ];
+  }
+  return (lesson.checkpoints ?? lesson.beats).filter((b) => b.atMinute > 0.05);
+}
+
+export const PASS_RULES: Record<string, PassRule[]> = {
+  "wed-open": [
+    { id: "avg", label: "不攤平", code: "no_average_down" },
+    { id: "dd", label: "回撤 ≤ 2%", code: "max_dd", params: { max: 0.02 } },
+    { id: "flat", label: "收盤前自行平倉", code: "flatten_before_close" },
+    { id: "win", label: "完成一筆獲利當沖", code: "min_winning_trade", params: { min: 1 } },
+  ],
+  mon: [
+    { id: "avg", label: "不攤平", code: "no_average_down" },
+    { id: "flat", label: "收盤前自行平倉", code: "flatten_before_close" },
+    { id: "dd", label: "回撤 < 4%", code: "max_dd", params: { max: 0.04 } },
+  ],
+  "tue-dump": [
+    { id: "avg", label: "不攤平", code: "no_average_down" },
+    { id: "risk", label: "低點後把風險降下來", code: "risk_down_after_low" },
+    { id: "flat", label: "收盤前自行平倉", code: "flatten_before_close" },
+  ],
+  "tue-v": [
+    { id: "hold", label: "順勢至少抱 15 分鐘", code: "min_hold_minutes", params: { min: 15 } },
+    { id: "fees", label: "獲利大於費稅三倍", code: "profit_gt_fees", params: { multiple: 3 } },
+    { id: "flat", label: "收盤前自行平倉", code: "flatten_before_close" },
+  ],
+  wed: [
+    { id: "pnl", label: "全日報酬為正", code: "positive_pnl" },
+    { id: "dd", label: "回撤 < 3%", code: "max_dd", params: { max: 0.03 } },
+    { id: "flat", label: "收盤前自行平倉", code: "flatten_before_close" },
+  ],
+  tycoon: [
+    { id: "pnl", label: "全日報酬為正", code: "positive_pnl" },
+    { id: "dd", label: "回撤 < 5%", code: "max_dd", params: { max: 0.05 } },
+    { id: "flat", label: "收盤前自行平倉", code: "flatten_before_close" },
+  ],
+};
+
+export function passRulesOf(id: string): PassRule[] {
+  return lessonById(id)?.passRules ?? PASS_RULES[id] ?? [];
+}
+
+for (const lesson of LESSONS) {
+  if (!lesson.passRules?.length) lesson.passRules = PASS_RULES[lesson.id] ?? [];
 }
 
 export type DebriefInput = {

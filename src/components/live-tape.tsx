@@ -79,7 +79,7 @@ export function LiveTape() {
     <section className="mb-10">
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
-          <h2 className="text-sm font-medium tracking-wide">每日實盤</h2>
+          <h2 className="text-sm font-medium tracking-wide">近三日自由練習</h2>
           <p className="mt-1 max-w-2xl text-pretty text-micro text-muted">{status}</p>
         </div>
         {!CLASSROOM_OFFLINE && (

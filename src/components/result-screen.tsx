@@ -1,104 +1,196 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { debrief, lessonById, nextLesson } from "@/lib/game/curriculum";
-import { rankFor } from "@/lib/game/scenarios";
+import { TapeChart } from "@/components/charts";
+import { passRulesOf, lessonById } from "@/lib/game/curriculum";
 import { useGame } from "@/lib/game/store";
-import { cn, formatMoney, formatPct, formatSigned } from "@/lib/utils";
+import { cn, formatMoney, formatPct, formatSigned, formatTime } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
+import { STOCK_BY_CODE } from "@/lib/market/universe";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { Fill } from "@/lib/game/types";
+import type { RuleVerdict } from "@/lib/game/pass-rules";
+import type { ReviewBundle } from "@/lib/game/persist";
+import { DayMarket } from "@/lib/market/engine";
+import { scenarioById } from "@/lib/game/scenarios";
 
-export function ResultScreen() {
-  const rec = useGame((s) => s.lastResult);
-  const profile = useGame((s) => s.profile);
-  const engine = useGame((s) => s.engine);
-  const scenario = useGame((s) => s.scenario);
+function replayPath(scenarioId: string): DayMarket | null {
+  const sc = scenarioById(scenarioId);
+  if (!sc) return null;
+  const e = new DayMarket(sc);
+  let n = 0;
+  while (!e.ended && n++ < 20000) e.step(8);
+  return e;
+}
+
+export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
   const start = useGame((s) => s.start);
   const leave = useGame((s) => s.leave);
-  if (!rec || !engine || !scenario) return null;
-  const st = engine.stats();
-  const rank = rankFor(profile.careerPnl);
-  const lesson = lessonById(scenario.id);
-  const nxt = nextLesson(scenario.id);
-  const review = lesson
-    ? debrief(lesson, {
-        trades: st.trades,
-        pnl: st.pnl,
-        fees: st.fees,
-        maxDrawdown: st.maxDrawdown,
-        equity: st.equity,
-        exposure: st.peakGross,
-        fills: engine.fills.map((f) => ({ side: f.side, price: f.price, vwapAt: f.vwapAt })),
-      })
-    : null;
+  const navigate = useNavigate();
+  const [path, setPath] = useState<DayMarket | null>(null);
+
+  useEffect(() => {
+    setPath(replayPath(bundle.rec.scenarioId));
+  }, [bundle.rec.scenarioId]);
+
+  const rec = bundle.rec;
+  const fills = bundle.fills;
+  const lesson = lessonById(rec.scenarioId);
+  const q = path?.quote(bundle.code);
+  const curve = equityPoints(bundle.capital, fills, bundle.equity, path?.t ?? fills.at(-1)?.time ?? 0);
+  const rules: RuleVerdict[] = bundle.verdicts.length
+    ? bundle.verdicts
+    : passRulesOf(rec.scenarioId).map((rule) => ({ rule, passed: true, detail: "" }));
+  const winTrades = rec.wins;
+  const lossTrades = Math.max(0, rec.trades - rec.wins);
+  const avgWin = winTrades ? rec.pnl / Math.max(1, rec.trades) : 0;
+  const hold = avgHoldMinutes(fills);
+  const slip = fills.reduce((s, f) => s + (f.slippageTicks ?? 0), 0);
+  const gross = rec.pnl + rec.fees;
+  const feeShare = gross > 0 ? (rec.fees / gross) * 100 : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-bg/80 p-3 sm:items-center">
-      <div
-        role="dialog"
-        aria-labelledby="result-title"
-        className="max-h-[92dvh] w-full max-w-xl overflow-auto rounded-xl border border-border bg-surface p-5 shadow-[var(--shadow-panel)] sm:p-6"
-      >
-        <p className="text-micro tracking-[0.22em] text-muted">
-          {lesson ? `${lesson.no} · ${lesson.skill}` : "SESSION SETTLED"}
+    <div className="min-h-dvh overflow-auto bg-bg text-fg">
+      <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+        <p className="text-micro tracking-[0.2em] text-muted">
+          {lesson ? `${lesson.no} · ${lesson.skill}` : "SESSION"}
+          {bundle.sessionLabel ? ` · ${bundle.sessionLabel}` : ""}
         </p>
-        <h2 id="result-title" className="mt-1 text-2xl font-medium">
-          {rec.scenarioName} · {rec.grade}
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted">{review?.headline ?? ""}</p>
-        {review && review.tags.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {review.tags.map((t) => (
-              <span key={t} className="rounded-xs bg-elevated px-1.5 py-0.5 text-2xs tracking-wide text-muted">
-                {t}
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-md bg-border">
-          <Cell label="損益" value={formatSigned(rec.pnl, 0)} tone={rec.pnl} />
-          <Cell label="報酬率" value={formatPct(rec.pnlPct)} tone={rec.pnlPct} />
-          <Cell label="交易次數" value={String(rec.trades)} />
-          <Cell label="勝率" value={rec.trades ? `${((rec.wins / rec.trades) * 100).toFixed(0)}%` : "—"} />
-          <Cell label="費稅" value={formatMoney(rec.fees, 0)} />
-          <Cell label="最大回撤" value={`${(rec.maxDrawdown * 100).toFixed(2)}%`} />
-        </div>
-
-        {review && (
-          <div className="mt-4 rounded-md border border-border bg-bg px-3 py-3">
-            <div className="text-micro tracking-wide text-muted">課後復盤</div>
-            <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-muted">
-              {review.notes.map((n) => (
-                <li key={n}>{n}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <div className="mt-4 flex items-center justify-between rounded-md border border-border bg-bg px-3 py-2 text-sm">
-          <span className="text-muted">生涯段位</span>
-          <span>
-            {rank.title} · 累計 {formatSigned(profile.careerPnl, 0)}
+        <div className="mt-2 flex flex-wrap items-end gap-3">
+          <h1 className="text-3xl font-medium">{rec.scenarioName}</h1>
+          <span className={cn("rounded-sm px-2 py-1 text-lg font-medium", rec.passed ? "bg-down-dim text-down" : "bg-up-dim text-up")}>
+            {rec.passed ? "通過" : "未通過"}
           </span>
         </div>
+        {!rec.passed && rec.violations && rec.violations.length > 0 && (
+          <p className="mt-2 text-sm text-up">未達成：{rec.violations.join("、")}</p>
+        )}
 
-        <p className="mt-3 text-micro text-subtle">
-          權益 {formatMoney(st.equity, 0)} · 本金 {formatMoney(scenario.capital)}
-        </p>
+        {q && path && (
+          <div className="mt-5 h-56 overflow-hidden rounded-lg border border-border bg-surface">
+            <TapeChart
+              bars={path.bars(q.code)}
+              ticks={path.ticks(q.code)}
+              prev={q.prevClose}
+              high={q.high}
+              low={q.low}
+              last={q.last}
+              open={q.open}
+              fills={fills.filter((f) => f.code === q.code).map((f) => ({ t: f.time, p: f.price, side: f.side }))}
+              showVolume
+              startT={path.startT}
+              endT={path.endT}
+              now={path.t}
+              variant="jiangbo"
+            />
+          </div>
+        )}
 
-        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-          {nxt ? (
-            <Button className="flex-1" onClick={() => start(nxt.id)}>
-              下一課 {nxt.no}
-            </Button>
-          ) : (
-            <Button className="flex-1" onClick={() => start(scenario.id)}>
-              再打一盤
-            </Button>
-          )}
-          <Button className="flex-1" variant="outline" onClick={() => start(scenario.id)}>
-            重打本課
+        <div className="mt-5 h-48 rounded-lg border border-border bg-surface p-2">
+          <p className="px-2 pt-1 text-micro text-muted">權益（左）與回撤（右）</p>
+          <ResponsiveContainer width="100%" height="85%">
+            <LineChart data={curve}>
+              <CartesianGrid stroke="#243040" strokeDasharray="3 3" />
+              <XAxis dataKey="label" tick={{ fill: "#8b9bb0", fontSize: 11 }} />
+              <YAxis yAxisId="eq" tick={{ fill: "#8b9bb0", fontSize: 11 }} />
+              <YAxis yAxisId="dd" orientation="right" tick={{ fill: "#8b9bb0", fontSize: 11 }} />
+              <Tooltip contentStyle={{ background: "#161d27", border: "1px solid #33455c", color: "#e6edf5" }} />
+              <Line yAxisId="eq" type="monotone" dataKey="equity" stroke="#e8c547" dot={false} name="權益" />
+              <Line yAxisId="dd" type="monotone" dataKey="ddPct" stroke="#ff3b3b" dot={false} name="回撤%" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-md bg-border sm:grid-cols-4">
+          <Cell label="總報酬" value={formatSigned(rec.pnl, 0)} tone={rec.pnl} />
+          <Cell label="最大回撤" value={`${(rec.maxDrawdown * 100).toFixed(2)}%`} />
+          <Cell label="交易筆數" value={String(rec.trades)} />
+          <Cell label="勝率" value={rec.trades ? `${((rec.wins / rec.trades) * 100).toFixed(0)}%` : "—"} />
+          <Cell label="平均獲利" value={formatSigned(avgWin, 0)} tone={avgWin} />
+          <Cell label="平均虧損" value={lossTrades ? "見成交" : "—"} />
+          <Cell label="費稅總額" value={formatMoney(rec.fees, 0)} />
+          <Cell label="費稅佔毛利" value={`${feeShare.toFixed(0)}%`} />
+          <Cell label="平均持倉" value={`${hold.toFixed(0)} 分`} />
+          <Cell label="滑檔總點數" value={String(slip)} />
+          <Cell label="暫停中成交" value={`${rec.pausedFills ?? 0} 筆`} />
+          <Cell label="評等" value={rec.grade} />
+        </div>
+
+        <section className="mt-6 rounded-lg border border-border bg-surface p-4">
+          <h3 className="text-sm font-medium">紀律清單</h3>
+          <ul className="mt-3 space-y-2 text-sm">
+            {rules.map((v) => (
+              <li key={v.rule.id} className="flex gap-2 border-b border-border/60 py-1.5">
+                <span className={v.passed ? "text-down" : "text-up"}>{v.passed ? "✓" : "✗"}</span>
+                <span className="flex-1">
+                  {v.rule.label}
+                  <span className="ml-2 text-micro text-muted">{v.detail}</span>
+                </span>
+                {v.at != null && <span className="font-mono text-micro text-subtle">{formatTime(v.at)}</span>}
+              </li>
+            ))}
+            {rules.length === 0 && <li className="text-muted">自由練習，沒有過關條件。</li>}
+          </ul>
+          <p className="mt-3 text-micro text-muted">暫停中成交 {rec.pausedFills ?? 0} 筆（教學可下單，期末考除外）。</p>
+        </section>
+
+        <section className="mt-4 overflow-auto rounded-lg border border-border bg-surface">
+          <table className="w-full text-left font-mono text-xs">
+            <thead className="bg-header-2 text-fg">
+              <tr>
+                <th className="px-3 py-2 font-medium">時間</th>
+                <th className="px-3 py-2 font-medium">代號</th>
+                <th className="px-3 py-2 font-medium">買賣</th>
+                <th className="px-3 py-2 font-medium">張</th>
+                <th className="px-3 py-2 font-medium">價格</th>
+                <th className="px-3 py-2 font-medium">暫停</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fills.map((f) => (
+                <tr key={f.id} className="border-t border-border">
+                  <td className="px-3 py-1.5">{formatTime(f.time)}</td>
+                  <td className="px-3 py-1.5">
+                    {f.code} {STOCK_BY_CODE[f.code]?.name ?? ""}
+                  </td>
+                  <td className={cn("px-3 py-1.5", f.side === "buy" ? "text-up" : "text-down")}>
+                    {f.side === "buy" ? "▲ 買" : "▼ 賣"}
+                  </td>
+                  <td className="px-3 py-1.5">{f.lots}</td>
+                  <td className="px-3 py-1.5">{f.price}</td>
+                  <td className="px-3 py-1.5">{f.filledWhilePaused ? "是" : ""}</td>
+                </tr>
+              ))}
+              {fills.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-3 py-6 text-center font-sans text-muted">
+                    沒有成交。
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </section>
+
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+          <Button
+            className="flex-1"
+            onClick={() => {
+              start(rec.scenarioId);
+              void navigate({ to: "/" });
+            }}
+          >
+            再打一次
           </Button>
-          <Button className="flex-1" variant="ghost" onClick={leave}>
-            回大廳
+          <Button
+            className="flex-1"
+            variant="outline"
+            onClick={() => {
+              leave();
+              void navigate({ to: "/" });
+            }}
+          >
+            回課綱
           </Button>
         </div>
       </div>
@@ -106,9 +198,21 @@ export function ResultScreen() {
   );
 }
 
+export function ResultScreen() {
+  const rec = useGame((s) => s.lastResult);
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!rec) return;
+    void navigate({ to: "/session/$id/review", params: { id: rec.id } });
+  }, [rec, navigate]);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-bg text-sm text-muted">開啟報告…</div>
+  );
+}
+
 function Cell({ label, value, tone }: { label: string; value: string; tone?: number }) {
   return (
-    <div className="bg-bg px-3 py-2.5">
+    <div className="bg-surface px-3 py-2.5">
       <div className="text-micro text-muted">{label}</div>
       <div className={cn("mt-0.5 font-mono text-base tabular", tone !== undefined ? toneClass(tone) : "text-fg")}>
         {value}
@@ -116,3 +220,41 @@ function Cell({ label, value, tone }: { label: string; value: string; tone?: num
     </div>
   );
 }
+
+function equityPoints(capital: number, fills: Fill[], finalEq: number, endT: number) {
+  let eq = capital;
+  let peak = capital;
+  const pts = [{ t: 0, label: "09:00", equity: capital, ddPct: 0 }];
+  for (const f of [...fills].sort((a, b) => a.time - b.time)) {
+    eq -= f.fee + f.tax;
+    if (f.pnl) eq += f.pnl;
+    peak = Math.max(peak, eq);
+    pts.push({
+      t: f.time,
+      label: formatTime(f.time).slice(0, 5),
+      equity: Math.round(eq),
+      ddPct: peak > 0 ? Number((((peak - eq) / peak) * 100).toFixed(2)) : 0,
+    });
+  }
+  pts.push({
+    t: endT,
+    label: formatTime(endT).slice(0, 5),
+    equity: Math.round(finalEq),
+    ddPct: peak > 0 ? Number((((peak - finalEq) / peak) * 100).toFixed(2)) : 0,
+  });
+  return pts;
+}
+
+function avgHoldMinutes(fills: Fill[]): number {
+  if (fills.length < 2) return 0;
+  const sorted = [...fills].sort((a, b) => a.time - b.time);
+  let sum = 0;
+  let n = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    sum += (sorted[i]!.time - sorted[i - 1]!.time) / 60;
+    n += 1;
+  }
+  return n ? sum / n : 0;
+}
+
+export type { RuleVerdict };
