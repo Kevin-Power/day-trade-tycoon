@@ -1,0 +1,15 @@
+{
+  "note": "教材週 8/24–8/26，22 檔 1 分路徑（日 OHLC 套大盤節奏），1 張、含費稅、市價滑 1 檔。非未來績效。",
+  "daytrade": [
+    { "id": "orb", "name": "ORB", "signals": 47, "winRate": 0.42, "avgR": 0.8, "pnl": -12840 },
+    { "id": "vwap-fade", "name": "VWAP fade", "signals": 33, "winRate": 0.45, "avgR": 0.6, "pnl": -4200 },
+    { "id": "tape", "name": "Tape", "signals": 21, "winRate": 0.38, "avgR": 0.4, "pnl": -9100 },
+    { "id": "reclaim", "name": "Reclaim", "signals": 18, "winRate": 0.5, "avgR": 0.9, "pnl": 3600 }
+  ],
+  "book": [
+    { "id": "imbalance", "name": "Imbalance" },
+    { "id": "sweep", "name": "Sweep" },
+    { "id": "queue", "name": "Queue" },
+    { "id": "flicker", "name": "Flicker" }
+  ]
+}

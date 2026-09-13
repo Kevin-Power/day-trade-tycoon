@@ -1,3 +1,4 @@
+import { Monitor, Smartphone, SquareDashed } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { AccountBar, NewsBar } from "@/components/account-bar";
 import { TapeChart } from "@/components/charts";
@@ -7,20 +8,13 @@ import { PositionsDock } from "@/components/positions";
 import { QuotePanel } from "@/components/quote-book";
 import { ResultScreen } from "@/components/result-screen";
 import { Watchlist } from "@/components/watchlist";
-import { persistOnHide, useGame, type MobileTab } from "@/lib/game/store";
+import { persistOnHide, useGame } from "@/lib/game/store";
 import { lessonById } from "@/lib/game/curriculum";
 import { venueLabel } from "@/lib/broker";
 import { cn, formatPct, formatTime } from "@/lib/utils";
 import { Arrow, toneClass } from "@/components/signed";
 import { formatPrice } from "@/lib/market/ticks";
 import { formatIndex } from "@/lib/market/week";
-
-const MOBILE_TABS: { id: MobileTab; label: string }[] = [
-  { id: "watch", label: "自選" },
-  { id: "chart", label: "江波" },
-  { id: "trade", label: "下單" },
-  { id: "pos", label: "庫存" },
-];
 
 export function Terminal() {
   const engine = useGame((s) => s.engine);
@@ -33,11 +27,10 @@ export function Terminal() {
   const togglePause = useGame((s) => s.togglePause);
   const dismissBeat = useGame((s) => s.dismissBeat);
   const phase = useGame((s) => s.phase);
-  const mobileTab = useGame((s) => s.mobileTab);
-  const setMobileTab = useGame((s) => s.setMobileTab);
-  const activeBeat = useGame((s) => s.activeBeat);
   const venue = useGame((s) => s.venue);
   const frame = useGame((s) => s.frame);
+  const layoutMode = useGame((s) => s.layoutMode);
+  const activeBeat = useGame((s) => s.activeBeat);
   const raf = useRef(0);
   const last = useRef(0);
   const acc = useRef(0);
@@ -86,12 +79,14 @@ export function Terminal() {
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.code === "Space") {
         e.preventDefault();
-        if (useGame.getState().activeBeat) dismissBeat();
+        const st = useGame.getState();
+        if (st.briefingOpen) st.dismissBriefing();
+        else if (st.activeBeat) dismissBeat();
         else togglePause();
       }
       if (e.key === "Enter") {
         e.preventDefault();
-        if (useGame.getState().activeBeat) return;
+        if (useGame.getState().activeBeat || useGame.getState().briefingOpen) return;
         submit();
       }
     };
@@ -104,9 +99,10 @@ export function Terminal() {
   const idx = engine.indexQuote();
   const lesson = lessonById(scenario.id);
   void frame;
+  const layoutClass = layoutMode === "phone" ? "layout-phone" : layoutMode === "desk" ? "layout-desk" : "layout-auto";
 
   return (
-    <div className="relative flex h-dvh min-h-0 flex-col bg-bg text-fg">
+    <div className={cn("relative flex h-dvh min-h-0 flex-col overflow-x-hidden bg-bg text-fg", layoutClass)}>
       <TopMenu
         name={lesson ? `${lesson.no} ${scenario.name}` : scenario.name}
         paused={paused}
@@ -118,29 +114,16 @@ export function Terminal() {
       <AccountBar />
       <NewsBar />
 
-      <div className="term-mobile min-h-0 flex-1">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {mobileTab === "watch" && <Watchlist />}
-          {mobileTab === "chart" && (
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="min-h-0 flex-1">
-                <IndexPane />
-              </div>
-              <div className="min-h-0 flex-[1.3]">
-                <SelectedChart />
-              </div>
-            </div>
-          )}
-          {mobileTab === "trade" && (
-            <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-              <OrderTicket />
-              <div className="min-h-48 shrink-0 border-t border-border">
-                <QuotePanel />
-              </div>
-            </div>
-          )}
-          {mobileTab === "pos" && <PositionsDock />}
+      <div className="term-phone min-h-0 flex-1 flex-col">
+        <IndexLine />
+        <Watchlist variant="chips" />
+        <div className="term-phone-chart overflow-hidden border-b border-border">
+          <SelectedChart compact />
         </div>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <QuotePanel compact />
+        </div>
+        <OrderTicket variant="phone" />
       </div>
 
       <div className="term-desk term-grid min-h-0 flex-1 gap-px bg-border">
@@ -164,7 +147,7 @@ export function Terminal() {
         </div>
       </div>
 
-      <footer className="flex items-center justify-between border-t border-border bg-surface-2 px-2 py-1 text-2xs text-muted">
+      <footer className="hidden items-center justify-between border-t border-border bg-surface-2 px-2 py-1 text-2xs text-muted sm:flex">
         <span>
           {q ? (
             <>
@@ -177,21 +160,7 @@ export function Terminal() {
         <span className="hidden font-mono sm:inline">
           加權 {formatIndex(idx.last)} {formatPct(idx.changePct)} · {idx.turnoverYi.toFixed(0)} 億 · Enter 送單 · Space 暫停
         </span>
-        <span className="term-mobile-nav">{formatTime(engine.t)}</span>
       </footer>
-
-      <nav className="term-mobile-nav grid grid-cols-4 border-t border-border bg-surface">
-        {MOBILE_TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setMobileTab(t.id)}
-            className={cn("h-12 text-xs", mobileTab === t.id ? "bg-header text-fg" : "text-muted")}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
 
       {phase === "result" && <ResultScreen />}
       <LessonCard />
@@ -221,6 +190,8 @@ function TopMenu({
   date: string;
   venue: string;
 }) {
+  const layoutMode = useGame((s) => s.layoutMode);
+  const setLayoutMode = useGame((s) => s.setLayoutMode);
   return (
     <div className="flex h-9 items-center gap-2 border-b border-border bg-header px-2 text-xs">
       <MarkTiny />
@@ -235,6 +206,25 @@ function TopMenu({
       <span className="ml-auto truncate font-mono text-micro text-fg/80">
         {name.startsWith(date) ? name : `${date} · ${name}`} · {paused ? "PAUSE" : `${speed}x`}
       </span>
+      <div className="flex overflow-hidden rounded-xs border border-border-strong/60">
+        {(
+          [
+            ["auto", SquareDashed, "自動"],
+            ["desk", Monitor, "桌機"],
+            ["phone", Smartphone, "手機"],
+          ] as const
+        ).map(([id, Icon, label]) => (
+          <button
+            key={id}
+            type="button"
+            title={label}
+            onClick={() => setLayoutMode(id)}
+            className={cn("grid size-7 place-items-center", layoutMode === id ? "bg-header-2 text-fg" : "text-fg/70")}
+          >
+            <Icon className="size-3.5" />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -247,6 +237,23 @@ function MarkTiny() {
       <path d="M16 24 V18 H19 V24 Z" fill="#8b9bb0" />
       <path d="M24 24 V11 H27 V24 Z" fill="#17c964" />
     </svg>
+  );
+}
+
+function IndexLine() {
+  const engine = useGame((s) => s.engine);
+  const frame = useGame((s) => s.frame);
+  void frame;
+  if (!engine) return null;
+  const idx = engine.indexQuote();
+  return (
+    <div className="flex h-8 shrink-0 items-center gap-2 overflow-hidden border-b border-border bg-surface px-2 font-mono text-sm">
+      <span className="text-muted">加權</span>
+      <span className={cn("tabular", toneClass(idx.change))}>
+        {formatIndex(idx.last)} {formatPct(idx.changePct)}
+      </span>
+      <span className="ml-auto tabular text-muted">{formatTime(engine.t)}</span>
+    </div>
   );
 }
 
@@ -288,7 +295,7 @@ function IndexPane() {
   );
 }
 
-function SelectedChart() {
+function SelectedChart({ compact = false }: { compact?: boolean }) {
   const engine = useGame((s) => s.engine);
   const selected = useGame((s) => s.selected);
   const chartStyle = useGame((s) => s.chartStyle);
@@ -330,10 +337,11 @@ function SelectedChart() {
           </button>
         </div>
         <span className={cn("ml-auto shrink-0 font-mono tabular", toneClass(q.change))}>
-          {formatPrice(q.last)} {formatPct(q.changePct)} · {q.volume} 張
+          {formatPrice(q.last)} {formatPct(q.changePct)}
+          {compact ? "" : ` · ${q.volume} 張`}
         </span>
       </div>
-      <div className="pane-sunken min-h-40 flex-1 bg-bg">
+      <div className={cn("pane-sunken flex-1 bg-bg", compact ? "min-h-0" : "min-h-40")}>
         <TapeChart
           bars={engine.bars(q.code)}
           ticks={engine.ticks(q.code)}

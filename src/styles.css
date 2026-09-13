@@ -201,12 +201,14 @@
   background: #0c1016;
 }
 
-.term-mobile {
-  display: flex;
+.term-phone {
+  display: none;
   min-height: 0;
 }
-.term-mobile-nav {
-  display: grid;
+.term-phone-chart {
+  height: 40vh;
+  min-height: 12rem;
+  max-height: 40vh;
 }
 .term-desk {
   display: none;
@@ -221,14 +223,30 @@
     "ticket ticket pos";
 }
 
-@media (min-width: 720px) {
-  .term-mobile,
-  .term-mobile-nav {
-    display: none !important;
+@media (max-width: 639px) {
+  .layout-auto .term-phone {
+    display: flex;
   }
-  .term-desk {
+}
+
+@media (min-width: 640px) {
+  .layout-auto .term-desk {
     display: grid !important;
   }
+}
+
+.layout-phone .term-phone {
+  display: flex !important;
+}
+.layout-phone .term-desk {
+  display: none !important;
+}
+
+.layout-desk .term-phone {
+  display: none !important;
+}
+.layout-desk .term-desk {
+  display: grid !important;
 }
 
 .term-watch {

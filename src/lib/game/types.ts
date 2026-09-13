@@ -91,6 +91,9 @@ export type Fill = {
   tax: number;
   time: number;
   vwapAt: number;
+  filledWhilePaused?: boolean;
+  slippageTicks?: number;
+  pnl?: number;
 };
 
 export type SessionRecord = {
@@ -106,6 +109,9 @@ export type SessionRecord = {
   maxDrawdown: number;
   grade: string;
   title: string;
+  passed?: boolean;
+  pausedFills?: number;
+  violations?: string[];
 };
 
 export type Profile = {

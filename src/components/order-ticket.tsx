@@ -2,12 +2,12 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { useGame } from "@/lib/game/store";
 import { SIM_ACCOUNT, venueLabel, type TimeInForce } from "@/lib/broker";
-import { formatPrice, LOT_SHARES, ROUND_TRIP_RATE, stepTick } from "@/lib/market/ticks";
+import { LOT_SHARES, ROUND_TRIP_RATE, stepTick } from "@/lib/market/ticks";
 import { cn, formatMoney, formatPct } from "@/lib/utils";
 
 const TIF: TimeInForce[] = ["ROD", "IOC", "FOK"];
 
-export function OrderTicket() {
+export function OrderTicket({ variant = "full" }: { variant?: "full" | "phone" }) {
   const engine = useGame((s) => s.engine);
   const selected = useGame((s) => s.selected);
   const ticket = useGame((s) => s.ticket);
@@ -17,6 +17,8 @@ export function OrderTicket() {
   const venue = useGame((s) => s.venue);
   const setVenue = useGame((s) => s.setVenue);
   const accountId = useGame((s) => s.accountId);
+  const paused = useGame((s) => s.paused);
+  const scenario = useGame((s) => s.scenario);
   const frame = useGame((s) => s.frame);
   void frame;
   const q = engine?.quote(selected);
@@ -30,12 +32,76 @@ export function OrderTicket() {
   const st = engine?.stats();
   const tooBig = st ? notional > st.equity * 0.3 : false;
   const buy = ticket.side === "buy";
+  const examPaused = paused && scenario?.id === "tycoon";
+
+  if (variant === "phone") {
+    return (
+      <div className="border-t border-border bg-surface px-2 py-2">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs tracking-wide text-tape">模擬盤</span>
+          <span className="font-mono text-sm tabular">
+            {selected} {name}
+          </span>
+        </div>
+        {examPaused && <p className="mb-1 text-sm text-warn">期末考不可在暫停中下單</p>}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            {[1, 2, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setTicket({ lots: n })}
+                className={cn(
+                  "h-11 min-w-11 rounded-sm border border-border-strong px-3 text-sm",
+                  ticket.lots === n ? "bg-header-2 text-fg" : "bg-bg text-muted",
+                )}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <Button
+            size="md"
+            variant="buy"
+            className="h-12 min-h-12 flex-1 text-base"
+            disabled={examPaused}
+            onClick={() => {
+              setTicket({ side: "buy" });
+              submit();
+            }}
+          >
+            買進
+          </Button>
+          <Button
+            size="md"
+            variant="sell"
+            className="h-12 min-h-12 flex-1 text-base"
+            disabled={examPaused}
+            onClick={() => {
+              const pos = engine?.positions.get(selected);
+              if (pos && pos.lots !== 0) flattenSelected();
+              else {
+                setTicket({ side: "sell" });
+                submit();
+              }
+            }}
+          >
+            賣出／平倉
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
-      <div className="pane-title flex h-7 items-center justify-between px-2">
+      <div className="pane-title flex h-8 items-center justify-between px-2">
         <span>委託下單</span>
-        <span className="font-mono text-micro text-fg/80">現股當沖 · 1 張 = 1,000 股</span>
+        <span className="font-mono text-sm text-fg/80">現股當沖 · 1 張 = 1,000 股</span>
+      </div>
+      <div className="flex items-center justify-between border-b border-border bg-elevated/80 px-2 py-1">
+        <span className="rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs tracking-wide text-tape">模擬盤</span>
+        <span className="text-sm text-muted">非實盤 · 成交走教室撮合</span>
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-elevated/60 px-2 py-1.5">
@@ -141,7 +207,7 @@ export function OrderTicket() {
           </button>
         </div>
 
-        <label className="flex h-11 items-center gap-1 rounded-sm border border-border bg-bg px-2 text-xs sm:col-span-2">
+        <label className="flex h-11 items-center gap-1 rounded-sm border border-border bg-bg px-2 text-sm sm:col-span-2">
           <span className="text-muted">張數</span>
           <button
             type="button"
@@ -167,7 +233,7 @@ export function OrderTicket() {
           </button>
         </label>
 
-        <div className="col-span-2 flex h-11 items-center gap-1 rounded-sm border border-border bg-bg px-2 text-xs sm:col-span-2">
+        <div className="col-span-2 flex h-11 items-center gap-1 rounded-sm border border-border bg-bg px-2 text-sm sm:col-span-2">
           <span className="text-muted">價格</span>
           <button
             type="button"
@@ -196,7 +262,7 @@ export function OrderTicket() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border px-2 py-2">
-        <div className="min-w-0 flex-1 font-mono text-micro">
+        <div className="min-w-0 flex-1 font-mono text-sm">
           <div className="flex flex-wrap items-center gap-x-3 text-muted">
             <span>
               預估 <span className="text-fg">{formatMoney(notional)}</span>
@@ -205,7 +271,8 @@ export function OrderTicket() {
             <span>距昨 {formatPct(vsPrev)}</span>
             <span>距均 {formatPct(vsVwap)}</span>
           </div>
-          {(thin || tooBig) && (
+          {examPaused && <div className="mt-0.5 text-warn">期末考不可在暫停中下單</div>}
+          {!examPaused && (thin || tooBig) && (
             <div className="mt-0.5 text-warn">
               {tooBig ? "超過權益 30%，先降張數。" : "偏離均價不夠費稅，這筆要靠方向。"}
             </div>
@@ -218,10 +285,10 @@ export function OrderTicket() {
             </Button>
           ))}
         </div>
-        <Button size="sm" variant="outline" onClick={flattenSelected}>
+        <Button size="sm" variant="outline" onClick={flattenSelected} disabled={examPaused}>
           平倉此檔
         </Button>
-        <Button size="md" variant={buy ? "buy" : "sell"} onClick={submit} className="min-w-28">
+        <Button size="md" variant={buy ? "buy" : "sell"} onClick={submit} className="min-w-28" disabled={examPaused}>
           {buy ? "送出買進" : "送出賣出"}
         </Button>
       </div>

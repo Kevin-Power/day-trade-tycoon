@@ -101,6 +101,7 @@ export class DayMarket {
     pcb: 0,
     panel: 0,
     petro: 0,
+    thermal: 0,
     other: 0,
   };
   private rng: Rng;
