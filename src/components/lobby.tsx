@@ -110,7 +110,7 @@ export function Lobby() {
         {empty ? (
           <section className="mb-8 rounded-lg border border-border-strong bg-surface p-5">
             <p className="text-sm font-medium">還沒開始。</p>
-            <p className="mt-1 text-sm text-muted">第 1 課只打開盤 45 分，約 10 分鐘可打完。</p>
+            <p className="mt-1 text-sm text-muted">第 1 課只打開盤 30 分，約 10 分鐘可打完。</p>
             <Button
               className="mt-4"
               onClick={() => {
@@ -272,7 +272,11 @@ export function Lobby() {
                   <tbody>
                     {profile.history.slice(0, 8).map((h) => (
                       <tr key={h.id} className="border-t border-border">
-                        <td className="py-1.5">{h.scenarioName}</td>
+                        <td className="py-1.5">
+                          <Link to="/session/$id/review" params={{ id: h.id }} className="hover:text-tape">
+                            {h.scenarioName}
+                          </Link>
+                        </td>
                         <td className={cn("py-1.5 tabular", toneClass(h.pnl))}>{formatSigned(h.pnl, 0)}</td>
                         <td className="py-1.5">{h.passed === false ? "未過" : h.passed ? "通過" : "—"}</td>
                         <td className="py-1.5">{h.grade}</td>

@@ -61,7 +61,7 @@ export const LESSONS: Lesson[] = [
       {
         atMinute: 0,
         title: "開盤觀察：先看線，再出手",
-        body: "這是 8/26 證交所 5 秒指數前 45 分鐘。09:00:20 急殺至 44,926，再拉回。江波上看昨收（黃）與均價（藍）。第一根量能通常是雜訊。",
+        body: "這是 8/26 證交所 5 秒指數前 30 分鐘。09:00:20 急殺至 44,926，再拉回。江波上看昨收（黃）與均價（藍）。第一根量能通常是雜訊。",
         hint: "選台積電，對照昨收。不要在 09:00 追價。",
       },
       {
@@ -77,7 +77,7 @@ export const LESSONS: Lesson[] = [
         hint: "看五檔有沒有買盤變厚，而不是看感覺。",
       },
       {
-        atMinute: 36,
+        atMinute: 24,
         title: "檢查費稅",
         body: "若已進場，問兩件事：這筆有沒有蓋過 0.32%？部位有沒有超過 30%？沒有就平，不要加碼報復。",
         hint: "看均價與成本線。不夠就出場。",
@@ -370,7 +370,11 @@ export const PASS_RULES: Record<string, PassRule[]> = {
 };
 
 export function passRulesOf(id: string): PassRule[] {
-  return PASS_RULES[id] ?? [];
+  return lessonById(id)?.passRules ?? PASS_RULES[id] ?? [];
+}
+
+for (const lesson of LESSONS) {
+  if (!lesson.passRules?.length) lesson.passRules = PASS_RULES[lesson.id] ?? [];
 }
 
 export type DebriefInput = {

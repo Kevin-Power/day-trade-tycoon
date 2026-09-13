@@ -1,4 +1,5 @@
-import { Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { TapeChart } from "@/components/charts";
 import { passRulesOf, lessonById } from "@/lib/game/curriculum";
@@ -9,24 +10,37 @@ import { STOCK_BY_CODE } from "@/lib/market/universe";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Fill } from "@/lib/game/types";
 import type { RuleVerdict } from "@/lib/game/pass-rules";
+import type { ReviewBundle } from "@/lib/game/persist";
+import { DayMarket } from "@/lib/market/engine";
+import { scenarioById } from "@/lib/game/scenarios";
 
-export function ResultScreen() {
-  const rec = useGame((s) => s.lastResult);
-  const verdicts = useGame((s) => s.lastVerdicts);
-  const engine = useGame((s) => s.engine);
-  const scenario = useGame((s) => s.scenario);
-  const selected = useGame((s) => s.selected);
+function replayPath(scenarioId: string): DayMarket | null {
+  const sc = scenarioById(scenarioId);
+  if (!sc) return null;
+  const e = new DayMarket(sc);
+  let n = 0;
+  while (!e.ended && n++ < 20000) e.step(8);
+  return e;
+}
+
+export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
   const start = useGame((s) => s.start);
   const leave = useGame((s) => s.leave);
-  if (!rec || !engine || !scenario) return null;
-  const st = engine.stats();
-  const lesson = lessonById(scenario.id);
-  const q = engine.quote(selected);
-  const fills = engine.fills;
-  const curve = equityPoints(scenario.capital, fills, st.equity, engine.t);
-  const rules: RuleVerdict[] = verdicts.length
-    ? verdicts
-    : passRulesOf(scenario.id).map((rule) => ({ rule, passed: true, detail: "" }));
+  const navigate = useNavigate();
+  const [path, setPath] = useState<DayMarket | null>(null);
+
+  useEffect(() => {
+    setPath(replayPath(bundle.rec.scenarioId));
+  }, [bundle.rec.scenarioId]);
+
+  const rec = bundle.rec;
+  const fills = bundle.fills;
+  const lesson = lessonById(rec.scenarioId);
+  const q = path?.quote(bundle.code);
+  const curve = equityPoints(bundle.capital, fills, bundle.equity, path?.t ?? fills.at(-1)?.time ?? 0);
+  const rules: RuleVerdict[] = bundle.verdicts.length
+    ? bundle.verdicts
+    : passRulesOf(rec.scenarioId).map((rule) => ({ rule, passed: true, detail: "" }));
   const winTrades = rec.wins;
   const lossTrades = Math.max(0, rec.trades - rec.wins);
   const avgWin = winTrades ? rec.pnl / Math.max(1, rec.trades) : 0;
@@ -36,13 +50,14 @@ export function ResultScreen() {
   const feeShare = gross > 0 ? (rec.fees / gross) * 100 : 0;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-auto bg-bg text-fg">
+    <div className="min-h-dvh overflow-auto bg-bg text-fg">
       <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
         <p className="text-micro tracking-[0.2em] text-muted">
-          {lesson ? `${lesson.no} · ${lesson.skill}` : "SESSION"} · {engine.session.label}
+          {lesson ? `${lesson.no} · ${lesson.skill}` : "SESSION"}
+          {bundle.sessionLabel ? ` · ${bundle.sessionLabel}` : ""}
         </p>
         <div className="mt-2 flex flex-wrap items-end gap-3">
-          <h2 className="text-3xl font-medium">{rec.scenarioName}</h2>
+          <h1 className="text-3xl font-medium">{rec.scenarioName}</h1>
           <span className={cn("rounded-sm px-2 py-1 text-lg font-medium", rec.passed ? "bg-down-dim text-down" : "bg-up-dim text-up")}>
             {rec.passed ? "通過" : "未通過"}
           </span>
@@ -51,11 +66,11 @@ export function ResultScreen() {
           <p className="mt-2 text-sm text-up">未達成：{rec.violations.join("、")}</p>
         )}
 
-        {q && (
+        {q && path && (
           <div className="mt-5 h-56 overflow-hidden rounded-lg border border-border bg-surface">
             <TapeChart
-              bars={engine.bars(q.code)}
-              ticks={engine.ticks(q.code)}
+              bars={path.bars(q.code)}
+              ticks={path.ticks(q.code)}
               prev={q.prevClose}
               high={q.high}
               low={q.low}
@@ -63,9 +78,9 @@ export function ResultScreen() {
               open={q.open}
               fills={fills.filter((f) => f.code === q.code).map((f) => ({ t: f.time, p: f.price, side: f.side }))}
               showVolume
-              startT={engine.startT}
-              endT={engine.endT}
-              now={engine.t}
+              startT={path.startT}
+              endT={path.endT}
+              now={path.t}
               variant="jiangbo"
             />
           </div>
@@ -79,9 +94,7 @@ export function ResultScreen() {
               <XAxis dataKey="label" tick={{ fill: "#8b9bb0", fontSize: 11 }} />
               <YAxis yAxisId="eq" tick={{ fill: "#8b9bb0", fontSize: 11 }} />
               <YAxis yAxisId="dd" orientation="right" tick={{ fill: "#8b9bb0", fontSize: 11 }} />
-              <Tooltip
-                contentStyle={{ background: "#161d27", border: "1px solid #33455c", color: "#e6edf5" }}
-              />
+              <Tooltip contentStyle={{ background: "#161d27", border: "1px solid #33455c", color: "#e6edf5" }} />
               <Line yAxisId="eq" type="monotone" dataKey="equity" stroke="#e8c547" dot={false} name="權益" />
               <Line yAxisId="dd" type="monotone" dataKey="ddPct" stroke="#ff3b3b" dot={false} name="回撤%" />
             </LineChart>
@@ -150,7 +163,7 @@ export function ResultScreen() {
               ))}
               {fills.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={6} className="px-3 py-6 text-center font-sans text-muted">
                     沒有成交。
                   </td>
                 </tr>
@@ -160,20 +173,40 @@ export function ResultScreen() {
         </section>
 
         <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-          <Button className="flex-1" onClick={() => start(scenario.id)}>
+          <Button
+            className="flex-1"
+            onClick={() => {
+              start(rec.scenarioId);
+              void navigate({ to: "/" });
+            }}
+          >
             再打一次
           </Button>
-          <Button className="flex-1" variant="outline" onClick={leave}>
+          <Button
+            className="flex-1"
+            variant="outline"
+            onClick={() => {
+              leave();
+              void navigate({ to: "/" });
+            }}
+          >
             回課綱
-          </Button>
-          <Button className="flex-1" variant="ghost" asChild>
-            <Link to="/session/$id/review" params={{ id: rec.id }}>
-              開啟報告頁
-            </Link>
           </Button>
         </div>
       </div>
     </div>
+  );
+}
+
+export function ResultScreen() {
+  const rec = useGame((s) => s.lastResult);
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!rec) return;
+    void navigate({ to: "/session/$id/review", params: { id: rec.id } });
+  }, [rec, navigate]);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-bg text-sm text-muted">開啟報告…</div>
   );
 }
 
