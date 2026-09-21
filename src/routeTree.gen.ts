@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LicenseRouteImport } from './routes/license'
 import { Route as ManualRouteImport } from './routes/manual'
 import { Route as ApiGateRouteImport } from './routes/api/gate'
 import { Route as ApiTapeRouteImport } from './routes/api/tape'
@@ -18,6 +19,11 @@ import { Route as ApiBrokerOrderRouteImport } from './routes/api/broker/order'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LicenseRoute = LicenseRouteImport.update({
+  id: '/license',
+  path: '/license',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ManualRoute = ManualRouteImport.update({
@@ -43,6 +49,7 @@ const ApiBrokerOrderRoute = ApiBrokerOrderRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/license': typeof LicenseRoute
   '/manual': typeof ManualRoute
   '/api/gate': typeof ApiGateRoute
   '/api/tape': typeof ApiTapeRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/license': typeof LicenseRoute
   '/manual': typeof ManualRoute
   '/api/gate': typeof ApiGateRoute
   '/api/tape': typeof ApiTapeRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/license': typeof LicenseRoute
   '/manual': typeof ManualRoute
   '/api/gate': typeof ApiGateRoute
   '/api/tape': typeof ApiTapeRoute
@@ -65,12 +74,25 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/manual' | '/api/gate' | '/api/tape' | '/api/broker/order'
+  fullPaths:
+    | '/'
+    | '/license'
+    | '/manual'
+    | '/api/gate'
+    | '/api/tape'
+    | '/api/broker/order'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/manual' | '/api/gate' | '/api/tape' | '/api/broker/order'
+  to:
+    | '/'
+    | '/license'
+    | '/manual'
+    | '/api/gate'
+    | '/api/tape'
+    | '/api/broker/order'
   id:
     | '__root__'
     | '/'
+    | '/license'
     | '/manual'
     | '/api/gate'
     | '/api/tape'
@@ -79,6 +101,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LicenseRoute: typeof LicenseRoute
   ManualRoute: typeof ManualRoute
   ApiGateRoute: typeof ApiGateRoute
   ApiTapeRoute: typeof ApiTapeRoute
@@ -92,6 +115,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/license': {
+      id: '/license'
+      path: '/license'
+      fullPath: '/license'
+      preLoaderRoute: typeof LicenseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/manual': {
@@ -127,6 +157,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LicenseRoute: LicenseRoute,
   ManualRoute: ManualRoute,
   ApiGateRoute: ApiGateRoute,
   ApiTapeRoute: ApiTapeRoute,

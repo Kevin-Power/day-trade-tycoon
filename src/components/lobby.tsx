@@ -1,4 +1,4 @@
-import { Activity, BookOpen, ChevronRight, Clock3, Download, HardDrive, LogOut, Shield, Target, TrendingUp } from "lucide-react";
+import { Activity, BookOpen, ChevronRight, Clock3, Download, HardDrive, LogOut, ScrollText, Shield, Target, TrendingUp } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { nextRank, rankFor, SCENARIOS } from "@/lib/game/scenarios";
@@ -54,6 +54,14 @@ export function Lobby() {
         </div>
         <div className="flex items-center gap-3">
           <SimChip className="hidden sm:inline" />
+          <Link
+            to="/license"
+            className="inline-flex h-9 items-center gap-1.5 rounded-sm bg-header-2 px-3 text-xs text-fg hover:bg-header"
+          >
+            <ScrollText className="size-3.5" />
+            <span className="hidden sm:inline">教室授權</span>
+            <span className="sm:hidden">授權</span>
+          </Link>
           <Link
             to="/manual"
             className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-border-strong bg-surface px-3 text-xs text-fg hover:bg-elevated"
@@ -111,6 +119,23 @@ export function Lobby() {
           </span>
         </section>
 
+        <section className="mb-8 flex flex-col gap-3 rounded-lg border border-header-2 bg-surface px-4 py-4 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <div className="text-micro tracking-[0.22em] text-muted">CLASSROOM LICENSE</div>
+            <div className="mt-1 text-sm font-medium">教室授權／班級方案</div>
+            <p className="mt-1 text-pretty text-micro leading-relaxed text-muted">
+              這包有模擬教室、課綱、地端包、說明書。沒有實盤下單、投顧、保證獲利。全班同一組入場密碼；每人帳號是之後的路。報價洽教室／講師，這一頁不寫新台幣數字。
+            </p>
+          </div>
+          <Link
+            to="/license"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-sm bg-header-2 px-3 text-xs text-fg hover:bg-header"
+          >
+            <ScrollText className="size-3.5" />
+            打開授權說明
+          </Link>
+        </section>
+
         <section className="mb-8 flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center">
           <div className="min-w-0 flex-1">
             <div className="text-sm font-medium">給石大哥的說明書</div>
@@ -120,7 +145,7 @@ export function Lobby() {
           </div>
           <Link
             to="/manual"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-sm bg-header-2 px-3 text-xs text-fg hover:bg-header"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-sm border border-border-strong bg-surface px-3 text-xs text-fg hover:bg-elevated"
           >
             <BookOpen className="size-3.5" />
             打開說明書
