@@ -1,5 +1,7 @@
 import { EMPTY_PROFILE, PROFILE_VERSION, type Profile, type SessionRecord } from "@/lib/game/types";
 
+export { loadFlashOrder, saveFlashOrder } from "@/lib/game/flash-order";
+
 const KEY = "day-tycoon-v1";
 const TEACH_KEY = "day-tycoon-teach";
 

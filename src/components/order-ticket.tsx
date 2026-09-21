@@ -18,6 +18,8 @@ export function OrderTicket() {
   const flattenSelected = useGame((s) => s.flattenSelected);
   const venue = useGame((s) => s.venue);
   const setVenue = useGame((s) => s.setVenue);
+  const flashOrder = useGame((s) => s.flashOrder);
+  const setFlashOrder = useGame((s) => s.setFlashOrder);
   const accountId = useGame((s) => s.accountId);
   const frame = useGame((s) => s.frame);
   void frame;
@@ -88,6 +90,32 @@ export function OrderTicket() {
                 {t}
               </button>
             ))}
+          </span>
+        </Field>
+        <Field label="閃電下單">
+          <span className="inline-flex overflow-hidden rounded-xs border border-border">
+            <button
+              type="button"
+              aria-pressed={!flashOrder}
+              onClick={() => flashOrder && setFlashOrder(false)}
+              className={cn(
+                "h-6 px-1.5 text-2xs",
+                !flashOrder ? "bg-header-2 text-fg" : "text-muted hover:text-fg",
+              )}
+            >
+              關
+            </button>
+            <button
+              type="button"
+              aria-pressed={flashOrder}
+              onClick={() => !flashOrder && setFlashOrder(true)}
+              className={cn(
+                "h-6 px-1.5 text-2xs",
+                flashOrder ? "bg-header-2 text-tape" : "text-muted hover:text-fg",
+              )}
+            >
+              開
+            </button>
           </span>
         </Field>
         <span className="ml-auto font-mono text-2xs text-muted">{venueLabel(venue)}</span>
@@ -204,6 +232,9 @@ export function OrderTicket() {
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border px-2 py-2">
         <div className="min-w-0 flex-1 font-mono text-micro">
+          <div className={cn("mb-0.5", flashOrder ? "text-tape" : "text-muted")}>
+            {flashOrder ? "閃電即送 · 點賣檔限價買、點買檔限價賣" : "點五檔只帶價"}
+          </div>
           <div className="flex flex-wrap items-center gap-x-3 text-muted">
             <span>
               預估 <span className="text-fg">{formatMoney(notional)}</span>

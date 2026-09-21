@@ -20,6 +20,8 @@ export function QuotePanel() {
   const engine = useGame((s) => s.engine);
   const selected = useGame((s) => s.selected);
   const clickPrice = useGame((s) => s.clickPrice);
+  const flashOrder = useGame((s) => s.flashOrder);
+  const setFlashOrder = useGame((s) => s.setFlashOrder);
   const frame = useGame((s) => s.frame);
   const [tab, setTab] = useState<QuoteTab>("book");
   void frame;
@@ -45,7 +47,7 @@ export function QuotePanel() {
   ];
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-bg">
+    <div className="relative z-10 flex h-full min-h-0 flex-col bg-bg">
       <div className="pane-title flex h-7 items-center gap-1 px-1">
         {(
           [
@@ -105,14 +107,32 @@ export function QuotePanel() {
             </div>
           </div>
           <div className="flex min-h-0 flex-col">
-            <div className="px-2 py-1 text-micro text-muted">點價帶入下單</div>
-            <div className="term-scroll min-h-0 flex-1 overflow-auto px-1 pb-1">
+            <div
+              className={cn(
+                "flex items-center justify-between gap-1 px-2 py-1 text-micro",
+                flashOrder ? "text-tape" : "text-muted",
+              )}
+            >
+              <span>{flashOrder ? "閃電即送" : "點五檔只帶價"}</span>
+              <button
+                type="button"
+                aria-pressed={flashOrder}
+                onClick={() => setFlashOrder(!flashOrder)}
+                className={cn(
+                  "h-5 rounded-xs border border-border px-1.5 text-2xs",
+                  flashOrder ? "bg-header-2 text-tape" : "text-muted hover:text-fg",
+                )}
+              >
+                閃電下單 {flashOrder ? "開" : "關"}
+              </button>
+            </div>
+            <div className="term-scroll relative z-10 min-h-0 flex-1 overflow-auto px-1 pb-1">
               {[...q.asks].reverse().map((lvl, i) => (
                 <button
                   key={`a${i}`}
                   type="button"
                   onClick={() => clickPrice(lvl.price, "buy")}
-                  className="flex w-full items-center gap-1 px-1 py-0.5 font-mono text-micro hover:bg-up-dim"
+                  className="relative z-[1] flex w-full items-center gap-1 px-1 py-0.5 font-mono text-micro hover:bg-up-dim"
                 >
                   <span className="w-10 text-right text-muted">{formatLots(lvl.lots)}</span>
                   <div className="h-2 flex-1">
@@ -131,7 +151,7 @@ export function QuotePanel() {
                   key={`b${i}`}
                   type="button"
                   onClick={() => clickPrice(lvl.price, "sell")}
-                  className="flex w-full items-center gap-1 px-1 py-0.5 font-mono text-micro hover:bg-down-dim"
+                  className="relative z-[1] flex w-full items-center gap-1 px-1 py-0.5 font-mono text-micro hover:bg-down-dim"
                 >
                   <span className="w-14 text-left tabular text-down">{formatPrice(lvl.price)}</span>
                   <div className="h-2 flex-1">
@@ -154,6 +174,7 @@ function PriceLadder() {
   const engine = useGame((s) => s.engine);
   const selected = useGame((s) => s.selected);
   const clickPrice = useGame((s) => s.clickPrice);
+  const flashOrder = useGame((s) => s.flashOrder);
   const frame = useGame((s) => s.frame);
   void frame;
   const q = engine?.quote(selected);
@@ -164,8 +185,8 @@ function PriceLadder() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-2 py-1 text-micro text-muted">
-        成交量堆積 · 點價帶入
+      <div className={cn("px-2 py-1 text-micro", flashOrder ? "text-tape" : "text-muted")}>
+        {flashOrder ? "成交量堆積 · 閃電即送" : "成交量堆積 · 點五檔只帶價"}
         {poc != null && (
           <span className="ml-2 font-mono text-fg/80">
             堆 {formatPrice(poc)}
@@ -187,7 +208,7 @@ function PriceLadder() {
               type="button"
               onClick={() => clickPrice(lvl.price)}
               className={cn(
-                "flex w-full items-center gap-1 px-1 py-0.5 font-mono text-micro hover:bg-elevated",
+                "relative z-[1] flex w-full items-center gap-1 px-1 py-0.5 font-mono text-micro hover:bg-elevated",
                 atLast && "bg-header/40",
               )}
             >

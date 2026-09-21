@@ -1,6 +1,15 @@
 import { create } from "zustand";
 import { gradeFor, scenarioById, type Scenario } from "@/lib/game/scenarios";
-import { applySession, loadProfile, loadTeachMode, saveProfile, saveTeachMode } from "@/lib/game/persist";
+import {
+  applySession,
+  loadFlashOrder,
+  loadProfile,
+  loadTeachMode,
+  saveFlashOrder,
+  saveProfile,
+  saveTeachMode,
+} from "@/lib/game/persist";
+import { flashClickDecision, isExamScenario, ticketAfterClickPrice } from "@/lib/game/flash-order";
 import { playError, playFill, unlockAudio } from "@/lib/game/audio";
 import { DayMarket, describeFill } from "@/lib/market/engine";
 import { STOCK_BY_CODE } from "@/lib/market/universe";
@@ -42,6 +51,7 @@ type GameStore = {
   rightTab: RightTab;
   chartStyle: ChartStyle;
   teachMode: boolean;
+  flashOrder: boolean;
   activeBeat: LessonBeat | null;
   dismissedBeats: string[];
   profile: Profile;
@@ -62,6 +72,7 @@ type GameStore = {
   setRightTab: (t: RightTab) => void;
   setChartStyle: (s: ChartStyle) => void;
   setTeachMode: (on: boolean) => void;
+  setFlashOrder: (on: boolean) => void;
   dismissBeat: () => void;
   checkBeats: () => void;
   bump: () => void;
@@ -92,6 +103,7 @@ export const useGame = create<GameStore>((set, get) => ({
   rightTab: "pos",
   chartStyle: "jiangbo",
   teachMode: true,
+  flashOrder: false,
   activeBeat: null,
   dismissedBeats: [],
   profile: { ...EMPTY_PROFILE },
@@ -101,7 +113,12 @@ export const useGame = create<GameStore>((set, get) => ({
   sound: true,
 
   hydrate: () => {
-    set({ profile: loadProfile(), hydrated: true, teachMode: loadTeachMode() });
+    set({
+      profile: loadProfile(),
+      hydrated: true,
+      teachMode: loadTeachMode(),
+      flashOrder: loadFlashOrder(),
+    });
   },
 
   start: (scenarioId) => {
@@ -214,6 +231,21 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!on) set({ teachMode: false, activeBeat: null, paused: false });
     else set({ teachMode: true });
   },
+  setFlashOrder: (on) => {
+    if (get().flashOrder === on) return;
+    saveFlashOrder(on);
+    if (!on) {
+      set({ flashOrder: false });
+      toast("閃電下單已關 · 點五檔只帶價");
+      return;
+    }
+    const { scenario, activeBeat } = get();
+    // 教學關卡：開閃電時清掉分步引導，避免卡在引導卻靜默不送。
+    // 期末考 / 盲測：保留引導；暫停中送單由 submit 擋下並 toast。
+    if (isExamScenario(scenario?.id)) set({ flashOrder: true });
+    else set({ flashOrder: true, ...(activeBeat ? { activeBeat: null, paused: false } : {}) });
+    toast("閃電下單已開 · 點五檔即以目前張數送單");
+  },
   dismissBeat: () => {
     const { scenario, activeBeat, dismissedBeats } = get();
     if (!activeBeat || !scenario) {
@@ -240,8 +272,13 @@ export const useGame = create<GameStore>((set, get) => ({
   bump: () => set({ frame: get().frame + 1 }),
 
   submit: () => {
-    const { engine, selected, ticket, venue, accountId } = get();
+    const { engine, selected, ticket, venue, accountId, scenario, paused, activeBeat } = get();
     if (!engine) return;
+    if (isExamScenario(scenario?.id) && (paused || activeBeat)) {
+      playError();
+      toast.error("測驗不可在暫停中下單");
+      return;
+    }
     const q = engine.quote(selected);
     const price =
       ticket.price > 0 ? ticket.price : ticket.side === "buy" ? (q?.ask ?? 0) : (q?.bid ?? 0);
@@ -295,15 +332,20 @@ export const useGame = create<GameStore>((set, get) => ({
   },
 
   clickPrice: (price, side) => {
-    const { ticket } = get();
-    set({
-      ticket: {
-        ...ticket,
-        price: roundToTick(price),
-        type: "limit",
-        ...(side ? { side } : {}),
-      },
+    const { ticket, flashOrder, teachMode, activeBeat, paused, scenario } = get();
+    set({ ticket: ticketAfterClickPrice(ticket, price, side) });
+    const decision = flashClickDecision({
+      flashOrder,
+      teachMode,
+      guideActive: Boolean(activeBeat),
+      paused,
+      examMode: isExamScenario(scenario?.id),
     });
+    if (decision.action === "submit") get().submit();
+    else if (decision.action === "block") {
+      playError();
+      toast.error(decision.reason);
+    }
   },
 }));
 
