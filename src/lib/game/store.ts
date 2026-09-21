@@ -1,6 +1,15 @@
 import { create } from "zustand";
 import { gradeFor, scenarioById, type Scenario } from "@/lib/game/scenarios";
-import { applySession, loadProfile, loadTeachMode, saveProfile, saveTeachMode } from "@/lib/game/persist";
+import {
+  applySession,
+  loadFlashOrder,
+  loadProfile,
+  loadTeachMode,
+  saveFlashOrder,
+  saveProfile,
+  saveTeachMode,
+} from "@/lib/game/persist";
+import { ticketAfterClickPrice } from "@/lib/game/flash-order";
 import { playError, playFill, unlockAudio } from "@/lib/game/audio";
 import { DayMarket, describeFill } from "@/lib/market/engine";
 import { STOCK_BY_CODE } from "@/lib/market/universe";
@@ -42,6 +51,7 @@ type GameStore = {
   rightTab: RightTab;
   chartStyle: ChartStyle;
   teachMode: boolean;
+  flashOrder: boolean;
   activeBeat: LessonBeat | null;
   dismissedBeats: string[];
   profile: Profile;
@@ -62,6 +72,7 @@ type GameStore = {
   setRightTab: (t: RightTab) => void;
   setChartStyle: (s: ChartStyle) => void;
   setTeachMode: (on: boolean) => void;
+  setFlashOrder: (on: boolean) => void;
   dismissBeat: () => void;
   checkBeats: () => void;
   bump: () => void;
@@ -92,6 +103,7 @@ export const useGame = create<GameStore>((set, get) => ({
   rightTab: "pos",
   chartStyle: "jiangbo",
   teachMode: true,
+  flashOrder: false,
   activeBeat: null,
   dismissedBeats: [],
   profile: { ...EMPTY_PROFILE },
@@ -101,7 +113,12 @@ export const useGame = create<GameStore>((set, get) => ({
   sound: true,
 
   hydrate: () => {
-    set({ profile: loadProfile(), hydrated: true, teachMode: loadTeachMode() });
+    set({
+      profile: loadProfile(),
+      hydrated: true,
+      teachMode: loadTeachMode(),
+      flashOrder: loadFlashOrder(),
+    });
   },
 
   start: (scenarioId) => {
@@ -214,6 +231,12 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!on) set({ teachMode: false, activeBeat: null, paused: false });
     else set({ teachMode: true });
   },
+  setFlashOrder: (on) => {
+    saveFlashOrder(on);
+    set({ flashOrder: on });
+    if (on) toast("閃電下單已開 · 點五檔即以目前張數送單");
+    else toast("閃電下單已關 · 點五檔只帶價");
+  },
   dismissBeat: () => {
     const { scenario, activeBeat, dismissedBeats } = get();
     if (!activeBeat || !scenario) {
@@ -295,15 +318,9 @@ export const useGame = create<GameStore>((set, get) => ({
   },
 
   clickPrice: (price, side) => {
-    const { ticket } = get();
-    set({
-      ticket: {
-        ...ticket,
-        price: roundToTick(price),
-        type: "limit",
-        ...(side ? { side } : {}),
-      },
-    });
+    const { ticket, flashOrder } = get();
+    set({ ticket: ticketAfterClickPrice(ticket, price, side) });
+    if (flashOrder) get().submit();
   },
 }));
 

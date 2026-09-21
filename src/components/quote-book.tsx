@@ -20,6 +20,8 @@ export function QuotePanel() {
   const engine = useGame((s) => s.engine);
   const selected = useGame((s) => s.selected);
   const clickPrice = useGame((s) => s.clickPrice);
+  const flashOrder = useGame((s) => s.flashOrder);
+  const setFlashOrder = useGame((s) => s.setFlashOrder);
   const frame = useGame((s) => s.frame);
   const [tab, setTab] = useState<QuoteTab>("book");
   void frame;
@@ -105,7 +107,25 @@ export function QuotePanel() {
             </div>
           </div>
           <div className="flex min-h-0 flex-col">
-            <div className="px-2 py-1 text-micro text-muted">點價帶入下單</div>
+            <div
+              className={cn(
+                "flex items-center justify-between gap-1 px-2 py-1 text-micro",
+                flashOrder ? "text-tape" : "text-muted",
+              )}
+            >
+              <span>{flashOrder ? "閃電下單 · 點價即送單" : "點價帶入下單"}</span>
+              <button
+                type="button"
+                aria-pressed={flashOrder}
+                onClick={() => setFlashOrder(!flashOrder)}
+                className={cn(
+                  "h-5 rounded-xs border border-border px-1.5 text-2xs",
+                  flashOrder ? "bg-header-2 text-tape" : "text-muted hover:text-fg",
+                )}
+              >
+                閃電下單 {flashOrder ? "開" : "關"}
+              </button>
+            </div>
             <div className="term-scroll min-h-0 flex-1 overflow-auto px-1 pb-1">
               {[...q.asks].reverse().map((lvl, i) => (
                 <button
@@ -154,6 +174,7 @@ function PriceLadder() {
   const engine = useGame((s) => s.engine);
   const selected = useGame((s) => s.selected);
   const clickPrice = useGame((s) => s.clickPrice);
+  const flashOrder = useGame((s) => s.flashOrder);
   const frame = useGame((s) => s.frame);
   void frame;
   const q = engine?.quote(selected);
@@ -164,8 +185,8 @@ function PriceLadder() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-2 py-1 text-micro text-muted">
-        成交量堆積 · 點價帶入
+      <div className={cn("px-2 py-1 text-micro", flashOrder ? "text-tape" : "text-muted")}>
+        {flashOrder ? "成交量堆積 · 點價即送單" : "成交量堆積 · 點價帶入"}
         {poc != null && (
           <span className="ml-2 font-mono text-fg/80">
             堆 {formatPrice(poc)}
