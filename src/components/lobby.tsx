@@ -8,8 +8,16 @@ import { playOpen, unlockAudio } from "@/lib/game/audio";
 import { cn, formatMoney, formatPct, formatSigned } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
 import { LiveTape } from "@/components/live-tape";
+import { ProvenanceBadge, ProvenanceMicro, SimChip } from "@/components/provenance";
 import { WEEK_SESSIONS, formatIndex } from "@/lib/market/week";
 import { useGate } from "@/lib/gate/context";
+import {
+  SIM_CHIP_NOTE,
+  TEACHING_WEEK_DAYS,
+  classroomSampleMicro,
+  officialIndexMicro,
+  officialTurnoverMicro,
+} from "@/lib/provenance";
 
 const WEEK_ORDER = ["mon", "tue", "wed"] as const;
 const CLASSROOM_OFFLINE = import.meta.env.BASE_URL === "./";
@@ -45,9 +53,7 @@ export function Lobby() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="hidden rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs tracking-wide text-tape sm:inline">
-            模擬盤
-          </span>
+          <SimChip className="hidden sm:inline" />
           <Link
             to="/manual"
             className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-border-strong bg-surface px-3 text-xs text-fg hover:bg-elevated"
@@ -98,10 +104,10 @@ export function Lobby() {
         </section>
 
         <section className="mb-8 flex flex-col gap-1 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
-          <span className="w-fit rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs tracking-wide text-tape">模擬盤</span>
+          <SimChip className="w-fit" />
           <span className="text-sm">現股當沖 · 帳號 CLASSROOM-SIM</span>
-          <span className="text-micro text-muted sm:ml-auto">
-            委託單與實盤共用。券商 API 尚未接線，點實盤會提示。
+          <span className="text-micro text-muted sm:ml-auto" title={SIM_CHIP_NOTE}>
+            {SIM_CHIP_NOTE}。委託單與實盤共用。券商 API 尚未接線，點實盤會提示。
           </span>
         </section>
 
@@ -128,7 +134,14 @@ export function Lobby() {
             const pct = (chg / s.prevClose) * 100;
             return (
               <div key={id} className="bg-surface px-4 py-3">
-                <div className="text-micro text-muted">{s.label} 加權</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-micro text-muted">{s.label} 加權</div>
+                  <ProvenanceBadge kind="official" />
+                </div>
+                <ProvenanceMicro
+                  className="mt-1 border-0 bg-transparent px-0"
+                  text={`${officialIndexMicro(s.date)} · ${officialTurnoverMicro(s.date)}`}
+                />
                 <div className={cn("mt-1 font-mono text-lg tabular", toneClass(chg))}>
                   {formatIndex(s.close)}
                 </div>
@@ -148,7 +161,12 @@ export function Lobby() {
         <section className="mb-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
           <HeroStat label="生涯損益" value={formatSigned(profile.careerPnl, 0)} tone={profile.careerPnl} />
           <HeroStat label="已完成盤數" value={String(profile.sessions)} />
-          <HeroStat label="勝率" value={`${(winRate * 100).toFixed(0)}%`} />
+          <HeroStat
+            label="勝率"
+            value={`${(winRate * 100).toFixed(0)}%`}
+            note={classroomSampleMicro(profile.sessions || TEACHING_WEEK_DAYS)}
+            badge="classroom"
+          />
           <HeroStat
             label="下一階"
             value={nxt ? `${nxt.title} · ${nxt.need}` : "已達頂點"}
@@ -283,13 +301,29 @@ export function Lobby() {
   );
 }
 
-function HeroStat({ label, value, tone }: { label: string; value: string; tone?: number }) {
+function HeroStat({
+  label,
+  value,
+  tone,
+  note,
+  badge,
+}: {
+  label: string;
+  value: string;
+  tone?: number;
+  note?: string;
+  badge?: "official" | "classroom";
+}) {
   return (
     <div className="bg-surface px-4 py-3">
-      <div className="text-micro text-muted">{label}</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-micro text-muted">{label}</div>
+        {badge ? <ProvenanceBadge kind={badge} /> : null}
+      </div>
       <div className={cn("mt-1 font-mono text-lg tabular", tone !== undefined ? toneClass(tone) : "text-fg")}>
         {value}
       </div>
+      {note ? <ProvenanceMicro className="mt-1 border-0 bg-transparent px-0" text={note} /> : null}
     </div>
   );
 }

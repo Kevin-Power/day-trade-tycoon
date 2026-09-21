@@ -9,6 +9,8 @@ import { TEACHING_DATES, type TapeDay, type TapePayload } from "@/lib/market/tap
 import { formatIndex } from "@/lib/market/week";
 import { cn, formatPct, formatSigned } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
+import { ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
+import { classroomPathMicro, officialIndexMicro, officialTurnoverMicro } from "@/lib/provenance";
 
 const CLASSROOM_OFFLINE = import.meta.env.BASE_URL === "./";
 
@@ -117,8 +119,15 @@ export function LiveTape() {
                   <span className="rounded-xs bg-elevated px-1.5 py-0.5 text-2xs tracking-wide text-muted">
                     自由練習
                   </span>
-                  <span className="font-mono text-micro text-muted">{d.date}</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-mono text-micro text-muted">{d.date}</span>
+                    <ProvenanceBadge kind="official" />
+                  </span>
                 </div>
+                <ProvenanceMicro
+                  className="mb-1 border-0 bg-transparent px-0"
+                  text={`${officialIndexMicro(d.date)} · ${officialTurnoverMicro(d.date)}`}
+                />
                 <h3 className="text-lg font-medium">{d.label}</h3>
                 <div className={cn("mt-1 font-mono text-xl tabular", toneClass(chg))}>
                   {formatIndex(d.close)}
@@ -133,6 +142,10 @@ export function LiveTape() {
                 <p className="mt-3 text-pretty text-xs leading-relaxed text-muted">
                   加權為證交所每 5 秒指數。沒有課綱暫停，規則自己執行。個股為當日開高低收套大盤節奏。
                 </p>
+                <ProvenanceMicro
+                  className="mt-1 border-0 bg-transparent px-0"
+                  text={classroomPathMicro()}
+                />
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <Button className="w-full" onClick={() => play(d, "full")}>
                     全日

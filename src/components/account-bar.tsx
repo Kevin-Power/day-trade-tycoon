@@ -4,6 +4,7 @@ import { toneClass } from "@/components/signed";
 import { isSoundEnabled, setSoundEnabled, unlockAudio } from "@/lib/game/audio";
 import { useGame } from "@/lib/game/store";
 import { venueLabel } from "@/lib/broker";
+import { SimChip } from "@/components/provenance";
 import { cn, formatMoney, formatPct, formatSigned, formatTime } from "@/lib/utils";
 import { useState } from "react";
 
@@ -40,7 +41,7 @@ export function AccountBar() {
           {formatTime(engine.endT)} · 餘 {left.toFixed(0)} 分
         </span>
       </div>
-      <span className="rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs text-tape">{venueLabel(venue)}</span>
+      <SimChip label={venueLabel(venue)} className="text-tape" />
       <span className="hidden font-mono text-2xs text-muted sm:inline">{accountId}</span>
       <div className="hidden h-4 w-px bg-border sm:block" />
       <Stat label="權益" value={formatMoney(st.equity, 0)} />

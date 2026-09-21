@@ -14,6 +14,8 @@ import { cn, formatPct, formatTime } from "@/lib/utils";
 import { Arrow, toneClass } from "@/components/signed";
 import { formatPrice } from "@/lib/market/ticks";
 import { formatIndex } from "@/lib/market/week";
+import { CoachCorner, ProvenanceBadge, ProvenanceMicro, SimChip } from "@/components/provenance";
+import { classroomPathMicro, officialIndexPaneMicro } from "@/lib/provenance";
 
 const MOBILE_TABS: { id: MobileTab; label: string }[] = [
   { id: "watch", label: "自選" },
@@ -194,6 +196,7 @@ export function Terminal() {
       </nav>
 
       {phase === "result" && <ResultScreen />}
+      <CoachCorner />
       <LessonCard />
       {paused && phase === "live" && !activeBeat && (
         <div className="pointer-events-none absolute inset-x-0 top-24 flex justify-center">
@@ -225,7 +228,7 @@ function TopMenu({
     <div className="flex h-9 items-center gap-2 border-b border-border bg-header px-2 text-xs">
       <MarkTiny />
       <span className="font-medium tracking-wide">當沖大富翁</span>
-      <span className="rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs tracking-wide text-tape">{venue}</span>
+      <SimChip label={venue} />
       <span className="hidden rounded-xs border border-border-strong/60 px-1.5 py-0.5 text-2xs text-fg/85 sm:inline">
         現股當沖
       </span>
@@ -256,11 +259,12 @@ function IndexPane() {
   void frame;
   if (!engine) return null;
   const idx = engine.indexQuote();
+  const asOf = formatTime(engine.t);
   return (
     <div className="flex min-h-0 flex-col bg-bg">
       <div className="pane-title flex h-7 shrink-0 items-center gap-x-3 overflow-hidden px-2">
         <span className="shrink-0">加權指數</span>
-        <span className="shrink-0 font-mono text-micro tabular text-fg/80">{formatTime(engine.t)}</span>
+        <span className="shrink-0 font-mono text-micro tabular text-fg/80">{asOf}</span>
         <span className={cn("shrink-0 font-mono tabular", toneClass(idx.change))}>
           {formatIndex(idx.last)} {idx.change >= 0 ? "▲" : "▼"}
           {Math.abs(idx.change).toFixed(2)} {formatPct(idx.changePct)}
@@ -268,7 +272,9 @@ function IndexPane() {
         <span className="ml-auto truncate font-mono text-micro text-fg/80">
           成交 {idx.turnoverYi.toFixed(2)} 億
         </span>
+        <ProvenanceBadge kind="official" />
       </div>
+      <ProvenanceMicro text={officialIndexPaneMicro(asOf, engine.session.date)} />
       <div className="pane-sunken min-h-36 flex-1 bg-bg">
         <TapeChart
           bars={engine.indexBars}
@@ -332,7 +338,9 @@ function SelectedChart() {
         <span className={cn("ml-auto shrink-0 font-mono tabular", toneClass(q.change))}>
           {formatPrice(q.last)} {formatPct(q.changePct)} · {q.volume} 張
         </span>
+        <ProvenanceBadge kind="classroom" />
       </div>
+      <ProvenanceMicro text={classroomPathMicro()} />
       <div className="pane-sunken min-h-40 flex-1 bg-bg">
         <TapeChart
           bars={engine.bars(q.code)}

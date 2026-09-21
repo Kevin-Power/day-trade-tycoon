@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Download, LogOut, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ProvenanceBadge, SimChip } from "@/components/provenance";
+import { DISCLAIMER, DISCLOSURE_ROWS } from "@/lib/provenance";
 import { cn } from "@/lib/utils";
 import { useGate } from "@/lib/gate/context";
 
@@ -93,9 +95,7 @@ function Cover() {
           <div className="text-xs tracking-[0.22em] text-muted">DAY TRADE TYCOON</div>
           <div className="text-sm text-fg">股文觀指教室 · 說明書</div>
         </div>
-        <span className="ml-auto hidden rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs tracking-wide text-tape sm:inline">
-          模擬盤
-        </span>
+        <SimChip className="ml-auto hidden sm:inline" />
       </div>
       <p className="mb-3 text-xs tracking-[0.28em] text-muted">{VERSION}</p>
       <h1 className="text-balance text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
@@ -143,7 +143,7 @@ function Brief() {
             <Row k="產品" v="台股現股當沖模擬教室。盤面比照券商：自選、江波、五檔、委託、庫存／成交。" />
             <Row k="現況" v="模擬撮合已開。學員可上課、可地端離線打、線上教室交易日 13:50 後可練最新完整盤。" />
             <Row k="還沒有" v="券商實盤下單、學員帳號登入、真錢、保證獲利。" />
-            <Row k="資料邊界" v="加權＝證交所官方 5 秒指數。個股＝公開日成交套上同一條大盤節奏，不是逐筆成交。" />
+            <Row k="資料邊界" v="加權等標「官方」的欄位來自證交所／櫃買公開檔。個股分時、五檔、明細標「教室生成」，是教學投影，不是逐筆。" />
             <Row k="之後接實盤" v="下單畫面已共用。接上券商只換 adapter，不必重做盤室。" />
             <Row k="商業用途" v="教室授權、班費、地端包。不是投顧、不是訊號、不是代操。" />
           </tbody>
@@ -310,6 +310,43 @@ function Data() {
       <p className="mt-4 text-sm leading-relaxed text-muted">
         個股江波看起來會跟大盤呼吸在一起，因為本來就是用指數當節奏。台積電、台達電、鴻海當日收盤是公開數字；盤中每一跳不是交易所那一筆。
       </p>
+      <h3 className="mt-8 mb-3 text-sm font-medium">畫面上的徽章對照</h3>
+      <p className="text-pretty text-sm leading-relaxed text-muted">
+        全站只准兩枚主標：官方、教室生成。輔助字（教材凍結、CLASSROOM-SIM、非即時快照）可併列，不當主標。用字與盤室標題列一致。
+      </p>
+      <div className="mt-4 overflow-x-auto rounded-lg border border-border">
+        <table className="w-full min-w-xl text-left text-sm">
+          <thead className="bg-surface-2 text-micro tracking-wide text-muted">
+            <tr>
+              <th className="px-3 py-2 font-medium">畫面區塊</th>
+              <th className="px-3 py-2 font-medium">徽章</th>
+              <th className="px-3 py-2 font-medium">as-of / 來源字</th>
+            </tr>
+          </thead>
+          <tbody>
+            {DISCLOSURE_ROWS.map((row) => (
+              <tr key={row.area} className="border-t border-border">
+                <td className="px-3 py-2 text-pretty">{row.area}</td>
+                <td className="px-3 py-2">
+                  <span className="inline-flex flex-wrap items-center gap-1.5">
+                    {row.kind === "全域" ? (
+                      <span className="text-micro text-muted">全域</span>
+                    ) : (
+                      <ProvenanceBadge kind={row.kind === "官方" ? "official" : "classroom"} />
+                    )}
+                    {row.aux ? (
+                      <span className="rounded-xs border border-border-strong/70 px-1 py-0.5 text-2xs text-muted">
+                        {row.aux}
+                      </span>
+                    ) : null}
+                  </span>
+                </td>
+                <td className="px-3 py-2 font-mono text-micro text-pretty">{row.note}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Section>
   );
 }
@@ -383,6 +420,7 @@ function Rules() {
 function Risk() {
   return (
     <Section id="risk" n="08" title="不承諾什麼">
+      <p className="mb-4 text-pretty text-sm leading-relaxed text-muted">{DISCLAIMER}</p>
       <ul className="space-y-3 text-sm leading-relaxed text-muted">
         <li>這不是投資建議，不是獲利保證，不是代操。</li>
         <li>教室成績不能外推到實盤。實盤有滑價、排隊、斷線、情緒，教室沒有全部模擬到。</li>
