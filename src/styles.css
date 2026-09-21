@@ -301,6 +301,7 @@
     --color-header-2: #1e4d88;
     --color-tape: #8a6d12;
     --color-warn: #9a6b00;
+    --color-vwap: #4a6280;
     background: #fff !important;
     color: #16181d !important;
     -webkit-print-color-adjust: exact;

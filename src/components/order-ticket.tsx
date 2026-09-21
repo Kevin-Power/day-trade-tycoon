@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { ClassroomSimMark, ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
 import { useGame } from "@/lib/game/store";
 import { SIM_ACCOUNT, venueLabel, type TimeInForce } from "@/lib/broker";
+import { blotterMicro } from "@/lib/provenance";
 import { formatPrice, LOT_SHARES, ROUND_TRIP_RATE, stepTick } from "@/lib/market/ticks";
 import { cn, formatMoney, formatPct } from "@/lib/utils";
 
@@ -33,10 +35,15 @@ export function OrderTicket() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
-      <div className="pane-title flex h-7 items-center justify-between px-2">
+      <div className="pane-title flex h-7 items-center justify-between gap-2 px-2">
         <span>委託下單</span>
-        <span className="font-mono text-micro text-fg/80">現股當沖 · 1 張 = 1,000 股</span>
+        <span className="flex items-center gap-1.5">
+          <span className="hidden font-mono text-micro text-fg/80 sm:inline">現股當沖 · 1 張 = 1,000 股</span>
+          <ClassroomSimMark />
+          <ProvenanceBadge kind="classroom" />
+        </span>
       </div>
+      <ProvenanceMicro text={blotterMicro()} />
 
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-elevated/60 px-2 py-1.5">
         <Field label="帳號">

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Arrow, toneClass } from "@/components/signed";
+import { ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
 import { useGame } from "@/lib/game/store";
 import { formatPrice } from "@/lib/market/ticks";
+import { freezeWeekLabel, officialWatchlistMicro } from "@/lib/provenance";
 import { cn, formatLots } from "@/lib/utils";
 
 type ListTab = "all" | "tse" | "otc";
@@ -47,7 +49,9 @@ export function Watchlist() {
         <span className="ml-auto px-1 text-micro text-fg/80">
           {engine?.session.label} · {quotes.length} 檔
         </span>
+        <ProvenanceBadge kind="official" />
       </div>
+      <ProvenanceMicro text={officialWatchlistMicro(freezeWeekLabel(engine?.session.date))} />
       <div className="term-scroll min-h-0 flex-1 overflow-auto">
         <table className="w-full min-w-watchlist border-collapse font-mono text-micro">
           <thead className="sticky top-0 z-10 bg-header-2 text-fg">

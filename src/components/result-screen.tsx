@@ -4,6 +4,8 @@ import { rankFor } from "@/lib/game/scenarios";
 import { useGame } from "@/lib/game/store";
 import { cn, formatMoney, formatPct, formatSigned } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
+import { ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
+import { TEACHING_WEEK_DAYS, classroomSampleMicro } from "@/lib/provenance";
 
 export function ResultScreen() {
   const rec = useGame((s) => s.lastResult);
@@ -57,7 +59,12 @@ export function ResultScreen() {
           <Cell label="損益" value={formatSigned(rec.pnl, 0)} tone={rec.pnl} />
           <Cell label="報酬率" value={formatPct(rec.pnlPct)} tone={rec.pnlPct} />
           <Cell label="交易次數" value={String(rec.trades)} />
-          <Cell label="勝率" value={rec.trades ? `${((rec.wins / rec.trades) * 100).toFixed(0)}%` : "—"} />
+          <Cell
+            label="勝率"
+            value={rec.trades ? `${((rec.wins / rec.trades) * 100).toFixed(0)}%` : "—"}
+            badge="classroom"
+            note={classroomSampleMicro(TEACHING_WEEK_DAYS)}
+          />
           <Cell label="費稅" value={formatMoney(rec.fees, 0)} />
           <Cell label="最大回撤" value={`${(rec.maxDrawdown * 100).toFixed(2)}%`} />
         </div>
@@ -106,13 +113,29 @@ export function ResultScreen() {
   );
 }
 
-function Cell({ label, value, tone }: { label: string; value: string; tone?: number }) {
+function Cell({
+  label,
+  value,
+  tone,
+  badge,
+  note,
+}: {
+  label: string;
+  value: string;
+  tone?: number;
+  badge?: "official" | "classroom";
+  note?: string;
+}) {
   return (
     <div className="bg-bg px-3 py-2.5">
-      <div className="text-micro text-muted">{label}</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-micro text-muted">{label}</div>
+        {badge ? <ProvenanceBadge kind={badge} /> : null}
+      </div>
       <div className={cn("mt-0.5 font-mono text-base tabular", tone !== undefined ? toneClass(tone) : "text-fg")}>
         {value}
       </div>
+      {note ? <ProvenanceMicro className="mt-1 border-0 bg-transparent px-0" text={note} /> : null}
     </div>
   );
 }

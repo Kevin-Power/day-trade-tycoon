@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SimChip } from "@/components/provenance";
+import { CONSENT, DISCLAIMER } from "@/lib/provenance";
 
 type Props = {
   onOpen: () => void;
@@ -10,6 +12,7 @@ type Props = {
 export function GateScreen({ onOpen, submit }: Props) {
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -20,7 +23,7 @@ export function GateScreen({ onOpen, submit }: Props) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (busy) return;
+    if (busy || !agreed) return;
     setBusy(true);
     setError("");
     const res = await submit(password);
@@ -52,9 +55,7 @@ export function GateScreen({ onOpen, submit }: Props) {
             <div className="text-xs tracking-[0.22em] text-muted">DAY TRADE TYCOON</div>
             <div className="font-medium">股文觀指教室</div>
           </div>
-          <span className="ml-auto rounded-xs bg-tape/15 px-1.5 py-0.5 text-2xs tracking-wide text-tape">
-            模擬盤
-          </span>
+          <SimChip className="ml-auto" />
         </div>
 
         <form
@@ -66,6 +67,7 @@ export function GateScreen({ onOpen, submit }: Props) {
           <p className="mt-2 text-pretty text-sm leading-relaxed text-muted">
             輸入講師發給的入場密碼。這不是券商帳號，也不會送到實盤。
           </p>
+          <p className="mt-3 text-pretty text-sm leading-relaxed text-muted">{DISCLAIMER}</p>
 
           <label className="mt-5 block text-micro text-muted" htmlFor="classroom-gate">
             入場密碼
@@ -103,7 +105,17 @@ export function GateScreen({ onOpen, submit }: Props) {
             <p className="mt-2 text-micro text-subtle">密碼由講師當面或課前發給。不要轉貼到公開頻道。</p>
           )}
 
-          <Button type="submit" className="mt-5 w-full" size="lg" disabled={busy}>
+          <label className="mt-4 flex items-start gap-2 text-pretty text-micro leading-relaxed text-muted">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-0.5 size-3.5 shrink-0 accent-[var(--color-vwap)]"
+            />
+            <span>{CONSENT}</span>
+          </label>
+
+          <Button type="submit" className="mt-5 w-full" size="lg" disabled={busy || !agreed}>
             {busy ? "核對中…" : "進入教室"}
           </Button>
         </form>

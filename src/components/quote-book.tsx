@@ -1,7 +1,17 @@
 import { useState } from "react";
 import { Arrow, toneClass } from "@/components/signed";
+import { AuxChip, ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
 import { useGame } from "@/lib/game/store";
 import { formatPrice, limitDown, limitUp, LOT_SHARES } from "@/lib/market/ticks";
+import { TEACHING_DATES } from "@/lib/market/tape-types";
+import {
+  AUX_FROZEN,
+  classroomBookMicro,
+  classroomInnerOuterMicro,
+  classroomTapeMicro,
+  freezeWeekLabel,
+  officialDailyOhlcMicro,
+} from "@/lib/provenance";
 import { cn, formatLots, formatMoney, formatPct } from "@/lib/utils";
 
 type QuoteTab = "book" | "ladder";
@@ -58,10 +68,20 @@ export function QuotePanel() {
         <span className="ml-auto truncate px-1 text-micro text-fg/80">
           {q.code} {q.name}
         </span>
+        <ProvenanceBadge kind="classroom" />
       </div>
+      <ProvenanceMicro text={tab === "book" ? classroomBookMicro() : classroomTapeMicro()} />
       {tab === "book" ? (
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
           <div className="term-scroll min-h-0 overflow-auto border-r border-border">
+            <div className="flex items-start justify-between gap-2 px-2 pt-1">
+              <p className="font-mono text-2xs leading-relaxed text-muted">
+                {officialDailyOhlcMicro(freezeWeekLabel(engine?.session.date))}
+              </p>
+              {engine?.session.date && TEACHING_DATES.has(engine.session.date) ? (
+                <AuxChip>{AUX_FROZEN}</AuxChip>
+              ) : null}
+            </div>
             <div className="grid grid-cols-2 gap-x-2 px-2 py-1 font-mono text-micro">
               {rows.map((r) => (
                 <div key={r.label} className="flex items-baseline justify-between gap-2 border-b border-border/50 py-0.5">
@@ -73,6 +93,7 @@ export function QuotePanel() {
               ))}
             </div>
             <div className="px-2 py-2">
+              <p className="mb-1 font-mono text-2xs text-muted">{classroomInnerOuterMicro()}</p>
               <div className="mb-1 flex justify-between font-mono text-micro">
                 <span className="text-down">內 {innerPct.toFixed(2)}%</span>
                 <span className="text-up">外 {(100 - innerPct).toFixed(2)}%</span>

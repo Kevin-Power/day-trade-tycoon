@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
+import { ClassroomSimMark, ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
 import { toneClass } from "@/components/signed";
 import { useGame } from "@/lib/game/store";
+import { blotterMicro } from "@/lib/provenance";
 import { formatPrice } from "@/lib/market/ticks";
 import { cn, formatLots, formatMoney, formatSigned, formatTime } from "@/lib/utils";
 
@@ -41,10 +43,13 @@ export function PositionsDock() {
           </button>
         ))}
         <div className="flex-1" />
+        <ClassroomSimMark />
+        <ProvenanceBadge kind="classroom" />
         <Button size="xs" variant="outline" onClick={flattenAll} disabled={pos.length === 0}>
           全部平倉
         </Button>
       </div>
+      <ProvenanceMicro text={blotterMicro()} />
       <div className="term-scroll min-h-0 flex-1 overflow-auto">
         {tab === "pos" && (
           <table className="w-full border-collapse font-mono text-micro">
