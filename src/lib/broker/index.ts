@@ -1,7 +1,18 @@
 import type { DayMarket } from "@/lib/market/engine";
 import type { BrokerAck, BrokerPort, OrderIntent, Venue } from "@/lib/broker/types";
+import { LIVE_UNWIRED_REASON, rejectUnsupportedTif } from "@/lib/broker/copy";
 
 export type { BrokerAck, BrokerPort, OrderIntent, TimeInForce, Venue } from "@/lib/broker/types";
+export {
+  CANCEL_FAILED_REASON,
+  CANCEL_OK_REASON,
+  LIVE_ADAPTER_UNWIRED_REASON,
+  LIVE_UNWIRED_REASON,
+  SIM_ROD_ONLY_REASON,
+  SIM_TIF_HINT,
+  rejectUnsupportedTif,
+  simAllowsTif,
+} from "@/lib/broker/copy";
 
 export const SIM_ACCOUNT = "CLASSROOM-SIM";
 export const LIVE_ACCOUNT = "BROKER-LIVE";
@@ -22,7 +33,8 @@ function simBroker(engine: DayMarket | null): BrokerPort {
     ready: Boolean(engine),
     place(intent: OrderIntent): BrokerAck {
       if (!engine) return { ok: false, reason: "盤室尚未開啟" };
-      if (intent.tif !== "ROD") return { ok: false, reason: "模擬盤目前僅支援 ROD" };
+      const tifReason = rejectUnsupportedTif(intent.tif);
+      if (tifReason) return { ok: false, reason: tifReason };
       return engine.place({
         code: intent.code,
         side: intent.side,
@@ -44,7 +56,7 @@ function simBroker(engine: DayMarket | null): BrokerPort {
 function liveBroker(): BrokerPort {
   const blocked: BrokerAck = {
     ok: false,
-    reason: "實盤尚未接上券商 API。下單畫面已共用，接線後只換 adapter。",
+    reason: LIVE_UNWIRED_REASON,
   };
   return {
     venue: "live",

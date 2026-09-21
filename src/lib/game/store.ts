@@ -22,7 +22,16 @@ import {
   openingBeat,
   type LessonBeat,
 } from "@/lib/game/curriculum";
-import { getBroker, SIM_ACCOUNT, type TimeInForce, type Venue } from "@/lib/broker";
+import {
+  CANCEL_FAILED_REASON,
+  CANCEL_OK_REASON,
+  LIVE_UNWIRED_REASON,
+  SIM_ACCOUNT,
+  getBroker,
+  rejectUnsupportedTif,
+  type TimeInForce,
+  type Venue,
+} from "@/lib/broker";
 
 export type MobileTab = "watch" | "chart" | "trade" | "pos";
 export type RightTab = "pos" | "orders" | "fills";
@@ -205,6 +214,14 @@ export const useGame = create<GameStore>((set, get) => ({
 
   setTicket: (patch) => {
     const { ticket, engine, selected } = get();
+    if (patch.tif) {
+      const tifReason = rejectUnsupportedTif(patch.tif);
+      if (tifReason) {
+        playError();
+        toast.error(tifReason);
+        return;
+      }
+    }
     const next = { ...ticket, ...patch };
     if (patch.price !== undefined && !(patch.price > 0)) return;
     if (patch.side && engine) {
@@ -217,7 +234,7 @@ export const useGame = create<GameStore>((set, get) => ({
   setVenue: (v) => {
     if (v === "live") {
       playError();
-      toast.error("實盤尚未接上券商 API。下單畫面已共用，接線後即可切換。");
+      toast.error(LIVE_UNWIRED_REASON);
       return;
     }
     set({ venue: v, accountId: SIM_ACCOUNT });
@@ -327,7 +344,13 @@ export const useGame = create<GameStore>((set, get) => ({
 
   cancelOrder: (id) => {
     const { engine, venue } = get();
-    getBroker(venue, engine).cancel(id);
+    const ok = getBroker(venue, engine).cancel(id);
+    if (!ok) {
+      playError();
+      toast.error(CANCEL_FAILED_REASON);
+      return;
+    }
+    toast(CANCEL_OK_REASON);
     get().bump();
   },
 

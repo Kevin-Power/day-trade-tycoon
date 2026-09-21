@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ClassroomSimMark, ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
 import { useGame } from "@/lib/game/store";
-import { SIM_ACCOUNT, venueLabel, type TimeInForce } from "@/lib/broker";
+import { LIVE_UNWIRED_REASON, SIM_ACCOUNT, SIM_TIF_HINT, simAllowsTif, venueLabel, type TimeInForce } from "@/lib/broker";
 import { blotterMicro } from "@/lib/provenance";
 import { formatPrice, LOT_SHARES, ROUND_TRIP_RATE, stepTick } from "@/lib/market/ticks";
 import { cn, formatMoney, formatPct } from "@/lib/utils";
@@ -68,6 +68,7 @@ export function OrderTicket() {
             </button>
             <button
               type="button"
+              title={LIVE_UNWIRED_REASON}
               onClick={() => setVenue("live")}
               className="h-6 px-2 text-2xs text-muted hover:text-fg"
             >
@@ -77,20 +78,26 @@ export function OrderTicket() {
         </Field>
         <Field label="TIF">
           <span className="inline-flex overflow-hidden rounded-xs border border-border">
-            {TIF.map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTicket({ tif: t })}
-                className={cn(
-                  "h-6 px-1.5 font-mono text-2xs",
-                  ticket.tif === t ? "bg-header-2 text-fg" : "text-muted hover:text-fg",
-                )}
-              >
-                {t}
-              </button>
-            ))}
+            {TIF.map((t) => {
+              const allowed = simAllowsTif(t);
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  aria-disabled={!allowed}
+                  title={allowed ? "掛到取消或收盤" : SIM_TIF_HINT}
+                  onClick={() => setTicket({ tif: t })}
+                  className={cn(
+                    "h-6 px-1.5 font-mono text-2xs",
+                    ticket.tif === t ? "bg-header-2 text-fg" : allowed ? "text-muted hover:text-fg" : "text-subtle",
+                  )}
+                >
+                  {t}
+                </button>
+              );
+            })}
           </span>
+          <span className="text-subtle">{SIM_TIF_HINT}</span>
         </Field>
         <Field label="閃電下單">
           <span className="inline-flex overflow-hidden rounded-xs border border-border">

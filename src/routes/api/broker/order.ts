@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { LIVE_ADAPTER_UNWIRED_REASON, LIVE_UNWIRED_REASON } from "@/lib/broker/copy";
 
 /**
  * Live-order hop. Classroom currently always simulates.
@@ -14,9 +15,7 @@ export const Route = createFileRoute("/api/broker/order")({
           {
             ok: false,
             venue: "live",
-            reason: configured
-              ? "實盤 adapter 尚未接上券商端點"
-              : "實盤尚未設定。教室下單走模擬撮合。",
+            reason: configured ? LIVE_ADAPTER_UNWIRED_REASON : LIVE_UNWIRED_REASON,
           },
           { status: 501 },
         );
