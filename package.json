@@ -18,7 +18,7 @@
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "check:symbols": "node scripts/check-symbols.mjs",
     "build:manual-pdf": "node scripts/build-manual-pdf.mjs",
-    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/provenance.test.ts src/lib/game/flash-order.test.ts src/lib/broker/copy.test.ts src/lib/game/leave-desk.test.ts src/lib/market/symbols.test.ts",
+    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/provenance.test.ts src/lib/game/flash-order.test.ts src/lib/broker/copy.test.ts src/lib/game/leave-desk.test.ts src/lib/market/symbols.test.ts src/lib/license.test.ts src/lib/gate/public-path.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write ."

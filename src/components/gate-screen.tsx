@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Eye, EyeOff, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SimChip } from "@/components/provenance";
 import { CONSENT, DISCLAIMER } from "@/lib/provenance";
+import { LICENSE_QUOTE } from "@/lib/license";
 
 type Props = {
   onOpen: () => void;
@@ -119,6 +121,15 @@ export function GateScreen({ onOpen, submit }: Props) {
             {busy ? "核對中…" : "進入教室"}
           </Button>
         </form>
+
+        <p className="mt-4 text-center text-micro leading-relaxed text-subtle">
+          <Link to="/license" className="inline-flex items-center gap-1 text-muted hover:text-fg">
+            <ScrollText className="size-3.5" />
+            教室授權說明
+          </Link>
+          <span className="mx-1.5">·</span>
+          不必入場密碼 · {LICENSE_QUOTE}
+        </p>
       </div>
     </div>
   );
