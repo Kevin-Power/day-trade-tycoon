@@ -1,4 +1,4 @@
-import { TEACHING_DATES } from "@/lib/market/tape-types";
+import { TEACHING_DATES } from "./market/tape-types.ts";
 
 /** Only two primary badges are allowed site-wide. */
 export const BADGE_OFFICIAL = "官方" as const;
