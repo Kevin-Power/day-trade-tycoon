@@ -198,7 +198,8 @@ function Play() {
             <Row k="Space" v="暫停／繼續。講解卡片出現時，Space 是「我看完了」。" mono />
             <Row k="Enter" v="送出目前委託。講解未關時不會送。" mono />
             <Row k="買進／賣出" v="委託單上方切換。紅色買、綠色賣，跟台股習慣一致。" />
-            <Row k="通路 實盤" v="現在點了只會提示尚未接線，不會真的送到券商。" />
+            <Row k="通路 實盤" v="點了不會送到券商。教室下單仍走模擬撮合。" />
+            <Row k="TIF" v="模擬盤只吃 ROD。點 IOC／FOK 會提示，不會改條件。" />
           </tbody>
         </table>
       </div>
@@ -355,12 +356,12 @@ function Broker() {
   return (
     <Section id="broker" n="05" title="模擬盤與之後的實盤">
       <p className="text-pretty leading-relaxed text-muted">
-        委託單已經做成券商那張：帳號、盤別現股當沖、通路模擬／實盤、TIF ROD／IOC／FOK、買進賣出、限價市價、張數與價格。現在通路停在模擬，帳號 CLASSROOM-SIM。
+        委託單已經做成券商那張：帳號、盤別現股當沖、通路模擬／實盤、TIF（畫面看得到 ROD／IOC／FOK）、買進賣出、限價市價、張數與價格。現在通路停在模擬，帳號 CLASSROOM-SIM，TIF 只吃 ROD。
       </p>
       <div className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
         <Fact
           label="現在（模擬）"
-          body="教室引擎撮合。TIF 只吃 ROD。費稅、漲跌停、收盤強平都在教室裡算完。點實盤會提示，不會送出。"
+          body="教室引擎撮合。TIF 只吃 ROD（點 IOC／FOK 會提示、不改條件）。費稅、漲跌停、收盤強平都在教室裡算完。點實盤會提示，不會送到券商。"
         />
         <Fact
           label="之後（實盤）"

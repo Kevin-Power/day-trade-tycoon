@@ -72,6 +72,13 @@ export function Watchlist() {
             </tr>
           </thead>
           <tbody>
+            {quotes.length === 0 && (
+              <tr>
+                <td colSpan={13} className="px-2 py-8 text-center font-sans text-xs text-muted">
+                  這一欄沒有商品。改選「自選」或「上市」。
+                </td>
+              </tr>
+            )}
             {quotes.map((q) => {
               const active = q.code === selected;
               const flash = q.flash === 1 ? "flash-up" : q.flash === -1 ? "flash-down" : "";

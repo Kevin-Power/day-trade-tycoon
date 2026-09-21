@@ -105,6 +105,14 @@ export function LiveTape() {
         </div>
       )}
 
+      {!busy && days.length === 0 && (
+        <div className="rounded-lg border border-border bg-surface px-4 py-8 text-center">
+          <p className="text-sm font-medium">目前沒有可練的最新完整盤</p>
+          <p className="mt-1 text-pretty text-sm text-muted">{status}</p>
+          <p className="mt-2 text-micro text-subtle">教材週 8/24–8/26 在下方課綱。不必等這區有資料就能上課。</p>
+        </div>
+      )}
+
       {days.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {days.map((d) => {

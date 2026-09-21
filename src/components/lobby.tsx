@@ -13,7 +13,6 @@ import { WEEK_SESSIONS, formatIndex } from "@/lib/market/week";
 import { useGate } from "@/lib/gate/context";
 import {
   SIM_CHIP_NOTE,
-  TEACHING_WEEK_DAYS,
   classroomSampleMicro,
   officialIndexMicro,
   officialTurnoverMicro,
@@ -107,7 +106,7 @@ export function Lobby() {
           <SimChip className="w-fit" />
           <span className="text-sm">現股當沖 · 帳號 CLASSROOM-SIM</span>
           <span className="text-micro text-muted sm:ml-auto" title={SIM_CHIP_NOTE}>
-            {SIM_CHIP_NOTE}。委託單與實盤共用。券商 API 尚未接線，點實盤會提示。
+            {SIM_CHIP_NOTE}。委託單與實盤共用。點實盤不會送到券商，教室下單仍走模擬撮合。
           </span>
         </section>
 
@@ -163,8 +162,8 @@ export function Lobby() {
           <HeroStat label="已完成盤數" value={String(profile.sessions)} />
           <HeroStat
             label="勝率"
-            value={`${(winRate * 100).toFixed(0)}%`}
-            note={classroomSampleMicro(profile.sessions || TEACHING_WEEK_DAYS)}
+            value={profile.sessions ? `${(winRate * 100).toFixed(0)}%` : "—"}
+            note={profile.sessions ? classroomSampleMicro(profile.sessions) : "尚無教室樣本"}
             badge="classroom"
           />
           <HeroStat
@@ -279,7 +278,7 @@ export function Lobby() {
             <ul className="space-y-3 text-sm leading-relaxed text-muted">
               <li className="flex gap-2">
                 <Clock3 className="mt-0.5 size-4 shrink-0 text-fg" />
-                時間軸 09:00–13:30。加權＝證交所每 5 秒指數；個股＝公開日成交套大盤節奏（非逐筆）。下單走模擬撮合。實盤 API 接上後只換 adapter。
+                時間軸 09:00–13:30。加權＝證交所每 5 秒指數；個股＝公開日成交套大盤節奏（非逐筆）。下單走模擬撮合。點實盤不會送到券商。
               </li>
               <li className="flex gap-2">
                 <TrendingUp className="mt-0.5 size-4 shrink-0 text-fg" />
