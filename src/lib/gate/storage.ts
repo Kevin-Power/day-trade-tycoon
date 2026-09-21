@@ -1,4 +1,4 @@
-const GATE_KEY = "day-tycoon-gate-v1";
+export const GATE_KEY = "day-tycoon-gate-v1";
 
 export function readUnlocked(): boolean {
   try {

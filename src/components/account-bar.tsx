@@ -3,7 +3,9 @@ import { Button } from "@/components/ui/button";
 import { toneClass } from "@/components/signed";
 import { isSoundEnabled, setSoundEnabled, unlockAudio } from "@/lib/game/audio";
 import { useGame } from "@/lib/game/store";
+import { leaveDeskNeedsConfirm, leaveDeskRisk, type LeaveDeskRisk } from "@/lib/game/leave-desk";
 import { venueLabel } from "@/lib/broker";
+import { LeaveDeskDialog } from "@/components/leave-desk-dialog";
 import { SimChip } from "@/components/provenance";
 import { cn, formatMoney, formatPct, formatSigned, formatTime } from "@/lib/utils";
 import { useState } from "react";
@@ -20,14 +22,25 @@ export function AccountBar() {
   const setSpeed = useGame((s) => s.setSpeed);
   const settle = useGame((s) => s.settle);
   const leave = useGame((s) => s.leave);
+  const phase = useGame((s) => s.phase);
   const teachMode = useGame((s) => s.teachMode);
   const setTeachMode = useGame((s) => s.setTeachMode);
   const venue = useGame((s) => s.venue);
   const accountId = useGame((s) => s.accountId);
   const frame = useGame((s) => s.frame);
   const [sound, setSound] = useState(isSoundEnabled);
+  const [leaveRisk, setLeaveRisk] = useState<LeaveDeskRisk | null>(null);
   void frame;
   if (!engine || !scenario) return null;
+
+  function requestLeave() {
+    const risk = leaveDeskRisk(engine);
+    if (!leaveDeskNeedsConfirm(risk)) {
+      leave();
+      return;
+    }
+    setLeaveRisk(risk);
+  }
   const st = engine.stats();
   const left = engine.leftoverMinutes();
   const used = st.equity > 0 ? (st.peakGross / st.equity) * 100 : 0;
@@ -95,10 +108,19 @@ export function AccountBar() {
           <Square className="size-3.5" />
           提前結算
         </Button>
-        <Button size="xs" variant="ghost" onClick={leave}>
+        <Button size="xs" variant="ghost" onClick={requestLeave}>
           回大廳
         </Button>
       </div>
+      <LeaveDeskDialog
+        open={phase === "live" && leaveRisk !== null}
+        risk={leaveRisk ?? { openPositions: 0, openOrders: 0 }}
+        onCancel={() => setLeaveRisk(null)}
+        onConfirm={() => {
+          setLeaveRisk(null);
+          leave();
+        }}
+      />
     </div>
   );
 }

@@ -6,8 +6,9 @@ import { ProvenanceBadge, SimChip } from "@/components/provenance";
 import { DISCLAIMER, DISCLOSURE_ROWS } from "@/lib/provenance";
 import { cn } from "@/lib/utils";
 import { useGate } from "@/lib/gate/context";
+import { teachingOhlcNote } from "@/lib/market/universe";
 
-const VERSION = "2026-08-31 討論稿";
+export const MANUAL_VERSION = "2026-09-21";
 const PDF_HREF = "/daytrade-tycoon-manual.pdf";
 const GITHUB = "https://github.com/Kevin-Power/day-trade-tycoon";
 
@@ -97,7 +98,7 @@ function Cover() {
         </div>
         <SimChip className="ml-auto hidden sm:inline" />
       </div>
-      <p className="mb-3 text-xs tracking-[0.28em] text-muted">{VERSION}</p>
+      <p className="mb-3 text-xs tracking-[0.28em] text-muted">{MANUAL_VERSION}</p>
       <h1 className="text-balance text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
         當沖大富翁
       </h1>
@@ -200,6 +201,8 @@ function Play() {
             <Row k="買進／賣出" v="委託單上方切換。紅色買、綠色賣，跟台股習慣一致。" />
             <Row k="通路 實盤" v="點了不會送到券商。教室下單仍走模擬撮合。" />
             <Row k="TIF" v="模擬盤只吃 ROD。點 IOC／FOK 會提示，不會改條件。" />
+            <Row k="閃電下單" v="預設關。開了之後點五檔即以目前張數送單；關了只帶價。期末考暫停中會提示，不靜默。" />
+            <Row k="回大廳" v="有庫存或未成交委託時會確認。取消留下；確定離開會捨棄這盤，不自動平倉、不寫入戰績。要記分請用提前結算。" />
           </tbody>
         </table>
       </div>
@@ -274,7 +277,7 @@ function Data() {
               cells={[
                 "個股開高低收",
                 "公開日成交（FinMind TaiwanStockPrice）",
-                "釘在當日 O/H/L/C。17 檔權值與觀察股",
+                teachingOhlcNote(),
               ]}
             />
             <Tr
@@ -460,7 +463,7 @@ function Agenda() {
 function Colophon() {
   return (
     <footer className="mt-16 border-t border-border pt-6 text-micro leading-relaxed text-subtle">
-      <p>當沖大富翁 · 股文觀指教室 · {VERSION}</p>
+      <p>當沖大富翁 · 股文觀指教室 · {MANUAL_VERSION}</p>
       <p className="mt-1">
         原始碼 {GITHUB}
       </p>
