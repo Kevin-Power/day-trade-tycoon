@@ -93,7 +93,6 @@ export function Terminal() {
       }
       if (e.key === "Enter") {
         e.preventDefault();
-        if (useGame.getState().activeBeat) return;
         submit();
       }
     };
@@ -155,10 +154,10 @@ export function Terminal() {
         <div className="term-chart min-h-0 overflow-hidden">
           <SelectedChart />
         </div>
-        <div className="term-quote min-h-0 overflow-hidden">
+        <div className="term-quote relative z-20 isolate min-h-0 overflow-hidden">
           <QuotePanel />
         </div>
-        <div className="term-ticket min-h-0 overflow-auto">
+        <div className="term-ticket relative z-10 min-h-0 overflow-auto">
           <OrderTicket />
         </div>
         <div className="term-pos min-h-0 overflow-hidden">
@@ -166,7 +165,7 @@ export function Terminal() {
         </div>
       </div>
 
-      <footer className="flex items-center justify-between border-t border-border bg-surface-2 px-2 py-1 text-2xs text-muted">
+      <footer className="relative z-0 flex shrink-0 items-center justify-between border-t border-border bg-surface-2 px-2 py-1 text-2xs text-muted">
         <span>
           {q ? (
             <>

@@ -233,7 +233,7 @@ export function OrderTicket() {
       <div className="flex flex-wrap items-center gap-2 border-t border-border px-2 py-2">
         <div className="min-w-0 flex-1 font-mono text-micro">
           <div className={cn("mb-0.5", flashOrder ? "text-tape" : "text-muted")}>
-            {flashOrder ? "閃電下單已開 · 點五檔即以目前張數送單" : "閃電下單已關 · 點五檔只帶價"}
+            {flashOrder ? "閃電即送 · 點賣檔限價買、點買檔限價賣" : "點五檔只帶價"}
           </div>
           <div className="flex flex-wrap items-center gap-x-3 text-muted">
             <span>

@@ -1,7 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  FLASH_EXAM_PAUSE_TOAST,
   FLASH_KEY,
+  flashClickDecision,
   loadFlashOrder,
   saveFlashOrder,
   ticketAfterClickPrice,
@@ -72,5 +74,46 @@ describe("ticketAfterClickPrice", () => {
   it("ask click buys and bid click sells", () => {
     assert.equal(ticketAfterClickPrice(ticket, 580, "buy").side, "buy");
     assert.equal(ticketAfterClickPrice(ticket, 579, "sell").side, "sell");
+  });
+});
+
+describe("flashClickDecision", () => {
+  const base = {
+    flashOrder: true,
+    guideActive: false,
+    teachMode: true,
+    paused: false,
+    examMode: false,
+  };
+
+  it("fills only when flash is off", () => {
+    assert.equal(flashClickDecision({ ...base, flashOrder: false }).action, "fill");
+  });
+
+  it("submits through a teaching guide overlay (no silent no-op)", () => {
+    const d = flashClickDecision({ ...base, guideActive: true, teachMode: true });
+    assert.equal(d.action, "submit");
+  });
+
+  it("submits when teach is off even if a guide beat is lingering", () => {
+    const d = flashClickDecision({ ...base, teachMode: false, guideActive: true });
+    assert.equal(d.action, "submit");
+  });
+
+  it("submits during a normal (non-exam) pause", () => {
+    const d = flashClickDecision({ ...base, paused: true, examMode: false });
+    assert.equal(d.action, "submit");
+  });
+
+  it("blocks 盲測/期末考 pause with a toast reason", () => {
+    const paused = flashClickDecision({ ...base, examMode: true, paused: true });
+    assert.deepEqual(paused, { action: "block", reason: FLASH_EXAM_PAUSE_TOAST });
+    const beat = flashClickDecision({ ...base, examMode: true, guideActive: true, paused: false });
+    assert.deepEqual(beat, { action: "block", reason: FLASH_EXAM_PAUSE_TOAST });
+  });
+
+  it("submits in 期末考 when the tape is running and no beat", () => {
+    const d = flashClickDecision({ ...base, examMode: true, paused: false, guideActive: false });
+    assert.equal(d.action, "submit");
   });
 });

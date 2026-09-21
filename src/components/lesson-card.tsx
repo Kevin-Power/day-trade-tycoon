@@ -12,11 +12,11 @@ export function LessonCard() {
   if (!beat || !lesson) return null;
 
   return (
-    <div className="pointer-events-none absolute right-3 top-20 z-40 flex justify-end px-0">
+    <div className="pointer-events-none absolute inset-x-0 top-20 z-30 flex justify-center px-3 sm:left-[min(22rem,30%)] sm:right-[min(20rem,26%)]">
       <div
         role="dialog"
         aria-labelledby="lesson-title"
-        className="pointer-events-auto w-full max-w-lg overflow-hidden rounded-md border border-border-strong bg-surface shadow-[var(--shadow-panel)] lg:w-80"
+        className="pointer-events-auto w-full max-w-md overflow-hidden rounded-md border border-border-strong bg-surface shadow-[var(--shadow-panel)]"
       >
         <div className="pane-title flex h-7 items-center justify-between px-2.5">
           <span>
