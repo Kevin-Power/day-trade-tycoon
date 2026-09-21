@@ -19,7 +19,8 @@
 - 資料徽章（#3）：官方 vs 教室生成
 - 線上「每日實盤」自由練習（交易日約 13:50 後抓完整盤）；地端包只內建教材週
 - 戰績存在該機 `localStorage`，大廳有近況表與空狀態
-- 說明書頁可列印／下載 PDF（靜態 PDF 可能舊於 HTML）
+- 說明書頁可列印／下載 PDF（`npm run build:manual-pdf` 從 `/manual` 重印）
+- 盤中「回大廳」有庫存／未成交時會確認；未結算盤不入戰績、不自動平倉
 
 明確**還沒有**、且不應對外宣稱的：
 
@@ -37,17 +38,17 @@
 
 | ID | 缺口 | 狀態 | 證據（git） | 建議下一張 PR |
 | --- | --- | --- | --- | --- |
-| P0-1 | 委託單 TIF 可點 IOC／FOK，模擬引擎只吃 ROD。選了再送單才失敗，像壞掉的券商台 | **本 PR 修**：點 IOC／FOK 立刻 toast、不改條件；文案與 `simBroker` 同一句 | `order-ticket.tsx` 三顆 TIF；`broker/index.ts` `tif !== "ROD"` | 真要 IOC／FOK 再做撮合，不要先開 UI |
-| P0-2 | 「實盤」已會 toast，但 store／adapter／API／README 用詞不一致（adapter／接線後即可切換） | **本 PR 修**：教室面向統一「點了不會送到券商，仍走模擬撮合」 | `store.setVenue`、`liveBroker`、`/api/broker/order`、README | 真接券商時只改 adapter + 登入，不改這句的否定語意 |
-| P0-3 | 刪單失敗沒有提示（已成交／已取消回 `false`） | **本 PR 修**：失敗 toast，成功也說一聲 | `store.cancelOrder` 無視回傳 | — |
-| P0-4 | 「每日實盤」抓不到或地端包時，只有一行 status，區塊像壞掉 | **本 PR 修**：空狀態卡，指向教材週仍可上課 | `live-tape.tsx` 無 `days` 且不 busy 時不渲染卡片 | 抓盤失敗時保留教材週 CTA |
-| P0-5 | 大廳勝率在 0 盤時顯示 `0%`，樣本還寫 `n=3`（教材週天數），像真的打過 | **本 PR 修**：無戰績顯示「—」／尚無教室樣本 | `lobby.tsx` `sessions \|\| TEACHING_WEEK_DAYS` | — |
+| P0-1 | 委託單 TIF 可點 IOC／FOK，模擬引擎只吃 ROD。選了再送單才失敗，像壞掉的券商台 | **#5 已修**：點 IOC／FOK 立刻 toast、不改條件；文案與 `simBroker` 同一句 | `order-ticket.tsx` 三顆 TIF；`broker/index.ts` `tif !== "ROD"` | 真要 IOC／FOK 再做撮合，不要先開 UI |
+| P0-2 | 「實盤」已會 toast，但 store／adapter／API／README 用詞不一致（adapter／接線後即可切換） | **#5 已修**：教室面向統一「點了不會送到券商，仍走模擬撮合」 | `store.setVenue`、`liveBroker`、`/api/broker/order`、README | 真接券商時只改 adapter + 登入，不改這句的否定語意 |
+| P0-3 | 刪單失敗沒有提示（已成交／已取消回 `false`） | **#5 已修**：失敗 toast，成功也說一聲 | `store.cancelOrder` 無視回傳 | — |
+| P0-4 | 「每日實盤」抓不到或地端包時，只有一行 status，區塊像壞掉 | **#5 已修**：空狀態卡，指向教材週仍可上課 | `live-tape.tsx` 無 `days` 且不 busy 時不渲染卡片 | 抓盤失敗時保留教材週 CTA |
+| P0-5 | 大廳勝率在 0 盤時顯示 `0%`，樣本還寫 `n=3`（教材週天數），像真的打過 | **#5 已修**：無戰績顯示「—」／尚無教室樣本 | `lobby.tsx` `sessions \|\| TEACHING_WEEK_DAYS` | — |
 | P0-6 | 線上站入場文案仍是 Grok 舊稿（「全班共用進門碼」），git 已改但未部署 | **未做**（不部署） | 活站 `rich.yilutek.com` vs `gate-screen.tsx` | 發佈 #3／#4／本 PR 後對一次畫面 |
-| P0-7 | `public/daytrade-tycoon-manual.pdf` 是靜態檔，可能舊於 `/manual` HTML（徽章、閃電下單） | **未做** | `manual-page.tsx` `VERSION = 2026-08-31 討論稿` | 重新匯出 PDF，或下載改指 HTML 列印 |
-| P0-8 | 自選「上櫃」目前只有 1 檔；表無空列。資料列 17 檔寫死，沒有 SSOT／核對腳本 | **未做**（#2 有 22 檔＋`check:symbols`，範圍太大） | `universe.ts`；說明書寫「17 檔」 | 獨立「標的 SSOT」PR，勿順便改撮合 |
-| P0-9 | 盤中按「回大廳」不確認；未結算盤不入戰績 | **未做** | `store.leave` 直接清 engine | 有庫存／未成交時確認 |
+| P0-7 | `public/daytrade-tycoon-manual.pdf` 是靜態檔，可能舊於 `/manual` HTML（徽章、閃電下單） | **本 PR 修**：新增 `npm run build:manual-pdf`（Playwright 印 `/manual`），重匯 PDF；說明書版本改 2026-09-21，補閃電下單／回大廳 | 舊 PDF 日期 2026-09-01，無建置腳本 | 之後改說明書就重跑腳本 |
+| P0-8 | 自選「上櫃」目前只有 1 檔；表無空列。資料列 17 檔寫死，沒有 SSOT／核對腳本 | **本 PR 修**：`symbols.json` 為 17 檔 SSOT；大廳／說明書讀衍生文案；`check:symbols` 核對 real-paths。不上 #2 的 22 檔 | `universe.ts` 改讀 JSON | 真要加檔再改 JSON＋K 線，勿默默改撮合 |
+| P0-9 | 盤中按「回大廳」不確認；未結算盤不入戰績 | **本 PR 修**：有庫存／未成交時確認。取消留下；確定離開捨棄這盤，**不**自動平倉（原本 `leave` 就只清 engine） | `store.leave` 直接清 engine | 若產品改成離開即強平，再改這句 |
 
-本 PR **刻意不做**：計費、席次、講師帳、真券商金鑰、IOC／FOK 撮合、聊天。
+#5 與本 PR **刻意不做**：計費、席次、講師帳、真券商金鑰、IOC／FOK 撮合、聊天。
 
 ---
 
@@ -84,9 +85,9 @@
 
 ## 建議的後續 PR 順序（一次一件）
 
-1. **發佈對齊** — 把 #3／#4／本 PR 部署到活站，對入場文案與徽章（P0-6）
-2. **說明書 PDF** — 重匯或改下載（P0-7）
-3. **標的 SSOT** — 22 檔或維持 17，但要核對腳本（P0-8）；可從 #2 抽 `symbols.json`，不要帶帳號系統
+1. **發佈對齊** — 把 #3／#4／#5／本 PR 部署到活站，對入場文案與徽章（P0-6）
+2. ~~說明書 PDF~~ — 本 PR 已加 `build:manual-pdf` 並重匯
+3. ~~標的 SSOT~~ — 本 PR 維持 17 檔＋`check:symbols`；22 檔仍屬 #2，不帶進來
 4. **授權怎麼算（文案）** — 價目／席次／地端 vs 線上（P1-1、P1-6），仍不要做金流
 5. **學員帳＋講師台** — 重審 #2，不要整包（P1-2、P1-3）
 6. **排行榜** — 帳號有資料後再做；空狀態已有稿（P1-4）

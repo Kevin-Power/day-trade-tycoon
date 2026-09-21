@@ -9,6 +9,7 @@ import { cn, formatMoney, formatPct, formatSigned } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
 import { LiveTape } from "@/components/live-tape";
 import { ProvenanceBadge, ProvenanceMicro, SimChip } from "@/components/provenance";
+import { teachingUniverseLine } from "@/lib/market/universe";
 import { WEEK_SESSIONS, formatIndex } from "@/lib/market/week";
 import { useGate } from "@/lib/gate/context";
 import {
@@ -278,7 +279,7 @@ export function Lobby() {
             <ul className="space-y-3 text-sm leading-relaxed text-muted">
               <li className="flex gap-2">
                 <Clock3 className="mt-0.5 size-4 shrink-0 text-fg" />
-                時間軸 09:00–13:30。加權＝證交所每 5 秒指數；個股＝公開日成交套大盤節奏（非逐筆）。下單走模擬撮合。點實盤不會送到券商。
+                時間軸 09:00–13:30。加權＝證交所每 5 秒指數；個股＝公開日成交套大盤節奏（非逐筆）。{teachingUniverseLine()}。下單走模擬撮合。點實盤不會送到券商。
               </li>
               <li className="flex gap-2">
                 <TrendingUp className="mt-0.5 size-4 shrink-0 text-fg" />
