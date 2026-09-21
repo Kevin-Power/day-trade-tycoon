@@ -74,9 +74,21 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/license' | '/manual' | '/api/gate' | '/api/tape' | '/api/broker/order'
+  fullPaths:
+    | '/'
+    | '/license'
+    | '/manual'
+    | '/api/gate'
+    | '/api/tape'
+    | '/api/broker/order'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/license' | '/manual' | '/api/gate' | '/api/tape' | '/api/broker/order'
+  to:
+    | '/'
+    | '/license'
+    | '/manual'
+    | '/api/gate'
+    | '/api/tape'
+    | '/api/broker/order'
   id:
     | '__root__'
     | '/'
