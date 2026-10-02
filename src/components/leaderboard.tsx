@@ -76,7 +76,7 @@ export function Leaderboard() {
         <div className="term-scroll overflow-x-auto">
           <table className="w-full min-w-[38rem] text-left text-sm">
             <caption className="sr-only">
-              本班同課練習的排名、模擬報酬、回撤、違規與通過狀態
+              本班同課練習的排名、模擬報酬、回撤、待練習條件與通過狀態
             </caption>
             <thead className="bg-bg/30 text-xs text-muted">
               <tr>
@@ -93,7 +93,7 @@ export function Leaderboard() {
                   最大回撤
                 </th>
                 <th scope="col" className="px-4 py-3 text-right font-medium">
-                  違規
+                  待練習條件
                 </th>
                 <th scope="col" className="px-5 py-3 font-medium">
                   課程條件

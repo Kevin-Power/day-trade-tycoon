@@ -398,7 +398,7 @@ function CourseCard({
       <div className="mt-3 flex items-center justify-between gap-2">
         <span className="min-w-0 text-[11px] leading-5 text-muted">
           {lastRecord
-            ? `最近練習：${lastRecord.passed === true ? "通過" : lastRecord.passed === false ? "待練習" : lastRecord.grade}`
+            ? `最近練習：${lastRecord.passed === true ? "通過" : lastRecord.passed === false ? "待練習" : `模擬結果 ${lastRecord.grade}`}`
             : first
               ? "建議從這裡開始"
               : "依自己的進度練習"}
@@ -533,7 +533,7 @@ function RecentPractice({
                   <p className="truncate text-sm font-medium">{record.scenarioName}</p>
                   <p className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[11px] leading-5 text-muted">
                     <span>{lessonById(record.scenarioId)?.no || "自由練習"}</span>
-                    <span>評等 {record.grade}</span>
+                    <span>模擬結果 {record.grade}</span>
                     <span>{record.trades} 次平倉</span>
                   </p>
                 </div>

@@ -1,13 +1,14 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowRight, BookOpen, CheckCircle2, ChevronRight, RotateCcw } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { debrief, lessonById, nextLesson } from "@/lib/game/curriculum";
+import { lessonById, nextLesson } from "@/lib/game/curriculum";
 import { rankFor } from "@/lib/game/scenarios";
 import { useGame } from "@/lib/game/store";
 import { cn, formatMoney, formatPct, formatSigned } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
 import { ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
 import { classroomSampleMicro } from "@/lib/provenance";
+import { ReviewConditions } from "@/components/review-conditions";
 
 export function ResultScreen() {
   const rec = useGame((s) => s.lastResult);
@@ -17,22 +18,12 @@ export function ResultScreen() {
   const start = useGame((s) => s.start);
   const leave = useGame((s) => s.leave);
   const syncStatus = useGame((s) => s.syncStatus);
+  const verdicts = useGame((s) => s.lastVerdicts);
   if (!rec || !engine || !scenario) return null;
   const st = engine.stats();
   const rank = rankFor(profile.careerPnl);
   const lesson = lessonById(scenario.id);
   const nxt = nextLesson(scenario.id);
-  const review = lesson
-    ? debrief(lesson, {
-        trades: st.trades,
-        pnl: st.pnl,
-        fees: st.fees,
-        maxDrawdown: st.maxDrawdown,
-        equity: st.equity,
-        exposure: st.peakGross,
-        fills: engine.fills.map((f) => ({ side: f.side, price: f.price, vwapAt: f.vwapAt })),
-      })
-    : null;
 
   return (
     <Dialog.Root
@@ -58,7 +49,7 @@ export function ResultScreen() {
               </span>
               {lesson ? `${lesson.no} · ${lesson.skill}` : "SESSION SETTLED"}
             </p>
-            <div className="mt-3 flex items-center justify-between gap-4">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <Dialog.Title
                 id="result-title"
                 className="text-xl font-semibold leading-snug sm:text-2xl"
@@ -66,7 +57,7 @@ export function ResultScreen() {
                 {rec.scenarioName}
               </Dialog.Title>
               <span className="flex shrink-0 items-center gap-2 rounded-xl border border-border bg-bg px-3 py-2">
-                <span className="text-xs text-muted">評等</span>
+                <span className="text-sm text-muted">本盤模擬結果</span>
                 <span className="font-mono text-xl font-semibold">{rec.grade}</span>
               </span>
             </div>
@@ -74,22 +65,16 @@ export function ResultScreen() {
               id="result-description"
               className="mt-3 text-sm leading-6 text-muted"
             >
-              {review?.headline || "檢視這次的成交與成本，再選擇下一步練習。"}
+              結果標記反映本盤模擬數值，不能單靠盈虧判斷操作紀律。請檢視成交、紀律與成本，再選一項下次練習重點。
             </Dialog.Description>
           </header>
           <div className="term-scroll min-h-0 overflow-y-auto px-5 py-5 sm:px-7">
-            {review && review.tags.length > 0 && (
-              <div className="mb-4 flex flex-wrap gap-2">
-                {review.tags.map((t) => (
-                  <span
-                    key={t}
-                    className="rounded-full border border-border bg-bg px-2.5 py-1 text-xs text-muted"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            )}
+            {engine.fills.length === 0 ? (
+              <p className="mb-4 text-base leading-7 text-muted">
+                本盤沒有成交，尚無資料確認買進或平倉操作。
+              </p>
+            ) : null}
+            {verdicts.length ? <ReviewConditions verdicts={verdicts} compact /> : null}
 
             <div className="grid grid-cols-2 gap-3">
               <Cell prominent label="模擬淨損益" value={formatSigned(rec.pnl, 0)} tone={rec.pnl} />
@@ -107,14 +92,14 @@ export function ResultScreen() {
               <Cell label="最大回撤" value={`${(rec.maxDrawdown * 100).toFixed(2)}%`} />
             </div>
 
-            {review && (
+            {lesson && (
               <div className="mt-5 rounded-xl border border-border bg-bg/60 p-4">
                 <h3 className="flex items-center gap-2 text-sm font-semibold">
                   <BookOpen aria-hidden="true" className="size-4 text-brand" />
                   這次值得回看的地方
                 </h3>
                 <ul className="mt-3 space-y-2 text-sm leading-6 text-muted">
-                  {review.notes.map((n) => (
+                  {lesson.review.map((n) => (
                     <li key={n} className="flex gap-2.5">
                       <span
                         aria-hidden="true"
@@ -128,7 +113,7 @@ export function ResultScreen() {
             )}
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4 text-sm">
-              <span className="text-muted">生涯段位</span>
+              <span className="text-muted">模擬累計段位</span>
               <span>
                 {rank.title} · 累計 {formatSigned(profile.careerPnl, 0)}
               </span>
@@ -149,16 +134,16 @@ export function ResultScreen() {
                     : "本機復盤紀錄"}
             </p>
             <div className="grid gap-2.5 sm:grid-cols-2">
-                <Link
-                  to="/session/$id/review"
-                  params={{ id: rec.id }}
-                  onClick={leave}
-                  className="academy-button-primary"
-                >
-                  <BookOpen aria-hidden="true" className="size-4" />
-                  查看完整復盤
-                  <ArrowRight aria-hidden="true" className="size-4" />
-                </Link>
+              <Link
+                to="/session/$id/review"
+                params={{ id: rec.id }}
+                onClick={leave}
+                className="academy-button-primary"
+              >
+                <BookOpen aria-hidden="true" className="size-4" />
+                查看完整復盤
+                <ArrowRight aria-hidden="true" className="size-4" />
+              </Link>
               <button
                 type="button"
                 className="academy-button-secondary"

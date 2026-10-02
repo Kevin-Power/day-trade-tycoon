@@ -1,5 +1,5 @@
 /** Paths that skip the classroom entry password. Buyer-facing only. */
-export const GATE_PUBLIC_PATHS = ["/license"] as const;
+export const GATE_PUBLIC_PATHS = ["/license", "/try"] as const;
 
 export type GatePublicPath = (typeof GATE_PUBLIC_PATHS)[number];
 

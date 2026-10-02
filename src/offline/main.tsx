@@ -5,6 +5,7 @@ import { GateProvider } from "@/lib/gate/context";
 import { createHashHistory, createRootRoute, createRoute, createRouter, Link, Outlet, RouterProvider } from "@tanstack/react-router";
 import { ManualPage } from "@/components/manual-page";
 import { LicensePage } from "@/components/license-page";
+import { TryExperience } from "@/components/try-experience";
 import { SessionReport } from "@/components/session-report";
 import { loadReview } from "@/lib/game/persist";
 import "@/styles.css";
@@ -24,6 +25,7 @@ const rootRoute = createRootRoute({ component: () => <GateProvider><Outlet /></G
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: AppShell });
 const manualRoute = createRoute({ getParentRoute: () => rootRoute, path: "/manual", component: ManualPage });
 const licenseRoute = createRoute({ getParentRoute: () => rootRoute, path: "/license", component: LicensePage });
+const tryRoute = createRoute({ getParentRoute: () => rootRoute, path: "/try", component: TryExperience });
 const reviewRoute = createRoute({ getParentRoute: () => rootRoute, path: "/session/$id/review", component: OfflineReview });
 function OfflineReview() {
   const { id } = reviewRoute.useParams();
@@ -31,7 +33,7 @@ function OfflineReview() {
   if (!bundle) return <main className="min-h-dvh bg-bg p-8 text-fg"><h1>本機沒有這份復盤</h1><p className="mt-3 text-sm text-muted">請回到原本練習的瀏覽器；離線紀錄不會自動同步。</p><Link to="/" className="mt-4 inline-block text-tape">回大廳</Link></main>;
   return <><div className="bg-surface px-4 py-3 text-center text-xs text-muted">離線復盤 · 僅儲存於本機瀏覽器</div><SessionReport key={id} bundle={bundle} /></>;
 }
-const router = createRouter({ routeTree: rootRoute.addChildren([indexRoute, manualRoute, licenseRoute, reviewRoute]), history: createHashHistory(), defaultPreload: false });
+const router = createRouter({ routeTree: rootRoute.addChildren([indexRoute, manualRoute, licenseRoute, tryRoute, reviewRoute]), history: createHashHistory(), defaultPreload: false });
 
 createRoot(el).render(
   <StrictMode>

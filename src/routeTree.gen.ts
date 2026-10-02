@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ManualRouteImport } from './routes/manual'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as TeacherRouteImport } from './routes/teacher'
+import { Route as TryRouteImport } from './routes/try'
 import { Route as ApiGateRouteImport } from './routes/api/gate'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiTapeRouteImport } from './routes/api/tape'
@@ -52,6 +53,11 @@ const SetupRoute = SetupRouteImport.update({
 const TeacherRoute = TeacherRouteImport.update({
   id: '/teacher',
   path: '/teacher',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TryRoute = TryRouteImport.update({
+  id: '/try',
+  path: '/try',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiGateRoute = ApiGateRouteImport.update({
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/manual': typeof ManualRoute
   '/setup': typeof SetupRoute
   '/teacher': typeof TeacherRoute
+  '/try': typeof TryRoute
   '/api/gate': typeof ApiGateRoute
   '/api/health': typeof ApiHealthRoute
   '/api/tape': typeof ApiTapeRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/manual': typeof ManualRoute
   '/setup': typeof SetupRoute
   '/teacher': typeof TeacherRoute
+  '/try': typeof TryRoute
   '/api/gate': typeof ApiGateRoute
   '/api/health': typeof ApiHealthRoute
   '/api/tape': typeof ApiTapeRoute
@@ -135,6 +143,7 @@ export interface FileRoutesById {
   '/manual': typeof ManualRoute
   '/setup': typeof SetupRoute
   '/teacher': typeof TeacherRoute
+  '/try': typeof TryRoute
   '/api/gate': typeof ApiGateRoute
   '/api/health': typeof ApiHealthRoute
   '/api/tape': typeof ApiTapeRoute
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/manual'
     | '/setup'
     | '/teacher'
+    | '/try'
     | '/api/gate'
     | '/api/health'
     | '/api/tape'
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/manual'
     | '/setup'
     | '/teacher'
+    | '/try'
     | '/api/gate'
     | '/api/health'
     | '/api/tape'
@@ -185,6 +196,7 @@ export interface FileRouteTypes {
     | '/manual'
     | '/setup'
     | '/teacher'
+    | '/try'
     | '/api/gate'
     | '/api/health'
     | '/api/tape'
@@ -202,6 +214,7 @@ export interface RootRouteChildren {
   ManualRoute: typeof ManualRoute
   SetupRoute: typeof SetupRoute
   TeacherRoute: typeof TeacherRoute
+  TryRoute: typeof TryRoute
   ApiGateRoute: typeof ApiGateRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiTapeRoute: typeof ApiTapeRoute
@@ -254,6 +267,13 @@ declare module '@tanstack/react-router' {
       path: '/teacher'
       fullPath: '/teacher'
       preLoaderRoute: typeof TeacherRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/try': {
+      id: '/try'
+      path: '/try'
+      fullPath: '/try'
+      preLoaderRoute: typeof TryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/gate': {
@@ -322,6 +342,7 @@ const rootRouteChildren: RootRouteChildren = {
   ManualRoute: ManualRoute,
   SetupRoute: SetupRoute,
   TeacherRoute: TeacherRoute,
+  TryRoute: TryRoute,
   ApiGateRoute: ApiGateRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiTapeRoute: ApiTapeRoute,

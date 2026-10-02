@@ -320,7 +320,7 @@ function LessonStrip({
               <div className="mt-2 space-y-1 font-mono text-xs text-muted">
                 <p>報酬 {formatPct(ret * 100)}</p>
                 <p>
-                  回撤 {(best.max_drawdown_pct * 100).toFixed(1)}% · 違規 {v}
+                  回撤 {(best.max_drawdown_pct * 100).toFixed(1)}% · 待練習條件 {v}
                 </p>
               </div>
             )}
@@ -393,7 +393,7 @@ function ClassSummary({
                   {r.n ? `${(r.dd * 100).toFixed(1)}%` : "—"}
                 </span>
               </p>
-              <p className="break-words">最常見違規：{r.top}</p>
+              <p className="break-words">最常見待練習條件：{r.top}</p>
             </div>
           </div>
         );
@@ -406,7 +406,7 @@ function rankLabel(passed: number) {
   if (passed >= 6) return "當沖學員";
   if (passed >= 3) return "見習生";
   if (passed >= 1) return "見習生";
-  return "尚未開課";
+  return "尚無通過紀錄";
 }
 
 function exportCsv(

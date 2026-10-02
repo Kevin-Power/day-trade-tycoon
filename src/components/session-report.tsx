@@ -10,11 +10,9 @@ import {
   YAxis,
 } from "recharts";
 import {
-  AlertCircle,
   ArrowLeft,
   CheckCircle2,
   ClipboardList,
-  Clock3,
   MessageSquare,
   ReceiptText,
   RotateCcw,
@@ -26,6 +24,7 @@ import type { ReviewBundle } from "@/lib/game/persist";
 import { cn, formatMoney, formatSigned, formatTime } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
 import { PracticeGoalEditor } from "@/components/practice-goal";
+import { ReviewConditions } from "@/components/review-conditions";
 
 export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
   const navigate = useNavigate();
@@ -103,50 +102,26 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
         </div>
         <section className="academy-card mt-7 p-5 sm:p-6" aria-labelledby="review-discipline-title">
           <div className="mb-5">
-            <p className="academy-eyebrow">01 · 操作紀律</p>
+            <p className="academy-eyebrow">01 · 本盤條件檢核</p>
             <h2 id="review-discipline-title" className="mt-2 text-lg font-semibold">
-              紀律與過關條件
+              分開檢視操作與盈虧目標
             </h2>
-            <p className="mt-2 text-sm text-muted">先看執行過程，再看損益結果。</p>
+            <p className="mt-2 text-base leading-7 text-muted">
+              本課過關需達成列出的條件。單盤盈虧不能判定是否學會，請分別檢查操作紀律與成本。
+            </p>
           </div>
           {bundle.verdicts.length ? (
-            <ul className="grid gap-3 lg:grid-cols-2">
-              {bundle.verdicts.map((verdict) => (
-                <li
-                  key={verdict.rule.id}
-                  className="flex items-start gap-3 rounded-xl border border-border bg-bg/50 p-4 text-sm"
-                >
-                  {verdict.passed ? (
-                    <CheckCircle2
-                      aria-hidden="true"
-                      className="mt-0.5 size-5 shrink-0 text-brand"
-                    />
-                  ) : (
-                    <AlertCircle aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-muted" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <span className="font-medium">{verdict.rule.label}</span>
-                      <span className={cn("text-xs", verdict.passed ? "text-brand" : "text-muted")}>
-                        {verdict.passed ? "已達成" : "待練習"}
-                      </span>
-                    </div>
-                    <p className="mt-1.5 text-sm leading-6 text-muted">{verdict.detail}</p>
-                    {verdict.at !== undefined && (
-                      <p className="mt-2 flex items-center gap-1.5 font-mono text-xs text-subtle">
-                        <Clock3 aria-hidden="true" className="size-3" />
-                        {formatTime(verdict.at)}
-                      </p>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <ReviewConditions verdicts={bundle.verdicts} />
           ) : (
             <p className="rounded-xl border border-dashed border-border px-4 py-6 text-sm text-muted">
               這份紀錄沒有課程條件評分，可從下方成交時間與價格進行復盤。
             </p>
           )}
+          {bundle.fills.length === 0 ? (
+            <p className="mt-4 text-base leading-7 text-muted">
+              本盤沒有成交，條件達成不代表已完成買進或平倉操作。
+            </p>
+          ) : null}
           <p className="mt-5 border-t border-border pt-4 text-xs leading-6 text-muted">
             暫停中成交 {rec.pausedFills ?? 0}{" "}
             筆。這是模擬練習的自動檢核，講師仍需對照學員的進出場理由。

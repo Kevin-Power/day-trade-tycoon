@@ -130,6 +130,16 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
   }
   try {
     await launch();
+    stage = "public experience does not grant classroom admission";
+    const publicTrial = await fetch(base + "/try", { signal: AbortSignal.timeout(20000) });
+    assert.equal(publicTrial.status, 200);
+    assert.match(await publicTrial.text(), /三分鐘操作體驗/);
+    assert.equal(publicTrial.headers.getSetCookie().length, 0);
+    for (const path of ["/api/admin/setup", "/api/tape", "/api/download/offline", "/_serverFn/public-trial-probe"])
+      assert.equal((await request(path)).status, 403, path + " must remain gated after public trial access");
+    assert.equal((await request("/api/gate")).body.ok, false);
+    assert.equal((await request("/api/auth/get-session")).body, null);
+    t.diagnostic("HTTP public trial: readable without admission; classroom APIs and downloads remain gated");
     stage = "gate origin, forgery and password";
     assert.equal((await request("/api/gate")).body.ok, false);
     assert.equal((await request("/api/auth/get-session")).body, null);

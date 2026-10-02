@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, LoaderCircle, LockKeyhole, ScrollText } from "lucide-react";
 import { AuthPasswordInput, ClassroomAuthLayout } from "@/components/classroom-auth-layout";
@@ -22,10 +22,6 @@ export function GateScreen({ onOpen, submit }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -76,6 +72,17 @@ export function GateScreen({ onOpen, submit }: Props) {
         <p className="mt-2 text-sm leading-6 text-muted">
           準備好講師提供的入場碼，開始今天的模擬練習。
         </p>
+      </div>
+
+      <div className="mb-7 rounded-xl border border-brand/25 bg-brand/5 p-4">
+        <p className="text-base font-semibold text-fg">第一次來？先試著操作看看</p>
+        <p className="mt-2 text-base leading-7 text-muted">
+          不用帳號，跟著步驟練習確認委託、查看成交與理解成本。
+        </p>
+        <Link to="/try" className="academy-button-primary mt-4 !min-h-14 w-full !text-base">
+          先體驗 3 分鐘
+          <ArrowRight className="size-5" aria-hidden="true" />
+        </Link>
       </div>
 
       <form onSubmit={onSubmit} aria-busy={busy}>
