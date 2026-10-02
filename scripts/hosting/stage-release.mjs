@@ -2,9 +2,10 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync
 import { createHash } from 'node:crypto';
 import { dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveHostingRuntime } from './runtime-path.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const runtime = join(process.env.LOCALAPPDATA, 'DayTradeTycoon');
+const runtime = resolveHostingRuntime('DayTradeTycoon');
 const id = new Date().toISOString().replace(/[-:.]/g, '');
 const release = join(runtime, 'releases', id);
 const source = join(repo, '.output');

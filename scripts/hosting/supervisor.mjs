@@ -5,17 +5,19 @@ import { dirname, join, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { createServer, createConnection } from 'node:net';
+import { resolveHostingRuntime } from './runtime-path.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const workspace = resolve(here, '../..');
 const command = process.argv[2] ?? 'status';
-const runtimeArg = process.argv.indexOf('--runtime');
-const runtime = resolve(runtimeArg >= 0 ? process.argv[runtimeArg + 1] : join(process.env.LOCALAPPDATA ?? '', 'DayTradeTycoon'));
+const runtime = resolveHostingRuntime('DayTradeTycoon');
 const stateFile = join(runtime, 'state.json');
 const lockFile = join(runtime, 'service.lock');
 const requestFile = join(runtime, 'stop-request.json');
 const pipeName = `\\\\.\\pipe\\daytrade-tycoon-${createHash('sha256').update(runtime.toLowerCase()).digest('hex').slice(0, 24)}`;
 const leases = new Map();
+let runLog = null;
+let runStage = 'initialization';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const readJson = (path, fallback = null) => { try { return JSON.parse(readFileSync(path, 'utf8').replace(/^\uFEFF/, '')); } catch { return fallback; } };
 function atomicJson(path, value) {
@@ -109,11 +111,20 @@ function logger(secrets = []) {
   };
 }
 async function run() {
-  const config = loadConfig(); const env = appEnvironment(config);
+  runLog = logger();
+  runLog('supervisor', `Starting supervisor pid=${process.pid}.`);
+  runStage = 'loading hosting configuration';
+  const config = loadConfig();
+  runStage = 'loading protected application environment';
+  const env = appEnvironment(config);
+  runLog = logger(Object.entries(env).filter(([key]) => /SECRET|PASSWORD|TOKEN|KEY/.test(key)).map(([, value]) => value));
+  runStage = 'validating application and tunnel paths';
   if (!existsSync(config.entry)) throw new Error('Production build is missing.');
   if (!config.cloudflaredPath || !existsSync(config.cloudflaredPath) || !config.tunnelConfig || !existsSync(config.tunnelConfig)) throw new Error('Dedicated cloudflared executable/config is not configured.');
+  runStage = 'acquiring runtime ownership';
   const lockToken = await acquireLock('service');
-  const log = logger(Object.entries(env).filter(([key]) => /SECRET|PASSWORD|TOKEN|KEY/.test(key)).map(([, value]) => value));
+  const log = runLog;
+  runStage = 'supervising application and tunnel';
   let app, tunnel, stopping = false, stopped = false, fatal = false, lastCleanShutdown = false;
   let restartCount = 0, healthFailures = 0, lastHealthyAt = null;
   const instanceId = randomUUID();
@@ -289,7 +300,17 @@ try {
   if (command === 'run') await run();
   else if (command === 'start') await startCommand();
   else if (command === 'stop') await stopCommand();
-  else if (command === 'status') { const config = loadConfig(); console.log(JSON.stringify({ supervisorRunning: (await activeLock())?.kind === 'service', healthy: await health(config), state: readJson(stateFile), runtime }, null, 2)); }
+  else if (command === 'status') {
+    const config = loadConfig(); const owner = await activeLock();
+    console.log(JSON.stringify({ supervisorRunning: owner?.kind === 'service', runtimeOwner: owner ? { kind: owner.kind, pid: owner.pid } : null, healthy: await health(config), state: readJson(stateFile), runtime }, null, 2));
+  }
   else if (command === 'backup') await backupCommand();
   else throw new Error(`Unsupported command: ${command}`);
-} catch (error) { console.error(`[hosting] ${error.message}`); process.exitCode = 1; }
+} catch (error) {
+  // Startup failures can precede the normal run loop and its redacted logger.
+  // Persist the stage and error type without copying possibly sensitive input.
+  if (command === 'run') {
+    try { runLog?.('supervisor', `Fatal during ${runStage}: ${error.code ?? error.name ?? 'Error'}.`); } catch { /* Preserve the original failure. */ }
+  }
+  console.error(`[hosting] ${error.message}`); process.exitCode = 1;
+}

@@ -48,7 +48,7 @@ export function OrderTicket() {
       <ProvenanceMicro text={blotterMicro()} />
 
       <details className="border-b border-border bg-bg-1">
-      <summary className="cursor-pointer px-3 py-2.5 text-xs text-muted">模擬帳戶 · 進階委託設定</summary>
+      <summary className="cursor-pointer px-3 py-2.5 text-xs text-muted">更多下單設定 · 模擬帳戶</summary>
       <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2">
         <Field label="帳號">
           <span className="font-mono">{accountId || SIM_ACCOUNT}</span>
@@ -131,8 +131,8 @@ export function OrderTicket() {
       </div>
       </details>
 
-      <div className="grid flex-1 grid-cols-2 gap-2 p-2 sm:grid-cols-12">
-        <div className="col-span-2 flex flex-col justify-center rounded-sm border border-border bg-bg px-2 py-1.5 sm:col-span-3">
+      <div className="ticket-fields grid flex-1 grid-cols-2 gap-2 p-2 sm:grid-cols-12">
+        <div className="ticket-product col-span-2 flex min-w-0 flex-col justify-center rounded-sm border border-border bg-bg px-2 py-1.5 sm:col-span-3">
           <div className="text-2xs tracking-wide text-muted">商品</div>
           <div className="flex items-baseline gap-1.5">
             <span className="font-mono text-sm tabular">{selected}</span>
@@ -140,9 +140,10 @@ export function OrderTicket() {
           </div>
         </div>
 
-        <div className="col-span-2 flex rounded-sm bg-bg p-0.5 sm:col-span-3">
+        <div className="ticket-side col-span-2 flex min-w-0 rounded-sm bg-bg p-0.5 sm:col-span-3" role="group" aria-label="買進或賣出">
           <button
             type="button"
+            aria-pressed={buy}
             onClick={() => setTicket({ side: "buy" })}
             className={cn(
               "h-11 flex-1 rounded-xs text-sm font-medium",
@@ -153,6 +154,7 @@ export function OrderTicket() {
           </button>
           <button
             type="button"
+            aria-pressed={!buy}
             onClick={() => setTicket({ side: "sell" })}
             className={cn(
               "h-11 flex-1 rounded-xs text-sm font-medium",
@@ -163,9 +165,10 @@ export function OrderTicket() {
           </button>
         </div>
 
-        <div className="flex rounded-sm bg-bg p-0.5 sm:col-span-2">
+        <div className="ticket-type flex min-w-0 rounded-sm bg-bg p-0.5 sm:col-span-2" role="group" aria-label="委託方式">
           <button
             type="button"
+            aria-pressed={ticket.type === "limit"}
             onClick={() => setTicket({ type: "limit" })}
             className={cn(
               "h-11 flex-1 rounded-xs text-xs",
@@ -176,6 +179,7 @@ export function OrderTicket() {
           </button>
           <button
             type="button"
+            aria-pressed={ticket.type === "market"}
             onClick={() => setTicket({ type: "market" })}
             className={cn(
               "h-11 flex-1 rounded-xs text-xs",
@@ -186,8 +190,8 @@ export function OrderTicket() {
           </button>
         </div>
 
-        <label className="flex h-11 items-center gap-1 rounded-sm border border-border bg-bg px-2 text-xs sm:col-span-2">
-          <span className="text-muted">張數</span>
+        <div className="ticket-number flex h-11 min-w-0 items-center gap-1 rounded-sm border border-border bg-bg px-2 text-xs sm:col-span-2">
+          <span className="ticket-field-label shrink-0 text-muted">張數</span>
           <button
             type="button"
             className="size-8 text-lg text-muted hover:text-fg"
@@ -199,6 +203,7 @@ export function OrderTicket() {
           <input
             type="number"
             aria-label="委託張數"
+            inputMode="numeric"
             min={1}
             max={200}
             value={ticket.lots}
@@ -213,10 +218,10 @@ export function OrderTicket() {
           >
             +
           </button>
-        </label>
+        </div>
 
-        <div className="col-span-2 flex h-11 items-center gap-1 rounded-sm border border-border bg-bg px-2 text-xs sm:col-span-2">
-          <span className="text-muted">價格</span>
+        <div className="ticket-number col-span-2 flex h-11 min-w-0 items-center gap-1 rounded-sm border border-border bg-bg px-2 text-xs sm:col-span-2">
+          <span className="ticket-field-label shrink-0 text-muted">價格</span>
           <button
             type="button"
             aria-label="降低委託價格"
@@ -228,6 +233,7 @@ export function OrderTicket() {
           <input
             type="number"
             aria-label="委託價格"
+            inputMode="decimal"
             step="any"
             value={ticket.type === "market" ? "" : price || ""}
             placeholder="市價"
@@ -265,17 +271,17 @@ export function OrderTicket() {
             </div>
           )}
         </div>
-        <div className="flex flex-wrap gap-1">
+        <div className="ticket-presets flex flex-wrap gap-2" role="group" aria-label="快速選擇張數">
           {[1, 2, 5, 10].map((n) => (
-            <Button key={n} size="xs" variant="subtle" onClick={() => setTicket({ lots: n })}>
+            <Button key={n} size="xs" variant="subtle" aria-pressed={ticket.lots === n} onClick={() => setTicket({ lots: n })}>
               {n} 張
             </Button>
           ))}
         </div>
-        <Button size="sm" variant="outline" onClick={flattenSelected}>
+        <Button size="sm" variant="outline" onClick={flattenSelected} className="ticket-flatten">
           平倉此檔
         </Button>
-        <Button size="md" variant={buy ? "buy" : "sell"} onClick={submit} className="min-w-28">
+        <Button size="md" variant={buy ? "buy" : "sell"} onClick={submit} className="ticket-submit min-w-28">
           {buy ? "送出買進" : "送出賣出"}
         </Button>
       </div>
@@ -285,9 +291,9 @@ export function OrderTicket() {
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="inline-flex items-center gap-1.5 text-2xs text-muted">
+    <div className="ticket-setting inline-flex min-w-0 flex-wrap items-center gap-1.5 text-2xs text-muted">
       <span>{label}</span>
-      <span className="text-fg">{children}</span>
+      <span className="min-w-0 text-fg">{children}</span>
     </div>
   );
 }

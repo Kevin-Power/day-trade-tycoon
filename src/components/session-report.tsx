@@ -25,6 +25,7 @@ import { useGame } from "@/lib/game/store";
 import type { ReviewBundle } from "@/lib/game/persist";
 import { cn, formatMoney, formatSigned, formatTime } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
+import { PracticeGoalEditor } from "@/components/practice-goal";
 
 export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
   const navigate = useNavigate();
@@ -314,6 +315,7 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
             </ul>
           </section>
         )}
+        <PracticeGoalEditor scenarioId={rec.scenarioId} scenarioName={rec.scenarioName} />
         <ProvenanceMicro
           className="mt-5"
           text="資料來源為本次教室模擬操作。歷史行情與教室生成資料的組合不等於真實成交，模擬成果不代表實際交易結果。"

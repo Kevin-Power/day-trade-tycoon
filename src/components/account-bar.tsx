@@ -10,8 +10,7 @@ import { SimChip } from "@/components/provenance";
 import { cn, formatMoney, formatPct, formatSigned, formatTime } from "@/lib/utils";
 import { useState } from "react";
 
-const SPEEDS = [4, 6, 8, 12, 16, 24];
-const MOBILE_SPEEDS = new Set([4, 8, 16]);
+const SPEEDS = [1, 4, 6, 8, 12, 16, 24];
 
 export function AccountBar() {
   const engine = useGame((s) => s.engine);
@@ -25,6 +24,7 @@ export function AccountBar() {
   const phase = useGame((s) => s.phase);
   const teachMode = useGame((s) => s.teachMode);
   const setTeachMode = useGame((s) => s.setTeachMode);
+  const openLearnerGuide = useGame((s) => s.openLearnerGuide);
   const venue = useGame((s) => s.venue);
   const accountId = useGame((s) => s.accountId);
   const frame = useGame((s) => s.frame);
@@ -46,9 +46,10 @@ export function AccountBar() {
   const used = st.equity > 0 ? (st.peakGross / st.equity) * 100 : 0;
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-surface px-3 py-2.5 text-xs">
-      <div className="flex items-center gap-2">
+    <div className="account-bar flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-surface px-3 py-2.5 text-xs">
+      <div className="account-clock flex flex-wrap items-center gap-2">
         <span className={cn("size-1.5 rounded-full bg-up", !paused && "live-dot")} />
+        <span className="font-medium">{paused ? "已暫停" : "練習中"}</span>
         <span className="font-mono text-sm tabular text-fg">{formatTime(engine.t)}</span>
         <span className="text-muted">
           {formatTime(engine.endT)} · 餘 {left.toFixed(0)} 分
@@ -64,57 +65,82 @@ export function AccountBar() {
       <Stat label="未實現" value={formatSigned(st.unrealized, 0)} tone={st.unrealized} className="hidden lg:flex" />
       <Stat label="使用" value={`${used.toFixed(0)}%`} className="hidden xl:flex" />
       <div className="flex-1" />
-      <div className="account-controls flex flex-wrap items-center gap-1">
-        <Button size="xs" variant="subtle" onClick={togglePause} className="min-w-11">
-          {paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
-          {paused ? "繼續" : "暫停"}
-        </Button>
-        {SPEEDS.map((n) => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => setSpeed(n)}
-            aria-label={`${n} 倍速`}
-            aria-pressed={speed === n}
-            className={cn(
-              "h-7 min-w-9 rounded-xs px-1.5 font-mono text-2xs",
-              MOBILE_SPEEDS.has(n) ? "inline-flex" : "hidden sm:inline-flex",
-              speed === n ? "bg-header-2 text-fg" : "text-muted hover:text-fg",
-            )}
+      <div className="account-controls flex flex-wrap items-start gap-2">
+        <div className="account-primary flex items-center gap-2" role="group" aria-label="練習主要操作">
+          <Button size="md" variant={paused ? "default" : "subtle"} onClick={togglePause}>
+            {paused ? <Play aria-hidden /> : <Pause aria-hidden />}
+            {paused ? "繼續練習" : "暫停"}
+          </Button>
+          <Button
+            size="md"
+            variant={teachMode ? "header" : "outline"}
+            aria-pressed={teachMode}
+            onClick={() => setTeachMode(!teachMode)}
           >
-            {n}x
-          </button>
-        ))}
-        <Button
-          size="xs"
-          variant="ghost"
-          aria-label={sound ? "關閉音效" : "開啟音效"}
-          onClick={() => {
-            const next = !sound;
-            setSoundEnabled(next);
-            setSound(next);
-            if (next) unlockAudio();
-          }}
-        >
-          {sound ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5" />}
-        </Button>
-        <Button
-          size="xs"
-          variant={teachMode ? "header" : "ghost"}
-          aria-pressed={teachMode}
-          onClick={() => setTeachMode(!teachMode)}
-          className="min-w-11"
-        >
-          <BookOpen className="size-3.5" />
-          教學
-        </Button>
-        <Button size="xs" variant="outline" onClick={settle}>
-          <Square className="size-3.5" />
-          提前結算
-        </Button>
-        <Button size="xs" variant="ghost" onClick={requestLeave}>
-          回大廳
-        </Button>
+            <BookOpen aria-hidden />
+            教學提示
+          </Button>
+          <Button size="md" variant="outline" onClick={settle} title="結束這次練習，查看練習成果">
+            <Square aria-hidden />
+            結束練習
+          </Button>
+        </div>
+        <details className="account-settings rounded-md border border-border bg-bg">
+          <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+            更多設定 <span className="font-normal text-muted">· {speed} 倍速</span>
+          </summary>
+          <div className="account-settings-content space-y-3 border-t border-border p-3">
+            <fieldset className="min-w-0">
+              <legend className="mb-2 text-sm text-muted">練習速度</legend>
+              <div className="account-speed flex flex-wrap gap-2">
+                {SPEEDS.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setSpeed(n)}
+                    aria-label={`${n} 倍速`}
+                    aria-pressed={speed === n}
+                    className={cn(
+                      "min-h-10 min-w-12 rounded-sm border px-2 font-mono text-sm",
+                      speed === n ? "border-brand bg-header-2 text-fg" : "border-border text-muted hover:text-fg",
+                    )}
+                  >
+                    {n} 倍
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+            <div className="account-extra flex flex-wrap gap-2">
+              {scenario.id === "wed-open" && phase === "live" && (
+                <Button size="md" variant="subtle" onClick={(event) => {
+                  const settings = event.currentTarget.closest("details");
+                  if (settings) settings.open = false;
+                  openLearnerGuide();
+                }}>
+                  <BookOpen aria-hidden />
+                  重看操作導覽
+                </Button>
+              )}
+              <Button
+                size="md"
+                variant="subtle"
+                aria-pressed={sound}
+                onClick={() => {
+                  const next = !sound;
+                  setSoundEnabled(next);
+                  setSound(next);
+                  if (next) unlockAudio();
+                }}
+              >
+                {sound ? <Volume2 aria-hidden /> : <VolumeX aria-hidden />}
+                {sound ? "關閉音效" : "開啟音效"}
+              </Button>
+              <Button size="md" variant="outline" onClick={requestLeave}>
+                回大廳
+              </Button>
+            </div>
+          </div>
+        </details>
       </div>
       <LeaveDeskDialog
         open={phase === "live" && leaveRisk !== null}
@@ -141,7 +167,7 @@ function Stat({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-baseline gap-1.5 font-mono", className)}>
+    <div className={cn("account-stat flex items-baseline gap-1.5 font-mono", className)}>
       <span className="text-muted">{label}</span>
       <span className={cn("tabular text-xs", tone !== undefined ? toneClass(tone) : "text-fg")}>{value}</span>
     </div>

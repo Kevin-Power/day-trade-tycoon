@@ -5,7 +5,7 @@
 ## 檔案與秘密
 
 - 程式與維運腳本：本專案；build 產出 `.output/server/index.mjs`。正式發佈將整個 `.output` 複製到 runtime `releases/<build-id>`，再把 `hosting.json` 的 `appEntry` 指到 `releases/<build-id>/server/index.mjs`。保留上一份 release 供程式回滾，避免開發中的 build 覆寫已在服務的 assets。
-- 可變資料根目錄：`C:\Users\kevin\AppData\Local\DayTradeTycoon`，在 Git 專案外。
+- 可變資料根目錄：`%USERPROFILE%\YilutekServices\DayTradeTycoon`（本機為 `C:\Users\kevin\YilutekServices\DayTradeTycoon`），在 Git 專案外。
 - `hosting.json`：正式入口、8790 port、cloudflared executable、專用 tunnel config 的路徑。
 - `secrets/app.env`：伺服器秘密。初始化不產生、也不顯示秘密。
 - `secrets/tunnel.yml`：只屬於當沖大富翁的 tunnel ingress，結尾應有 `http_status:404`。不得共用或改寫 TAIFEX、波哥的 config。
@@ -34,6 +34,10 @@ ADMIN_SETUP_TOKEN=<一次性隨機初始化token>
 
 離線教材由 `/api/download/offline` 提供，需有效入場 cookie，禁止快取。檔案在 release 的 `downloads` 目錄，supervisor 自動設定 `CLASSROOM_DOWNLOADS_DIR`；不可搬到 public。測試網域舊靜態 `/daytrade-tycoon-offline.zip` 曾被 CDN 快取，已停用這個下載入口；舊快取僅含舊版公开教材，不含帳號或秘密。
 
+原先 `%LOCALAPPDATA%\DayTradeTycoon` 在 Codex MSIX 與一般 Windows 排程中可能對應不同檔案視圖，造成程序內存在的設定被排程讀成不存在；因此預設改用使用者目錄下的 `YilutekServices`。腳本不會自動搬移舊資料。已有舊 runtime 時，須正常停機與備份後複製，保留舊副本，修正入口／tunnel／credential 絕對路徑與專屬排程，再驗證同一份資料與登入。不要在新舊位置同時啟動資料庫副本。
+
+PowerShell `-RuntimeRoot` 與 Node 維運腳本 `--runtime` 均可明確覆蓋預設；stage 及公開驗收也使用同一選擇方式。不得只修改排程路徑而讓驗收或備份繼續讀舊 runtime。
+
 ## 啟動與檢查
 
 在專案 PowerShell 中執行：
@@ -46,7 +50,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\hosting\host.ps1 s
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\hosting\host.ps1 stop
 ```
 
-`start` 以隱藏背景程序啟動 supervisor，最多等候 95 秒本地健康檢查。app 回覆 `/api/health` JSON `ok:true` 或 `status:"ok"` 後才啟動 tunnel。`status` 的 `healthy` 代表本地應用健康；不保證 DNS、Cloudflare 或外部網路已驗證。正式切換前還要从外部網址實測頁面、登入、完整模擬流程與靜態檔案。
+`start` 會先檢查本產品專用排程：若已安裝，必須核對執行檔、參數和工作目錄都屬於目前 workspace/runtime，再以 `Start-ScheduledTask` 啟動，使排程的失敗重啟設定涵蓋這次 supervisor。若已有 supervisor，僅等待就緒、不重啟；維護鎖、排程停用、權限錯誤或擁有權不符都會拒絕啟動，不退回直接啟動。只有未安裝排程的 runtime（例如隔離測試）仍使用隱藏背景程序直啟。
+
+啟動等待有 95 秒期限（加上當次有時限的狀態查詢），要求 named-pipe 擁有者 PID 與 `state.json` 的 supervisor PID 一致且本地健康檢查通過。app 回覆 `/api/health` JSON `ok:true` 或 `status:"ok"` 後才啟動 tunnel。`status` 的 `healthy` 代表本地應用健康；不保證 DNS、Cloudflare 或外部網路已驗證。正式切換前還要从外部網址實測頁面、登入、完整模擬流程與靜態檔案。
+
+正常停機釋放 runtime 鎖後，Windows 排程可能仍在收尾。`start` 在排程為 `Running`／`Queued` 且沒有 runtime 擁有者時會於同一期限內等候，直到 `Ready` 才提交新啟動，避免 `IgnoreNew` 丟棄請求。等待期間若服務重新取得鎖，便沿用並驗證健康；出現維護鎖或排程擁有權改變則拒絕。
 
 supervisor 監控 app 和 tunnel，app 異常時撤下 tunnel，失敗後有間隔重啟；每 5 分鐘最多 5 次恢復嘗試，超過便停止並留下日誌。每種日誌最大約 10 MiB、保留 5 份歷史檔。只有本次 supervisor 建立的 child process 可被終止，沒有依 process name 或陌生 PID 強制關閉的指令。8790 被其他程序占用時拒絕啟動。秘密值與常見授權 header 會在日誌寫入前遮蔽，仍請勿公開整份日誌。
 
@@ -59,6 +67,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\hosting\host.ps1 i
 ```
 
 建立專用排程 `DayTradeTycoonHost`，以目前使用者、Limited 權限執行。此命令只安裝排程，不即時啟動，也不需要管理員權限。**主機開機但使用者尚未登入時不會啟動網站；登出可能中斷服務。** 不可把這個設定描述成全天候、不需登入的 Windows 系統服務。若要開機前即供應服務，需另外規劃有權限的 Windows service、專用服務帳號和資料權限。
+
+排程對它啟動的 supervisor 設有失敗後每分鐘重啟、最多 3 次；不會接管原先由其他程序直接啟動的 instance。更新啟動腳本後，既有直接啟動的 instance 仍應在計畫停機時正常 `stop`、完成備份，再以 `start` 啟動，並確認輸出 `launchMode: "scheduled-task"`。`launchMode: "existing-supervisor"` 只表示沿用當前 instance，不證明它由排程監督。排程重試次數用完、電腦離線或使用者登出仍可能中斷服務。supervisor 日誌會記錄每次程序啟動；run 前置失敗會留下執行階段與錯誤類型，不寫入環境秘密。
 
 ```powershell
 # 停止本服務並移除專用排程，保留資料、tunnel 與 DNS：

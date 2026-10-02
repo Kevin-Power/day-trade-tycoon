@@ -3,8 +3,9 @@ import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { issueGateCookie } from '../../src/lib/gate/session.server.ts';
+import { resolveHostingRuntime } from './runtime-path.mjs';
 
-const runtime = join(process.env.LOCALAPPDATA, 'DayTradeTycoon');
+const runtime = resolveHostingRuntime('DayTradeTycoon');
 process.loadEnvFile(join(runtime, 'secrets/app.env'));
 process.env.NODE_ENV = 'production';
 const origin = process.env.BETTER_AUTH_URL;

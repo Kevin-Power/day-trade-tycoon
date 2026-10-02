@@ -29,6 +29,7 @@ import { teachingUniverseLine } from "@/lib/market/universe";
 import { WEEK_SESSIONS, formatIndex } from "@/lib/market/week";
 import { useGate } from "@/lib/gate/context";
 import { ClassroomAccount } from "@/components/classroom-account";
+import { PracticeGoalReminder } from "@/components/practice-goal";
 import { classroomSampleMicro, officialIndexMicro, officialTurnoverMicro } from "@/lib/provenance";
 
 const WEEK_ORDER = ["mon", "tue", "wed"] as const;
@@ -37,6 +38,7 @@ const CLASSROOM_OFFLINE = import.meta.env.BASE_URL === "./";
 export function Lobby() {
   const profile = useGame((state) => state.profile);
   const start = useGame((state) => state.start);
+  const openLearnerGuide = useGame((state) => state.openLearnerGuide);
   const hydrated = useGame((state) => state.hydrated);
   const { lock } = useGate();
   const firstLesson = SCENARIOS[0];
@@ -145,10 +147,23 @@ export function Lobby() {
               >
                 選擇課程 <ArrowDown className="size-4" aria-hidden="true" />
               </a>
+              {firstLesson ? (
+                <button
+                  type="button"
+                  disabled={!hydrated}
+                  onClick={() => {
+                    beginLesson(firstLesson.id);
+                    openLearnerGuide();
+                  }}
+                  className="min-h-12 rounded-lg px-3 text-base text-brand disabled:opacity-50"
+                >
+                  先看操作導覽
+                </button>
+              ) : null}
             </div>
           </div>
-          <div className="academy-card hidden min-w-0 rounded-2xl border border-border bg-surface p-5 lg:block">
-            <p className="text-xs font-medium text-muted">每次練習，完成三件事</p>
+          <div className="academy-card min-w-0 rounded-2xl border border-border bg-surface p-5">
+            <p className="text-base font-medium text-muted">每次練習，完成三件事</p>
             <ol className="mt-4 space-y-4">
               {[
                 ["01", "進場前有計畫", "先寫條件、停損與張數。"],
@@ -158,14 +173,16 @@ export function Lobby() {
                 <li key={number} className="flex items-start gap-3">
                   <span className="mt-0.5 font-mono text-xs text-subtle">{number}</span>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium">{title}</p>
-                    <p className="mt-0.5 text-xs leading-5 text-muted">{description}</p>
+                    <p className="text-base font-medium">{title}</p>
+                    <p className="mt-0.5 text-sm leading-6 text-muted">{description}</p>
                   </div>
                 </li>
               ))}
             </ol>
           </div>
         </section>
+
+        <PracticeGoalReminder />
 
         <section id="courses" aria-labelledby="courses-title" className="scroll-mt-6">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-2">

@@ -302,15 +302,50 @@
 .watchlist-compact tbody td:first-child > button > span { display: flex; flex-direction: column; align-items: start; gap: 1px; }
 .terminal-shell .term-desk { overflow: auto; }
 .terminal-shell .term-mobile-nav[aria-label] { padding-bottom: env(safe-area-inset-bottom); }
+.account-bar, .account-controls, .account-primary, .account-settings { min-width: 0; max-width: 100%; }
+.account-primary > button { min-height: 48px; }
+.account-settings > summary { min-height: 48px; align-content: center; }
+.account-settings-content { max-width: 28rem; }
 @media (max-width: 1023px) {
   .terminal-shell .pane-title { flex-wrap: wrap; height: auto; gap: 6px; padding-block: 6px; }
-  .terminal-shell .trade-ticket { height: auto; flex-shrink: 0; }
-  .terminal-shell .trade-ticket input { min-height: 44px; font-size: 16px; }
-  .terminal-shell .trade-ticket button { min-height: 36px; }
-  .terminal-shell .order-actions .order-summary { flex-basis: 100%; }
-  .terminal-shell .order-actions > button:last-child { flex: 1; min-height: 44px; }
-  .terminal-shell .account-controls { width: 100%; gap: 5px; }
-  .terminal-shell .account-controls > button { min-height: 34px; }
+  .terminal-shell .term-mobile-nav[aria-label] button { height: auto; min-height: 64px; padding: .5rem .25rem; font-size: 1rem; line-height: 1.4; white-space: normal; }
+  .terminal-shell .account-clock { width: 100%; font-size: .875rem; }
+  .terminal-shell .account-stat { flex-wrap: wrap; column-gap: 4px; font-size: .875rem; }
+  .terminal-shell .account-stat > span:last-child { font-size: 1rem; }
+  .terminal-shell .account-controls { width: 100%; gap: 8px; }
+  .terminal-shell .account-primary { display: grid; width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .terminal-shell .account-primary > button { min-width: 0; height: auto; min-height: 52px; padding: 10px 6px; font-size: 1rem; line-height: 1.4; white-space: normal; }
+  .terminal-shell .account-settings { width: 100%; }
+  .terminal-shell .account-settings > summary { font-size: 1rem; }
+  .terminal-shell .account-settings-content { max-width: none; }
+  .terminal-shell .account-settings legend { font-size: 1rem; }
+  .terminal-shell .account-speed { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .terminal-shell .account-settings button { min-width: 48px; min-height: 48px; height: auto; font-size: 1rem; white-space: normal; }
+  .terminal-shell .account-extra > button { flex: 1 1 8rem; }
+  .terminal-shell .trade-ticket { min-width: 0; height: auto; flex-shrink: 0; }
+  .terminal-shell .trade-ticket :is(button, input, summary) { min-height: 48px; font-size: 1rem; }
+  .terminal-shell .trade-ticket summary { line-height: 1.5; }
+  .terminal-shell .trade-ticket button { min-width: 48px; white-space: normal; }
+  .terminal-shell .ticket-fields { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+  .terminal-shell .ticket-fields > * { grid-column: 1; }
+  .terminal-shell .ticket-product { min-height: 56px; }
+  .terminal-shell .ticket-product > div:last-child { flex-wrap: wrap; }
+  .terminal-shell .ticket-product :is(.text-xs, .text-sm) { font-size: 1rem; }
+  .terminal-shell .ticket-product > div:first-child { font-size: .875rem; }
+  .terminal-shell .ticket-number { height: auto; min-height: 56px; }
+  .terminal-shell .ticket-number button { width: 48px; flex-shrink: 0; font-size: 1.5rem; }
+  .terminal-shell .ticket-number input { width: 0; }
+  .terminal-shell .ticket-field-label { font-size: 1rem; }
+  .terminal-shell .ticket-setting { width: 100%; padding-block: 4px; font-size: .875rem; }
+  .terminal-shell .ticket-setting > span:last-child { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+  .terminal-shell .ticket-setting button { padding-inline: 12px; }
+  .terminal-shell .order-actions .order-summary { flex-basis: 100%; font-size: .875rem; line-height: 1.6; }
+  .terminal-shell .ticket-presets { display: grid; width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .terminal-shell .ticket-presets > button { min-width: 0; }
+  .terminal-shell .order-actions > :is(.ticket-flatten, .ticket-submit) { flex: 1 1 calc(50% - 4px); min-height: 56px; }
+}
+@media (max-width: 639px) {
+  .terminal-shell .account-primary > button > svg { display: none; }
 }
 
 @media print {

@@ -13,6 +13,15 @@ import {
 } from "@/lib/game/persist";
 import { evaluatePass, type RuleVerdict } from "@/lib/game/pass-rules";
 import { flashClickDecision, isExamScenario, ticketAfterClickPrice } from "@/lib/game/flash-order";
+import {
+  finishedLearnerGuideState,
+  hasSeenLearnerGuide,
+  initialPracticeSpeed,
+  learnerGuideStepState,
+  LEARNER_GUIDE_PAUSE_MESSAGE,
+  rememberLearnerGuide,
+  shouldAutoOpenLearnerGuide,
+} from "@/lib/game/learner-guide";
 import { playError, playFill, unlockAudio } from "@/lib/game/audio";
 import { DayMarket, describeFill } from "@/lib/market/engine";
 import { STOCK_BY_CODE } from "@/lib/market/universe";
@@ -66,6 +75,8 @@ type GameStore = {
   flashOrder: boolean;
   activeBeat: LessonBeat | null;
   dismissedBeats: string[];
+  learnerGuideStep: number | null;
+  learnerGuideReady: boolean;
   profile: Profile;
   hydrated: boolean;
   frame: number;
@@ -75,6 +86,9 @@ type GameStore = {
   sound: boolean;
   hydrate: () => void;
   start: (scenarioId: string) => void;
+  openLearnerGuide: () => void;
+  setLearnerGuideStep: (step: number) => void;
+  finishLearnerGuide: () => void;
   leave: () => void;
   settle: () => void;
   togglePause: () => void;
@@ -120,6 +134,8 @@ export const useGame = create<GameStore>((set, get) => ({
   flashOrder: false,
   activeBeat: null,
   dismissedBeats: [],
+  learnerGuideStep: null,
+  learnerGuideReady: false,
   profile: { ...EMPTY_PROFILE },
   hydrated: false,
   frame: 0,
@@ -147,13 +163,14 @@ export const useGame = create<GameStore>((set, get) => ({
     const px = q ? q.ask : 0;
     const teach = get().teachMode;
     const beat = teach ? openingBeat(sc.id, sc.startMinute) : null;
+    const guide = shouldAutoOpenLearnerGuide(sc.id, get().profile.sessions, hasSeenLearnerGuide(getProfileIdentity()));
     set({
       phase: "live",
       engine,
       scenario: sc,
       selected: code,
-      speed: sc.speed,
-      paused: !!beat,
+      speed: initialPracticeSpeed(sc.speed, guide),
+      paused: !!beat || guide,
       ticket: { side: "buy", type: "limit", lots: 1, price: roundToTick(px), tif: "ROD" },
       mobileTab: "watch",
       rightTab: "pos",
@@ -163,7 +180,23 @@ export const useGame = create<GameStore>((set, get) => ({
       frame: 0,
       activeBeat: beat,
       dismissedBeats: [],
+      learnerGuideStep: guide ? 0 : null,
+      learnerGuideReady: false,
     });
+  },
+
+  openLearnerGuide: () => {
+    if (get().phase !== "live" || get().scenario?.id !== "wed-open") return;
+    set(learnerGuideStepState(0));
+  },
+  setLearnerGuideStep: (step) => {
+    if (get().learnerGuideStep === null) return;
+    set(learnerGuideStepState(step));
+  },
+  finishLearnerGuide: () => {
+    if (get().learnerGuideStep === null) return;
+    rememberLearnerGuide(getProfileIdentity());
+    set(finishedLearnerGuideState());
   },
 
   leave: () => {
@@ -175,10 +208,16 @@ export const useGame = create<GameStore>((set, get) => ({
       lastResult: null,
       activeBeat: null,
       dismissedBeats: [],
+      learnerGuideStep: null,
+      learnerGuideReady: false,
     });
   },
 
   settle: () => {
+    if (get().learnerGuideStep !== null) {
+      toast(LEARNER_GUIDE_PAUSE_MESSAGE);
+      return;
+    }
     const { engine, scenario, profile } = get();
     if (!engine || !scenario || get().phase === "result") return;
     if (!engine.ended) {
@@ -209,7 +248,7 @@ export const useGame = create<GameStore>((set, get) => ({
     const bundle = { rec, verdicts: pass.verdicts, fills: [...engine.fills], code: get().selected,
       capital: scenario.capital, equity: st.equity, sessionLabel: engine.session.label };
     saveReview(bundle);
-    set({ phase: "result", lastResult: rec, lastVerdicts: pass.verdicts, profile: next, paused: true, syncStatus: "local" });
+    set({ phase: "result", lastResult: rec, lastVerdicts: pass.verdicts, profile: next, paused: true, syncStatus: "local", learnerGuideReady: false });
     if (getProfileIdentity()) {
       set({ syncStatus: "saving" });
       void import("@/lib/classroom-db").then((module) => module.saveClassroomSession({ data: bundle }))
@@ -221,7 +260,17 @@ export const useGame = create<GameStore>((set, get) => ({
     }
   },
 
-  togglePause: () => set({ paused: !get().paused }),
+  togglePause: () => {
+    if (get().learnerGuideStep !== null) {
+      toast(LEARNER_GUIDE_PAUSE_MESSAGE);
+      return;
+    }
+    if (get().paused && (get().learnerGuideReady || get().activeBeat)) {
+      get().dismissBeat();
+      return;
+    }
+    set({ paused: !get().paused });
+  },
   setSpeed: (n) => set({ speed: n }),
 
   select: (code) => {
@@ -276,10 +325,14 @@ export const useGame = create<GameStore>((set, get) => ({
   setChartStyle: (s) => set({ chartStyle: s }),
   setTeachMode: (on) => {
     saveTeachMode(on);
-    if (!on) set({ teachMode: false, activeBeat: null, paused: false });
+    if (!on) set({ teachMode: false, activeBeat: null, paused: get().learnerGuideStep !== null || get().learnerGuideReady });
     else set({ teachMode: true });
   },
   setFlashOrder: (on) => {
+    if (get().learnerGuideStep !== null) {
+      toast(LEARNER_GUIDE_PAUSE_MESSAGE);
+      return;
+    }
     if (get().flashOrder === on) return;
     saveFlashOrder(on);
     if (!on) {
@@ -291,19 +344,24 @@ export const useGame = create<GameStore>((set, get) => ({
     // 教學關卡：開閃電時清掉分步引導，避免卡在引導卻靜默不送。
     // 期末考 / 盲測：保留引導；暫停中送單由 submit 擋下並 toast。
     if (isExamScenario(scenario?.id)) set({ flashOrder: true });
-    else set({ flashOrder: true, ...(activeBeat ? { activeBeat: null, paused: false } : {}) });
+    else set({ flashOrder: true, ...(activeBeat && !get().learnerGuideReady ? { activeBeat: null, paused: false } : {}) });
     toast("閃電下單已開 · 點五檔即以目前張數送單");
   },
   dismissBeat: () => {
+    if (get().learnerGuideStep !== null) {
+      toast(LEARNER_GUIDE_PAUSE_MESSAGE);
+      return;
+    }
     const { scenario, activeBeat, dismissedBeats } = get();
     if (!activeBeat || !scenario) {
-      set({ activeBeat: null, paused: false });
+      set({ activeBeat: null, paused: false, learnerGuideReady: false });
       return;
     }
     set({
       activeBeat: null,
       paused: false,
       dismissedBeats: [...dismissedBeats, beatKey(scenario.id, activeBeat.atMinute)],
+      learnerGuideReady: false,
     });
   },
   checkBeats: () => {
@@ -320,6 +378,10 @@ export const useGame = create<GameStore>((set, get) => ({
   bump: () => set({ frame: get().frame + 1 }),
 
   submit: () => {
+    if (get().learnerGuideStep !== null) {
+      toast(LEARNER_GUIDE_PAUSE_MESSAGE);
+      return;
+    }
     const { engine, selected, ticket, venue, accountId, scenario, paused, activeBeat } = get();
     if (!engine) return;
     if (isExamScenario(scenario?.id) && (paused || activeBeat)) {
@@ -356,6 +418,10 @@ export const useGame = create<GameStore>((set, get) => ({
   },
 
   flattenSelected: () => {
+    if (get().learnerGuideStep !== null) {
+      toast(LEARNER_GUIDE_PAUSE_MESSAGE);
+      return;
+    }
     const { engine, selected, venue, paused, scenario, activeBeat } = get();
     if (!engine) return;
     if (isExamScenario(scenario?.id) && (paused || activeBeat)) {
@@ -376,6 +442,10 @@ export const useGame = create<GameStore>((set, get) => ({
   },
 
   flattenAll: () => {
+    if (get().learnerGuideStep !== null) {
+      toast(LEARNER_GUIDE_PAUSE_MESSAGE);
+      return;
+    }
     const { engine, paused, scenario, activeBeat } = get();
     if (!engine) return;
     if (isExamScenario(scenario?.id) && (paused || activeBeat)) {

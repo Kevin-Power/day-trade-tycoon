@@ -2,7 +2,7 @@ param(
   [Parameter(Position = 0)]
   [ValidateSet('init', 'start', 'stop', 'status', 'backup', 'install-task', 'uninstall-task')]
   [string]$Action = 'status',
-  [string]$RuntimeRoot = (Join-Path $env:LOCALAPPDATA 'DayTradeTycoon')
+  [string]$RuntimeRoot = (Join-Path $env:USERPROFILE 'YilutekServices\DayTradeTycoon')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -11,6 +11,7 @@ $workspaceRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $runtimePath = [IO.Path]::GetFullPath($RuntimeRoot)
 $nodePath = (Get-Command node.exe -ErrorAction Stop).Source
 $supervisorPath = Join-Path $PSScriptRoot 'supervisor.mjs'
+. (Join-Path $PSScriptRoot 'task-start.ps1')
 
 function Quote-TaskArgument([string]$Value) {
   if ($Value.Contains('"') -or $Value.EndsWith('\')) { throw 'Unsupported quote or trailing slash in task path.' }
@@ -71,6 +72,17 @@ if ($Action -eq 'install-task') {
   Write-Output "Installed current-user logon task: $taskName"
   Write-Output 'This task does not start at boot before login. It has not been started by this command.'
   exit 0
+}
+
+if ($Action -eq 'start') {
+  $taskArguments = (Quote-TaskArgument $supervisorPath) + ' run --runtime ' + (Quote-TaskArgument $runtimePath)
+  $scheduledStart = Start-HostingScheduledTask -TaskName $taskName -NodePath $nodePath -TaskArguments $taskArguments -WorkspaceRoot $workspaceRoot -SupervisorPath $supervisorPath -RuntimePath $runtimePath
+  if ($null -ne $scheduledStart) {
+    $scheduledStart | ConvertTo-Json -Depth 5
+    exit 0
+  }
+  # A runtime without an installed task (for example an isolated test fixture)
+  # retains the direct hidden-background start implemented by the supervisor.
 }
 
 if ($Action -eq 'uninstall-task') {

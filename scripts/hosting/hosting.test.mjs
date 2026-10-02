@@ -95,3 +95,19 @@ test('occupied loopback port is retained and its unrelated listener is not termi
     rmSync(runtime, { recursive: true, force: true });
   }
 });
+
+test('preflight failure persists its stage without logging protected environment values', { timeout: 15000 }, async () => {
+  const { runtime } = fixture(await vacantPort());
+  const invalidSecret = 'short-sensitive-test-secret';
+  try {
+    writeFileSync(join(runtime, 'secrets', 'app.env'), `BETTER_AUTH_SECRET=${invalidSecret}\n`);
+    await assert.rejects(run('run', runtime), /at least 32 characters/);
+    const log = readFileSync(join(runtime, 'logs', 'supervisor.log'), 'utf8');
+    assert.match(log, /Starting supervisor pid=/);
+    assert.match(log, /Fatal during loading protected application environment: Error/);
+    assert.equal(log.includes(invalidSecret), false);
+    assert.equal(existsSync(join(runtime, 'state.json')), false);
+  } finally {
+    rmSync(runtime, { recursive: true, force: true });
+  }
+});
