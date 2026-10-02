@@ -33,3 +33,21 @@ export function parsePracticeGoal(raw: string | null): PracticeGoal | null {
       scenarioId: goal.scenarioId, scenarioName: goal.scenarioName, updatedAt: goal.updatedAt };
   } catch { return null; }
 }
+
+export function practiceGoalForScenario(goal: PracticeGoal | null, scenarioId: string): PracticeGoal | null {
+  return goal?.scenarioId === scenarioId ? goal : null;
+}
+
+export function savePracticeGoal(
+  storage: Pick<Storage, "getItem" | "setItem">,
+  storageKey: string,
+  goal: PracticeGoal,
+): boolean {
+  try {
+    const validated = parsePracticeGoal(JSON.stringify(goal));
+    if (!validated) return false;
+    const serialized = JSON.stringify(validated);
+    storage.setItem(storageKey, serialized);
+    return storage.getItem(storageKey) === serialized;
+  } catch { return false; }
+}

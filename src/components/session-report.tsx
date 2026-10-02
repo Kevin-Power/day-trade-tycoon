@@ -9,14 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  ClipboardList,
-  MessageSquare,
-  ReceiptText,
-  RotateCcw,
-} from "lucide-react";
+import { ArrowLeft, CheckCircle2, ClipboardList, MessageSquare, ReceiptText } from "lucide-react";
 import { ProvenanceMicro } from "@/components/provenance";
 import { lessonById } from "@/lib/game/curriculum";
 import { useGame } from "@/lib/game/store";
@@ -359,31 +352,19 @@ export function SessionReport({
         )}
         {feedback}
         {!teacherView && (
-          <PracticeGoalEditor scenarioId={rec.scenarioId} scenarioName={rec.scenarioName} />
+          <PracticeGoalEditor
+            scenarioId={rec.scenarioId}
+            scenarioName={rec.scenarioName}
+            onPractice={() => {
+              useGame.getState().start(rec.scenarioId);
+              void navigate({ to: "/" });
+            }}
+          />
         )}
         <ProvenanceMicro
           className="mt-5"
           text="資料來源為本次教室模擬操作。歷史行情與教室生成資料的組合不等於真實成交，模擬成果不代表實際交易結果。"
         />
-        {!teacherView && (
-          <div className="academy-card mt-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-            <div>
-              <h2 className="font-semibold">把復盤帶進下一次練習</h2>
-              <p className="mt-1.5 text-sm text-muted">先選一個想改善的動作，再重練這堂課。</p>
-            </div>
-            <button
-              type="button"
-              className="academy-button-primary shrink-0"
-              onClick={() => {
-                useGame.getState().start(rec.scenarioId);
-                void navigate({ to: "/" });
-              }}
-            >
-              <RotateCcw aria-hidden="true" className="size-4" />
-              重練本課
-            </button>
-          </div>
-        )}
       </div>
     </main>
   );
