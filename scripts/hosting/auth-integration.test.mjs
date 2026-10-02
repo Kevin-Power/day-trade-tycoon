@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fork } from "node:child_process";
-import { randomBytes, scryptSync } from "node:crypto";
+import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { mkdtemp, readdir, readFile, rm, access } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -108,15 +108,15 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
   for (const file of await readdir(join(dirname(releaseEntry), "_ssr"))) {
     if (!file.endsWith(".mjs")) continue;
     const text = await readFile(join(dirname(releaseEntry), "_ssr", file), "utf8");
-    for (const name of ["loadTeacherRoster", "upsertMyProfile", "saveClassroomSession", "loadTeacherSessionDetail"]) {
+    for (const name of ["loadTeacherRoster", "upsertMyProfile", "saveClassroomSession", "loadTeacherSessionDetail", "loadSessionFeedback", "addSessionFeedback"]) {
       const match = text.match(new RegExp("var " + name + " = [\\s\\S]*?createSsrRpc\\(\"([a-f0-9]+)\"\\)"));
       if (match) functionIds[name] = match[1];
     }
   }
-  async function serverFn(name, method, data, jar) {
+  async function serverFn(name, method, data, jar, extraHeaders = {}) {
     assert.ok(functionIds[name], "Built server function must be discoverable: " + name);
     const headers = new Headers({ "origin": canonicalOrigin, "sec-fetch-site": "same-origin",
-      "x-tsr-serverFn": "true", "accept": "application/json", "content-type": "application/json" });
+      "x-tsr-serverFn": "true", "accept": "application/json", "content-type": "application/json", ...extraHeaders });
     headers.set("cookie", [...jar].map(([key, value]) => key + "=" + value).join("; "));
     const payload = data === undefined ? undefined : JSON.stringify(await toJSONAsync({ data }));
     const query = method === "GET" && payload !== undefined ? "?payload=" + encodeURIComponent(payload) : "";
@@ -124,6 +124,9 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
       method, headers, body: method === "GET" ? undefined : payload, signal: AbortSignal.timeout(20000),
     });
     absorb(jar, response);
+    if (!response.ok) {
+      throw Object.assign(new Error("Server function " + name + " returned HTTP " + response.status), { httpStatus: response.status });
+    }
     const responsePayload = await response.json();
     const result = response.headers.get("x-tss-serialized") ? fromCrossJSON(responsePayload, { plugins: [] }) : responsePayload;
     if (result?.error) throw result.error;
@@ -199,6 +202,69 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
     await assert.rejects(serverFn("loadTeacherSessionDetail", "GET", { id: fixtureReview.rec.id }, gateOnly));
     assert.equal(await serverFn("loadTeacherSessionDetail", "GET", { id: "unknown-record" }, owner), null);
     t.diagnostic("HTTP teacher review: first-trade plan survives student save and same-class teacher read; unverified student and gate-only visitor denied");
+    stage = "teacher feedback access, identity and request idempotence";
+    const feedbackInput = {
+      sessionId: fixtureReview.rec.id,
+      requestId: randomUUID(),
+      observation: "這次有先寫進場與離場條件，首筆委託的商品、方向與張數一致。",
+      nextStep: "重練同一課，對照自己寫的離場條件，再說明是否照做。",
+    };
+    const initialFeedbackPage = await serverFn("loadSessionFeedback", "GET", { sessionId: fixtureReview.rec.id }, student);
+    assert.deepEqual(initialFeedbackPage, { items: [], nextCursor: null });
+    for (const jar of [student, gateOnly]) {
+      await assert.rejects(serverFn("addSessionFeedback", "POST", feedbackInput, jar));
+    }
+    await assert.rejects(serverFn("loadSessionFeedback", "GET", { sessionId: fixtureReview.rec.id }, gateOnly));
+    await assert.rejects(serverFn("addSessionFeedback", "POST", feedbackInput, new Map()), { httpStatus: 403 });
+    await assert.rejects(serverFn("loadSessionFeedback", "GET", { sessionId: fixtureReview.rec.id }, new Map()), { httpStatus: 403 });
+    assert.deepEqual(await serverFn("loadSessionFeedback", "GET", { sessionId: fixtureReview.rec.id }, student),
+      { items: [], nextCursor: null }, "rejected student and visitor writes must not create any feedback");
+    t.diagnostic("HTTP feedback denial: no-gate GET/POST return 403; all rejected writes leave the feedback list empty");
+    const feedback = await serverFn("addSessionFeedback", "POST", feedbackInput, owner);
+    assert.match(feedback.id, /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    assert.equal(feedback.sessionId, fixtureReview.rec.id);
+    assert.equal(feedback.authorName, ownerSession.user.name);
+    assert.equal(feedback.observation, feedbackInput.observation);
+    assert.equal(feedback.nextStep, feedbackInput.nextStep);
+    assert.equal(Number.isFinite(Date.parse(feedback.createdAt)), true);
+    assert.deepEqual(Object.keys(feedback).sort(), ["id", "sessionId", "authorName", "observation", "nextStep", "createdAt"].sort());
+    const retry = await serverFn("addSessionFeedback", "POST", feedbackInput, owner);
+    assert.deepEqual(retry, feedback, "same request and content must return the original note, author and timestamp");
+    const concurrentRetries = await Promise.all([
+      serverFn("addSessionFeedback", "POST", feedbackInput, owner),
+      serverFn("addSessionFeedback", "POST", feedbackInput, owner),
+    ]);
+    for (const duplicate of concurrentRetries) assert.deepEqual(duplicate, feedback);
+    await assert.rejects(serverFn("addSessionFeedback", "POST", { ...feedbackInput, observation: "同一個 requestId 不得改寫已保存原文。" }, owner));
+    await assert.rejects(serverFn("addSessionFeedback", "POST", { ...feedbackInput, nextStep: "同一個 requestId 不得改成另一項練習。" }, owner));
+    for (const identityClaim of [
+      { authorId: studentSession.user.id },
+      { authorName: "Forged teacher" },
+      { role: "teacher" },
+      { createdAt: "1970-01-01T00:00:00.000Z" },
+    ]) {
+      await assert.rejects(serverFn("addSessionFeedback", "POST", { ...feedbackInput, requestId: randomUUID(), ...identityClaim }, owner));
+    }
+    await assert.rejects(serverFn("addSessionFeedback", "POST", { ...feedbackInput, requestId: randomUUID(), authorId: ownerId, role: "teacher" }, student));
+    for (const invalidContent of [
+      { observation: " " }, { observation: "字".repeat(601) },
+      { nextStep: " " }, { nextStep: "字".repeat(301) },
+      { requestId: "not-a-uuid" },
+    ]) {
+      await assert.rejects(serverFn("addSessionFeedback", "POST", { ...feedbackInput, requestId: randomUUID(), ...invalidContent }, owner));
+    }
+    const foreignHeaders = { origin: "https://attacker.invalid", "sec-fetch-site": "cross-site" };
+    await assert.rejects(serverFn("addSessionFeedback", "POST", { ...feedbackInput, requestId: randomUUID() }, owner, foreignHeaders));
+    await assert.rejects(serverFn("loadSessionFeedback", "GET", { sessionId: fixtureReview.rec.id }, student, foreignHeaders));
+    const expectedFeedbackPage = { items: [feedback], nextCursor: null };
+    assert.deepEqual(await serverFn("loadSessionFeedback", "GET", { sessionId: fixtureReview.rec.id }, student), expectedFeedbackPage);
+    assert.deepEqual(await serverFn("loadSessionFeedback", "GET", { sessionId: fixtureReview.rec.id }, owner), expectedFeedbackPage);
+    assert.deepEqual(await serverFn("loadSessionFeedback", "GET", {
+      sessionId: fixtureReview.rec.id, before: { createdAt: feedback.createdAt, id: feedback.id },
+    }, student), { items: [], nextCursor: null }, "the original precise timestamp/id cursor must exclude the note itself");
+    assert.deepEqual((await serverFn("loadTeacherSessionDetail", "GET", { id: fixtureReview.rec.id }, owner)).bundle, fixtureReview,
+      "adding or retrying feedback must never rewrite the student's saved review");
+    t.diagnostic("HTTP feedback: teacher writes; student reads; student/visitor writes, visitor reads, forged author/role, invalid content and foreign origin rejected; retries keep one immutable note and preserve the review");
     stage = "gate limiter";
     let last;
     for (let i = 0; i < 13; i++) last = await request("/api/gate", {
@@ -215,7 +281,13 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
     assert.equal((await request("/api/auth/get-session", { jar: newLogin })).body.user.id, ownerId);
     assert.equal((await request("/api/admin/setup", { jar: newLogin })).body.available, false);
     assert.equal((await request("/api/admin/setup", { method: "POST", jar: newLogin, data: setupBody })).status, 400);
+    assert.deepEqual(await serverFn("loadSessionFeedback", "GET", { sessionId: fixtureReview.rec.id }, student), expectedFeedbackPage);
+    assert.deepEqual(await serverFn("loadSessionFeedback", "GET", { sessionId: fixtureReview.rec.id }, newLogin), expectedFeedbackPage);
+    assert.deepEqual(await serverFn("addSessionFeedback", "POST", feedbackInput, newLogin), feedback,
+      "a request retried after restart must resolve to its original saved note");
+    assert.deepEqual((await serverFn("loadTeacherSessionDetail", "GET", { id: fixtureReview.rec.id }, newLogin)).bundle, fixtureReview);
     t.diagnostic("HTTP restart: prior session, password login, teacher identity and consumed bootstrap marker survived");
+    t.diagnostic("HTTP feedback restart: teacher/student reads and same-request retry recover the exact original note; review remains unchanged");
     for (const secret of [password, entryCode, token, env.BETTER_AUTH_SECRET, ...owner.values()])
       assert.equal(childLog.includes(secret), false, "Child logs must not contain generated credentials");
   } catch (error) {

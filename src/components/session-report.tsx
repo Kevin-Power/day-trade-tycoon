@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   CartesianGrid,
@@ -33,9 +33,11 @@ const FILLS_PER_PAGE = 100;
 export function SessionReport({
   bundle,
   viewer,
+  feedback,
 }: {
   bundle: ReviewBundle;
   viewer?: { kind: "teacher"; studentName: string };
+  feedback?: ReactNode;
 }) {
   const navigate = useNavigate();
   const teacherView = viewer?.kind === "teacher";
@@ -83,12 +85,21 @@ export function SessionReport({
         </p>
         <h1 className="academy-title mt-2">{rec.scenarioName} · 完整復盤</h1>
         <p className="academy-description mt-3">把每一次模擬操作，整理成下一次能實踐的改進。</p>
+        {feedback && (
+          <a
+            href="#instructor-feedback"
+            className="academy-button-secondary mt-4 min-h-12 text-base"
+          >
+            查看講師回饋
+          </a>
+        )}
         {teacherView && (
           <aside
             className="mt-5 rounded-xl border border-brand/20 bg-brand/5 p-4 text-base leading-7"
-            aria-label="講師唯讀復盤"
+            aria-label="講師復盤說明"
           >
-            <p className="font-semibold">{viewer.studentName || "本班學員"} · 講師唯讀檢視</p>
+            <p className="font-semibold">{viewer.studentName || "本班學員"} · 講師檢視</p>
+            <p className="mt-2">模擬紀錄唯讀；可另外新增講師回饋。</p>
             <p className="mt-2 text-muted">
               以下是學員自述與瀏覽器產生的模擬紀錄，供課堂討論，並非防作弊驗證或能力證明。請對照進出場理由與實際操作觀察。
             </p>
@@ -346,6 +357,7 @@ export function SessionReport({
             </ul>
           </section>
         )}
+        {feedback}
         {!teacherView && (
           <PracticeGoalEditor scenarioId={rec.scenarioId} scenarioName={rec.scenarioName} />
         )}

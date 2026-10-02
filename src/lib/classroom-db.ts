@@ -3,6 +3,7 @@ import { z } from "zod";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { reviewBundleSchema } from "@/lib/game/review-schema";
 import type { ReviewBundle } from "@/lib/game/persist";
+import { addSessionFeedbackSchema, loadSessionFeedbackSchema } from "@/lib/classroom-feedback";
 
 type ProfileRow = {
   user_id: string;
@@ -183,4 +184,38 @@ export const loadTeacherSessionDetail = createServerFn({ method: "GET" })
       teacherIds: process.env.CLASSROOM_TEACHER_IDS,
       teacherEmails: process.env.TEACHER_EMAILS,
     });
+  });
+
+export const loadSessionFeedback = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .inputValidator(loadSessionFeedbackSchema)
+  .handler(async ({ data, context }) => {
+    const { withSqlTransaction } = await import("@/lib/db");
+    const { requireAuthenticatedUser } = await import("@/lib/auth/verify.server");
+    const { readClassroomSessionFeedback } = await import("@/lib/classroom-feedback.server");
+    const user = await requireAuthenticatedUser();
+    if (user.id !== context.userId) throw new Error("登入身分不一致");
+    return withSqlTransaction((sql) =>
+      readClassroomSessionFeedback(sql, data, user, {
+        teacherIds: process.env.CLASSROOM_TEACHER_IDS,
+        teacherEmails: process.env.TEACHER_EMAILS,
+      }),
+    );
+  });
+
+export const addSessionFeedback = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .inputValidator(addSessionFeedbackSchema)
+  .handler(async ({ data, context }) => {
+    const { withSqlTransaction } = await import("@/lib/db");
+    const { requireAuthenticatedUser } = await import("@/lib/auth/verify.server");
+    const { addClassroomSessionFeedback } = await import("@/lib/classroom-feedback.server");
+    const user = await requireAuthenticatedUser();
+    if (user.id !== context.userId) throw new Error("登入身分不一致");
+    return withSqlTransaction((sql) =>
+      addClassroomSessionFeedback(sql, data, user, {
+        teacherIds: process.env.CLASSROOM_TEACHER_IDS,
+        teacherEmails: process.env.TEACHER_EMAILS,
+      }),
+    );
   });

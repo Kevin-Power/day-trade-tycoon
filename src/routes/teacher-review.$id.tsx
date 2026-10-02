@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { loadTeacherSessionDetail } from "@/lib/classroom-db";
 import { SessionReport } from "@/components/session-report";
+import { SessionFeedbackPanel } from "@/components/session-feedback";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 
 export const Route = createFileRoute("/teacher-review/$id")({ component: TeacherReviewRoute });
@@ -62,6 +63,7 @@ function TeacherReviewRoute() {
       key={requestKey}
       bundle={loaded.detail.bundle}
       viewer={{ kind: "teacher", studentName: loaded.detail.studentName }}
+      feedback={<SessionFeedbackPanel userId={user.id} sessionId={id} canWrite />}
     />
   );
 }

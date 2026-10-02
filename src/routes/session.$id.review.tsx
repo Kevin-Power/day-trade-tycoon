@@ -1,9 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { loadReviewState, saveReview, setProfileIdentity, type ReviewBundle } from "@/lib/game/persist";
+import {
+  loadReviewState,
+  saveReview,
+  setProfileIdentity,
+  type ReviewBundle,
+} from "@/lib/game/persist";
 import { loadSessionDetail, saveClassroomSession } from "@/lib/classroom-db";
 import { SessionReport } from "@/components/session-report";
+import { SessionFeedbackPanel } from "@/components/session-feedback";
 import { SERVER_REVIEW_FILL_LIMIT } from "@/lib/game/review-schema";
 import { reviewSaveMessage } from "@/lib/game/review-storage-status";
 
@@ -55,7 +61,8 @@ function ReviewRoute() {
       cancelled = true;
     };
   }, [id, userId, isPending, requestKey]);
-  if (isPending || loading || loadedKey !== requestKey) return <main className="min-h-dvh bg-bg p-8 text-fg">載入復盤中…</main>;
+  if (isPending || loading || loadedKey !== requestKey)
+    return <main className="min-h-dvh bg-bg p-8 text-fg">載入復盤中…</main>;
   if (!bundle)
     return (
       <main className="min-h-dvh bg-bg p-8 text-fg">
@@ -75,12 +82,18 @@ function ReviewRoute() {
       <div className="border-b border-border bg-surface px-4 py-3 text-center text-base leading-7 text-muted">
         <p role="status">{reviewSaveMessage(status, localSaved)}</p>
         {!localSaved && (
-          <button type="button" className="mt-2 min-h-12 px-3 text-base text-tape" onClick={() => {
-            setProfileIdentity(userId);
-            const stored = saveReview(bundle);
-            setLocalSaved(stored);
-            setMessage(stored ? "完整復盤已保存在這台裝置。" : reviewSaveMessage("local", false));
-          }}>重試保存到此裝置</button>
+          <button
+            type="button"
+            className="mt-2 min-h-12 px-3 text-base text-tape"
+            onClick={() => {
+              setProfileIdentity(userId);
+              const stored = saveReview(bundle);
+              setLocalSaved(stored);
+              setMessage(stored ? "完整復盤已保存在這台裝置。" : reviewSaveMessage("local", false));
+            }}
+          >
+            重試保存到此裝置
+          </button>
         )}
         {userId && !saved && !tooLarge && (
           <button
@@ -91,11 +104,16 @@ function ReviewRoute() {
               setSaving(true);
               setMessage("");
               void saveClassroomSession({ data: bundle })
-                .then(() => { if (currentRequest.current === requestKey) setSaved(true); })
-                .catch(() => {
-                  if (currentRequest.current === requestKey) setMessage(reviewSaveMessage("failed", localSaved));
+                .then(() => {
+                  if (currentRequest.current === requestKey) setSaved(true);
                 })
-                .finally(() => { if (currentRequest.current === requestKey) setSaving(false); });
+                .catch(() => {
+                  if (currentRequest.current === requestKey)
+                    setMessage(reviewSaveMessage("failed", localSaved));
+                })
+                .finally(() => {
+                  if (currentRequest.current === requestKey) setSaving(false);
+                });
             }}
           >
             {saving ? "儲存中…" : "重新儲存到主機"}
@@ -107,7 +125,26 @@ function ReviewRoute() {
           </p>
         )}
       </div>
-      <SessionReport key={id} bundle={bundle} />
+      <SessionReport
+        key={requestKey}
+        bundle={bundle}
+        feedback={
+          userId && saved ? (
+            <SessionFeedbackPanel userId={userId} sessionId={id} />
+          ) : (
+            <section
+              id="instructor-feedback"
+              className="academy-card mt-6 scroll-mt-6 p-5 sm:p-6"
+              aria-label="講師回饋"
+            >
+              <h2 className="text-lg font-semibold">講師回饋</h2>
+              <p className="mt-3 text-base leading-7 text-muted">
+                請先用原學員帳號登入，並將這份復盤儲存到主機，才能讀取講師回饋。
+              </p>
+            </section>
+          )
+        }
+      />
     </>
   );
 }
