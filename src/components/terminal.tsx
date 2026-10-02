@@ -32,7 +32,6 @@ export function Terminal() {
   const paused = useGame((s) => s.paused);
   const speed = useGame((s) => s.speed);
   const bump = useGame((s) => s.bump);
-  const submit = useGame((s) => s.submit);
   const togglePause = useGame((s) => s.togglePause);
   const dismissBeat = useGame((s) => s.dismissBeat);
   const phase = useGame((s) => s.phase);
@@ -86,20 +85,17 @@ export function Terminal() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target?.closest("input,textarea,select,button,a,[contenteditable=true],[role=dialog]")) return;
+      if (target?.closest("input,textarea,select,button,a,[contenteditable=true],[role=dialog]"))
+        return;
       if (e.code === "Space") {
         e.preventDefault();
         if (useGame.getState().activeBeat) dismissBeat();
         else togglePause();
       }
-      if (e.key === "Enter") {
-        e.preventDefault();
-        submit();
-      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [submit, togglePause, dismissBeat]);
+  }, [togglePause, dismissBeat]);
 
   if (!engine || !scenario) return null;
   const q = engine.quote(selected);
@@ -124,11 +120,11 @@ export function Terminal() {
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {mobileTab === "watch" && <Watchlist />}
           {mobileTab === "chart" && (
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="min-h-0 flex-1">
+            <div className="term-scroll flex min-h-0 flex-1 flex-col gap-px overflow-y-auto bg-border">
+              <div className="shrink-0">
                 <IndexPane />
               </div>
-              <div className="min-h-0 flex-[1.3]">
+              <div className="shrink-0">
                 <SelectedChart />
               </div>
             </div>
@@ -177,19 +173,29 @@ export function Terminal() {
           ) : null}
         </span>
         <span className="hidden font-mono sm:inline">
-          加權 {formatIndex(idx.last)} {formatPct(idx.changePct)} · {idx.turnoverYi.toFixed(0)} 億 · Enter 送單 · Space 暫停
+          加權 {formatIndex(idx.last)} {formatPct(idx.changePct)} · {idx.turnoverYi.toFixed(0)} 億 ·
+          聚焦送出按鈕後按 Enter · Space 暫停
         </span>
         <span className="term-mobile-nav">{formatTime(engine.t)}</span>
       </footer>
 
-      <nav aria-label="模擬操作區" className="term-mobile-nav grid grid-cols-4 border-t border-border bg-surface">
+      <nav
+        aria-label="模擬操作區"
+        className="term-mobile-nav grid grid-cols-4 border-t border-border bg-surface"
+      >
         {MOBILE_TABS.map((t) => (
           <button
             key={t.id}
+            id={`mobile-tab-${t.id}`}
             type="button"
             onClick={() => setMobileTab(t.id)}
             aria-current={mobileTab === t.id ? "page" : undefined}
-            className={cn("flex h-16 flex-col items-center justify-center gap-1 border-t-2 text-xs", mobileTab === t.id ? "border-brand bg-brand/10 text-brand" : "border-transparent text-muted")}
+            className={cn(
+              "flex h-16 flex-col items-center justify-center gap-1 border-t-2 text-xs",
+              mobileTab === t.id
+                ? "border-brand bg-brand/10 text-brand"
+                : "border-transparent text-muted",
+            )}
           >
             <t.icon className="size-5" aria-hidden />
             {t.label}
@@ -263,21 +269,35 @@ function IndexPane() {
   const idx = engine.indexQuote();
   const asOf = formatTime(engine.t);
   return (
-    <div className="flex h-full min-h-0 flex-col bg-bg">
-      <div className="pane-title flex h-7 shrink-0 items-center gap-x-3 overflow-hidden px-2">
-        <span className="shrink-0">加權指數</span>
-        <span className="shrink-0 font-mono text-micro tabular text-fg/80">{asOf}</span>
-        <span className={cn("shrink-0 font-mono tabular", toneClass(idx.change))}>
-          {formatIndex(idx.last)} {idx.change >= 0 ? "▲" : "▼"}
-          {Math.abs(idx.change).toFixed(2)} {formatPct(idx.changePct)}
+    <div className="flex h-full min-h-80 flex-col bg-bg lg:min-h-0">
+      <div className="pane-title flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 lg:h-7 lg:flex-nowrap lg:overflow-hidden lg:px-2 lg:py-0">
+        <span className="text-base lg:shrink-0 lg:text-xs">加權指數</span>
+        <span className="font-mono text-base tabular text-fg/80 lg:shrink-0 lg:text-micro">
+          {asOf}
         </span>
-        <span className="ml-auto truncate font-mono text-micro text-fg/80">
+        <span
+          className={cn(
+            "flex flex-wrap gap-x-2 font-mono text-base tabular lg:shrink-0 lg:gap-x-1 lg:text-xs",
+            toneClass(idx.change),
+          )}
+        >
+          <span>{formatIndex(idx.last)}</span>
+          <span>
+            {idx.change >= 0 ? "▲" : "▼"}
+            {Math.abs(idx.change).toFixed(2)}
+          </span>
+          <span>{formatPct(idx.changePct)}</span>
+        </span>
+        <span className="font-mono text-base text-fg/80 lg:ml-auto lg:truncate lg:text-micro">
           成交 {idx.turnoverYi.toFixed(2)} 億
         </span>
-        <ProvenanceBadge kind="official" />
+        <ProvenanceBadge kind="official" className="text-sm lg:text-2xs" />
       </div>
-      <ProvenanceMicro text={officialIndexPaneMicro(asOf, engine.session.date)} />
-      <div className="pane-sunken min-h-36 flex-1 bg-bg">
+      <ProvenanceMicro
+        text={officialIndexPaneMicro(asOf, engine.session.date)}
+        className="shrink-0 text-sm lg:text-2xs"
+      />
+      <div className="pane-sunken min-h-48 flex-1 bg-bg lg:min-h-36">
         <TapeChart
           bars={engine.indexBars}
           ticks={engine.indexTicks}
@@ -310,17 +330,18 @@ function SelectedChart() {
   const cost = pos && pos.lots !== 0 ? pos.avg : undefined;
   const wave = chartStyle === "jiangbo";
   return (
-    <div className="flex h-full min-h-0 flex-col bg-bg">
-      <div className="pane-title flex h-7 items-center gap-2 px-2">
-        <span className="shrink-0">
+    <div className="flex h-full min-h-88 flex-col bg-bg lg:min-h-0">
+      <div className="pane-title flex shrink-0 flex-wrap items-center gap-2 px-3 py-2 lg:h-7 lg:flex-nowrap lg:px-2 lg:py-0">
+        <span className="min-w-0 basis-full break-words text-base lg:shrink-0 lg:basis-auto lg:text-xs">
           {wave ? "江波圖" : "分時"} {q.code} {q.name}
         </span>
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-2 lg:gap-0.5" role="group" aria-label="走勢圖類型">
           <button
             type="button"
             onClick={() => setChartStyle("jiangbo")}
+            aria-pressed={wave}
             className={cn(
-              "h-5 rounded-xs px-1.5 text-micro tracking-wide",
+              "min-h-12 min-w-16 rounded-md border border-border px-3 text-base tracking-wide lg:h-5 lg:min-h-0 lg:min-w-0 lg:rounded-xs lg:border-0 lg:px-1.5 lg:text-micro",
               wave ? "bg-header-2 text-fg" : "text-fg/70 hover:text-fg",
             )}
           >
@@ -329,21 +350,29 @@ function SelectedChart() {
           <button
             type="button"
             onClick={() => setChartStyle("tape")}
+            aria-pressed={!wave}
             className={cn(
-              "h-5 rounded-xs px-1.5 text-micro tracking-wide",
+              "min-h-12 min-w-16 rounded-md border border-border px-3 text-base tracking-wide lg:h-5 lg:min-h-0 lg:min-w-0 lg:rounded-xs lg:border-0 lg:px-1.5 lg:text-micro",
               !wave ? "bg-header-2 text-fg" : "text-fg/70 hover:text-fg",
             )}
           >
             分時
           </button>
         </div>
-        <span className={cn("ml-auto shrink-0 font-mono tabular", toneClass(q.change))}>
-          {formatPrice(q.last)} {formatPct(q.changePct)} · {q.volume} 張
+        <span
+          className={cn(
+            "flex min-w-0 flex-wrap gap-x-2 font-mono text-base tabular lg:ml-auto lg:shrink-0 lg:gap-x-1 lg:text-xs",
+            toneClass(q.change),
+          )}
+        >
+          <span>{formatPrice(q.last)}</span>
+          <span>{formatPct(q.changePct)}</span>
+          <span>{q.volume} 張</span>
         </span>
-        <ProvenanceBadge kind="classroom" />
+        <ProvenanceBadge kind="classroom" className="text-sm lg:text-2xs" />
       </div>
-      <ProvenanceMicro text={classroomPathMicro()} />
-      <div className="pane-sunken min-h-40 flex-1 bg-bg">
+      <ProvenanceMicro text={classroomPathMicro()} className="shrink-0 text-sm lg:text-2xs" />
+      <div className="pane-sunken min-h-52 flex-1 bg-bg lg:min-h-40">
         <TapeChart
           bars={engine.bars(q.code)}
           ticks={engine.ticks(q.code)}

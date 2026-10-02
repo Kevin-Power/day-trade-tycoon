@@ -26,6 +26,8 @@ import { toneClass } from "@/components/signed";
 import { PracticeGoalEditor } from "@/components/practice-goal";
 import { ReviewConditions } from "@/components/review-conditions";
 
+const FILLS_PER_PAGE = 100;
+
 export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
   const navigate = useNavigate();
   const rec = bundle.rec;
@@ -34,6 +36,10 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
   const [code, setCode] = useState(bundle.code);
   const selected = codes.includes(code) ? code : codes[0];
   const fills = bundle.fills.filter((fill) => fill.code === selected);
+  const [chartPage, setChartPage] = useState(0);
+  const [tablePage, setTablePage] = useState(0);
+  const chartFills = fills.slice(chartPage * FILLS_PER_PAGE, (chartPage + 1) * FILLS_PER_PAGE);
+  const tableFills = bundle.fills.slice(tablePage * FILLS_PER_PAGE, (tablePage + 1) * FILLS_PER_PAGE);
   return (
     <main className="academy-page">
       <header className="academy-header">
@@ -141,7 +147,7 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
                 <select
                   aria-label="復盤標的"
                   value={selected}
-                  onChange={(event) => setCode(event.target.value)}
+                  onChange={(event) => { setCode(event.target.value); setChartPage(0); }}
                   className="academy-input min-w-32 text-sm"
                 >
                   {codes.map((item) => (
@@ -153,6 +159,7 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
             <p className="mt-3 text-sm leading-6 text-muted">
               圖上僅呈現本次記錄的模擬成交點，紅色買進、綠色賣出。
             </p>
+            <FillPages total={fills.length} page={chartPage} onChange={setChartPage} label="成交軌跡分頁" />
             <div className="mt-5 h-64 sm:h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart>
@@ -183,12 +190,12 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
                   />
                   <Scatter
                     name="買進"
-                    data={fills.filter((fill) => fill.side === "buy")}
+                    data={chartFills.filter((fill) => fill.side === "buy")}
                     fill="var(--color-up)"
                   />
                   <Scatter
                     name="賣出"
-                    data={fills.filter((fill) => fill.side === "sell")}
+                    data={chartFills.filter((fill) => fill.side === "sell")}
                     fill="var(--color-down)"
                   />
                 </ScatterChart>
@@ -214,6 +221,7 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
               <span className="text-xs text-muted sm:hidden">表格可左右滑動</span>
             )}
           </div>
+          <div className="px-5 sm:px-6"><FillPages total={bundle.fills.length} page={tablePage} onChange={setTablePage} label="完整成交紀錄分頁" /></div>
           {bundle.fills.length > 0 ? (
             <div className="term-scroll max-h-[30rem] overflow-auto">
               <table className="w-full min-w-[44rem] whitespace-nowrap text-left text-sm">
@@ -232,7 +240,7 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {bundle.fills.map((fill) => (
+                  {tableFills.map((fill) => (
                     <tr
                       key={fill.id}
                       className="border-t border-border transition-colors hover:bg-bg/60"
@@ -314,5 +322,25 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
         </div>
       </div>
     </main>
+  );
+}
+
+function FillPages({ total, page, onChange, label }: { total: number; page: number; onChange: (page: number) => void; label: string }) {
+  if (total <= FILLS_PER_PAGE) return null;
+  const last = Math.ceil(total / FILLS_PER_PAGE) - 1;
+  return (
+    <nav aria-label={label} className="my-4 space-y-2 text-base leading-7">
+      <p role="status" className="text-muted">第 {page * FILLS_PER_PAGE + 1}–{Math.min(total, (page + 1) * FILLS_PER_PAGE)} 筆，共 {total} 筆（由新到舊）</p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          { label: "最新一頁", target: 0, disabled: page === 0 },
+          { label: "上一頁", target: page - 1, disabled: page === 0 },
+          { label: "下一頁", target: page + 1, disabled: page === last },
+          { label: "最早一頁", target: last, disabled: page === last },
+        ].map(item => (
+          <button key={item.label} type="button" disabled={item.disabled} onClick={() => onChange(item.target)} className="min-h-12 whitespace-normal rounded-lg border border-border px-3 py-2 text-base disabled:opacity-40">{item.label}</button>
+        ))}
+      </div>
+    </nav>
   );
 }

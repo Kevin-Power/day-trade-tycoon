@@ -7,7 +7,8 @@ const id = z
   .min(1)
   .max(120)
   .regex(/^[A-Za-z0-9_.:-]+$/);
-export const reviewBundleSchema = z
+export const SERVER_REVIEW_FILL_LIMIT = 5000;
+const reviewBundleBaseSchema = z
   .object({
     rec: z.object({
       id,
@@ -67,18 +68,24 @@ export const reviewBundleSchema = z
           slippageTicks: numeric.optional(),
           pnl: numeric.optional(),
         }),
-      )
-      .max(5000),
+      ),
     code: z.string().min(1).max(16),
     capital: numeric.positive(),
     equity: numeric,
     sessionLabel: text,
-  })
-  .superRefine((bundle, ctx) => {
-    if (new Set(bundle.fills.map((fill) => fill.id)).size !== bundle.fills.length) {
-      ctx.addIssue({ code: "custom", message: "成交編號重複", path: ["fills"] });
-    }
-    if (Math.abs(bundle.equity - bundle.capital - bundle.rec.pnl) > 0.02) {
-      ctx.addIssue({ code: "custom", message: "權益與損益不一致", path: ["equity"] });
-    }
   });
+
+function checkReviewIntegrity(bundle: z.infer<typeof reviewBundleBaseSchema>, ctx: z.RefinementCtx) {
+  if (new Set(bundle.fills.map((fill) => fill.id)).size !== bundle.fills.length) {
+    ctx.addIssue({ code: "custom", message: "成交編號重複", path: ["fills"] });
+  }
+  if (Math.abs(bundle.equity - bundle.capital - bundle.rec.pnl) > 0.02) {
+    ctx.addIssue({ code: "custom", message: "權益與損益不一致", path: ["equity"] });
+  }
+}
+
+// Browser storage keeps the complete session; only the server request is capped.
+export const localReviewBundleSchema = reviewBundleBaseSchema.superRefine(checkReviewIntegrity);
+export const reviewBundleSchema = reviewBundleBaseSchema.extend({
+  fills: reviewBundleBaseSchema.shape.fills.max(SERVER_REVIEW_FILL_LIMIT),
+}).superRefine(checkReviewIntegrity);

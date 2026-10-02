@@ -166,7 +166,7 @@ export function Lobby() {
             <p className="text-base font-medium text-muted">每次練習，完成三件事</p>
             <ol className="mt-4 space-y-4">
               {[
-                ["01", "進場前有計畫", "先寫條件、停損與張數。"],
+                ["01", "進場前有計畫", "先在自己的筆記寫下條件、停損與張數。"],
                 ["02", "盤中依規則操作", "核對委託、成交與庫存。"],
                 ["03", "結算後回來復盤", "記下一項下次要改進的事。"],
               ].map(([number, title, description]) => (

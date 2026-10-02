@@ -30,6 +30,8 @@ function storeFixture(completedSessions = 0) {
       saveFlashOrder: () => {},
     },
     "@/lib/game/pass-rules": {},
+    "@/lib/game/review-schema": { SERVER_REVIEW_FILL_LIMIT: 5000 },
+    "@/lib/game/review-storage-status": {},
     "@/lib/game/flash-order": { isExamScenario: (id) => id === "tycoon" },
     "@/lib/game/learner-guide": guide,
     "@/lib/game/audio": { unlockAudio: () => {}, playError: () => {}, playFill: () => {} },

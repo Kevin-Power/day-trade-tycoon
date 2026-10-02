@@ -313,8 +313,8 @@
   .terminal-shell .account-stat { flex-wrap: wrap; column-gap: 4px; font-size: .875rem; }
   .terminal-shell .account-stat > span:last-child { font-size: 1rem; }
   .terminal-shell .account-controls { width: 100%; gap: 8px; }
-  .terminal-shell .account-primary { display: grid; width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  .terminal-shell .account-primary > button { min-width: 0; height: auto; min-height: 52px; padding: 10px 6px; font-size: 1rem; line-height: 1.4; white-space: normal; }
+  .terminal-shell .account-primary { display: grid; width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .terminal-shell .account-primary > button { min-width: 0; height: auto; min-height: 48px; padding: 6px 4px; font-size: 1rem; line-height: 1.4; white-space: normal; text-wrap: balance; }
   .terminal-shell .account-settings { width: 100%; }
   .terminal-shell .account-settings > summary { font-size: 1rem; }
   .terminal-shell .account-settings-content { max-width: none; }

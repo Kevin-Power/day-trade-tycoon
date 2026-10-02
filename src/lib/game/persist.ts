@@ -1,6 +1,6 @@
 import { EMPTY_PROFILE, PROFILE_VERSION, type Fill, type Profile, type SessionRecord } from "@/lib/game/types";
 import type { RuleVerdict } from "@/lib/game/pass-rules";
-import { reviewBundleSchema } from "@/lib/game/review-schema";
+import { localReviewBundleSchema } from "@/lib/game/review-schema";
 
 export { loadFlashOrder, saveFlashOrder } from "@/lib/game/flash-order";
 
@@ -82,24 +82,40 @@ export type ReviewBundle = {
   sessionLabel: string;
 };
 
-export function saveReview(bundle: ReviewBundle) {
-  if (typeof window === "undefined") return;
+const memoryReviews = new Map<string, ReviewBundle>();
+const reviewKey = (id: string) => scopedKey(`day-tycoon-review-v2:${id}`);
+
+export function saveReview(bundle: ReviewBundle): boolean {
+  if (typeof window === "undefined") return false;
+  const key = reviewKey(bundle.rec.id);
+  memoryReviews.set(key, bundle);
+  for (const stale of [...memoryReviews.keys()].slice(0, -30)) memoryReviews.delete(stale);
   try {
+    if (!localReviewBundleSchema.safeParse(bundle).success) return false;
     const indexKey = scopedKey("day-tycoon-review-index-v2");
-    const previous = JSON.parse(window.localStorage.getItem(indexKey) ?? "[]") as string[];
+    const rawIndex: unknown = JSON.parse(window.localStorage.getItem(indexKey) ?? "[]");
+    const previous = Array.isArray(rawIndex) ? rawIndex.filter((id): id is string => typeof id === "string") : [];
     const ids = [bundle.rec.id, ...previous.filter((id) => id !== bundle.rec.id)];
-    window.localStorage.setItem(scopedKey(`day-tycoon-review-v2:${bundle.rec.id}`), JSON.stringify(bundle));
-    for (const id of ids.slice(30)) window.localStorage.removeItem(scopedKey(`day-tycoon-review-v2:${id}`));
+    window.localStorage.setItem(key, JSON.stringify(bundle));
     window.localStorage.setItem(indexKey, JSON.stringify(ids.slice(0, 30)));
-  } catch { /* Private mode/quota: current in-memory result remains available. */ }
+    for (const id of ids.slice(30)) window.localStorage.removeItem(reviewKey(id));
+    return true;
+  } catch { return false; }
+}
+
+export function loadReviewState(id: string): { bundle: ReviewBundle; localSaved: boolean } | null {
+  const key = reviewKey(id);
+  if (typeof window !== "undefined") {
+    try {
+      const value = window.localStorage.getItem(key);
+      const parsed = value ? localReviewBundleSchema.safeParse(JSON.parse(value)) : null;
+      if (parsed?.success && parsed.data.rec.id === id) return { bundle: parsed.data as ReviewBundle, localSaved: true };
+    } catch { /* A blocked storage read can still use this page's transient copy. */ }
+  }
+  const bundle = memoryReviews.get(key);
+  return bundle ? { bundle, localSaved: false } : null;
 }
 
 export function loadReview(id: string): ReviewBundle | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const value = window.localStorage.getItem(scopedKey(`day-tycoon-review-v2:${id}`));
-    if (!value) return null;
-    const parsed = reviewBundleSchema.safeParse(JSON.parse(value));
-    return parsed.success && parsed.data.rec.id === id ? parsed.data as ReviewBundle : null;
-  } catch { return null; }
+  return loadReviewState(id)?.bundle ?? null;
 }

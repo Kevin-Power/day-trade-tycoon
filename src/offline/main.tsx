@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AppShell } from "@/components/app-shell";
 import { GateProvider } from "@/lib/gate/context";
@@ -7,7 +7,8 @@ import { ManualPage } from "@/components/manual-page";
 import { LicensePage } from "@/components/license-page";
 import { TryExperience } from "@/components/try-experience";
 import { SessionReport } from "@/components/session-report";
-import { loadReview } from "@/lib/game/persist";
+import { loadReviewState, saveReview } from "@/lib/game/persist";
+import { reviewSaveMessage } from "@/lib/game/review-storage-status";
 import "@/styles.css";
 
 const el = document.getElementById("app");
@@ -29,9 +30,11 @@ const tryRoute = createRoute({ getParentRoute: () => rootRoute, path: "/try", co
 const reviewRoute = createRoute({ getParentRoute: () => rootRoute, path: "/session/$id/review", component: OfflineReview });
 function OfflineReview() {
   const { id } = reviewRoute.useParams();
-  const bundle = loadReview(id);
+  const [, refreshStorage] = useState(0);
+  const review = loadReviewState(id);
+  const bundle = review?.bundle;
   if (!bundle) return <main className="min-h-dvh bg-bg p-8 text-fg"><h1>本機沒有這份復盤</h1><p className="mt-3 text-sm text-muted">請回到原本練習的瀏覽器；離線紀錄不會自動同步。</p><Link to="/" className="mt-4 inline-block text-tape">回大廳</Link></main>;
-  return <><div className="bg-surface px-4 py-3 text-center text-xs text-muted">離線復盤 · 僅儲存於本機瀏覽器</div><SessionReport key={id} bundle={bundle} /></>;
+  return <><div className="bg-surface px-4 py-3 text-center text-base leading-7 text-muted"><p role="status">離線復盤 · {reviewSaveMessage("local", review.localSaved)}</p>{!review.localSaved && <button type="button" className="mt-2 min-h-12 px-3 text-base text-tape" onClick={() => { saveReview(bundle); refreshStorage(value => value + 1); }}>重試保存到此裝置</button>}</div><SessionReport key={id} bundle={bundle} /></>;
 }
 const router = createRouter({ routeTree: rootRoute.addChildren([indexRoute, manualRoute, licenseRoute, tryRoute, reviewRoute]), history: createHashHistory(), defaultPreload: false });
 

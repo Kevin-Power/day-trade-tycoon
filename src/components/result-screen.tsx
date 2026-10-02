@@ -9,6 +9,7 @@ import { toneClass } from "@/components/signed";
 import { ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
 import { classroomSampleMicro } from "@/lib/provenance";
 import { ReviewConditions } from "@/components/review-conditions";
+import { reviewSaveMessage } from "@/lib/game/review-storage-status";
 
 export function ResultScreen() {
   const rec = useGame((s) => s.lastResult);
@@ -18,6 +19,7 @@ export function ResultScreen() {
   const start = useGame((s) => s.start);
   const leave = useGame((s) => s.leave);
   const syncStatus = useGame((s) => s.syncStatus);
+  const localReviewSaved = useGame((s) => s.localReviewSaved);
   const verdicts = useGame((s) => s.lastVerdicts);
   if (!rec || !engine || !scenario) return null;
   const st = engine.stats();
@@ -124,14 +126,8 @@ export function ResultScreen() {
             </p>
           </div>
           <footer className="shrink-0 border-t border-border bg-surface px-5 py-4 sm:px-7">
-            <p role="status" className="mb-3 text-xs leading-5 text-muted">
-              {syncStatus === "saved"
-                ? "已儲存至教室主機"
-                : syncStatus === "saving"
-                  ? "正在儲存至教室主機…"
-                  : syncStatus === "failed"
-                    ? "伺服器儲存失敗，本機復盤已保留"
-                    : "本機復盤紀錄"}
+            <p role="status" className="mb-3 text-base leading-7 text-muted">
+              {reviewSaveMessage(syncStatus, localReviewSaved)}
             </p>
             <div className="grid gap-2.5 sm:grid-cols-2">
               <Link

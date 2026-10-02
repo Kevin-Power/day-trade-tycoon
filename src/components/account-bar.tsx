@@ -1,3 +1,4 @@
+import * as Dialog from "@radix-ui/react-dialog";
 import { BookOpen, Pause, Play, Square, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toneClass } from "@/components/signed";
@@ -8,9 +9,15 @@ import { venueLabel } from "@/lib/broker";
 import { LeaveDeskDialog } from "@/components/leave-desk-dialog";
 import { SimChip } from "@/components/provenance";
 import { cn, formatMoney, formatPct, formatSigned, formatTime } from "@/lib/utils";
-import { useState } from "react";
+import { useRef, useState, type ComponentProps, type ReactNode } from "react";
 
 const SPEEDS = [1, 4, 6, 8, 12, 16, 24];
+const DIALOG_ACTION_CLASS = "h-auto min-h-12 min-w-0 whitespace-normal px-3 py-3 text-base leading-relaxed";
+
+function pauseForReading() {
+  const state = useGame.getState();
+  if (state.phase === "live" && !state.paused) state.togglePause();
+}
 
 export function AccountBar() {
   const engine = useGame((s) => s.engine);
@@ -30,6 +37,9 @@ export function AccountBar() {
   const frame = useGame((s) => s.frame);
   const [sound, setSound] = useState(isSoundEnabled);
   const [leaveRisk, setLeaveRisk] = useState<LeaveDeskRisk | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const afterSettingsClose = useRef<"guide" | "leave" | null>(null);
   void frame;
   if (!engine || !scenario) return null;
 
@@ -65,8 +75,7 @@ export function AccountBar() {
       <Stat label="未實現" value={formatSigned(st.unrealized, 0)} tone={st.unrealized} className="hidden lg:flex" />
       <Stat label="使用" value={`${used.toFixed(0)}%`} className="hidden xl:flex" />
       <div className="flex-1" />
-      <div className="account-controls flex flex-wrap items-start gap-2">
-        <div className="account-primary flex items-center gap-2" role="group" aria-label="練習主要操作">
+      <div className="account-controls account-primary flex flex-wrap items-center gap-2" role="group" aria-label="練習主要操作">
           <Button size="md" variant={paused ? "default" : "subtle"} onClick={togglePause}>
             {paused ? <Play aria-hidden /> : <Pause aria-hidden />}
             {paused ? "繼續練習" : "暫停"}
@@ -84,15 +93,35 @@ export function AccountBar() {
             <Square aria-hidden />
             結束練習
           </Button>
-        </div>
-        <details className="account-settings rounded-md border border-border bg-bg">
-          <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-            更多設定 <span className="font-normal text-muted">· {speed} 倍速</span>
-          </summary>
-          <div className="account-settings-content space-y-3 border-t border-border p-3">
+        <Dialog.Root
+          open={settingsOpen}
+          onOpenChange={(open) => {
+            if (open) pauseForReading();
+            setSettingsOpen(open);
+          }}
+        >
+          <Dialog.Trigger asChild>
+            <Button ref={settingsTriggerRef} variant="outline" className={cn("account-settings flex-wrap", DIALOG_ACTION_CLASS)}>
+              更多設定 <span className="hidden font-normal text-muted lg:inline">· {speed} 倍速</span>
+            </Button>
+          </Dialog.Trigger>
+          <ReadingDialogContent
+            title="更多設定"
+            description="開啟設定時，模擬時間會先暫停。關閉後仍保持暫停，準備好再按「繼續練習」。"
+            onCloseAutoFocus={(event) => {
+              const action = afterSettingsClose.current;
+              afterSettingsClose.current = null;
+              if (action === "guide") {
+                event.preventDefault();
+                openLearnerGuide();
+              } else if (action === "leave") {
+                requestLeave();
+              }
+            }}
+          >
             <fieldset className="min-w-0">
-              <legend className="mb-2 text-sm text-muted">練習速度</legend>
-              <div className="account-speed flex flex-wrap gap-2">
+              <legend className="mb-3 text-base font-medium">練習速度</legend>
+              <div className="grid grid-cols-3 gap-2">
                 {SPEEDS.map((n) => (
                   <button
                     key={n}
@@ -101,7 +130,7 @@ export function AccountBar() {
                     aria-label={`${n} 倍速`}
                     aria-pressed={speed === n}
                     className={cn(
-                      "min-h-10 min-w-12 rounded-sm border px-2 font-mono text-sm",
+                      "min-h-12 min-w-0 rounded-lg border px-2 py-3 font-mono text-base",
                       speed === n ? "border-brand bg-header-2 text-fg" : "border-border text-muted hover:text-fg",
                     )}
                   >
@@ -110,19 +139,18 @@ export function AccountBar() {
                 ))}
               </div>
             </fieldset>
-            <div className="account-extra flex flex-wrap gap-2">
+            <div className="mt-5 grid gap-3">
               {scenario.id === "wed-open" && phase === "live" && (
-                <Button size="md" variant="subtle" onClick={(event) => {
-                  const settings = event.currentTarget.closest("details");
-                  if (settings) settings.open = false;
-                  openLearnerGuide();
+                <Button className={DIALOG_ACTION_CLASS} variant="subtle" onClick={() => {
+                  afterSettingsClose.current = "guide";
+                  setSettingsOpen(false);
                 }}>
                   <BookOpen aria-hidden />
                   重看操作導覽
                 </Button>
               )}
               <Button
-                size="md"
+                className={DIALOG_ACTION_CLASS}
                 variant="subtle"
                 aria-pressed={sound}
                 onClick={() => {
@@ -135,14 +163,18 @@ export function AccountBar() {
                 {sound ? <Volume2 aria-hidden /> : <VolumeX aria-hidden />}
                 {sound ? "關閉音效" : "開啟音效"}
               </Button>
-              <Button size="md" variant="outline" onClick={requestLeave}>
+              <Button className={DIALOG_ACTION_CLASS} variant="outline" onClick={() => {
+                afterSettingsClose.current = "leave";
+                setSettingsOpen(false);
+              }}>
                 回大廳
               </Button>
             </div>
-          </div>
-        </details>
+          </ReadingDialogContent>
+        </Dialog.Root>
       </div>
       <LeaveDeskDialog
+        returnFocusRef={settingsTriggerRef}
         open={phase === "live" && leaveRisk !== null}
         risk={leaveRisk ?? { openPositions: 0, openOrders: 0 }}
         onCancel={() => setLeaveRisk(null)}
@@ -177,23 +209,94 @@ function Stat({
 export function NewsBar() {
   const engine = useGame((s) => s.engine);
   const frame = useGame((s) => s.frame);
+  const [expandedMessage, setExpandedMessage] = useState<{ label: string; text: string } | null>(null);
   void frame;
   const news = engine?.news;
   const warning = engine?.warning;
   const coach = engine?.coachLine;
   const line = news || warning || coach;
-  if (!line) return null;
+  const label = news ? "快訊" : warning ? "風控" : "教練";
+  if (!line && !expandedMessage) return null;
   return (
-    <div
-      className={cn(
-        "flex items-center gap-2 border-b border-border px-3 py-1 text-xs",
-        news ? "bg-up-dim text-up" : warning ? "bg-elevated text-warn" : "bg-surface-2 text-muted",
-      )}
+    <Dialog.Root
+      open={expandedMessage !== null}
+      onOpenChange={(open) => {
+        if (open && line) {
+          pauseForReading();
+          setExpandedMessage({ label, text: line });
+        } else if (!open) {
+          setExpandedMessage(null);
+        }
+      }}
     >
-      <span className="shrink-0 font-medium tracking-wide">
-        {news ? "快訊" : warning ? "風控" : "教練"}
-      </span>
-      <span className="truncate">{line}</span>
-    </div>
+      <div
+        className={cn(
+          "flex shrink-0 items-center gap-3 border-b border-border px-3 py-2 text-sm",
+          news ? "bg-up-dim text-up" : warning ? "bg-elevated text-warn" : "bg-surface-2 text-muted",
+        )}
+      >
+        <div className="min-w-0 flex-1">
+          <span className="font-medium tracking-wide">{label}</span>
+          <p className="line-clamp-2 leading-relaxed [overflow-wrap:anywhere]">{line}</p>
+        </div>
+        <Dialog.Trigger asChild>
+          <Button variant="outline" className={cn("max-w-[45%] shrink-0", DIALOG_ACTION_CLASS)}>
+            查看完整提示
+          </Button>
+        </Dialog.Trigger>
+      </div>
+      <ReadingDialogContent
+        title={`${expandedMessage?.label ?? label}完整提示`}
+        description="閱讀提示時，模擬時間會先暫停。關閉後仍保持暫停，準備好再按「繼續練習」。"
+      >
+        <p className="whitespace-pre-wrap text-base leading-relaxed [overflow-wrap:anywhere]">
+          {expandedMessage?.text}
+        </p>
+      </ReadingDialogContent>
+    </Dialog.Root>
+  );
+}
+
+function ReadingDialogContent({
+  title,
+  description,
+  children,
+  onCloseAutoFocus,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+  onCloseAutoFocus?: ComponentProps<typeof Dialog.Content>["onCloseAutoFocus"];
+}) {
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  return (
+    <Dialog.Portal>
+      <Dialog.Overlay className="fixed inset-0 z-50 bg-fg/25 backdrop-blur-sm" />
+      <Dialog.Content
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          titleRef.current?.focus();
+        }}
+        onCloseAutoFocus={onCloseAutoFocus}
+        className="fixed left-1/2 top-1/2 z-[60] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-surface text-fg shadow-xl outline-none"
+      >
+        <header className="shrink-0 border-b border-border px-5 py-4">
+          <Dialog.Title ref={titleRef} tabIndex={-1} className="text-xl font-semibold outline-none">
+            {title}
+          </Dialog.Title>
+        </header>
+        <div className="term-scroll min-h-0 overflow-y-auto overscroll-contain px-5 py-4">
+          <Dialog.Description className="mb-5 text-base leading-relaxed text-muted">
+            {description}
+          </Dialog.Description>
+          {children}
+        </div>
+        <footer className="shrink-0 border-t border-border p-3">
+          <Dialog.Close asChild>
+            <Button className={cn("w-full", DIALOG_ACTION_CLASS)}>關閉，保持暫停</Button>
+          </Dialog.Close>
+        </footer>
+      </Dialog.Content>
+    </Dialog.Portal>
   );
 }

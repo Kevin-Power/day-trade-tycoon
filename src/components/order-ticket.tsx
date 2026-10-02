@@ -27,9 +27,10 @@ export function OrderTicket() {
   const name = q?.name ?? "";
   const price =
     ticket.price > 0 ? ticket.price : ticket.side === "buy" ? (q?.ask ?? 0) : (q?.bid ?? 0);
-  const notional = (ticket.type === "market" ? (q?.last ?? 0) : price) * ticket.lots * LOT_SHARES;
-  const vsPrev = q && price > 0 ? ((price - q.prevClose) / q.prevClose) * 100 : 0;
-  const vsVwap = q && price > 0 && q.vwap > 0 ? ((price - q.vwap) / q.vwap) * 100 : 0;
+  const estimatePrice = ticket.type === "market" ? (q?.last ?? 0) : price;
+  const notional = estimatePrice * ticket.lots * LOT_SHARES;
+  const vsPrev = q && estimatePrice > 0 && q.prevClose > 0 ? ((estimatePrice - q.prevClose) / q.prevClose) * 100 : 0;
+  const vsVwap = q && estimatePrice > 0 && q.vwap > 0 ? ((estimatePrice - q.vwap) / q.vwap) * 100 : 0;
   const thin = Math.abs(vsVwap) < ROUND_TRIP_RATE * 100 * 0.9;
   const st = engine?.stats();
   const tooBig = st ? notional > st.equity * 0.3 : false;
@@ -265,6 +266,7 @@ export function OrderTicket() {
             <span>距昨 {formatPct(vsPrev)}</span>
             <span>距均 {formatPct(vsVwap)}</span>
           </div>
+          {ticket.type === "market" && <p className="mt-1 text-muted">市價依目前模擬價估算，成交價可能不同。</p>}
           {(thin || tooBig) && (
             <div className="mt-0.5 text-warn">
               {tooBig ? "超過權益 30%，先降張數。" : "偏離均價不夠費稅，這筆要靠方向。"}

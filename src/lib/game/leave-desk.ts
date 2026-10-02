@@ -11,14 +11,16 @@ export type LeaveDeskRisk = {
 export const LEAVE_DESK_TITLE = "確定回大廳？";
 export const LEAVE_DESK_NO_RECORD = "這盤還沒結算，不會寫入戰績。";
 export const LEAVE_DESK_NO_FLATTEN =
-  "離開後庫存與委託會被捨棄，不會自動平倉。要記分請先「提前結算」。";
+  "離開後庫存與委託會被捨棄，不會自動平倉。要保存成果，請回到盤面按「結束練習」。";
 export const LEAVE_DESK_CANCEL = "繼續上課";
 export const LEAVE_DESK_CONFIRM = "確定離開";
 
 export function leaveDeskRisk(engine: LeaveDeskEngine | null | undefined): LeaveDeskRisk {
   if (!engine) return { openPositions: 0, openOrders: 0 };
   const openPositions = [...engine.positions.values()].filter((p) => p.lots !== 0).length;
-  const openOrders = engine.orders.filter((o) => o.status === "pending" || o.status === "partial").length;
+  const openOrders = engine.orders.filter(
+    (o) => o.status === "pending" || o.status === "partial",
+  ).length;
   return { openPositions, openOrders };
 }
 

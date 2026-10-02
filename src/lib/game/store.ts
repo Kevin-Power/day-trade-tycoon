@@ -12,6 +12,8 @@ import {
   getProfileIdentity,
 } from "@/lib/game/persist";
 import { evaluatePass, type RuleVerdict } from "@/lib/game/pass-rules";
+import { SERVER_REVIEW_FILL_LIMIT } from "@/lib/game/review-schema";
+import { reviewSaveMessage, type ReviewSyncStatus } from "@/lib/game/review-storage-status";
 import { flashClickDecision, isExamScenario, ticketAfterClickPrice } from "@/lib/game/flash-order";
 import {
   finishedLearnerGuideState,
@@ -82,7 +84,8 @@ type GameStore = {
   frame: number;
   lastResult: SessionRecord | null;
   lastVerdicts: RuleVerdict[];
-  syncStatus: "local" | "saving" | "saved" | "failed";
+  syncStatus: ReviewSyncStatus;
+  localReviewSaved: boolean;
   sound: boolean;
   hydrate: () => void;
   start: (scenarioId: string) => void;
@@ -142,6 +145,7 @@ export const useGame = create<GameStore>((set, get) => ({
   lastResult: null,
   lastVerdicts: [],
   syncStatus: "local",
+  localReviewSaved: false,
   sound: true,
 
   hydrate: () => {
@@ -177,6 +181,7 @@ export const useGame = create<GameStore>((set, get) => ({
       lastResult: null,
       lastVerdicts: [],
       syncStatus: "local",
+      localReviewSaved: false,
       frame: 0,
       activeBeat: beat,
       dismissedBeats: [],
@@ -247,16 +252,23 @@ export const useGame = create<GameStore>((set, get) => ({
     const next = applySession(profile, rec);
     const bundle = { rec, verdicts: pass.verdicts, fills: [...engine.fills], code: get().selected,
       capital: scenario.capital, equity: st.equity, sessionLabel: engine.session.label };
-    saveReview(bundle);
-    set({ phase: "result", lastResult: rec, lastVerdicts: pass.verdicts, profile: next, paused: true, syncStatus: "local", learnerGuideReady: false });
+    const localReviewSaved = saveReview(bundle);
+    set({ phase: "result", lastResult: rec, lastVerdicts: pass.verdicts, profile: next, paused: true, syncStatus: "local", localReviewSaved, learnerGuideReady: false });
     if (getProfileIdentity()) {
+      if (bundle.fills.length > SERVER_REVIEW_FILL_LIMIT) {
+        set({ syncStatus: "too-large" });
+        toast.error(reviewSaveMessage("too-large", localReviewSaved));
+        return;
+      }
       set({ syncStatus: "saving" });
       void import("@/lib/classroom-db").then((module) => module.saveClassroomSession({ data: bundle }))
         .then(() => { if (get().lastResult?.id === rec.id) set({ syncStatus: "saved" }); })
         .catch(() => {
           if (get().lastResult?.id === rec.id) set({ syncStatus: "failed" });
-          toast.error("伺服器尚未存入本次練習；本機復盤已保留，可從完整復盤重試。");
+          toast.error(reviewSaveMessage("failed", localReviewSaved));
         });
+    } else if (!localReviewSaved) {
+      toast.error(reviewSaveMessage("local", false));
     }
   },
 
@@ -452,9 +464,14 @@ export const useGame = create<GameStore>((set, get) => ({
       toast.error("測驗不可在暫停中下單");
       return;
     }
-    const fillCount = engine.fills.length;
+    const previousFills = new Set(engine.fills);
     engine.flattenAll();
-    if (paused) for (const fill of engine.fills.slice(fillCount)) fill.filledWhilePaused = true;
+    if (paused) {
+      // New fills are prepended; mark only this operation's fills.
+      for (const fill of engine.fills) {
+        if (!previousFills.has(fill)) fill.filledWhilePaused = true;
+      }
+    }
     toast("已送出全部平倉");
     get().bump();
   },

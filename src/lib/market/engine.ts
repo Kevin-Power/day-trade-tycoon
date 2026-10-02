@@ -690,8 +690,8 @@ export class DayMarket {
       time: this.t,
       vwapAt: this.vwapOf(st),
     };
+    // Canonical session history: display limits belong in the UI, not this ledger.
     this.fills.unshift(fill);
-    if (this.fills.length > 80) this.fills.length = 80;
     return fill;
   }
 

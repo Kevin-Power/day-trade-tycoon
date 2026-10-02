@@ -47,12 +47,7 @@ export function ManualPage() {
               <Download className="size-3.5" />
               下載 PDF
             </a>
-            <Button
-              type="button"
-              size="sm"
-              variant="header"
-              onClick={() => window.print()}
-            >
+            <Button type="button" size="sm" variant="header" onClick={() => window.print()}>
               <Printer className="size-3.5" />
               列印
             </Button>
@@ -117,7 +112,10 @@ function Cover() {
 
 function Nav() {
   return (
-    <nav aria-label="教材章節" className="academy-card mb-12 grid gap-1 p-4 sm:grid-cols-2 print:mb-8">
+    <nav
+      aria-label="教材章節"
+      className="academy-card mb-12 grid gap-1 p-4 sm:grid-cols-2 print:mb-8"
+    >
       {TOC.map((t) => (
         <a
           key={t.id}
@@ -141,11 +139,23 @@ function Brief() {
       <div className="mt-5 overflow-hidden rounded-lg border border-border">
         <table className="w-full text-left text-sm">
           <tbody>
-            <Row k="產品" v="台股現股當沖模擬教室。盤面比照券商：自選、江波、五檔、委託、庫存／成交。" />
-            <Row k="現況" v="模擬撮合已開。學員可上課、可地端離線打、線上教室交易日 13:50 後可練最新完整盤。" />
+            <Row
+              k="產品"
+              v="台股現股當沖模擬教室。盤面比照券商：自選、江波、五檔、委託、庫存／成交。"
+            />
+            <Row
+              k="現況"
+              v="模擬撮合已開。學員可上課、可地端離線打、線上教室交易日 13:50 後可練最新完整盤。"
+            />
             <Row k="服務範圍" v="模擬練習與帳號復盤；沒有券商實盤下單、真錢交易或保證獲利。" />
-            <Row k="資料邊界" v="加權等標「官方」的欄位來自證交所／櫃買公開檔。個股分時、五檔、明細標「教室生成」，是教學投影，不是逐筆。" />
-            <Row k="帳號紀錄" v="登入後可提交個人復盤，講師可查看班級進度；訪客練習只保存在目前瀏覽器。" />
+            <Row
+              k="資料邊界"
+              v="加權等標「官方」的欄位來自證交所／櫃買公開檔。個股分時、五檔、明細標「教室生成」，是教學投影，不是逐筆。"
+            />
+            <Row
+              k="帳號紀錄"
+              v="登入後可提交個人復盤，講師可查看班級進度；訪客練習只保存在目前瀏覽器。"
+            />
             <Row k="商業用途" v="教室授權、班費、地端包。不是投顧、不是訊號、不是代操。" />
           </tbody>
         </table>
@@ -161,12 +171,16 @@ function What() {
   return (
     <Section id="what" n="01" title="這是什麼、給誰用">
       <p className="text-pretty leading-relaxed text-muted">
-        學員先過入場密碼，再進大廳選一盤。進盤室後看到的是國票風格的現股當沖：黃帶、紫量、紅漲綠跌、1 張＝1,000 股。時間軸從 09:00 走到 13:30，可加速、可暫停。課綱會在關鍵分鐘自動停下來講。
+        學員先過入場密碼，再進大廳選一盤。進盤室後看到的是國票風格的現股當沖：黃帶、紫量、紅漲綠跌、1
+        張＝1,000 股。時間軸從 09:00 走到 13:30，可加速、可暫停。課綱會在關鍵分鐘自動停下來講。
       </p>
       <div className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
         <Fact label="給誰" body="股文觀指常態班／每日學習班學員。講師帶打、學員自己復盤。" />
         <Fact label="不給誰" body="要跟單、要保證獲利、要把教室當券商下單的人。那不是這份產品。" />
-        <Fact label="戰績怎麼存" body="進教室要入場密碼。登入個人帳號後可提交復盤至教室；訪客和離線練習保存在該機瀏覽器。提交失敗時請保留本機紀錄並重試。" />
+        <Fact
+          label="戰績怎麼存"
+          body="進教室要入場密碼。登入個人帳號後可提交復盤至教室；訪客和離線練習保存在該機瀏覽器。提交失敗時請保留本機紀錄並重試。"
+        />
       </div>
     </Section>
   );
@@ -177,16 +191,20 @@ function Play() {
     <Section id="play" n="02" title="學員怎麼玩">
       <ol className="space-y-4 text-sm leading-relaxed">
         <Step n="1" title="大廳選課">
-          建議依序：開盤觀察 → 週一殺盤 → 早盤下殺 → V 轉 → 週三攻高 → 期末考。線上教室另外有「自由練習」，是教材週之後的完整交易日。
+          建議依序：開盤觀察 → 週一殺盤 → 早盤下殺 → V 轉 → 週三攻高 →
+          期末考。線上教室另外有「自由練習」，是教材週之後的完整交易日。
         </Step>
         <Step n="2" title="先聽講解，再動手">
-          進盤室會先暫停。黃虛線是昨收、藍線是均價。Space 繼續。教學模式會在關鍵分鐘再停一次，把該看的指給你。
+          進盤室會先暫停。黃虛線是昨收、藍線是均價。Space
+          繼續。教學模式會在關鍵分鐘再停一次，把該看的指給你。
         </Step>
         <Step n="3" title="看盤，再下單">
-          左欄自選、中間江波／分價、右欄五檔與內外盤。委託單選買進或賣出、限價或市價、張數、價格。Enter 送單，Space 暫停。模擬盤目前只吃 ROD。
+          左欄自選、中間江波／分價、右欄五檔與內外盤。委託單選買進或賣出、限價或市價、張數、價格。核對後點「送出」；鍵盤可用
+          Tab 移到送出按鈕再按 Enter。Space 暫停。模擬盤目前只吃 ROD。
         </Step>
         <Step n="4" title="部位與出場">
-          單檔建議不超過權益 30%。進場同時寫停損。13:20 還沒平，就是紀律破了；系統會在收盤前市價清倉。
+          單檔建議不超過權益 30%。進場同時寫停損。13:20
+          還沒平，就是紀律破了；系統會在收盤前市價清倉。
         </Step>
         <Step n="5" title="復盤">
           收盤後對照課綱：有沒有追價、有沒有被費稅吃掉、有沒有攤平。戰績寫進生涯損益，用來升段位，不是用來對外吹牛。
@@ -197,12 +215,22 @@ function Play() {
         <table className="w-full text-left text-sm">
           <tbody>
             <Row k="Space" v="暫停／繼續。講解卡片出現時，Space 是「我看完了」。" mono />
-            <Row k="Enter" v="送出目前委託。講解未關時不會送。" mono />
+            <Row
+              k="Enter"
+              v="操作目前聚焦的按鈕。送單時先用 Tab 移到「送出買進／送出賣出」，核對後再按 Enter。空白處按 Enter 不送單。"
+              mono
+            />
             <Row k="買進／賣出" v="委託單上方切換。紅色買、綠色賣，跟台股習慣一致。" />
             <Row k="通路 實盤" v="點了不會送到券商。教室下單仍走模擬撮合。" />
             <Row k="TIF" v="模擬盤只吃 ROD。點 IOC／FOK 會提示，不會改條件。" />
-            <Row k="閃電下單" v="預設關。開了之後點五檔即以目前張數送單；關了只帶價。期末考暫停中會提示，不靜默。" />
-            <Row k="回大廳" v="有庫存或未成交委託時會確認。取消留下；確定離開會捨棄這盤，不自動平倉、不寫入戰績。要記分請用提前結算。" />
+            <Row
+              k="閃電下單"
+              v="預設關。開了之後點五檔即以目前張數送單；關了只帶價。期末考暫停中會提示，不靜默。"
+            />
+            <Row
+              k="回大廳"
+              v="有庫存或未成交委託時會確認。取消留下；確定離開會捨棄這盤，不自動平倉、不寫入戰績。要保存成果請按「結束練習」。"
+            />
           </tbody>
         </table>
       </div>
@@ -214,7 +242,8 @@ function Lessons() {
   return (
     <Section id="lessons" n="03" title="本週課綱">
       <p className="text-pretty leading-relaxed text-muted">
-        教材凍結在 2026/08/24–08/26 三個交易日。路徑不改，是因為暫停點綁在真實分鐘：週三 09:00:20 的低點、週二 11:00 的低點，不能每天被新盤蓋掉。
+        教材凍結在 2026/08/24–08/26 三個交易日。路徑不改，是因為暫停點綁在真實分鐘：週三 09:00:20
+        的低點、週二 11:00 的低點，不能每天被新盤蓋掉。
       </p>
       <div className="mt-5 overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-xl text-left text-sm">
@@ -227,12 +256,18 @@ function Lessons() {
             </tr>
           </thead>
           <tbody className="text-fg">
-            <Tr cells={["第 1 課", "8/26 開盤 30 分", "成本與第一槍", "09:00:20 探 44,926 再拉回"]} />
+            <Tr
+              cells={["第 1 課", "8/26 開盤 30 分", "成本與第一槍", "09:00:20 探 44,926 再拉回"]}
+            />
             <Tr cells={["第 2 課", "8/24 全日", "不接飛刀", "開高走低，收在最低 44,762"]} />
-            <Tr cells={["第 3 課", "8/25 早盤 130 分", "停損寫在進場", "觀察 11:00 低點後的部位控制"]} />
+            <Tr
+              cells={["第 3 課", "8/25 早盤 130 分", "停損寫在進場", "觀察 11:00 低點後的部位控制"]}
+            />
             <Tr cells={["第 4 課", "8/25 10:00 起", "順勢抱單", "11:00 印出 44,210，收在最高"]} />
             <Tr cells={["第 5 課", "8/26 全日", "停利比停損難", "收 45,833，漲 663 點"]} />
-            <Tr cells={["期末考", "8/26 全日 × 2 倍額度", "自己執行六式", "本金 500 萬，錯一次很痛"]} />
+            <Tr
+              cells={["期末考", "8/26 全日 × 2 倍額度", "自己執行六式", "本金 500 萬，錯一次很痛"]}
+            />
           </tbody>
         </table>
       </div>
@@ -274,11 +309,7 @@ function Data() {
               ]}
             />
             <Tr
-              cells={[
-                "個股開高低收",
-                "公開日成交（FinMind TaiwanStockPrice）",
-                teachingOhlcNote(),
-              ]}
+              cells={["個股開高低收", "公開日成交（FinMind TaiwanStockPrice）", teachingOhlcNote()]}
             />
             <Tr
               cells={[
@@ -295,11 +326,7 @@ function Data() {
               ]}
             />
             <Tr
-              cells={[
-                "教材週 8/24–26",
-                "上述官方數列，已內建",
-                "凍結。每日更新不會覆蓋這三天",
-              ]}
+              cells={["教材週 8/24–26", "上述官方數列，已內建", "凍結。每日更新不會覆蓋這三天"]}
             />
             <Tr
               cells={[
@@ -359,7 +386,9 @@ function Broker() {
   return (
     <Section id="broker" n="05" title="模擬盤與之後的實盤">
       <p className="text-pretty leading-relaxed text-muted">
-        委託單已經做成券商那張：帳號、盤別現股當沖、通路模擬／實盤、TIF（畫面看得到 ROD／IOC／FOK）、買進賣出、限價市價、張數與價格。現在通路停在模擬，帳號 CLASSROOM-SIM，TIF 只吃 ROD。
+        委託單已經做成券商那張：帳號、盤別現股當沖、通路模擬／實盤、TIF（畫面看得到
+        ROD／IOC／FOK）、買進賣出、限價市價、張數與價格。現在通路停在模擬，帳號 CLASSROOM-SIM，TIF
+        只吃 ROD。
       </p>
       <div className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
         <Fact
@@ -389,7 +418,8 @@ function Offline() {
   return (
     <Section id="offline" n="06" title="地端教室">
       <p className="text-pretty leading-relaxed text-muted">
-        教室電腦常常不能連外網。大廳可下載地端包，解壓後雙擊 START.bat，瀏覽器開起來就能打。不必安裝、不必帳號、不必網路。
+        教室電腦常常不能連外網。大廳可下載地端包，解壓後雙擊
+        START.bat，瀏覽器開起來就能打。不必安裝、不必帳號、不必網路。
       </p>
       <ul className="mt-4 space-y-2 text-sm leading-relaxed text-muted">
         <li>地端只內建教材週 8/24–8/26。不會去抓最新盤，免得教室斷線或被擋。</li>
@@ -467,10 +497,10 @@ function Colophon() {
   return (
     <footer className="mt-16 border-t border-border pt-6 text-micro leading-relaxed text-subtle">
       <p>當沖大富翁 · 股文觀指教室 · {MANUAL_VERSION}</p>
+      <p className="mt-1">原始碼 {GITHUB}</p>
       <p className="mt-1">
-        原始碼 {GITHUB}
+        本文件可列印、可下載 PDF，供課前準備與課後複習。內容以教學模擬功能為準。
       </p>
-      <p className="mt-1">本文件可列印、可下載 PDF，供課前準備與課後複習。內容以教學模擬功能為準。</p>
     </footer>
   );
 }
@@ -534,7 +564,12 @@ function Step({ n, title, children }: { n: string; title: string; children: Reac
 function Row({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
   return (
     <tr className="border-t border-border first:border-t-0">
-      <th className={cn("w-28 px-3 py-2 align-top font-medium text-muted sm:w-36", mono && "font-mono")}>
+      <th
+        className={cn(
+          "w-28 px-3 py-2 align-top font-medium text-muted sm:w-36",
+          mono && "font-mono",
+        )}
+      >
         {k}
       </th>
       <td className="px-3 py-2 text-pretty">{v}</td>
@@ -567,4 +602,3 @@ function Mark() {
     </svg>
   );
 }
-
