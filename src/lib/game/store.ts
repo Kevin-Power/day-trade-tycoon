@@ -14,6 +14,14 @@ import {
 import { evaluatePass, type RuleVerdict } from "@/lib/game/pass-rules";
 import { SERVER_REVIEW_FILL_LIMIT } from "@/lib/game/review-schema";
 import {
+  parseLotsDraft,
+  parsePriceDraft,
+  ticketDraftFrom,
+  TICKET_LOTS_ERROR,
+  validateTicketDraft,
+  type TicketDraft,
+} from "@/lib/game/ticket-draft";
+import {
   firstPlannedOrderSchema,
   snapshotFirstTradePlan,
   tradePlanSchema,
@@ -76,6 +84,7 @@ type GameStore = {
   speed: number;
   paused: boolean;
   ticket: Ticket;
+  ticketDraft: TicketDraft;
   tradePlan: TradePlan | null;
   firstPlannedOrder: FirstPlannedOrder | null;
   venue: Venue;
@@ -108,6 +117,7 @@ type GameStore = {
   setSpeed: (n: number) => void;
   select: (code: string) => void;
   setTicket: (patch: Partial<Ticket>) => void;
+  editTicketDraft: (field: keyof TicketDraft, value: string) => void;
   saveTradePlan: (input: TradePlanInput) => { ok: boolean; reason?: string };
   removeTradePlan: () => void;
   setVenue: (v: Venue) => void;
@@ -140,6 +150,7 @@ export const useGame = create<GameStore>((set, get) => ({
   speed: 8,
   paused: false,
   ticket: { side: "buy", type: "limit", lots: 1, price: 0, tif: "ROD" },
+  ticketDraft: { lots: "1", price: "" },
   tradePlan: null,
   firstPlannedOrder: null,
   venue: "sim",
@@ -190,6 +201,7 @@ export const useGame = create<GameStore>((set, get) => ({
       speed: initialPracticeSpeed(sc.speed, guide),
       paused: !!beat || guide,
       ticket: { side: "buy", type: "limit", lots: 1, price: roundToTick(px), tif: "ROD" },
+      ticketDraft: ticketDraftFrom({ lots: 1, price: roundToTick(px) }),
       tradePlan: null,
       firstPlannedOrder: null,
       mobileTab: "watch",
@@ -229,6 +241,8 @@ export const useGame = create<GameStore>((set, get) => ({
       firstPlannedOrder: null,
       paused: false,
       lastResult: null,
+      ticket: { side: "buy", type: "limit", lots: 1, price: 0, tif: "ROD" },
+      ticketDraft: { lots: "1", price: "" },
       activeBeat: null,
       dismissedBeats: [],
       learnerGuideStep: null,
@@ -305,7 +319,7 @@ export const useGame = create<GameStore>((set, get) => ({
   setSpeed: (n) => set({ speed: n }),
 
   select: (code) => {
-    const { engine, ticket, frame } = get();
+    const { engine, ticket, ticketDraft, frame } = get();
     if (engine && !engine.ensureSymbol(code)) {
       toast.error("這個標的沒有本盤可用教材資料");
       return;
@@ -320,11 +334,12 @@ export const useGame = create<GameStore>((set, get) => ({
         ...ticket,
         price: roundToTick(price),
       },
+      ticketDraft: { ...ticketDraft, price: ticketDraftFrom({ lots: ticket.lots, price: roundToTick(price) }).price },
     });
   },
 
   setTicket: (patch) => {
-    const { ticket, engine, selected } = get();
+    const { ticket, ticketDraft, engine, selected } = get();
     if (patch.tif) {
       const tifReason = rejectUnsupportedTif(patch.tif);
       if (tifReason) {
@@ -334,28 +349,48 @@ export const useGame = create<GameStore>((set, get) => ({
       }
     }
     const next = { ...ticket, ...patch };
-    if (patch.price !== undefined && !(patch.price > 0)) return;
     if (patch.side && engine) {
       const q = engine.quote(selected);
       if (q) next.price = roundToTick(patch.side === "buy" ? q.ask : q.bid);
     }
-    set({ ticket: next });
+    set({
+      ticket: next,
+      ticketDraft: {
+        lots: patch.lots !== undefined ? String(next.lots) : ticketDraft.lots,
+        price: patch.price !== undefined || patch.side ? String(next.price) : ticketDraft.price,
+      },
+    });
+  },
+
+  editTicketDraft: (field, value) => {
+    const { ticket, ticketDraft } = get();
+    const parsed = field === "lots" ? parseLotsDraft(value) : parsePriceDraft(value);
+    set({
+      ticketDraft: { ...ticketDraft, [field]: value },
+      ticket: {
+        ...ticket,
+        ...(parsed === null ? {} : { [field]: parsed }),
+        ...(field === "price" ? { type: "limit" as const } : {}),
+      },
+    });
   },
 
   saveTradePlan: (input) => {
-    const { phase, engine, selected, ticket, firstPlannedOrder } = get();
+    const { phase, engine, selected, ticket, ticketDraft, firstPlannedOrder } = get();
     if (phase !== "live" || !engine) {
       return { ok: false, reason: "請先進入一堂模擬練習，再寫第一筆進場計畫。" };
     }
     if (firstPlannedOrder) {
       return { ok: false, reason: "第一筆委託已送出，這一堂的進場計畫已鎖定，不能補寫或改寫。" };
     }
+    const lots = parseLotsDraft(ticketDraft.lots);
+    if (lots === null) return { ok: false, reason: TICKET_LOTS_ERROR };
     const parsed = tradePlanSchema.safeParse({
       ...input,
       version: 1,
       code: selected,
       side: ticket.side,
-      lots: ticket.lots,
+      lots,
       simTime: engine.t,
     });
     if (!parsed.success) {
@@ -442,16 +477,22 @@ export const useGame = create<GameStore>((set, get) => ({
       toast(LEARNER_GUIDE_PAUSE_MESSAGE);
       return;
     }
-    const { engine, selected, ticket, venue, accountId, scenario, paused, activeBeat } = get();
+    const { engine, selected, ticket, ticketDraft, venue, accountId, scenario, paused, activeBeat } = get();
     if (!engine) return;
     if (isExamScenario(scenario?.id) && (paused || activeBeat)) {
       playError();
       toast.error("測驗不可在暫停中下單");
       return;
     }
+    const draft = validateTicketDraft(ticketDraft, ticket.type);
+    if (!draft.ok) {
+      playError();
+      toast.error(draft.reason);
+      return;
+    }
     const q = engine.quote(selected);
     const price =
-      ticket.price > 0 ? ticket.price : ticket.side === "buy" ? (q?.ask ?? 0) : (q?.bid ?? 0);
+      ticket.type === "limit" ? draft.price! : ticket.side === "buy" ? (q?.ask ?? 0) : (q?.bid ?? 0);
     const broker = getBroker(venue, engine);
     const res = broker.place({
       venue,
@@ -461,7 +502,7 @@ export const useGame = create<GameStore>((set, get) => ({
       side: ticket.side,
       type: ticket.type,
       tif: ticket.tif,
-      lots: ticket.lots,
+      lots: draft.lots,
       price,
     });
     if (!res.ok) {
@@ -542,8 +583,9 @@ export const useGame = create<GameStore>((set, get) => ({
   },
 
   clickPrice: (price, side) => {
-    const { ticket, flashOrder, teachMode, activeBeat, paused, scenario } = get();
-    set({ ticket: ticketAfterClickPrice(ticket, price, side) });
+    const { ticket, ticketDraft, flashOrder, teachMode, activeBeat, paused, scenario } = get();
+    const next = ticketAfterClickPrice(ticket, price, side);
+    set({ ticket: next, ticketDraft: { ...ticketDraft, price: String(next.price) } });
     const decision = flashClickDecision({
       flashOrder,
       teachMode,

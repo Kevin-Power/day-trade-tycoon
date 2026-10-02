@@ -1,4 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { useRef } from "react";
 import { ArrowRight, BookOpen, CheckCircle2, ChevronRight, RotateCcw } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { lessonById, nextLesson } from "@/lib/game/curriculum";
@@ -21,6 +22,7 @@ export function ResultScreen() {
   const syncStatus = useGame((s) => s.syncStatus);
   const localReviewSaved = useGame((s) => s.localReviewSaved);
   const verdicts = useGame((s) => s.lastVerdicts);
+  const titleRef = useRef<HTMLHeadingElement>(null);
   if (!rec || !engine || !scenario) return null;
   const st = engine.stats();
   const rank = rankFor(profile.careerPnl);
@@ -39,11 +41,15 @@ export function ResultScreen() {
         <Dialog.Content
           aria-labelledby="result-title"
           aria-describedby="result-description"
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            titleRef.current?.focus({ preventScroll: true });
+          }}
           onPointerDownOutside={(event) => event.preventDefault()}
-          className="fixed left-1/2 top-1/2 z-[60] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-surface text-fg shadow-xl outline-none"
+          className="term-scroll fixed left-1/2 top-1/2 z-[60] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-2xl border border-border bg-surface text-fg shadow-xl outline-none"
         >
           <header className="shrink-0 border-b border-border px-5 py-5 sm:px-7">
-            <p className="academy-eyebrow flex items-center gap-2">
+            <p className="academy-eyebrow flex flex-wrap items-center gap-2">
               <CheckCircle2 aria-hidden="true" className="size-4" />
               練習已結算
               <span aria-hidden="true" className="text-subtle">
@@ -53,12 +59,14 @@ export function ResultScreen() {
             </p>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <Dialog.Title
+                ref={titleRef}
+                tabIndex={-1}
                 id="result-title"
-                className="text-xl font-semibold leading-snug sm:text-2xl"
+                className="text-xl font-semibold leading-snug outline-none sm:text-2xl"
               >
                 {rec.scenarioName}
               </Dialog.Title>
-              <span className="flex shrink-0 items-center gap-2 rounded-xl border border-border bg-bg px-3 py-2">
+              <span className="flex min-w-0 max-w-full flex-wrap items-center gap-2 rounded-xl border border-border bg-bg px-3 py-2">
                 <span className="text-sm text-muted">本盤模擬結果</span>
                 <span className="font-mono text-xl font-semibold">{rec.grade}</span>
               </span>
@@ -70,7 +78,7 @@ export function ResultScreen() {
               結果標記反映本盤模擬數值，不能單靠盈虧判斷操作紀律。請檢視成交、紀律與成本，再選一項下次練習重點。
             </Dialog.Description>
           </header>
-          <div className="term-scroll min-h-0 overflow-y-auto px-5 py-5 sm:px-7">
+          <div className="px-5 py-5 sm:px-7">
             {engine.fills.length === 0 ? (
               <p className="mb-4 text-base leading-7 text-muted">
                 本盤沒有成交，尚無資料確認買進或平倉操作。
@@ -78,11 +86,11 @@ export function ResultScreen() {
             ) : null}
             {verdicts.length ? <ReviewConditions verdicts={verdicts} compact /> : null}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
               <Cell prominent label="模擬淨損益" value={formatSigned(rec.pnl, 0)} tone={rec.pnl} />
               <Cell prominent label="報酬率" value={formatPct(rec.pnlPct)} tone={rec.pnlPct} />
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="mt-3 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
               <Cell label="交易次數" value={String(rec.trades)} />
               <Cell
                 label="勝率"
@@ -149,7 +157,7 @@ export function ResultScreen() {
                 <ChevronRight aria-hidden="true" className="size-4" />
               </button>
             </div>
-            <div className="mt-2 flex items-center justify-between gap-3">
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
                 className="academy-nav-link min-h-10 text-xs"
@@ -191,7 +199,7 @@ function Cell({
         prominent && "bg-bg",
       )}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-xs text-muted">{label}</div>
         {badge ? <ProvenanceBadge kind={badge} /> : null}
       </div>

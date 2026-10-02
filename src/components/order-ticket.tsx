@@ -1,8 +1,15 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { TradePlanEntry } from "@/components/trade-plan";
 import { ClassroomSimMark, ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
 import { useGame } from "@/lib/game/store";
+import {
+  parseLotsDraft,
+  parsePriceDraft,
+  TICKET_LOTS_ERROR,
+  TICKET_PRICE_ERROR,
+  validateTicketDraft,
+} from "@/lib/game/ticket-draft";
 import {
   LIVE_UNWIRED_REASON,
   SIM_ACCOUNT,
@@ -18,10 +25,14 @@ import { cn, formatMoney, formatPct } from "@/lib/utils";
 const TIF: TimeInForce[] = ["ROD", "IOC", "FOK"];
 
 export function OrderTicket() {
+  const lotsHelpId = useId();
+  const priceHelpId = useId();
   const engine = useGame((s) => s.engine);
   const selected = useGame((s) => s.selected);
   const ticket = useGame((s) => s.ticket);
+  const ticketDraft = useGame((s) => s.ticketDraft);
   const setTicket = useGame((s) => s.setTicket);
+  const editTicketDraft = useGame((s) => s.editTicketDraft);
   const submit = useGame((s) => s.submit);
   const flattenSelected = useGame((s) => s.flattenSelected);
   const venue = useGame((s) => s.venue);
@@ -33,17 +44,19 @@ export function OrderTicket() {
   void frame;
   const q = engine?.quote(selected);
   const name = q?.name ?? "";
-  const price =
-    ticket.price > 0 ? ticket.price : ticket.side === "buy" ? (q?.ask ?? 0) : (q?.bid ?? 0);
-  const estimatePrice = ticket.type === "market" ? (q?.last ?? 0) : price;
-  const notional = estimatePrice * ticket.lots * LOT_SHARES;
+  const lots = parseLotsDraft(ticketDraft.lots);
+  const enteredPrice = parsePriceDraft(ticketDraft.price);
+  const draft = validateTicketDraft(ticketDraft, ticket.type);
+  const price = enteredPrice ?? (ticket.side === "buy" ? (q?.ask ?? 0) : (q?.bid ?? 0));
+  const estimatePrice = ticket.type === "market" ? (q?.last ?? 0) : (enteredPrice ?? 0);
+  const notional = estimatePrice * (lots ?? 0) * LOT_SHARES;
   const vsPrev =
     q && estimatePrice > 0 && q.prevClose > 0
       ? ((estimatePrice - q.prevClose) / q.prevClose) * 100
       : 0;
   const vsVwap =
     q && estimatePrice > 0 && q.vwap > 0 ? ((estimatePrice - q.vwap) / q.vwap) * 100 : 0;
-  const thin = Math.abs(vsVwap) < ROUND_TRIP_RATE * 100 * 0.9;
+  const thin = draft.ok && Math.abs(vsVwap) < ROUND_TRIP_RATE * 100 * 0.9;
   const st = engine?.stats();
   const tooBig = st ? notional > st.equity * 0.3 : false;
   const buy = ticket.side === "buy";
@@ -226,25 +239,26 @@ export function OrderTicket() {
             type="button"
             className="size-8 text-lg text-muted hover:text-fg"
             aria-label="減少張數"
-            onClick={() => setTicket({ lots: Math.max(1, ticket.lots - 1) })}
+            onClick={() => setTicket({ lots: lots === null ? 1 : Math.max(1, lots - 1) })}
           >
             –
           </button>
           <input
-            type="number"
+            type="text"
             aria-label="委託張數"
+            aria-invalid={lots === null}
+            aria-describedby={lots === null ? lotsHelpId : undefined}
             inputMode="numeric"
-            min={1}
-            max={200}
-            value={ticket.lots}
-            onChange={(e) => setTicket({ lots: Math.max(1, Number(e.target.value) || 1) })}
+            maxLength={12}
+            value={ticketDraft.lots}
+            onChange={(e) => editTicketDraft("lots", e.target.value)}
             className="min-w-0 flex-1 bg-transparent text-center font-mono tabular outline-none"
           />
           <button
             type="button"
             aria-label="增加張數"
             className="size-8 text-lg text-muted hover:text-fg"
-            onClick={() => setTicket({ lots: Math.min(200, ticket.lots + 1) })}
+            onClick={() => setTicket({ lots: lots === null ? 1 : Math.min(200, lots + 1) })}
           >
             +
           </button>
@@ -261,13 +275,15 @@ export function OrderTicket() {
             –
           </button>
           <input
-            type="number"
+            type="text"
             aria-label="委託價格"
+            aria-invalid={ticket.type === "limit" && enteredPrice === null}
+            aria-describedby={ticket.type === "limit" && enteredPrice === null ? priceHelpId : undefined}
             inputMode="decimal"
-            step="any"
-            value={ticket.type === "market" ? "" : price || ""}
-            placeholder="市價"
-            onChange={(e) => setTicket({ price: Number(e.target.value), type: "limit" })}
+            maxLength={20}
+            value={ticket.type === "market" ? "" : ticketDraft.price}
+            placeholder={ticket.type === "market" ? "市價" : "輸入價格"}
+            onChange={(e) => editTicketDraft("price", e.target.value)}
             className="min-w-0 flex-1 bg-transparent text-center font-mono text-sm tabular outline-none"
             disabled={ticket.type === "market"}
           />
@@ -282,6 +298,15 @@ export function OrderTicket() {
         </div>
       </div>
 
+      {!draft.ok && (
+        <div className="border-t border-border px-3 py-2 text-base leading-7 text-warn lg:text-sm" role="status">
+          {lots === null && <p id={lotsHelpId}>{TICKET_LOTS_ERROR}</p>}
+          {ticket.type === "limit" && enteredPrice === null && (
+            <p id={priceHelpId}>{TICKET_PRICE_ERROR}</p>
+          )}
+        </div>
+      )}
+
       <div className="order-actions flex flex-wrap items-center gap-2 border-t border-border px-3 py-3">
         <div className="order-summary min-w-0 flex-1 font-mono text-xs">
           <div className={cn("mb-0.5", flashOrder ? "text-tape" : "text-muted")}>
@@ -289,11 +314,11 @@ export function OrderTicket() {
           </div>
           <div className="flex flex-wrap items-center gap-x-3 text-muted">
             <span>
-              預估 <span className="text-fg">{formatMoney(notional)}</span>
+              預估 <span className="text-fg">{draft.ok ? formatMoney(notional) : "待完成輸入"}</span>
             </span>
             <span>來回 {(ROUND_TRIP_RATE * 100).toFixed(2)}%</span>
-            <span>距昨 {formatPct(vsPrev)}</span>
-            <span>距均 {formatPct(vsVwap)}</span>
+            <span>距昨 {draft.ok ? formatPct(vsPrev) : "—"}</span>
+            <span>距均 {draft.ok ? formatPct(vsVwap) : "—"}</span>
           </div>
           {ticket.type === "market" && (
             <p className="mt-1 text-muted">市價依目前模擬價估算，成交價可能不同。</p>
@@ -310,7 +335,7 @@ export function OrderTicket() {
               key={n}
               size="xs"
               variant="subtle"
-              aria-pressed={ticket.lots === n}
+              aria-pressed={lots === n}
               onClick={() => setTicket({ lots: n })}
             >
               {n} 張
@@ -324,6 +349,7 @@ export function OrderTicket() {
           size="md"
           variant={buy ? "buy" : "sell"}
           onClick={submit}
+          disabled={!draft.ok}
           className="ticket-submit min-w-28"
         >
           {buy ? "送出買進" : "送出賣出"}

@@ -7,7 +7,9 @@ export function LearnerGuide() {
   const changeStep = useGame((state) => state.setLearnerGuideStep);
   const finish = useGame((state) => state.finishLearnerGuide);
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const surfaceRef = useRef<HTMLElement>(null);
   useEffect(() => {
+    if (surfaceRef.current) surfaceRef.current.scrollTop = 0;
     titleRef.current?.focus({ preventScroll: true });
   }, [step]);
   if (step === null) return null;
@@ -15,10 +17,11 @@ export function LearnerGuide() {
   const last = step === LEARNER_GUIDE_STEPS.length - 1;
   return (
     <section
+      ref={surfaceRef}
       role="dialog"
       aria-labelledby="learner-guide-title"
       aria-describedby="learner-guide-description"
-      className="absolute inset-x-3 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-h-[calc(100dvh-13rem)] max-w-lg flex-col overflow-hidden rounded-2xl border border-brand/30 bg-surface shadow-xl lg:bottom-6"
+      className="term-scroll fixed inset-x-3 top-4 z-40 mx-auto max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto overscroll-contain rounded-2xl border border-brand/30 bg-surface shadow-xl"
     >
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2">
         <p className="text-sm font-medium text-brand">
@@ -32,7 +35,7 @@ export function LearnerGuide() {
           略過
         </button>
       </div>
-      <div className="min-h-0 overflow-y-auto px-5 py-4">
+      <div className="px-5 py-4">
         <h2
           ref={titleRef}
           tabIndex={-1}
@@ -74,7 +77,7 @@ export function LearnerGuideReady() {
   return (
     <section
       aria-label="準備開始練習"
-      className="absolute inset-x-3 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 mx-auto max-h-[calc(100dvh-13rem)] max-w-lg overflow-auto rounded-2xl border border-border bg-surface p-5 shadow-xl lg:bottom-6"
+      className="term-scroll fixed inset-x-3 top-4 z-30 mx-auto max-h-[calc(100dvh-2rem)] max-w-lg overflow-auto overscroll-contain rounded-2xl border border-border bg-surface p-5 shadow-xl"
     >
       <h2 className="text-xl font-semibold">盤勢仍暫停，準備好再開始</h2>
       <p className="mt-3 text-base leading-7 text-muted">

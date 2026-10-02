@@ -60,7 +60,7 @@ test("invalid plans do not overwrite a valid plan, and lobby or result cannot sa
 test("a broker rejection does not lock the plan; the first successful regular order does", () => {
   const { store } = gameStoreFixture();
   assert.equal(store.getState().saveTradePlan(notes).ok, true);
-  store.getState().setTicket({ lots: 201, type: "market" });
+  store.getState().setTicket({ lots: 200, type: "market" });
   store.getState().submit();
   assert.equal(store.getState().firstPlannedOrder, null);
   assert.equal(store.getState().engine.fills.length, 0);

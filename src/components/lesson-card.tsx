@@ -18,7 +18,7 @@ export function LessonCard() {
   if (!beat || !lesson) return null;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-28 z-30 flex max-h-[calc(100dvh-13rem)] justify-center px-4 lg:left-[min(22rem,30%)] lg:right-[min(20rem,26%)]">
+    <div className="pointer-events-none fixed inset-x-0 top-4 z-30 flex max-h-[calc(100dvh-2rem)] justify-center px-4 lg:top-28 lg:left-[min(22rem,30%)] lg:right-[min(20rem,26%)] lg:max-h-[calc(100dvh-9rem)]">
       <div
         role="dialog"
         aria-labelledby="lesson-title"
@@ -46,7 +46,11 @@ export function LessonCard() {
             </p>
           ) : null}
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button className="h-auto min-h-12 min-w-0 whitespace-normal py-3 text-base leading-6" size="sm" onClick={dismissBeat}>
+            <Button
+              className="h-auto min-h-12 min-w-0 whitespace-normal py-3 text-base leading-6"
+              size="sm"
+              onClick={dismissBeat}
+            >
               {guideReady ? "開始練習" : "繼續盤勢"}
             </Button>
             <Button

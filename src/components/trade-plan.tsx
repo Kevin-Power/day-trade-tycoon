@@ -4,26 +4,49 @@ import { ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGame } from "@/lib/game/store";
 import type { ReviewBundle } from "@/lib/game/persist";
-import type { TradePlan, FirstPlannedOrder } from "@/lib/game/trade-plan";
+import {
+  tradePlanInputSchema,
+  type TradePlan,
+  type FirstPlannedOrder,
+} from "@/lib/game/trade-plan";
 import { formatLots, formatMoney, formatTime } from "@/lib/utils";
 import { formatPrice } from "@/lib/market/ticks";
+import { parseLotsDraft } from "@/lib/game/ticket-draft";
 
 const actionClass = "h-auto min-h-12 whitespace-normal px-4 py-3 text-base leading-6";
+type PlanField = "entryCondition" | "exitCondition" | "maxLoss";
+const fieldMessages: Record<PlanField, string> = {
+  entryCondition: "請寫下進場條件，最多 200 字。",
+  exitCondition: "請寫下離場條件，最多 200 字。",
+  maxLoss: "請填寫大於 0 的模擬虧損額度。",
+};
 
 export function TradePlanEntry() {
   const plan = useGame((s) => s.tradePlan);
   const order = useGame((s) => s.firstPlannedOrder);
   const selected = useGame((s) => s.selected);
   const ticket = useGame((s) => s.ticket);
+  const lotsDraft = useGame((s) => s.ticketDraft.lots);
+  const lots = parseLotsDraft(lotsDraft);
   const savePlan = useGame((s) => s.saveTradePlan);
   const removePlan = useGame((s) => s.removeTradePlan);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState({ entryCondition: "", exitCondition: "", maxLoss: "" });
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<PlanField, string>>>({});
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const entryRef = useRef<HTMLTextAreaElement>(null);
+  const exitRef = useRef<HTMLTextAreaElement>(null);
+  const lossRef = useRef<HTMLInputElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
   const fieldId = useId();
+  function editField(field: PlanField, value: string) {
+    setDraft((previous) => ({ ...previous, [field]: value }));
+    setFieldErrors((previous) => ({ ...previous, [field]: undefined }));
+    setError("");
+  }
   const changed =
-    !!plan && (plan.code !== selected || plan.side !== ticket.side || plan.lots !== ticket.lots);
+    !!plan && (plan.code !== selected || plan.side !== ticket.side || plan.lots !== lots);
   return (
     <Dialog.Root
       open={open}
@@ -37,6 +60,7 @@ export function TradePlanEntry() {
             maxLoss: plan ? String(plan.maxLoss) : "",
           });
           setError("");
+          setFieldErrors({});
         }
         setOpen(next);
       }}
@@ -70,7 +94,7 @@ export function TradePlanEntry() {
             event.preventDefault();
             titleRef.current?.focus();
           }}
-          className="fixed left-1/2 top-1/2 z-[60] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-surface text-fg shadow-xl"
+          className="term-scroll fixed left-1/2 top-1/2 z-[60] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-2xl border border-border bg-surface text-fg shadow-xl"
         >
           <header className="shrink-0 border-b border-border px-5 py-4">
             <Dialog.Title
@@ -81,7 +105,7 @@ export function TradePlanEntry() {
               第一筆進場計畫
             </Dialog.Title>
           </header>
-          <div className="term-scroll min-h-0 overflow-y-auto overscroll-contain px-5 py-4 text-base leading-7">
+          <div className="px-5 py-4 text-base leading-7">
             <Dialog.Description className="mb-4 text-muted">
               寫下判斷，再和成交紀錄一起回看。模擬已暫停，關閉後由你自行繼續。
             </Dialog.Description>
@@ -102,77 +126,129 @@ export function TradePlanEntry() {
                 <p className="mb-5 rounded-xl bg-bg p-3">
                   這次準備：
                   <strong>
-                    {selected} · {ticket.side === "buy" ? "買進" : "賣出"} {formatLots(ticket.lots)}{" "}
-                    張
+                    {selected} · {ticket.side === "buy" ? "買進" : "賣出"}{" "}
+                    {lots === null ? "張數待完成" : `${formatLots(lots)} 張`}
                   </strong>
                 </p>
                 <label className="block font-medium" htmlFor={`${fieldId}-entry`}>
                   1. 看到什麼條件，才會進場？
                 </label>
                 <textarea
+                  ref={entryRef}
                   id={`${fieldId}-entry`}
                   rows={3}
                   maxLength={200}
                   value={draft.entryCondition}
-                  onChange={(event) => setDraft({ ...draft, entryCondition: event.target.value })}
+                  onChange={(event) => editField("entryCondition", event.target.value)}
+                  aria-invalid={!!fieldErrors.entryCondition}
+                  aria-describedby={
+                    fieldErrors.entryCondition ? `${fieldId}-entry-error` : undefined
+                  }
                   className="mt-2 w-full rounded-xl border border-border bg-bg p-3 text-base leading-7"
                   placeholder="用自己的話寫下課堂觀察條件。"
                 />
+                {fieldErrors.entryCondition ? (
+                  <p id={`${fieldId}-entry-error`} className="mt-2 text-base text-up">
+                    {fieldErrors.entryCondition}
+                  </p>
+                ) : null}
+                <p className="mt-1 text-sm text-muted">{draft.entryCondition.length} / 200 字</p>
                 <label className="mt-5 block font-medium" htmlFor={`${fieldId}-exit`}>
                   2. 發生什麼情況，就要離場？
                 </label>
                 <textarea
+                  ref={exitRef}
                   id={`${fieldId}-exit`}
                   rows={3}
                   maxLength={200}
                   value={draft.exitCondition}
-                  onChange={(event) => setDraft({ ...draft, exitCondition: event.target.value })}
+                  onChange={(event) => editField("exitCondition", event.target.value)}
+                  aria-invalid={!!fieldErrors.exitCondition}
+                  aria-describedby={fieldErrors.exitCondition ? `${fieldId}-exit-error` : undefined}
                   className="mt-2 w-full rounded-xl border border-border bg-bg p-3 text-base leading-7"
                   placeholder="寫下判斷失效或決定結束的條件。"
                 />
+                {fieldErrors.exitCondition ? (
+                  <p id={`${fieldId}-exit-error`} className="mt-2 text-base text-up">
+                    {fieldErrors.exitCondition}
+                  </p>
+                ) : null}
+                <p className="mt-1 text-sm text-muted">{draft.exitCondition.length} / 200 字</p>
                 <label className="mt-5 block font-medium" htmlFor={`${fieldId}-loss`}>
                   3. 這次自行設定的模擬虧損額度（元）
                 </label>
                 <input
+                  ref={lossRef}
                   id={`${fieldId}-loss`}
                   type="number"
                   inputMode="decimal"
                   min="0.01"
                   step="0.01"
                   value={draft.maxLoss}
-                  onChange={(event) => setDraft({ ...draft, maxLoss: event.target.value })}
+                  onChange={(event) => editField("maxLoss", event.target.value)}
                   className="mt-2 min-h-12 w-full rounded-xl border border-border bg-bg p-3 text-base"
-                  aria-describedby={`${fieldId}-notice`}
+                  aria-invalid={!!fieldErrors.maxLoss}
+                  aria-describedby={`${fieldId}-notice${fieldErrors.maxLoss ? ` ${fieldId}-loss-error` : ""}`}
                 />
+                {fieldErrors.maxLoss ? (
+                  <p id={`${fieldId}-loss-error`} className="mt-2 text-base text-up">
+                    {fieldErrors.maxLoss}
+                  </p>
+                ) : null}
                 <p id={`${fieldId}-notice`} className="mt-3 text-base leading-7 text-muted">
                   這是你和講師討論用的額度，不是停損委託；系統不會依這個數字自動平倉，也不保證虧損不超過額度。
                 </p>
                 <p className="mt-3 text-sm leading-6 text-muted">
                   計畫目前暫存在本盤，結算後才隨復盤保存。未結算就重新整理會遺失；第一筆委託成功送出後不能補改。不填計畫仍可練習，紀錄會如實留白。
                 </p>
-                {error ? (
-                  <p
-                    role="alert"
-                    className="mt-4 rounded-xl border border-up/30 p-3 text-base text-up"
-                  >
-                    {error}
-                  </p>
-                ) : null}
               </>
             )}
           </div>
           <footer className="shrink-0 space-y-2 border-t border-border p-3">
+            {error ? (
+              <p
+                ref={errorRef}
+                tabIndex={-1}
+                role="alert"
+                className="rounded-xl border border-up/30 p-3 text-base leading-7 text-up"
+              >
+                {error}
+              </p>
+            ) : null}
             {!order ? (
               <Button
                 className={`${actionClass} w-full`}
                 onClick={() => {
-                  const result = savePlan({
+                  const input = {
                     entryCondition: draft.entryCondition,
                     exitCondition: draft.exitCondition,
                     maxLoss: Number(draft.maxLoss),
-                  });
+                  };
+                  const checked = tradePlanInputSchema.safeParse(input);
+                  if (!checked.success) {
+                    const errors: Partial<Record<PlanField, string>> = {};
+                    for (const issue of checked.error.issues) {
+                      const field = issue.path[0] as PlanField;
+                      if (field in fieldMessages) errors[field] = fieldMessages[field];
+                    }
+                    setFieldErrors(errors);
+                    setError("尚未保存。請先完成標示的欄位，再按保存。");
+                    const first = errors.entryCondition
+                      ? entryRef
+                      : errors.exitCondition
+                        ? exitRef
+                        : lossRef;
+                    requestAnimationFrame(() => first.current?.focus());
+                    return;
+                  }
+                  const result = savePlan(checked.data);
                   if (!result.ok) {
-                    setError(result.reason ?? "請確認三個欄位後再保存。");
+                    setError(
+                      lots === null
+                        ? "尚未保存。請關閉計畫，回到委託欄位完成張數後，再保存計畫。"
+                        : (result.reason ?? "請確認三個欄位後再保存。"),
+                    );
+                    requestAnimationFrame(() => errorRef.current?.focus());
                     return;
                   }
                   setOpen(false);

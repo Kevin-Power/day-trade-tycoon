@@ -278,14 +278,14 @@ function ReadingDialogContent({
           titleRef.current?.focus();
         }}
         onCloseAutoFocus={onCloseAutoFocus}
-        className="fixed left-1/2 top-1/2 z-[60] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-surface text-fg shadow-xl outline-none"
+        className="term-scroll fixed left-1/2 top-1/2 z-[60] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-2xl border border-border bg-surface text-fg shadow-xl outline-none"
       >
         <header className="shrink-0 border-b border-border px-5 py-4">
           <Dialog.Title ref={titleRef} tabIndex={-1} className="text-xl font-semibold outline-none">
             {title}
           </Dialog.Title>
         </header>
-        <div className="term-scroll min-h-0 overflow-y-auto overscroll-contain px-5 py-4">
+        <div className="px-5 py-4">
           <Dialog.Description className="mb-5 text-base leading-relaxed text-muted">
             {description}
           </Dialog.Description>
