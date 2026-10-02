@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { ChartNoAxesCombined, ListFilter, Package, PanelTop } from "lucide-react";
 import { AccountBar, NewsBar } from "@/components/account-bar";
 import { TapeChart } from "@/components/charts";
 import { LessonCard } from "@/components/lesson-card";
@@ -17,12 +18,12 @@ import { formatIndex } from "@/lib/market/week";
 import { CoachCorner, ProvenanceBadge, ProvenanceMicro, SimChip } from "@/components/provenance";
 import { classroomPathMicro, officialIndexPaneMicro } from "@/lib/provenance";
 
-const MOBILE_TABS: { id: MobileTab; label: string }[] = [
-  { id: "watch", label: "自選" },
-  { id: "chart", label: "江波" },
-  { id: "trade", label: "下單" },
-  { id: "pos", label: "庫存" },
-];
+const MOBILE_TABS = [
+  { id: "watch", label: "自選行情", icon: ListFilter },
+  { id: "chart", label: "走勢圖", icon: ChartNoAxesCombined },
+  { id: "trade", label: "模擬下單", icon: PanelTop },
+  { id: "pos", label: "庫存成交", icon: Package },
+] satisfies { id: MobileTab; label: string; icon: typeof ListFilter }[];
 
 export function Terminal() {
   const engine = useGame((s) => s.engine);
@@ -84,8 +85,8 @@ export function Terminal() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input,textarea,select,button,a,[contenteditable=true],[role=dialog]")) return;
       if (e.code === "Space") {
         e.preventDefault();
         if (useGame.getState().activeBeat) dismissBeat();
@@ -107,7 +108,7 @@ export function Terminal() {
   void frame;
 
   return (
-    <div className="relative flex h-dvh min-h-0 flex-col bg-bg text-fg">
+    <div className="terminal-shell relative flex h-dvh min-h-0 flex-col bg-bg text-fg">
       <TopMenu
         name={lesson ? `${lesson.no} ${scenario.name}` : scenario.name}
         paused={paused}
@@ -181,14 +182,16 @@ export function Terminal() {
         <span className="term-mobile-nav">{formatTime(engine.t)}</span>
       </footer>
 
-      <nav className="term-mobile-nav grid grid-cols-4 border-t border-border bg-surface">
+      <nav aria-label="模擬操作區" className="term-mobile-nav grid grid-cols-4 border-t border-border bg-surface">
         {MOBILE_TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setMobileTab(t.id)}
-            className={cn("h-12 text-xs", mobileTab === t.id ? "bg-header text-fg" : "text-muted")}
+            aria-current={mobileTab === t.id ? "page" : undefined}
+            className={cn("flex h-16 flex-col items-center justify-center gap-1 border-t-2 text-xs", mobileTab === t.id ? "border-brand bg-brand/10 text-brand" : "border-transparent text-muted")}
           >
+            <t.icon className="size-5" aria-hidden />
             {t.label}
           </button>
         ))}
@@ -224,9 +227,9 @@ function TopMenu({
   venue: string;
 }) {
   return (
-    <div className="flex h-9 items-center gap-2 border-b border-border bg-header px-2 text-xs">
+    <div className="flex min-h-12 shrink-0 items-center gap-2 border-b border-border bg-bg-1 px-3 text-xs">
       <MarkTiny />
-      <span className="font-medium tracking-wide">當沖大富翁</span>
+      <span className="shrink-0 font-medium tracking-wide">當沖大富翁</span>
       <SimChip label={venue} />
       <span className="hidden rounded-xs border border-border-strong/60 px-1.5 py-0.5 text-2xs text-fg/85 sm:inline">
         現股當沖
@@ -235,7 +238,7 @@ function TopMenu({
         {code}.TW
       </span>
       <span className="ml-auto truncate font-mono text-micro text-fg/80">
-        {name.startsWith(date) ? name : `${date} · ${name}`} · {paused ? "PAUSE" : `${speed}x`}
+        {name.startsWith(date) ? name : `${date} · ${name}`} · {paused ? "暫停" : `${speed}x`}
       </span>
     </div>
   );
@@ -260,7 +263,7 @@ function IndexPane() {
   const idx = engine.indexQuote();
   const asOf = formatTime(engine.t);
   return (
-    <div className="flex min-h-0 flex-col bg-bg">
+    <div className="flex h-full min-h-0 flex-col bg-bg">
       <div className="pane-title flex h-7 shrink-0 items-center gap-x-3 overflow-hidden px-2">
         <span className="shrink-0">加權指數</span>
         <span className="shrink-0 font-mono text-micro tabular text-fg/80">{asOf}</span>
@@ -307,7 +310,7 @@ function SelectedChart() {
   const cost = pos && pos.lots !== 0 ? pos.avg : undefined;
   const wave = chartStyle === "jiangbo";
   return (
-    <div className="flex min-h-0 flex-col bg-bg">
+    <div className="flex h-full min-h-0 flex-col bg-bg">
       <div className="pane-title flex h-7 items-center gap-2 px-2">
         <span className="shrink-0">
           {wave ? "江波圖" : "分時"} {q.code} {q.name}

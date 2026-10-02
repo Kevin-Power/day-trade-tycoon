@@ -12,11 +12,11 @@ export function LessonCard() {
   if (!beat || !lesson) return null;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-20 z-30 flex justify-center px-3 sm:left-[min(22rem,30%)] sm:right-[min(20rem,26%)]">
+    <div className="pointer-events-none absolute inset-x-0 top-28 z-30 flex max-h-[calc(100dvh-13rem)] justify-center px-4 lg:left-[min(22rem,30%)] lg:right-[min(20rem,26%)]">
       <div
         role="dialog"
         aria-labelledby="lesson-title"
-        className="pointer-events-auto w-full max-w-md overflow-hidden rounded-md border border-border-strong bg-surface shadow-[var(--shadow-panel)]"
+        className="pointer-events-auto w-full max-w-md overflow-auto rounded-xl border border-border-strong bg-surface shadow-[var(--shadow-panel)]"
       >
         <div className="pane-title flex h-7 items-center justify-between px-2.5">
           <span>
@@ -24,17 +24,17 @@ export function LessonCard() {
           </span>
           <span className="font-mono text-micro text-fg/80">{formatTime(beat.atMinute * 60).slice(0, 5)}</span>
         </div>
-        <div className="p-2.5">
-          <h3 id="lesson-title" className="text-sm font-medium">
+        <div className="p-5">
+          <h3 id="lesson-title" className="text-lg font-semibold">
             {beat.title}
           </h3>
-          <p className="mt-1 text-xs leading-relaxed text-muted">{beat.body}</p>
-          <p className="mt-1.5 text-micro text-fg">動作：{beat.hint}</p>
+          <p className="mt-3 text-sm leading-relaxed text-muted">{beat.body}</p>
+          <p className="mt-3 rounded-lg bg-brand/5 p-3 text-sm leading-relaxed text-fg">這一步：{beat.hint}</p>
           <div className="mt-2.5 flex gap-2">
-            <Button className="flex-1" size="sm" onClick={dismissBeat}>
+            <Button className="min-h-11 flex-1" size="sm" onClick={dismissBeat}>
               繼續盤勢
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setTeachMode(false)}>
+            <Button className="min-h-11" size="sm" variant="ghost" onClick={() => setTeachMode(false)}>
               關閉教學
             </Button>
           </div>

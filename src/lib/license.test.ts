@@ -64,9 +64,9 @@ describe("classroom license copy", () => {
     assert.match(page, /LICENSE_EXCLUDED/);
     assert.match(page, /LICENSE_QUOTE/);
     assert.match(lobby, /to="\/license"/);
-    assert.match(lobby, /教室授權/);
+    assert.match(lobby, /課程說明/);
     assert.match(gate, /to="\/license"/);
-    assert.match(gate, /不必入場密碼/);
+    assert.match(gate, /無須入場碼即可查看/);
   });
 
   it("records P0-7/8/9 done and P1-7 progress in the roadmap", () => {

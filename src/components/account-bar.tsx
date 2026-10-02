@@ -46,7 +46,7 @@ export function AccountBar() {
   const used = st.equity > 0 ? (st.peakGross / st.equity) * 100 : 0;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border bg-surface px-2 py-1.5 text-micro">
+    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-surface px-3 py-2.5 text-xs">
       <div className="flex items-center gap-2">
         <span className={cn("size-1.5 rounded-full bg-up", !paused && "live-dot")} />
         <span className="font-mono text-sm tabular text-fg">{formatTime(engine.t)}</span>
@@ -64,7 +64,7 @@ export function AccountBar() {
       <Stat label="未實現" value={formatSigned(st.unrealized, 0)} tone={st.unrealized} className="hidden lg:flex" />
       <Stat label="使用" value={`${used.toFixed(0)}%`} className="hidden xl:flex" />
       <div className="flex-1" />
-      <div className="flex flex-wrap items-center gap-1">
+      <div className="account-controls flex flex-wrap items-center gap-1">
         <Button size="xs" variant="subtle" onClick={togglePause} className="min-w-11">
           {paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
           {paused ? "繼續" : "暫停"}
@@ -74,6 +74,8 @@ export function AccountBar() {
             key={n}
             type="button"
             onClick={() => setSpeed(n)}
+            aria-label={`${n} 倍速`}
+            aria-pressed={speed === n}
             className={cn(
               "h-7 min-w-9 rounded-xs px-1.5 font-mono text-2xs",
               MOBILE_SPEEDS.has(n) ? "inline-flex" : "hidden sm:inline-flex",
@@ -86,6 +88,7 @@ export function AccountBar() {
         <Button
           size="xs"
           variant="ghost"
+          aria-label={sound ? "關閉音效" : "開啟音效"}
           onClick={() => {
             const next = !sound;
             setSoundEnabled(next);
@@ -98,6 +101,7 @@ export function AccountBar() {
         <Button
           size="xs"
           variant={teachMode ? "header" : "ghost"}
+          aria-pressed={teachMode}
           onClick={() => setTeachMode(!teachMode)}
           className="min-w-11"
         >

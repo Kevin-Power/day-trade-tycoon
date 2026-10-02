@@ -138,7 +138,7 @@ function paint(
 ) {
   const c = tokens();
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#000000";
+  ctx.fillStyle = c.bg;
   ctx.fillRect(0, 0, w, h);
 
   const isIndex = opt.variant === "index";
@@ -189,7 +189,7 @@ function paint(
   const xOfT = (t: number) => padL + ((t - opt.startT) / xSpan) * plotW;
   const label = (p: number) => (isIndex ? formatIndex(p) : formatPrice(p));
 
-  ctx.strokeStyle = "#1c2a38";
+  ctx.strokeStyle = c.grid;
   ctx.lineWidth = 1;
   ctx.font = "10px IBM Plex Mono, ui-monospace, monospace";
   ctx.fillStyle = c.muted;
@@ -291,7 +291,7 @@ function paint(
   const nowX = xOfT(Math.min(opt.now, viewEnd));
   ctx.save();
   ctx.setLineDash([1, 4]);
-  ctx.strokeStyle = "#33455c";
+  ctx.strokeStyle = c.grid;
   ctx.beginPath();
   ctx.moveTo(nowX, padT);
   ctx.lineTo(nowX, padT + plotH);
@@ -385,7 +385,7 @@ function paint(
 
   if (opt.newsAt.length) {
     ctx.save();
-    ctx.strokeStyle = "#3a4c60";
+    ctx.strokeStyle = c.grid;
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 3]);
     for (const t of opt.newsAt) {

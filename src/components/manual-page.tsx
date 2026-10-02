@@ -8,12 +8,12 @@ import { cn } from "@/lib/utils";
 import { useGate } from "@/lib/gate/context";
 import { teachingOhlcNote } from "@/lib/market/universe";
 
-export const MANUAL_VERSION = "2026-09-21";
+export const MANUAL_VERSION = "2026-10-02";
 const PDF_HREF = "/daytrade-tycoon-manual.pdf";
 const GITHUB = "https://github.com/Kevin-Power/day-trade-tycoon";
 
 const TOC = [
-  { id: "brief", n: "00", label: "給石大哥看的一頁" },
+  { id: "brief", n: "00", label: "先認識你的教室" },
   { id: "what", n: "01", label: "這是什麼、給誰用" },
   { id: "play", n: "02", label: "學員怎麼玩" },
   { id: "lessons", n: "03", label: "本週課綱" },
@@ -22,13 +22,13 @@ const TOC = [
   { id: "offline", n: "06", label: "地端教室" },
   { id: "rules", n: "07", label: "規則與成本" },
   { id: "risk", n: "08", label: "不承諾什麼" },
-  { id: "agenda", n: "09", label: "跟石大哥要對的五件事" },
+  { id: "agenda", n: "09", label: "上課前的五件事" },
 ] as const;
 
 export function ManualPage() {
   const { lock } = useGate();
   return (
-    <div className="manual-sheet min-h-dvh bg-bg text-fg">
+    <div className="academy-page manual-sheet min-h-dvh bg-bg text-fg">
       <header className="no-print sticky top-0 z-20 border-b border-border bg-bg/92 backdrop-blur-sm">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link
@@ -103,7 +103,7 @@ function Cover() {
         當沖大富翁
       </h1>
       <p className="mt-4 max-w-2xl text-pretty text-base leading-relaxed text-muted">
-        給石大哥與講師坐下來對的那一份。盤面像券商現股當沖；加權用證交所每 5 秒指數；撮合是教室的；實盤 API 還沒接。
+        第一次使用，從「學員怎麼玩」開始。這份教材帶你認識下單、停損與復盤，也說明教室資料和真實市場的差異。
       </p>
       <ul className="mt-6 flex flex-wrap gap-2 text-micro">
         <Chip>模擬撮合已開</Chip>
@@ -117,12 +117,12 @@ function Cover() {
 
 function Nav() {
   return (
-    <nav className="mb-14 grid gap-1 sm:grid-cols-2 print:mb-8">
+    <nav aria-label="教材章節" className="academy-card mb-12 grid gap-1 p-4 sm:grid-cols-2 print:mb-8">
       {TOC.map((t) => (
         <a
           key={t.id}
           href={`#${t.id}`}
-          className="flex items-baseline gap-3 rounded-sm px-2 py-1.5 text-sm text-muted hover:bg-elevated hover:text-fg"
+          className="flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted hover:bg-elevated hover:text-fg"
         >
           <span className="font-mono text-micro text-subtle">{t.n}</span>
           {t.label}
@@ -134,7 +134,7 @@ function Nav() {
 
 function Brief() {
   return (
-    <Section id="brief" n="00" title="給石大哥看的一頁">
+    <Section id="brief" n="00" title="先認識你的教室">
       <p className="text-pretty leading-relaxed text-muted">
         股文觀指要的不是再做一個看盤軟體，是讓學員在像真的盤面上，把判斷、費稅、停損、部位、收盤平倉練到肌肉記得。這套就是那間教室。
       </p>
@@ -145,13 +145,13 @@ function Brief() {
             <Row k="現況" v="模擬撮合已開。學員可上課、可地端離線打、線上教室交易日 13:50 後可練最新完整盤。" />
             <Row k="服務範圍" v="模擬練習與帳號復盤；沒有券商實盤下單、真錢交易或保證獲利。" />
             <Row k="資料邊界" v="加權等標「官方」的欄位來自證交所／櫃買公開檔。個股分時、五檔、明細標「教室生成」，是教學投影，不是逐筆。" />
-            <Row k="之後接實盤" v="下單畫面已共用。接上券商只換 adapter，不必重做盤室。" />
+            <Row k="帳號紀錄" v="登入後可提交個人復盤，講師可查看班級進度；訪客練習只保存在目前瀏覽器。" />
             <Row k="商業用途" v="教室授權、班費、地端包。不是投顧、不是訊號、不是代操。" />
           </tbody>
         </table>
       </div>
       <blockquote className="mt-6 border-l-2 border-tape pl-4 text-sm leading-relaxed text-fg">
-        一句話：路徑用官方指數、盤面像真的、下單是教室的。石大哥如果聽到「已經可以實盤下單」，那是講錯了。
+        每次練習先寫下進場理由與風險，再用成交紀錄檢查自己的決策。
       </blockquote>
     </Section>
   );
@@ -247,7 +247,7 @@ function Data() {
   return (
     <Section id="data" n="04" title="資料哪裡來">
       <p className="text-pretty leading-relaxed text-muted">
-        跟石大哥討論時這張表最重要。教室用真實大盤當骨架，個股不是證交所逐筆。講成「跟券商看的一模一樣」，是誇大。
+        練習前先辨認資料標籤。教室以公開大盤資料為基礎，個股盤中路徑為教學投影，不能用來核對券商的真實逐筆價格。
       </p>
       <div className="mt-5 overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-xl text-left text-sm">
@@ -430,7 +430,6 @@ function Risk() {
         <li>教室成績不能外推到實盤。實盤有滑價、排隊、斷線、情緒，教室沒有全部模擬到。</li>
         <li>個股盤中路徑不是交易所逐筆。用它練節奏可以，用它對價不行。</li>
         <li>實盤按鈕看得到，是為了以後接線；現在按了不會下真單。</li>
-        <li>沒有向金管會申請的證券業務。產品定位是教學模擬。</li>
       </ul>
     </Section>
   );
@@ -438,10 +437,10 @@ function Risk() {
 
 function Agenda() {
   return (
-    <Section id="agenda" n="09" title="跟石大哥要對的五件事">
+    <Section id="agenda" n="09" title="上課前的五件事">
       <ol className="space-y-4 text-sm leading-relaxed">
-        <Step n="1" title="先賣教室，還是先等實盤？">
-          建議先賣教室。課綱、地端包、每日練習已經能開班。實盤是下一張合約，不該擋這一期開課。
+        <Step n="1" title="確認上課安排">
+          向講師確認開課日期、課程內容和教室入場碼。第一次練習建議從第 1 課開始，先熟悉介面與成本。
         </Step>
         <Step n="2" title="授權怎麼算？">
           班級授權、地端包與講師帶班方案由教室安排。共用入場碼之外，每位學員可以建立自己的帳號保存復盤；講師權限由管理員核准。方案內容請看{" "}
@@ -450,14 +449,14 @@ function Agenda() {
           </Link>
           ，報價洽教室／講師，說明書這一節不寫價錢。
         </Step>
-        <Step n="3" title="要不要接哪一家券商？">
-          下單畫面已預留。選哪一家、測試帳、正式帳、誰付 API 費，是石大哥跟券商的事。教室端只換 adapter。
+        <Step n="3" title="準備練習裝置">
+          電腦可以同時查看行情、五檔和下單。手機使用底部的自選行情、走勢圖、模擬下單與庫存成交切換；離線使用請先下載完整地端包。
         </Step>
         <Step n="4" title="學員資料放哪？">
           本機紀錄與帳號提交的復盤分別保存。使用共用電腦時，請先確認登入的是自己的帳號；註冊不代表繳費，報名資格由教室核對。
         </Step>
-        <Step n="5" title="對外怎麼講？">
-          可以講：真實加權 5 秒、真實當日開高低收、券商風格盤面、課綱帶打。不可以講：逐筆行情、已經能實盤下單、保證會賺。
+        <Step n="5" title="留時間做復盤">
+          每次結算後檢查逐筆交易、成本和風控紀律。模擬結果只是這次練習的紀錄，不能視為未來獲利的保證。
         </Step>
       </ol>
     </Section>
@@ -471,7 +470,7 @@ function Colophon() {
       <p className="mt-1">
         原始碼 {GITHUB}
       </p>
-      <p className="mt-1">本文件可列印、可下載 PDF，給石大哥與講師當面過。內容以產品現況為準，實盤未接線前請勿對外宣稱可下真單。</p>
+      <p className="mt-1">本文件可列印、可下載 PDF，供課前準備與課後複習。內容以教學模擬功能為準。</p>
     </footer>
   );
 }

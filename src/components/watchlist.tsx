@@ -30,6 +30,7 @@ export function Watchlist() {
   const frame = useGame((s) => s.frame);
   const [tab, setTab] = useState<ListTab>("all");
   const [query, setQuery] = useState("");
+  const [detailed, setDetailed] = useState(false);
   void frame;
   const quotes = (engine?.allQuotes() ?? []).filter((q) => tab === "all" || q.market === tab);
   const results = query.trim() ? searchStocks(query, tab === "all" ? undefined : tab) : [];
@@ -56,10 +57,14 @@ export function Watchlist() {
         <ProvenanceBadge kind="official" />
       </div>
       <ProvenanceMicro text={officialWatchlistMicro(freezeWeekLabel(engine?.session.date))} />
-      <div className="border-b border-border px-2 py-1">
+      <div className="flex items-center gap-2 border-b border-border px-2 py-1">
         <input aria-label="搜尋上市櫃" value={query} onChange={(e) => setQuery(e.target.value)}
           placeholder={`搜尋 ${CATALOGUE_COUNT} 檔代號或名稱`} autoComplete="off"
-          className="h-8 w-full bg-transparent text-xs text-fg outline-none placeholder:text-subtle" />
+          className="h-10 min-w-0 flex-1 rounded-md bg-surface px-2 text-sm text-fg placeholder:text-subtle" />
+        <button type="button" aria-pressed={detailed} onClick={() => setDetailed(value => !value)}
+          className="min-h-10 shrink-0 rounded-md px-2 text-xs text-muted hover:bg-elevated">
+          {detailed ? "精簡欄位" : "詳細欄位"}
+        </button>
       </div>
       {query.trim() ? <div className="term-scroll min-h-0 flex-1 overflow-auto">
         <p className="px-2 py-1 text-micro text-muted">教材週名稱目錄；有當日教材資料才能加入模擬。</p>
@@ -75,7 +80,7 @@ export function Watchlist() {
         })}
       </div> : <>
       <div className="term-scroll min-h-0 flex-1 overflow-auto">
-        <table className="w-full min-w-watchlist border-collapse font-mono text-micro">
+        <table className={cn("w-full border-collapse font-mono text-xs", detailed ? "min-w-watchlist" : "watchlist-compact")}>
           <thead className="sticky top-0 z-10 bg-header-2 text-fg">
             <tr className="text-left">
               <th className="whitespace-nowrap px-1.5 py-1 font-medium">商品</th>
@@ -104,7 +109,7 @@ export function Watchlist() {
             {quotes.map((q) => {
               const active = q.code === selected;
               const flash = q.flash === 1 ? "flash-up" : q.flash === -1 ? "flash-down" : "";
-              const limitCls = q.atLimitUp ? "bg-up text-fg" : q.atLimitDown ? "bg-down text-bg" : "";
+              const limitCls = q.atLimitUp ? "bg-up text-white" : q.atLimitDown ? "bg-down text-white" : "";
               const ch = toneClass(q.change);
               return (
                 <tr
@@ -117,10 +122,13 @@ export function Watchlist() {
                   )}
                 >
                   <td className="whitespace-nowrap px-1.5 py-0.5">
-                    <div className="flex items-baseline gap-1.5">
+                    <button type="button" aria-label={`選擇 ${q.code} ${q.name}`} aria-pressed={active}
+                      onClick={event => { event.stopPropagation(); select(q.code); }} className="w-full rounded text-left">
+                    <span className="flex items-baseline gap-1.5">
                       <span className="text-muted">{q.code}</span>
                       <span className="font-sans text-xs text-fg">{q.name}</span>
-                    </div>
+                    </span>
+                    </button>
                   </td>
                   <td className={cn("hidden whitespace-nowrap px-1.5 py-0.5 tabular md:table-cell", ch, limitCls)}>
                     {formatPrice(q.bid)}

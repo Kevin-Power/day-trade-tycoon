@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
-import { Eye, EyeOff, ScrollText } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { SimChip } from "@/components/provenance";
+import { ArrowRight, LoaderCircle, LockKeyhole, ScrollText } from "lucide-react";
+import { AuthPasswordInput, ClassroomAuthLayout } from "@/components/classroom-auth-layout";
 import { CONSENT, DISCLAIMER } from "@/lib/provenance";
 import { LICENSE_QUOTE } from "@/lib/license";
 
@@ -11,9 +10,14 @@ type Props = {
   submit: (password: string) => Promise<{ ok: boolean; reason?: string }>;
 };
 
+const FEATURES = [
+  { title: "跟著講師掌握觀察重點", description: "從盤勢與交易節奏開始，知道每次練習要看什麼。" },
+  { title: "在模擬環境反覆練習", description: "練習進出場與風險控管，建立有依據的決策流程。" },
+  { title: "透過復盤找到下一步", description: "回看操作與學習紀錄，把每一盤轉化成具體心得。" },
+] as const;
+
 export function GateScreen({ onOpen, submit }: Props) {
   const [password, setPassword] = useState("");
-  const [show, setShow] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -23,128 +27,113 @@ export function GateScreen({ onOpen, submit }: Props) {
     inputRef.current?.focus();
   }, []);
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault();
     if (busy || !agreed) return;
     setBusy(true);
     setError("");
-    const res = await submit(password);
-    setBusy(false);
-    if (res.ok) {
-      onOpen();
-      return;
+    try {
+      const result = await submit(password);
+      if (result.ok) {
+        onOpen();
+        return;
+      }
+      setError(result.reason || "密碼錯誤");
+    } catch {
+      setError("暫時無法核對入場碼，請稍後再試。");
+    } finally {
+      setBusy(false);
     }
-    setError(res.reason || "密碼錯誤");
   }
 
   return (
-    <div className="relative flex min-h-dvh items-center justify-center overflow-x-hidden bg-bg px-4 text-fg">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.35]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, color-mix(in oklab, var(--color-border) 70%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in oklab, var(--color-border) 70%, transparent) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(ellipse_at_top,color-mix(in_oklab,var(--color-header-2)_28%,transparent),transparent_70%)]" />
-
-      <div className="relative w-full max-w-md">
-        <div className="mb-8 flex items-center gap-3">
-          <Mark />
-          <div>
-            <div className="text-xs tracking-[0.22em] text-muted">DAY TRADE TYCOON</div>
-            <div className="font-medium">股文觀指教室</div>
-          </div>
-          <SimChip className="ml-auto" />
-        </div>
-
-        <form
-          onSubmit={onSubmit}
-          className="rounded-lg border border-border bg-surface p-5 shadow-[var(--shadow-panel)] sm:p-6"
-        >
-          <p className="text-xs tracking-[0.28em] text-muted">CLASSROOM GATE</p>
-          <h1 className="mt-2 text-2xl font-medium tracking-tight">教室入場</h1>
-          <p className="mt-2 text-pretty text-sm leading-relaxed text-muted">
-            輸入講師發給的入場密碼。這不是券商帳號，也不會送到實盤。
-          </p>
-          <p className="mt-3 text-pretty text-sm leading-relaxed text-muted">{DISCLAIMER}</p>
-
-          <label className="mt-5 block text-micro text-muted" htmlFor="classroom-gate">
-            入場密碼
-          </label>
-          <div className="mt-1.5 flex items-center gap-1 rounded-md border border-border-strong bg-bg focus-within:ring-2 focus-within:ring-ring">
-            <input
-              id="classroom-gate"
-              ref={inputRef}
-              name="password"
-              type={show ? "text" : "password"}
-              inputMode="numeric"
-              autoComplete="off"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (error) setError("");
-              }}
-              className="h-11 min-w-0 flex-1 bg-transparent px-3 font-mono text-sm text-fg outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => setShow((v) => !v)}
-              className="mr-1 inline-flex size-9 items-center justify-center rounded-sm text-muted hover:text-fg"
-              aria-label={show ? "隱藏密碼" : "顯示密碼"}
-            >
-              {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-            </button>
-          </div>
-
-          {error ? (
-            <p className="mt-2 text-sm text-up" role="alert">
-              {error}
-            </p>
-          ) : (
-            <p className="mt-2 text-micro text-subtle">密碼由講師當面或課前發給。不要轉貼到公開頻道。</p>
-          )}
-
-          <label className="mt-4 flex items-start gap-2 text-pretty text-micro leading-relaxed text-muted">
-            <input
-              type="checkbox"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-              className="mt-0.5 size-3.5 shrink-0 accent-[var(--color-vwap)]"
-            />
-            <span>{CONSENT}</span>
-          </label>
-
-          <Button type="submit" className="mt-5 w-full" size="lg" disabled={busy || !agreed}>
-            {busy ? "核對中…" : "進入教室"}
-          </Button>
-        </form>
-
-        <p className="mt-4 text-center text-micro leading-relaxed text-subtle">
-          <Link to="/license" className="inline-flex items-center gap-1 text-muted hover:text-fg">
-            <ScrollText className="size-3.5" />
+    <ClassroomAuthLayout
+      heroTitle={
+        <>
+          先練好交易紀律，
+          <br />
+          再看懂每一次決策。
+        </>
+      }
+      heroDescription="講師帶領、模擬操作、課後復盤。在當沖大富翁，循序練習觀察市場與管理風險。"
+      features={FEATURES}
+      footer={
+        <>
+          <Link to="/license" className="academy-nav-link inline-flex items-center gap-1.5">
+            <ScrollText className="size-3.5" aria-hidden="true" />
             教室授權說明
           </Link>
-          <span className="mx-1.5">·</span>
-          不必入場密碼 · {LICENSE_QUOTE}
+          <p className="mt-1">無須入場碼即可查看 · {LICENSE_QUOTE}</p>
+        </>
+      }
+    >
+      <div className="mb-6">
+        <p className="academy-eyebrow flex items-center gap-2">
+          <LockKeyhole className="size-3.5" aria-hidden="true" />
+          01 / 教室入場
+        </p>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-fg">進入交易教室</h1>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          準備好講師提供的入場碼，開始今天的模擬練習。
         </p>
       </div>
-    </div>
-  );
-}
 
-function Mark() {
-  return (
-    <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden className="rounded-sm">
-      <rect width="36" height="36" fill="#163a6b" />
-      <path d="M8 24 V14 H11 V24 Z" fill="#ff3b3b" />
-      <path d="M9.5 10 V14 M9.5 24 V28" stroke="#ff3b3b" strokeWidth="1.4" />
-      <path d="M16 24 V18 H19 V24 Z" fill="#8b9bb0" />
-      <path d="M17.5 15 V18 M17.5 24 V26" stroke="#8b9bb0" strokeWidth="1.4" />
-      <path d="M24 24 V11 H27 V24 Z" fill="#17c964" />
-      <path d="M25.5 8 V11 M25.5 24 V30" stroke="#17c964" strokeWidth="1.4" />
-    </svg>
+      <form onSubmit={onSubmit} aria-busy={busy}>
+        <AuthPasswordInput
+          id="classroom-gate"
+          inputRef={inputRef}
+          label="教室入場碼"
+          name="password"
+          autoComplete="off"
+          required
+          disabled={busy}
+          value={password}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? "classroom-gate-error" : undefined}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            if (error) setError("");
+          }}
+          hint="入場碼由講師於課前提供，請勿公開分享。"
+        />
+        {error ? (
+          <p id="classroom-gate-error" className="mt-3 text-sm leading-6 text-up" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="mt-6 rounded-xl border border-border bg-bg/50 p-4">
+          <p className="text-xs font-medium text-fg">練習前，請先了解</p>
+          <p id="classroom-disclaimer" className="mt-2 text-xs leading-6 text-muted">
+            {DISCLAIMER}
+          </p>
+        </div>
+        <label className="mt-4 flex cursor-pointer items-start gap-3 text-pretty text-xs leading-6 text-muted">
+          <input
+            type="checkbox"
+            required
+            checked={agreed}
+            disabled={busy}
+            onChange={(event) => setAgreed(event.target.checked)}
+            aria-describedby="classroom-disclaimer"
+            className="mt-1 size-4 shrink-0 accent-[var(--color-brand)]"
+          />
+          <span>{CONSENT}</span>
+        </label>
+
+        <button
+          type="submit"
+          className="academy-button-primary mt-6 w-full"
+          disabled={busy || !agreed}
+        >
+          {busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+          {busy ? "正在核對入場碼…" : "進入教室"}
+          {!busy ? <ArrowRight className="size-4" aria-hidden="true" /> : null}
+        </button>
+        <p className="mt-3 text-center text-xs leading-5 text-muted">
+          僅供模擬教學 · 不會送出真實交易委託
+        </p>
+      </form>
+    </ClassroomAuthLayout>
   );
 }

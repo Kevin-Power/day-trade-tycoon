@@ -88,7 +88,7 @@ export function CoachCorner() {
   return (
     <div
       role="note"
-      className="pointer-events-none absolute bottom-20 left-2 z-30 max-w-[min(100%-1rem,26rem)] rounded-sm border border-border bg-surface/94 px-2 py-1 text-2xs leading-relaxed text-muted shadow-[var(--shadow-panel)] sm:bottom-8"
+      className="pointer-events-none absolute bottom-8 left-2 z-30 hidden max-w-[min(100%-1rem,26rem)] rounded-sm border border-border bg-surface/94 px-2 py-1 text-2xs leading-relaxed text-muted shadow-[var(--shadow-panel)] lg:block"
     >
       {COACH_CORNER}
     </div>

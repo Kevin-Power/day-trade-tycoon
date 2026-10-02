@@ -11,7 +11,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: APP_NAME },
-      { name: "theme-color", content: "#080b10" },
+      { name: "theme-color", content: "#f5f7fb" },
       {
         name: "description",
         content: "模擬台股當沖教室：證交所 5 秒加權指數、五檔撮合、漲跌停與收盤強制平倉，讓學員練習判斷與風控。",

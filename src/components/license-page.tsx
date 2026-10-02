@@ -34,7 +34,7 @@ const TOC = [
 export function LicensePage() {
   const { lock, unlocked } = useGate();
   return (
-    <div className="manual-sheet min-h-dvh bg-bg text-fg">
+    <div className="academy-page manual-sheet min-h-dvh bg-bg text-fg">
       <header className="no-print sticky top-0 z-20 border-b border-border bg-bg/92 backdrop-blur-sm">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link
@@ -118,12 +118,12 @@ function Cover() {
 
 function Nav() {
   return (
-    <nav className="mb-14 grid gap-1 sm:grid-cols-2 print:mb-8">
+    <nav aria-label="課程說明章節" className="academy-card mb-12 grid gap-1 p-4 sm:grid-cols-2 print:mb-8">
       {TOC.map((t) => (
         <a
           key={t.id}
           href={`#${t.id}`}
-          className="flex items-baseline gap-3 rounded-sm px-2 py-1.5 text-sm text-muted hover:bg-elevated hover:text-fg"
+          className="flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted hover:bg-elevated hover:text-fg"
         >
           <span className="font-mono text-micro text-subtle">{t.n}</span>
           {t.label}

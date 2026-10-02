@@ -4,7 +4,7 @@ import { ClassroomSimMark, ProvenanceBadge, ProvenanceMicro } from "@/components
 import { useGame } from "@/lib/game/store";
 import { LIVE_UNWIRED_REASON, SIM_ACCOUNT, SIM_TIF_HINT, simAllowsTif, venueLabel, type TimeInForce } from "@/lib/broker";
 import { blotterMicro } from "@/lib/provenance";
-import { formatPrice, LOT_SHARES, ROUND_TRIP_RATE, stepTick } from "@/lib/market/ticks";
+import { LOT_SHARES, ROUND_TRIP_RATE, stepTick } from "@/lib/market/ticks";
 import { cn, formatMoney, formatPct } from "@/lib/utils";
 
 const TIF: TimeInForce[] = ["ROD", "IOC", "FOK"];
@@ -36,7 +36,7 @@ export function OrderTicket() {
   const buy = ticket.side === "buy";
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface">
+    <div className="trade-ticket flex h-full min-h-0 flex-col bg-surface">
       <div className="pane-title flex h-7 items-center justify-between gap-2 px-2">
         <span>委託下單</span>
         <span className="flex items-center gap-1.5">
@@ -47,7 +47,9 @@ export function OrderTicket() {
       </div>
       <ProvenanceMicro text={blotterMicro()} />
 
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-elevated/60 px-2 py-1.5">
+      <details className="border-b border-border bg-bg-1">
+      <summary className="cursor-pointer px-3 py-2.5 text-xs text-muted">模擬帳戶 · 進階委託設定</summary>
+      <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2">
         <Field label="帳號">
           <span className="font-mono">{accountId || SIM_ACCOUNT}</span>
         </Field>
@@ -127,6 +129,7 @@ export function OrderTicket() {
         </Field>
         <span className="ml-auto font-mono text-2xs text-muted">{venueLabel(venue)}</span>
       </div>
+      </details>
 
       <div className="grid flex-1 grid-cols-2 gap-2 p-2 sm:grid-cols-12">
         <div className="col-span-2 flex flex-col justify-center rounded-sm border border-border bg-bg px-2 py-1.5 sm:col-span-3">
@@ -143,7 +146,7 @@ export function OrderTicket() {
             onClick={() => setTicket({ side: "buy" })}
             className={cn(
               "h-11 flex-1 rounded-xs text-sm font-medium",
-              buy ? "bg-up text-fg" : "text-muted hover:text-fg",
+              buy ? "bg-up text-white" : "text-muted hover:text-fg",
             )}
           >
             買進
@@ -153,7 +156,7 @@ export function OrderTicket() {
             onClick={() => setTicket({ side: "sell" })}
             className={cn(
               "h-11 flex-1 rounded-xs text-sm font-medium",
-              !buy ? "bg-down text-bg" : "text-muted hover:text-fg",
+              !buy ? "bg-down text-white" : "text-muted hover:text-fg",
             )}
           >
             賣出
@@ -188,12 +191,14 @@ export function OrderTicket() {
           <button
             type="button"
             className="size-8 text-lg text-muted hover:text-fg"
+            aria-label="減少張數"
             onClick={() => setTicket({ lots: Math.max(1, ticket.lots - 1) })}
           >
             –
           </button>
           <input
             type="number"
+            aria-label="委託張數"
             min={1}
             max={200}
             value={ticket.lots}
@@ -202,6 +207,7 @@ export function OrderTicket() {
           />
           <button
             type="button"
+            aria-label="增加張數"
             className="size-8 text-lg text-muted hover:text-fg"
             onClick={() => setTicket({ lots: Math.min(200, ticket.lots + 1) })}
           >
@@ -213,6 +219,7 @@ export function OrderTicket() {
           <span className="text-muted">價格</span>
           <button
             type="button"
+            aria-label="降低委託價格"
             className="size-8 text-lg text-muted hover:text-fg"
             onClick={() => setTicket({ price: stepTick(price, -1), type: "limit" })}
           >
@@ -220,6 +227,7 @@ export function OrderTicket() {
           </button>
           <input
             type="number"
+            aria-label="委託價格"
             step="any"
             value={ticket.type === "market" ? "" : price || ""}
             placeholder="市價"
@@ -229,6 +237,7 @@ export function OrderTicket() {
           />
           <button
             type="button"
+            aria-label="提高委託價格"
             className="size-8 text-lg text-muted hover:text-fg"
             onClick={() => setTicket({ price: stepTick(price, 1), type: "limit" })}
           >
@@ -237,8 +246,8 @@ export function OrderTicket() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-border px-2 py-2">
-        <div className="min-w-0 flex-1 font-mono text-micro">
+      <div className="order-actions flex flex-wrap items-center gap-2 border-t border-border px-3 py-3">
+        <div className="order-summary min-w-0 flex-1 font-mono text-xs">
           <div className={cn("mb-0.5", flashOrder ? "text-tape" : "text-muted")}>
             {flashOrder ? "閃電即送 · 點賣檔限價買、點買檔限價賣" : "點五檔只帶價"}
           </div>
@@ -276,9 +285,9 @@ export function OrderTicket() {
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="inline-flex items-center gap-1.5 text-2xs text-muted">
+    <div className="inline-flex items-center gap-1.5 text-2xs text-muted">
       <span>{label}</span>
       <span className="text-fg">{children}</span>
-    </label>
+    </div>
   );
 }

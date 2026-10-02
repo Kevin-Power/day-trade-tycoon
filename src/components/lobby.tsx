@@ -1,10 +1,26 @@
-import { Activity, BookOpen, ChevronRight, Clock3, Download, HardDrive, LogOut, ScrollText, Shield, Target, TrendingUp } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowRight,
+  BookOpen,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Clock3,
+  Download,
+  FileText,
+  GraduationCap,
+  HardDrive,
+  LogOut,
+  Play,
+  ShieldCheck,
+  Target,
+} from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
-import { nextRank, rankFor, SCENARIOS } from "@/lib/game/scenarios";
+import { nextRank, rankFor, SCENARIOS, type Scenario } from "@/lib/game/scenarios";
 import { lessonById, PRINCIPLES } from "@/lib/game/curriculum";
 import { useGame } from "@/lib/game/store";
 import { playOpen, unlockAudio } from "@/lib/game/audio";
+import type { Profile, SessionRecord } from "@/lib/game/types";
 import { cn, formatMoney, formatPct, formatSigned } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
 import { LiveTape } from "@/components/live-tape";
@@ -13,358 +29,542 @@ import { teachingUniverseLine } from "@/lib/market/universe";
 import { WEEK_SESSIONS, formatIndex } from "@/lib/market/week";
 import { useGate } from "@/lib/gate/context";
 import { ClassroomAccount } from "@/components/classroom-account";
-import {
-  SIM_CHIP_NOTE,
-  classroomSampleMicro,
-  officialIndexMicro,
-  officialTurnoverMicro,
-} from "@/lib/provenance";
+import { classroomSampleMicro, officialIndexMicro, officialTurnoverMicro } from "@/lib/provenance";
 
 const WEEK_ORDER = ["mon", "tue", "wed"] as const;
 const CLASSROOM_OFFLINE = import.meta.env.BASE_URL === "./";
 
 export function Lobby() {
-  const profile = useGame((s) => s.profile);
-  const start = useGame((s) => s.start);
-  const hydrated = useGame((s) => s.hydrated);
-  const rank = rankFor(profile.careerPnl);
-  const nxt = nextRank(profile.careerPnl);
-  const winRate = profile.sessions ? profile.wins / profile.sessions : 0;
+  const profile = useGame((state) => state.profile);
+  const start = useGame((state) => state.start);
+  const hydrated = useGame((state) => state.hydrated);
   const { lock } = useGate();
+  const firstLesson = SCENARIOS[0];
+
+  function beginLesson(id: string) {
+    unlockAudio();
+    playOpen();
+    start(id);
+  }
 
   return (
-    <div className="relative min-h-dvh overflow-x-hidden bg-bg text-fg">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.35]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, color-mix(in oklab, var(--color-border) 70%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in oklab, var(--color-border) 70%, transparent) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(ellipse_at_top,color-mix(in_oklab,var(--color-header-2)_28%,transparent),transparent_70%)]" />
-
-      <header className="relative mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-        <div className="flex items-center gap-3">
-          <Mark />
-          <div>
-            <div className="text-xs tracking-[0.22em] text-muted">DAY TRADE TYCOON</div>
-            <div className="font-medium">模擬當沖教室</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <SimChip className="hidden sm:inline" />
-          <Link
-            to="/license"
-            className="inline-flex h-9 items-center gap-1.5 rounded-sm bg-header-2 px-3 text-xs text-fg hover:bg-header"
+    <div className="academy-page min-h-dvh bg-bg text-fg">
+      <header className="academy-header border-b border-border">
+        <div className="academy-container mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
+          <a
+            href="#classroom-top"
+            className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg"
           >
-            <ScrollText className="size-3.5" />
-            <span className="hidden sm:inline">教室授權</span>
-            <span className="sm:hidden">授權</span>
-          </Link>
-          <Link
-            to="/manual"
-            className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-border-strong bg-surface px-3 text-xs text-fg hover:bg-elevated"
-          >
-            <BookOpen className="size-3.5" />
-            <span className="hidden sm:inline">說明書</span>
-            <span className="sm:hidden">說明</span>
-          </Link>
-          {CLASSROOM_OFFLINE ? (
-            <span className="rounded-xs border border-border-strong bg-elevated px-2 py-1 text-micro text-muted">
-              地端教室 · 離線
-            </span>
-          ) : (
-            <a
-              href="/api/download/offline"
-              download="當沖大富翁-地端教室.zip"
-              className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-border-strong bg-surface px-3 text-xs text-fg hover:bg-elevated"
+            <span
+              className="grid size-10 shrink-0 place-items-center rounded-xl border border-border-strong bg-surface"
+              aria-hidden="true"
             >
-              <Download className="size-3.5" />
-              <span className="hidden sm:inline">下載地端教室</span>
-              <span className="sm:hidden">地端</span>
-            </a>
-          )}
-          <div className="text-right">
-            <div className="text-micro text-muted">目前段位</div>
-            <div className="text-sm font-medium">{rank.title}</div>
-          </div>
-          <button
-            type="button"
-            onClick={lock}
-            className="inline-flex size-9 items-center justify-center rounded-sm border border-border-strong bg-surface text-muted hover:bg-elevated hover:text-fg"
-            aria-label="登出"
-          >
-            <LogOut className="size-3.5" />
-          </button>
+              <GraduationCap className="size-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold tracking-wide">當沖大富翁</span>
+              <span className="block text-[10px] tracking-[0.14em] text-muted">
+                DAY TRADE TYCOON
+              </span>
+            </span>
+          </a>
+          <nav aria-label="教室導覽" className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <Link
+              to="/manual"
+              className="academy-nav-link inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs sm:px-3 sm:text-sm"
+            >
+              <BookOpen className="hidden size-4 sm:block" aria-hidden="true" />
+              教材
+            </Link>
+            <Link
+              to="/license"
+              className="academy-nav-link inline-flex min-h-11 items-center rounded-lg px-2.5 text-xs sm:px-3 sm:text-sm"
+            >
+              課程說明
+            </Link>
+            <button
+              type="button"
+              onClick={lock}
+              className="academy-nav-link inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted sm:px-3 sm:text-sm"
+              aria-label="離開教室"
+            >
+              <LogOut className="size-3.5" aria-hidden="true" />
+              <span>離場</span>
+            </button>
+          </nav>
         </div>
       </header>
 
-      <main className="relative mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
-        <ClassroomAccount />
-        <section className="stagger-in mb-8 max-w-3xl pt-4 sm:pt-10">
-          <p className="mb-3 text-xs tracking-[0.28em] text-muted">本週實盤 · 2026/08/24–08/26</p>
-          <h1 className="text-balance text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
-            當沖大富翁
-          </h1>
-          <p className="mt-4 max-w-xl text-pretty text-sm leading-relaxed text-muted sm:text-base">
-            加權為證交所每 5 秒指數。課綱凍結 8/24–8/26。下單畫面比照券商現股當沖：模擬撮合已開，實盤 API 接上後只換通路。
+      <main
+        id="classroom-top"
+        className="academy-container mx-auto w-full max-w-7xl px-4 pb-12 sm:px-6 lg:px-8"
+      >
+        <section
+          aria-labelledby="classroom-title"
+          className="grid gap-6 pb-7 pt-7 sm:py-8 lg:grid-cols-[1.3fr_0.7fr] lg:items-center lg:gap-10"
+        >
+          <div className="min-w-0">
+            <div className="mb-3 flex flex-wrap items-center gap-2.5">
+              <span className="academy-eyebrow text-xs font-medium tracking-[0.16em] text-muted">
+                你的模擬交易教室
+              </span>
+              <SimChip />
+              {CLASSROOM_OFFLINE && (
+                <span className="rounded-md border border-border px-2 py-0.5 text-[11px] text-muted">
+                  離線練習
+                </span>
+              )}
+            </div>
+            <h1
+              id="classroom-title"
+              className="academy-title text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
+            >
+              當沖大富翁
+            </h1>
+            <p className="academy-description mt-3 max-w-xl text-pretty text-sm leading-7 text-muted sm:text-base">
+              從第一筆有計畫的下單開始。跟著講師練成本、停損與部位控制，再用復盤看見可以改進的地方。
+            </p>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              {firstLesson && (
+                <button
+                  type="button"
+                  disabled={!hydrated}
+                  onClick={() => beginLesson(firstLesson.id)}
+                  className="academy-button-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
+                >
+                  <Play className="size-4" aria-hidden="true" />
+                  {!hydrated ? "載入教室…" : profile.sessions ? "重練第一課" : "開始第一課"}
+                  <span className="border-l border-current/20 pl-2 text-xs font-normal">
+                    {firstLesson.minutes} 分鐘教材
+                  </span>
+                </button>
+              )}
+              <a
+                href="#courses"
+                className="academy-nav-link inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm"
+              >
+                選擇課程 <ArrowDown className="size-4" aria-hidden="true" />
+              </a>
+            </div>
+          </div>
+          <div className="academy-card hidden min-w-0 rounded-2xl border border-border bg-surface p-5 lg:block">
+            <p className="text-xs font-medium text-muted">每次練習，完成三件事</p>
+            <ol className="mt-4 space-y-4">
+              {[
+                ["01", "進場前有計畫", "先寫條件、停損與張數。"],
+                ["02", "盤中依規則操作", "核對委託、成交與庫存。"],
+                ["03", "結算後回來復盤", "記下一項下次要改進的事。"],
+              ].map(([number, title, description]) => (
+                <li key={number} className="flex items-start gap-3">
+                  <span className="mt-0.5 font-mono text-xs text-subtle">{number}</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{title}</p>
+                    <p className="mt-0.5 text-xs leading-5 text-muted">{description}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <section id="courses" aria-labelledby="courses-title" className="scroll-mt-6">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 id="courses-title" className="text-lg font-semibold">
+                課程練習
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-muted">
+                五堂實作＋期末練習，建議依序進行。
+              </p>
+            </div>
+            <span className="text-xs leading-5 text-muted">分鐘數為模擬盤時間，可加速與暫停</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {SCENARIOS.map((scenario, index) => (
+              <CourseCard
+                key={scenario.id}
+                scenario={scenario}
+                index={index}
+                lastRecord={
+                  hydrated
+                    ? profile.history.find((record) => record.scenarioId === scenario.id)
+                    : undefined
+                }
+                ready={hydrated}
+                onStart={() => beginLesson(scenario.id)}
+              />
+            ))}
+          </div>
+          <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-muted">
+            <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            所有委託皆為教室模擬，不會送到券商。模擬成績不代表實際交易報酬。
           </p>
         </section>
 
-        <section className="mb-8 flex flex-col gap-1 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
-          <SimChip className="w-fit" />
-          <span className="text-sm">現股當沖 · 帳號 CLASSROOM-SIM</span>
-          <span className="text-micro text-muted sm:ml-auto" title={SIM_CHIP_NOTE}>
-            {SIM_CHIP_NOTE}。委託單與實盤共用。點實盤不會送到券商，教室下單仍走模擬撮合。
-          </span>
-        </section>
-
-        <section className="mb-8 flex flex-col gap-3 rounded-lg border border-header-2 bg-surface px-4 py-4 sm:flex-row sm:items-center">
-          <div className="min-w-0 flex-1">
-            <div className="text-micro tracking-[0.22em] text-muted">CLASSROOM LICENSE</div>
-            <div className="mt-1 text-sm font-medium">教室授權／班級方案</div>
-            <p className="mt-1 text-pretty text-micro leading-relaxed text-muted">
-              這包有模擬教室、課綱、地端包、說明書。沒有實盤下單、投顧、保證獲利。全班同一組入場密碼；每人帳號是之後的路。報價洽教室／講師，這一頁不寫新台幣數字。
-            </p>
+        <section aria-labelledby="progress-title" className="mt-9 border-t border-border pt-7">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 id="progress-title" className="text-lg font-semibold">
+              我的練習
+            </h2>
+            <span className="text-xs text-muted">
+              本機統計 · <ProvenanceBadge kind="classroom" />
+            </span>
           </div>
-          <Link
-            to="/license"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-sm bg-header-2 px-3 text-xs text-fg hover:bg-header"
-          >
-            <ScrollText className="size-3.5" />
-            打開授權說明
-          </Link>
-        </section>
-
-        <section className="mb-8 flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center">
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium">給石大哥的說明書</div>
-            <p className="mt-1 text-pretty text-micro leading-relaxed text-muted">
-              學員怎麼玩、資料哪裡來、模擬跟實盤差在哪。可列印、可下載 PDF。
-            </p>
+          <PracticeMetrics profile={profile} hydrated={hydrated} />
+          <div className="mt-4">
+            <ClassroomAccount />
           </div>
-          <Link
-            to="/manual"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-sm border border-border-strong bg-surface px-3 text-xs text-fg hover:bg-elevated"
-          >
-            <BookOpen className="size-3.5" />
-            打開說明書
-          </Link>
+          <RecentPractice
+            history={profile.history}
+            hydrated={hydrated}
+            onStart={() => firstLesson && beginLesson(firstLesson.id)}
+          />
         </section>
 
-        <section className="mb-8 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
-          {WEEK_ORDER.map((id) => {
-            const s = WEEK_SESSIONS[id]!;
-            const chg = s.close - s.prevClose;
-            const pct = (chg / s.prevClose) * 100;
-            return (
-              <div key={id} className="bg-surface px-4 py-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-micro text-muted">{s.label} 加權</div>
-                  <ProvenanceBadge kind="official" />
-                </div>
-                <ProvenanceMicro
-                  className="mt-1 border-0 bg-transparent px-0"
-                  text={`${officialIndexMicro(s.date)} · ${officialTurnoverMicro(s.date)}`}
+        <section aria-labelledby="materials-title" className="mt-9">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+            <h2 id="materials-title" className="text-lg font-semibold">
+              教材與練習工具
+            </h2>
+            <Link
+              to="/manual"
+              className="academy-nav-link inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs"
+            >
+              閱讀學員手冊 <ArrowRight className="size-3.5" aria-hidden="true" />
+            </Link>
+          </div>
+          <div className="space-y-3">
+            <details className="academy-card group rounded-2xl border border-border bg-surface">
+              <summary className="flex min-h-20 cursor-pointer list-none items-center gap-3 rounded-2xl px-4 py-4 sm:px-5 [&::-webkit-details-marker]:hidden">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-bg">
+                  <FileText className="size-4" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">教材行情與自由練習</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted">
+                    教材週 2026/08/24–08/26 · 展開查看資料來源
+                  </span>
+                </span>
+                <ChevronDown
+                  className="size-4 shrink-0 text-muted transition-transform group-open:rotate-180"
+                  aria-hidden="true"
                 />
-                <div className={cn("mt-1 font-mono text-lg tabular", toneClass(chg))}>
-                  {formatIndex(s.close)}
+              </summary>
+              <div className="min-w-0 border-t border-border px-4 pb-2 pt-4 sm:px-5">
+                <p className="mb-4 text-xs leading-6 text-muted">
+                  加權指數依指定日期的官方資料重播；個股盤中路徑與五檔由教室生成，並非即時逐筆行情。
+                  {teachingUniverseLine()}。
+                </p>
+                <div className="mb-6 grid gap-3 md:grid-cols-3">
+                  {WEEK_ORDER.map((id) => (
+                    <MarketSnapshot key={id} id={id} />
+                  ))}
                 </div>
-                <div className={cn("font-mono text-micro tabular", toneClass(chg))}>
-                  {formatSigned(chg)} · {formatPct(pct)}
-                </div>
-                <div className="mt-1 font-mono text-2xs text-muted">
-                  開 {formatIndex(s.open)} · 高 {formatIndex(s.high)} · 低 {formatIndex(s.low)}
-                </div>
+                <LiveTape />
               </div>
-            );
-          })}
-        </section>
-
-        <LiveTape />
-
-        <section className="mb-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
-          <HeroStat label="生涯損益" value={formatSigned(profile.careerPnl, 0)} tone={profile.careerPnl} />
-          <HeroStat label="已完成盤數" value={String(profile.sessions)} />
-          <HeroStat
-            label="勝率"
-            value={profile.sessions ? `${(winRate * 100).toFixed(0)}%` : "—"}
-            note={profile.sessions ? classroomSampleMicro(profile.sessions) : "尚無教室樣本"}
-            badge="classroom"
-          />
-          <HeroStat
-            label="下一階"
-            value={nxt ? `${nxt.title} · ${nxt.need}` : "已達頂點"}
-          />
-        </section>
-
-        <section>
-          <div className="mb-3 flex items-end justify-between">
-            <h2 className="text-sm font-medium tracking-wide">本週課綱</h2>
-            <span className="text-micro text-muted">建議依序打。進入後先講解，Space 繼續。</span>
+            </details>
+            <details className="academy-card group rounded-2xl border border-border bg-surface">
+              <summary className="flex min-h-20 cursor-pointer list-none items-center gap-3 rounded-2xl px-4 py-4 sm:px-5 [&::-webkit-details-marker]:hidden">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-bg">
+                  <Target className="size-4" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">每一課都用得到的六個原則</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted">
+                    成本、昨收、分價、停損、部位與平倉
+                  </span>
+                </span>
+                <ChevronDown
+                  className="size-4 shrink-0 text-muted transition-transform group-open:rotate-180"
+                  aria-hidden="true"
+                />
+              </summary>
+              <div className="grid gap-5 border-t border-border p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">
+                {PRINCIPLES.map((principle) => (
+                  <div key={principle.no} className="min-w-0">
+                    <p className="text-sm font-medium">
+                      <span className="mr-2 font-mono text-xs text-subtle">{principle.no}</span>
+                      {principle.title}
+                    </p>
+                    <p className="mt-2 text-xs leading-6 text-muted">{principle.body}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {SCENARIOS.map((sc) => {
-              const lesson = lessonById(sc.id);
-              return (
-              <article
-                key={sc.id}
-                className="group flex flex-col rounded-lg border border-border bg-surface p-4 shadow-[var(--shadow-panel)] transition-[border-color] duration-150 hover:border-border-strong"
-              >
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <span className="rounded-xs bg-elevated px-1.5 py-0.5 text-2xs tracking-wide text-muted">
-                    {lesson ? `${lesson.no} · ${lesson.skill}` : sc.tag}
-                  </span>
-                  <span className="font-mono text-micro text-muted">
-                    {sc.minutes} 分 · {sc.speed}x
-                  </span>
-                </div>
-                <h3 className="text-lg font-medium">{sc.name}</h3>
-                <p className="mt-2 flex-1 text-pretty text-sm leading-relaxed text-muted">{sc.blurb}</p>
-                <ul className="mt-3 space-y-1 text-micro text-subtle">
-                  <li className="flex items-center gap-1.5">
-                    <Target className="size-3.5" />
-                    {sc.objective}
-                  </li>
-                  {lesson && (
-                    <li className="flex items-center gap-1.5">
-                      <BookOpen className="size-3.5" />
-                      {lesson.principle}
-                    </li>
-                  )}
-                  <li className="flex items-center gap-1.5">
-                    <Shield className="size-3.5" />
-                    本金 {formatMoney(sc.capital)} · {sc.leverage}x 額度
-                    {sc.allowShort ? " · 可先賣" : " · 僅先買"}
-                  </li>
-                </ul>
-                <Button
-                  className="mt-4 w-full"
-                  onClick={() => {
-                    unlockAudio();
-                    playOpen();
-                    start(sc.id);
-                  }}
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="academy-card flex min-w-0 items-start gap-3 rounded-2xl border border-border bg-surface p-4 sm:p-5">
+              <BookOpen className="mt-0.5 size-5 shrink-0 text-muted" aria-hidden="true" />
+              <div className="min-w-0">
+                <h3 className="text-sm font-medium">上課前，先熟悉教室</h3>
+                <p className="mt-1 text-xs leading-6 text-muted">
+                  手冊整理入場、模擬操作、提交復盤與常見問題。課程日期、費用及入班安排請向講師確認。
+                </p>
+                <Link
+                  to="/license"
+                  className="academy-nav-link mt-2 inline-flex min-h-10 items-center gap-1 rounded-lg text-xs"
                 >
-                  進入盤室
-                  <ChevronRight className="size-4" />
-                </Button>
-              </article>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="mt-8">
-          <h2 className="mb-3 text-sm font-medium tracking-wide">當沖六式</h2>
-          <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
-            {PRINCIPLES.map((p) => (
-              <div key={p.no} className="bg-surface px-4 py-3">
-                <div className="font-mono text-micro text-muted">{p.no}</div>
-                <div className="mt-1 text-sm font-medium">{p.title}</div>
-                <p className="mt-1 text-pretty text-xs leading-relaxed text-muted">{p.body}</p>
+                  查看課程說明 <ArrowRight className="size-3.5" aria-hidden="true" />
+                </Link>
               </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="mt-10 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-lg border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-medium">近況戰績</h2>
-            {(!hydrated || profile.history.length === 0) && (
-              <p className="py-8 text-center text-sm text-muted">還沒有戰績。先打第 1 課 開盤觀察。</p>
-            )}
-            {hydrated && profile.history.length > 0 && (
-              <div className="term-scroll overflow-auto">
-                <table className="w-full text-left font-mono text-xs">
-                  <thead className="text-muted">
-                    <tr>
-                      <th className="py-1 font-medium">關卡</th>
-                      <th className="py-1 font-medium">損益</th>
-                      <th className="py-1 font-medium">報酬</th>
-                      <th className="py-1 font-medium">評等</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {profile.history.slice(0, 8).map((h) => (
-                      <tr key={h.id} className="border-t border-border">
-                        <td className="py-1.5">{h.scenarioName}</td>
-                        <td className={cn("py-1.5 tabular", toneClass(h.pnl))}>{formatSigned(h.pnl, 0)}</td>
-                        <td className={cn("py-1.5 tabular", toneClass(h.pnlPct))}>{formatPct(h.pnlPct)}</td>
-                        <td className="py-1.5">{h.grade}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            </div>
+            <div className="academy-card flex min-w-0 items-start gap-3 rounded-2xl border border-border bg-surface p-4 sm:p-5">
+              <HardDrive className="mt-0.5 size-5 shrink-0 text-muted" aria-hidden="true" />
+              <div className="min-w-0">
+                <h3 className="text-sm font-medium">把教材帶到離線教室</h3>
+                <p className="mt-1 text-xs leading-6 text-muted">
+                  使用固定教材週練習，紀錄保存在這台電腦的瀏覽器；離線紀錄不會自動同步到學員帳號。
+                </p>
+                {CLASSROOM_OFFLINE ? (
+                  <span className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted">
+                    <Check className="size-3.5" aria-hidden="true" />
+                    目前使用離線教室
+                  </span>
+                ) : (
+                  <a
+                    href="/api/download/offline"
+                    download="當沖大富翁-地端教室.zip"
+                    className="academy-nav-link mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-lg text-xs"
+                  >
+                    <Download className="size-3.5" aria-hidden="true" />
+                    下載離線教材
+                  </a>
+                )}
               </div>
-            )}
-          </div>
-          <div className="rounded-lg border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-medium">教室規則</h2>
-            <ul className="space-y-3 text-sm leading-relaxed text-muted">
-              <li className="flex gap-2">
-                <Clock3 className="mt-0.5 size-4 shrink-0 text-fg" />
-                時間軸 09:00–13:30。加權＝證交所每 5 秒指數；個股＝公開日成交套大盤節奏（非逐筆）。{teachingUniverseLine()}。下單走模擬撮合。點實盤不會送到券商。
-              </li>
-              <li className="flex gap-2">
-                <TrendingUp className="mt-0.5 size-4 shrink-0 text-fg" />
-                紅漲綠跌、1 張 = 1,000 股、±10% 漲跌停、五檔撮合。個股預設江波圖，分價表看堆積。教學模式會在關鍵分鐘暫停。
-              </li>
-              <li className="flex gap-2">
-                <Activity className="mt-0.5 size-4 shrink-0 text-fg" />
-                手續費約 0.0855%（最低 20 元），當沖稅 0.15%。來回成本約 0.32%。
-              </li>
-              <li className="flex gap-2">
-                <HardDrive className="mt-0.5 size-4 shrink-0 text-fg" />
-                地端包與線上同一套。解壓後雙擊 START.bat，教室電腦不必連網。戰績存在該機瀏覽器。
-              </li>
-            </ul>
+            </div>
           </div>
         </section>
+        <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-5 text-[11px] leading-5 text-subtle">
+          <span>當沖大富翁 · 講師帶班與模擬練習</span>
+          <span>先有計畫，再用紀錄檢查每一次操作。</span>
+        </footer>
       </main>
     </div>
   );
 }
 
-function HeroStat({
-  label,
-  value,
-  tone,
-  note,
-  badge,
+function CourseCard({
+  scenario,
+  index,
+  lastRecord,
+  ready,
+  onStart,
 }: {
-  label: string;
-  value: string;
-  tone?: number;
-  note?: string;
-  badge?: "official" | "classroom";
+  scenario: Scenario;
+  index: number;
+  lastRecord?: SessionRecord;
+  ready: boolean;
+  onStart: () => void;
 }) {
+  const lesson = lessonById(scenario.id);
+  const first = index === 0;
   return (
-    <div className="bg-surface px-4 py-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-micro text-muted">{label}</div>
-        {badge ? <ProvenanceBadge kind={badge} /> : null}
+    <article className="academy-card flex min-w-0 flex-col rounded-2xl border border-border bg-surface p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span className="font-medium text-muted">{lesson?.no || scenario.tag}</span>
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-[11px] text-muted">
+          <Clock3 className="size-3.5" aria-hidden="true" />
+          {scenario.minutes} 分 · {scenario.speed}×
+        </span>
       </div>
-      <div className={cn("mt-1 font-mono text-lg tabular", tone !== undefined ? toneClass(tone) : "text-fg")}>
-        {value}
+      <h3 className="mt-2.5 text-lg font-semibold tracking-tight">
+        {lesson?.skill || scenario.name}
+      </h3>
+      <p className="mt-1 text-[11px] text-subtle">{scenario.name}</p>
+      <p className="mb-4 mt-3 flex-1 text-sm leading-6 text-muted">{scenario.objective}</p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-3 text-[11px] leading-5 text-muted">
+        <span>模擬本金 {formatMoney(scenario.capital)}</span>
+        <span>
+          {scenario.leverage}× 額度 · {scenario.allowShort ? "可先賣" : "僅先買"}
+        </span>
       </div>
-      {note ? <ProvenanceMicro className="mt-1 border-0 bg-transparent px-0" text={note} /> : null}
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <span className="min-w-0 text-[11px] leading-5 text-muted">
+          {lastRecord
+            ? `最近練習：${lastRecord.passed === true ? "通過" : lastRecord.passed === false ? "待練習" : lastRecord.grade}`
+            : first
+              ? "建議從這裡開始"
+              : "依自己的進度練習"}
+        </span>
+        <button
+          type="button"
+          disabled={!ready}
+          onClick={onStart}
+          aria-label={`進入${lesson?.no || scenario.name}：${lesson?.skill || scenario.name}`}
+          className={cn(
+            "inline-flex min-h-10 shrink-0 items-center justify-center gap-1 rounded-lg px-3 text-xs font-medium disabled:opacity-50",
+            first ? "academy-button-primary" : "academy-button-secondary",
+          )}
+        >
+          進入課程 <ArrowRight className="size-3.5" aria-hidden="true" />
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function PracticeMetrics({ profile, hydrated }: { profile: Profile; hydrated: boolean }) {
+  const rank = rankFor(profile.careerPnl);
+  const next = nextRank(profile.careerPnl);
+  const hasSessions = hydrated && profile.sessions > 0;
+  return (
+    <div className="academy-card grid min-w-0 grid-cols-2 divide-x divide-border overflow-hidden rounded-2xl border border-border bg-surface lg:grid-cols-4">
+      <PracticeMetric
+        label="模擬累積淨損益"
+        value={hasSessions ? formatSigned(profile.careerPnl, 0) : "—"}
+        tone={hasSessions ? profile.careerPnl : undefined}
+        note={hasSessions ? "僅計本機已結算練習" : "完成第一盤後顯示"}
+      />
+      <PracticeMetric
+        label="已完成練習"
+        value={hydrated ? `${profile.sessions} 盤` : "—"}
+        note="未結算的練習不計入"
+      />
+      <PracticeMetric
+        label="獲利盤占比"
+        value={hasSessions ? `${((profile.wins / profile.sessions) * 100).toFixed(0)}%` : "—"}
+        note={hasSessions ? classroomSampleMicro(profile.sessions) : "尚無教室樣本"}
+        className="border-t border-border lg:border-t-0"
+      />
+      <PracticeMetric
+        label="目前練習段位"
+        value={hydrated ? rank.title : "—"}
+        note={next ? `下一階 ${next.title} · ${next.need}` : "已達目前最高段位"}
+        className="border-t border-border lg:border-t-0"
+      />
     </div>
   );
 }
 
-function Mark() {
+function PracticeMetric({
+  label,
+  value,
+  note,
+  tone,
+  className,
+}: {
+  label: string;
+  value: string;
+  note: string;
+  tone?: number;
+  className?: string;
+}) {
   return (
-    <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden className="rounded-sm">
-      <rect width="36" height="36" fill="#163a6b" />
-      <path d="M8 24 V14 H11 V24 Z" fill="#ff3b3b" />
-      <path d="M9.5 10 V14 M9.5 24 V28" stroke="#ff3b3b" strokeWidth="1.4" />
-      <path d="M16 24 V18 H19 V24 Z" fill="#8b9bb0" />
-      <path d="M17.5 15 V18 M17.5 24 V26" stroke="#8b9bb0" strokeWidth="1.4" />
-      <path d="M24 24 V11 H27 V24 Z" fill="#17c964" />
-      <path d="M25.5 8 V11 M25.5 24 V30" stroke="#17c964" strokeWidth="1.4" />
-    </svg>
+    <div className={cn("min-w-0 p-4 sm:p-5", className)}>
+      <p className="text-xs text-muted">{label}</p>
+      <p
+        className={cn(
+          "mt-2 break-words font-mono text-xl font-medium tabular",
+          tone !== undefined ? toneClass(tone) : "text-fg",
+        )}
+      >
+        {value}
+      </p>
+      <p className="mt-2 text-[11px] leading-5 text-subtle">{note}</p>
+    </div>
+  );
+}
+
+function RecentPractice({
+  history,
+  hydrated,
+  onStart,
+}: {
+  history: SessionRecord[];
+  hydrated: boolean;
+  onStart: () => void;
+}) {
+  return (
+    <div className="academy-card overflow-hidden rounded-2xl border border-border bg-surface">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-4 sm:px-5">
+        <h3 className="text-sm font-semibold">最近的本機練習</h3>
+        <span className="text-[11px] text-muted">最近 8 盤 · 點選查看本人復盤</span>
+      </div>
+      {!hydrated ? (
+        <p role="status" className="px-5 py-8 text-sm text-muted">
+          正在載入這台裝置的練習紀錄…
+        </p>
+      ) : history.length === 0 ? (
+        <div className="flex flex-col items-start gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium">你的第一份復盤，從第一課開始</p>
+            <p className="mt-1 text-xs leading-6 text-muted">
+              完成模擬下單與結算後，這裡會留下練習紀錄。
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onStart}
+            className="academy-button-secondary inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-sm"
+          >
+            開始練習 <ArrowRight className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+      ) : (
+        <ul className="divide-y divide-border">
+          {history.slice(0, 8).map((record) => (
+            <li key={record.id}>
+              <Link
+                to="/session/$id/review"
+                params={{ id: record.id }}
+                className="group flex min-w-0 items-center gap-3 px-4 py-4 transition-colors hover:bg-elevated focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand sm:px-5"
+              >
+                <span className="hidden size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-bg text-muted sm:flex">
+                  <FileText className="size-4" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{record.scenarioName}</p>
+                  <p className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[11px] leading-5 text-muted">
+                    <span>{lessonById(record.scenarioId)?.no || "自由練習"}</span>
+                    <span>評等 {record.grade}</span>
+                    <span>{record.trades} 次平倉</span>
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className={cn("font-mono text-sm tabular", toneClass(record.pnl))}>
+                    {formatSigned(record.pnl, 0)}
+                  </p>
+                  <p className={cn("mt-1 font-mono text-[11px] tabular", toneClass(record.pnlPct))}>
+                    {formatPct(record.pnlPct)}
+                  </p>
+                </div>
+                <ChevronRight
+                  className="size-4 shrink-0 text-subtle transition-transform group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function MarketSnapshot({ id }: { id: (typeof WEEK_ORDER)[number] }) {
+  const session = WEEK_SESSIONS[id]!;
+  const change = session.close - session.prevClose;
+  const percent = (change / session.prevClose) * 100;
+  return (
+    <div className="min-w-0 rounded-xl border border-border bg-bg p-4">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-muted">{session.label} 加權</span>
+        <ProvenanceBadge kind="official" />
+      </div>
+      <p className={cn("mt-3 font-mono text-xl tabular", toneClass(change))}>
+        {formatIndex(session.close)}
+      </p>
+      <p className={cn("mt-1 font-mono text-xs tabular", toneClass(change))}>
+        {formatSigned(change)} · {formatPct(percent)}
+      </p>
+      <p className="mt-2 text-[11px] leading-5 text-muted">
+        開 {formatIndex(session.open)} · 高 {formatIndex(session.high)} · 低{" "}
+        {formatIndex(session.low)}
+      </p>
+      <ProvenanceMicro
+        className="mt-3 break-words border-0 bg-transparent px-0 text-[10px]"
+        text={`${officialIndexMicro(session.date)} · ${officialTurnoverMicro(session.date)}`}
+      />
+    </div>
   );
 }

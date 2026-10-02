@@ -31,14 +31,14 @@ export function AppShell() {
     <>
       {phase === "lobby" ? <Lobby /> : <Terminal />}
       <Toaster
-        theme="dark"
+        theme="light"
         position="top-right"
         toastOptions={{
           className: "font-sans text-sm",
           style: {
-            background: "#161d27",
-            border: "1px solid #33455c",
-            color: "#e6edf5",
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border-strong)",
+            color: "var(--color-fg)",
           },
         }}
       />
