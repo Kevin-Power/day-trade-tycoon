@@ -32,6 +32,8 @@ ADMIN_SETUP_TOKEN=<一次性隨機初始化token>
 
 首位講師使用 `/setup#token=...` 初始化，token 僅保存在本機私密設定，勿放公開文件。進入教室後，由講師自己輸入名稱及新密碼；初始化以同一資料庫交易建立帳號、講師身份與完成標記。成功後不可重用，公開註冊也不能搶先建立保留的管理 Email。未初始化前不得宣稱講師帳號已建立。
 
+私密的「講師首次設定.url」可用 `node scripts/hosting/owner-entry.mjs` 產生或修復；加 `--check` 只驗證，也支援 `--runtime`。工具使用 dotenv 解析設定，避免將設定檔包裹字串的引號誤當成 token；舊捷徑先備份到受保護的 runtime/backups，再原子替換並讀回核對。只顯示路徑和結果，不顯示網址或 token，不變更密碼、資料庫或服務。捷徑和備份均含初始化秘密，不可分享。
+
 離線教材由 `/api/download/offline` 提供，需有效入場 cookie，禁止快取。檔案在 release 的 `downloads` 目錄，supervisor 自動設定 `CLASSROOM_DOWNLOADS_DIR`；不可搬到 public。測試網域舊靜態 `/daytrade-tycoon-offline.zip` 曾被 CDN 快取，已停用這個下載入口；舊快取僅含舊版公开教材，不含帳號或秘密。
 
 原先 `%LOCALAPPDATA%\DayTradeTycoon` 在 Codex MSIX 與一般 Windows 排程中可能對應不同檔案視圖，造成程序內存在的設定被排程讀成不存在；因此預設改用使用者目錄下的 `YilutekServices`。腳本不會自動搬移舊資料。已有舊 runtime 時，須正常停機與備份後複製，保留舊副本，修正入口／tunnel／credential 絕對路徑與專屬排程，再驗證同一份資料與登入。不要在新舊位置同時啟動資料庫副本。
