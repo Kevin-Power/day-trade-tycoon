@@ -71,6 +71,8 @@ export type Order = {
   filled: number;
   status: OrderStatus;
   time: number;
+  tif?: "ROD" | "IOC" | "FOK";
+  cancelReason?: string;
 };
 
 export type Position = {
@@ -78,6 +80,8 @@ export type Position = {
   lots: number;
   avg: number;
   realized: number;
+  /** Opening fees/tax still allocated to the remaining position. */
+  openCost?: number;
 };
 
 export type Fill = {

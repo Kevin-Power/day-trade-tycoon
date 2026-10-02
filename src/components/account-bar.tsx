@@ -71,7 +71,7 @@ export function AccountBar() {
       <Stat label="權益" value={formatMoney(st.equity, 0)} />
       <Stat label="損益" value={formatSigned(st.pnl, 0)} tone={st.pnl} />
       <Stat label="報酬" value={formatPct(st.pnlPct)} tone={st.pnlPct} />
-      <Stat label="可用" value={formatMoney(st.cash, 0)} className="hidden md:flex" />
+      <Stat label="可用" value={formatMoney(st.availableCash, 0)} className="hidden md:flex" />
       <Stat label="未實現" value={formatSigned(st.unrealized, 0)} tone={st.unrealized} className="hidden lg:flex" />
       <Stat label="使用" value={`${used.toFixed(0)}%`} className="hidden xl:flex" />
       <div className="flex-1" />

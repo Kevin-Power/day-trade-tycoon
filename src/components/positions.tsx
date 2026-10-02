@@ -3,6 +3,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { ClassroomSimMark, ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
 import { toneClass } from "@/components/signed";
 import { useGame } from "@/lib/game/store";
+import { orderPresentation } from "@/lib/game/order-presentation";
 import { blotterMicro } from "@/lib/provenance";
 import { formatPrice } from "@/lib/market/ticks";
 import { cn, formatLots, formatMoney, formatSigned, formatTime } from "@/lib/utils";
@@ -15,13 +16,28 @@ export function PositionsDock() {
   const setMobileTab = useGame((s) => s.setMobileTab);
   const flattenAll = useGame((s) => s.flattenAll);
   const cancelOrder = useGame((s) => s.cancelOrder);
+  const orderScope = useGame((s) => s.orderScope);
+  const setOrderScope = useGame((s) => s.setOrderScope);
+  const orderPage = useGame((s) => s.orderPage);
+  const setOrderPage = useGame((s) => s.setOrderPage);
   const frame = useGame((s) => s.frame);
   const [fillPage, setFillPage] = useState(0);
   const orderTabRef = useRef<HTMLButtonElement>(null);
+  const allOrdersRef = useRef<HTMLButtonElement>(null);
   void frame;
   if (!engine) return null;
   const pos = engine.openPositions();
-  const orders = engine.orders.filter((o) => o.status === "pending" || o.status === "partial");
+  const workingOrders = engine.orders.filter(
+    (o) => o.status === "pending" || o.status === "partial",
+  );
+  const orders = orderScope === "all" ? engine.orders : workingOrders;
+  const orderPageSize = 20;
+  const orderPageCount = Math.max(1, Math.ceil(orders.length / orderPageSize));
+  const currentOrderPage = Math.min(orderPage, orderPageCount - 1);
+  const visibleOrders = orders.slice(
+    currentOrderPage * orderPageSize,
+    (currentOrderPage + 1) * orderPageSize,
+  );
   const fills = engine.fills;
   const fillPageSize = 20;
   const fillPageCount = Math.max(1, Math.ceil(fills.length / fillPageSize));
@@ -30,6 +46,15 @@ export function PositionsDock() {
     currentFillPage * fillPageSize,
     (currentFillPage + 1) * fillPageSize,
   );
+
+  function showOriginalOrder(orderId: string) {
+    const index = engine!.orders.findIndex((order) => order.id === orderId);
+    if (index < 0) return;
+    setOrderScope("all");
+    setOrderPage(Math.floor(index / orderPageSize));
+    setTab("orders");
+    requestAnimationFrame(() => allOrdersRef.current?.focus());
+  }
 
   return (
     <div className="term-scroll h-full min-h-0 overflow-y-auto bg-bg lg:flex lg:flex-col lg:overflow-hidden">
@@ -41,7 +66,7 @@ export function PositionsDock() {
         >
           {(
             [
-              ["orders", `委託 ${orders.length}`],
+              ["orders", `委託 ${workingOrders.length}`],
               ["fills", `成交 ${fills.length}`],
               ["pos", `庫存 ${pos.length}`],
             ] as const
@@ -76,7 +101,76 @@ export function PositionsDock() {
         </Button>
       </div>
       <ProvenanceMicro text={blotterMicro()} />
+      <p className="border-b border-border px-3 py-2 text-sm leading-6 text-muted-foreground lg:text-xs">
+        全部平倉會先取消所有待單，再依可用五檔成交；量不足時仍會留下庫存，請核對剩餘張數。
+      </p>
       <div className="term-scroll lg:min-h-0 lg:flex-1 lg:overflow-auto">
+        {tab === "orders" ? (
+          <div className="space-y-3 border-b border-border p-3 text-base leading-7 lg:text-sm">
+            <div role="group" aria-label="委託顯示範圍" className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                aria-pressed={orderScope === "working"}
+                onClick={() => setOrderScope("working")}
+                className={cn(
+                  "min-h-12 min-w-0 rounded-lg border border-border px-2 py-2",
+                  orderScope === "working" && "bg-brand/10 font-semibold text-brand",
+                )}
+              >
+                等待成交 {workingOrders.length}
+              </button>
+              <button
+                ref={allOrdersRef}
+                type="button"
+                aria-pressed={orderScope === "all"}
+                onClick={() => setOrderScope("all")}
+                className={cn(
+                  "min-h-12 min-w-0 rounded-lg border border-border px-2 py-2",
+                  orderScope === "all" && "bg-brand/10 font-semibold text-brand",
+                )}
+              >
+                本盤全部委託 {engine.orders.length}
+              </button>
+            </div>
+            <p className="text-muted">
+              {orderScope === "all"
+                ? "本盤委託由新到舊，包含已成交與已取消的紀錄。"
+                : "這裡只列出仍在等待成交的委託。"}
+              取消只撤掉未成交部分；已成交的張數會保留，可用委託編號到「成交」核對。
+            </p>
+            {orders.length > orderPageSize ? (
+              <nav
+                aria-label="委託紀錄分頁"
+                className="flex flex-wrap items-center justify-between gap-2"
+              >
+                <p className="w-full text-muted">
+                  共 {orders.length} 筆，顯示第 {currentOrderPage * orderPageSize + 1}–
+                  {Math.min((currentOrderPage + 1) * orderPageSize, orders.length)}{" "}
+                  筆。暫停後翻頁，較容易核對。
+                </p>
+                <button
+                  type="button"
+                  disabled={currentOrderPage === 0}
+                  onClick={() => setOrderPage(currentOrderPage - 1)}
+                  className="min-h-12 rounded-lg border border-border px-3 py-2 disabled:opacity-40"
+                >
+                  較新委託
+                </button>
+                <span>
+                  第 {currentOrderPage + 1} / {orderPageCount} 頁
+                </span>
+                <button
+                  type="button"
+                  disabled={currentOrderPage === orderPageCount - 1}
+                  onClick={() => setOrderPage(currentOrderPage + 1)}
+                  className="min-h-12 rounded-lg border border-border px-3 py-2 disabled:opacity-40"
+                >
+                  較早委託
+                </button>
+              </nav>
+            ) : null}
+          </div>
+        ) : null}
         {tab === "fills" && fills.length > fillPageSize ? (
           <nav
             aria-label="成交紀錄分頁"
@@ -150,43 +244,61 @@ export function PositionsDock() {
           ) : null}
           {tab === "orders" ? (
             <>
-              <p className="text-muted">
-                這裡列出尚未全部成交的委託。取消只會撤掉未成交部分，已成交部分仍會保留。
-              </p>
               {orders.length === 0 ? (
                 <EmptyRecords
-                  title="沒有等待成交的委託"
-                  body="已成交的單請到「成交」查看；取消委託不會移除已成交紀錄。"
+                  title={orderScope === "all" ? "本盤還沒有委託紀錄" : "沒有等待成交的委託"}
+                  body={
+                    orderScope === "all"
+                      ? "送出模擬委託後，這裡會保留本盤的委託結果。"
+                      : "請切到「本盤全部委託」查核已成交或已取消的原委託；沒有等待成交的單不代表沒有庫存。"
+                  }
                 />
               ) : null}
-              {orders.map((o) => (
-                <RecordCard
-                  key={o.id}
-                  title={`${o.code} ${engine.quote(o.code)?.name ?? ""}`}
-                  status={o.status === "partial" ? "部分成交" : "等待成交"}
-                >
-                  <RecordValue label="送出時間" value={formatTime(o.time)} />
-                  <RecordValue label="方向" value={o.side === "buy" ? "買進" : "賣出"} />
-                  <RecordValue
-                    label="委託價格"
-                    value={o.type === "market" ? "市價" : formatPrice(o.price)}
-                  />
-                  <RecordValue label="原委託張數" value={`${formatLots(o.lots)} 張`} />
-                  <RecordValue label="已成交" value={`${formatLots(o.filled)} 張`} />
-                  <RecordValue label="尚待成交" value={`${formatLots(o.lots - o.filled)} 張`} />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      cancelOrder(o.id);
-                      orderTabRef.current?.focus();
-                    }}
-                    aria-label={`取消 ${o.code} ${formatTime(o.time)} 的未成交部分`}
-                    className="mt-3 min-h-12 w-full rounded-lg border border-border-strong px-3 py-2 text-base font-medium"
+              {visibleOrders.map((o) => {
+                const presentation = orderPresentation(o);
+                return (
+                  <RecordCard
+                    key={o.id}
+                    title={`${o.code} ${engine.quote(o.code)?.name ?? ""}`}
+                    status={presentation.statusLabel}
                   >
-                    取消未成交部分
-                  </button>
-                </RecordCard>
-              ))}
+                    <RecordValue label="委託編號" value={o.id} />
+                    <RecordValue label="送出時間" value={formatTime(o.time)} />
+                    <RecordValue label="方向" value={o.side === "buy" ? "買進" : "賣出"} />
+                    <RecordValue label="委託效期" value={o.tif ?? "ROD"} />
+                    <RecordValue
+                      label="委託價格"
+                      value={o.type === "market" ? "市價" : formatPrice(o.price)}
+                    />
+                    <RecordValue label="原委託張數" value={`${formatLots(o.lots)} 張`} />
+                    <RecordValue label="已成交" value={`${formatLots(o.filled)} 張`} />
+                    <RecordValue
+                      label="尚待成交"
+                      value={`${formatLots(presentation.waitingLots)} 張`}
+                    />
+                    <RecordValue
+                      label="已取消"
+                      value={`${formatLots(presentation.cancelledLots)} 張`}
+                    />
+                    {o.cancelReason ? (
+                      <p className="mt-2 break-words text-muted">取消原因：{o.cancelReason}</p>
+                    ) : null}
+                    {presentation.working ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          cancelOrder(o.id);
+                          orderTabRef.current?.focus();
+                        }}
+                        aria-label={`取消委託 ${o.id}，${o.code} 的未成交部分`}
+                        className="mt-3 min-h-12 w-full rounded-lg border border-border-strong px-3 py-2 text-base font-medium"
+                      >
+                        取消未成交部分
+                      </button>
+                    ) : null}
+                  </RecordCard>
+                );
+              })}
             </>
           ) : null}
           {tab === "fills" ? (
@@ -206,6 +318,7 @@ export function PositionsDock() {
                   title={`${f.code} ${engine.quote(f.code)?.name ?? ""}`}
                   status={f.side === "buy" ? "買進已成交" : "賣出已成交"}
                 >
+                  <RecordValue label="對應委託" value={f.orderId} />
                   <RecordValue label="成交時間" value={formatTime(f.time)} />
                   <RecordValue label="成交價格" value={formatPrice(f.price)} />
                   <RecordValue label="本筆成交" value={`${formatLots(f.lots)} 張`} />
@@ -214,6 +327,13 @@ export function PositionsDock() {
                   {f.filledWhilePaused ? (
                     <p className="mt-2 text-sm text-muted">本筆在模擬暫停時成交。</p>
                   ) : null}
+                  <button
+                    type="button"
+                    onClick={() => showOriginalOrder(f.orderId)}
+                    className="mt-3 min-h-12 w-full rounded-lg border border-border-strong px-3 py-2 text-base font-medium"
+                  >
+                    查看原委託 {f.orderId}
+                  </button>
                 </RecordCard>
               ))}
             </>
@@ -269,7 +389,14 @@ export function PositionsDock() {
             <table className="w-full border-collapse font-mono text-micro">
               <thead className="sticky top-0 bg-surface-2 text-muted">
                 <tr>
-                  {["時間", "買賣", "商品", "價格", "量", ""].map((h) => (
+                  {[
+                    "委託／商品",
+                    "方向／時間",
+                    "價格／效期",
+                    "已成交／原量",
+                    "等待／取消",
+                    "狀態／操作",
+                  ].map((h) => (
                     <th key={h} className="px-2 py-1 text-left font-medium">
                       {h}
                     </th>
@@ -280,37 +407,60 @@ export function PositionsDock() {
                 {orders.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-2 py-6 text-center text-muted">
-                      沒有未成交委託
+                      {orderScope === "all"
+                        ? "本盤還沒有委託紀錄"
+                        : "沒有等待成交的委託；可切到「本盤全部委託」核對歷程。"}
                     </td>
                   </tr>
                 )}
-                {orders.map((o) => (
-                  <tr key={o.id} className="border-b border-border/70">
-                    <td className="px-2 py-1 tabular text-muted">{formatTime(o.time)}</td>
-                    <td className={cn("px-2 py-1", o.side === "buy" ? "text-up" : "text-down")}>
-                      {o.side === "buy" ? "買" : "賣"}
-                    </td>
-                    <td className="px-2 py-1">{o.code}</td>
-                    <td className="px-2 py-1 tabular">
-                      {o.type === "market" ? "市價" : formatPrice(o.price)}
-                    </td>
-                    <td className="px-2 py-1 tabular">
-                      {o.filled}/{o.lots}
-                    </td>
-                    <td className="px-2 py-1">
-                      <button
-                        type="button"
-                        className="text-muted hover:text-fg"
-                        onClick={() => {
-                          cancelOrder(o.id);
-                          orderTabRef.current?.focus();
-                        }}
-                      >
-                        刪單
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {visibleOrders.map((o) => {
+                  const presentation = orderPresentation(o);
+                  return (
+                    <tr key={o.id} className="border-b border-border/70">
+                      <td className="px-2 py-2">
+                        <div className="font-semibold">{o.id}</div>
+                        <div>{o.code}</div>
+                      </td>
+                      <td className={cn("px-2 py-1", o.side === "buy" ? "text-up" : "text-down")}>
+                        <div>{o.side === "buy" ? "買進" : "賣出"}</div>
+                        <div className="tabular text-muted">{formatTime(o.time)}</div>
+                      </td>
+                      <td className="px-2 py-1 tabular">
+                        <div>{o.type === "market" ? "市價" : formatPrice(o.price)}</div>
+                        <div className="text-muted">{o.tif ?? "ROD"}</div>
+                      </td>
+                      <td className="px-2 py-1 tabular">
+                        <div>已成 {formatLots(o.filled)} 張</div>
+                        <div className="text-muted">原量 {formatLots(o.lots)} 張</div>
+                      </td>
+                      <td className="px-2 py-1 tabular">
+                        <div>等待 {formatLots(presentation.waitingLots)} 張</div>
+                        <div className="text-muted">
+                          取消 {formatLots(presentation.cancelledLots)} 張
+                        </div>
+                      </td>
+                      <td className="px-2 py-1">
+                        <p>{presentation.statusLabel}</p>
+                        {o.cancelReason ? (
+                          <p className="mt-1 break-words text-muted">取消原因：{o.cancelReason}</p>
+                        ) : null}
+                        {presentation.working ? (
+                          <button
+                            type="button"
+                            aria-label={`取消委託 ${o.id}，${o.code} 的未成交部分`}
+                            className="mt-1 min-h-8 rounded border border-border px-2 text-fg hover:bg-elevated"
+                            onClick={() => {
+                              cancelOrder(o.id);
+                              orderTabRef.current?.focus();
+                            }}
+                          >
+                            取消未成交
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -318,7 +468,7 @@ export function PositionsDock() {
             <table className="w-full border-collapse font-mono text-micro">
               <thead className="sticky top-0 bg-surface-2 text-muted">
                 <tr>
-                  {["時間", "買賣", "商品", "價格", "張", "費稅"].map((h) => (
+                  {["委託／時間", "買賣", "商品", "價格", "張", "費稅"].map((h) => (
                     <th key={h} className="px-2 py-1 text-left font-medium">
                       {h}
                     </th>
@@ -335,7 +485,17 @@ export function PositionsDock() {
                 )}
                 {visibleFills.map((f) => (
                   <tr key={f.id} className="border-b border-border/70">
-                    <td className="px-2 py-1 tabular text-muted">{formatTime(f.time)}</td>
+                    <td className="px-2 py-1 tabular text-muted">
+                      <button
+                        type="button"
+                        onClick={() => showOriginalOrder(f.orderId)}
+                        aria-label={`查看原委託 ${f.orderId}`}
+                        className="min-h-8 rounded border border-border px-2 font-semibold text-brand hover:bg-elevated"
+                      >
+                        {f.orderId}
+                      </button>
+                      <div>{formatTime(f.time)}</div>
+                    </td>
                     <td className={cn("px-2 py-1", f.side === "buy" ? "text-up" : "text-down")}>
                       {f.side === "buy" ? "買" : "賣"}
                     </td>

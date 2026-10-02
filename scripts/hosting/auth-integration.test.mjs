@@ -188,9 +188,10 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
     const fixtureReview = {
       rec: { id: "http-teacher-review", scenarioId: "wed-open", scenarioName: "Fixture lesson", endedAt: 1, pnl: 0, pnlPct: 0, trades: 0, wins: 0, fees: 0, maxDrawdown: 0, grade: "C", title: "Fixture lesson" },
       verdicts: [], fills: [], code: "2330", capital: 1000000, equity: 1000000, sessionLabel: "Fixture classroom",
+      openPositionsAtEnd: [{ code: "2330", lots: 1, last: 100 }],
       firstTradePlan: {
         plan: { version: 1, code: "2330", side: "buy", lots: 1, simTime: 120, entryCondition: "觀察後確認自己的進場條件", exitCondition: "進場理由不成立時離場", maxLoss: 1000 },
-        order: { id: "http-order-1", code: "2330", side: "buy", type: "limit", lots: 1, price: 100, time: 180 },
+        order: { id: "http-order-1", code: "2330", side: "buy", type: "limit", lots: 1, price: 100, time: 180, tif: "IOC" },
       },
     };
     assert.equal((await serverFn("saveClassroomSession", "POST", fixtureReview, student)).ok, true);
@@ -201,7 +202,7 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
     const gateOnly = new Map([...owner].filter(([key]) => key.includes("classroom_gate")));
     await assert.rejects(serverFn("loadTeacherSessionDetail", "GET", { id: fixtureReview.rec.id }, gateOnly));
     assert.equal(await serverFn("loadTeacherSessionDetail", "GET", { id: "unknown-record" }, owner), null);
-    t.diagnostic("HTTP teacher review: first-trade plan survives student save and same-class teacher read; unverified student and gate-only visitor denied");
+    t.diagnostic("HTTP teacher review: first-trade plan, TIF and unclosed-position snapshot survive student save and same-class teacher read; unverified student and gate-only visitor denied");
     stage = "teacher feedback access, identity and request idempotence";
     const feedbackInput = {
       sessionId: fixtureReview.rec.id,

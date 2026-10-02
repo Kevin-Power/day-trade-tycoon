@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { TradePlanEntry } from "@/components/trade-plan";
 import { ClassroomSimMark, ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
 import { useGame } from "@/lib/game/store";
+import { orderPresentation } from "@/lib/game/order-presentation";
+import { estimateExecution, executionInputReason } from "@/lib/market/execution";
 import {
   parseLotsDraft,
   parsePriceDraft,
@@ -19,10 +21,20 @@ import {
   type TimeInForce,
 } from "@/lib/broker";
 import { blotterMicro } from "@/lib/provenance";
-import { LOT_SHARES, ROUND_TRIP_RATE, stepTick } from "@/lib/market/ticks";
-import { cn, formatMoney, formatPct } from "@/lib/utils";
+import { formatPrice, LOT_SHARES, stepTick } from "@/lib/market/ticks";
+import { cn, formatMoney } from "@/lib/utils";
 
 const TIF: TimeInForce[] = ["ROD", "IOC", "FOK"];
+const TIF_LABELS: Record<TimeInForce, string> = {
+  ROD: "ROD・留單等待",
+  IOC: "IOC・剩餘取消",
+  FOK: "FOK・全成或全撤",
+};
+const TIF_HELP: Record<TimeInForce, string> = {
+  ROD: "未成交部分繼續等待，直到取消或本次練習結束。",
+  IOC: "立即撮合；能成交多少就成交多少，其餘立即取消。",
+  FOK: "目前五檔必須足夠讓整筆成交，否則整筆取消。",
+};
 
 export function OrderTicket() {
   const lotsHelpId = useId();
@@ -41,6 +53,9 @@ export function OrderTicket() {
   const setFlashOrder = useGame((s) => s.setFlashOrder);
   const accountId = useGame((s) => s.accountId);
   const frame = useGame((s) => s.frame);
+  const setMobileTab = useGame((s) => s.setMobileTab);
+  const setRightTab = useGame((s) => s.setRightTab);
+  const setOrderScope = useGame((s) => s.setOrderScope);
   void frame;
   const q = engine?.quote(selected);
   const name = q?.name ?? "";
@@ -48,21 +63,19 @@ export function OrderTicket() {
   const enteredPrice = parsePriceDraft(ticketDraft.price);
   const draft = validateTicketDraft(ticketDraft, ticket.type);
   const price = enteredPrice ?? (ticket.side === "buy" ? (q?.ask ?? 0) : (q?.bid ?? 0));
-  const estimatePrice = ticket.type === "market" ? (q?.last ?? 0) : (enteredPrice ?? 0);
-  const notional = estimatePrice * (lots ?? 0) * LOT_SHARES;
-  const vsPrev =
-    q && estimatePrice > 0 && q.prevClose > 0
-      ? ((estimatePrice - q.prevClose) / q.prevClose) * 100
-      : 0;
-  const vsVwap =
-    q && estimatePrice > 0 && q.vwap > 0 ? ((estimatePrice - q.vwap) / q.vwap) * 100 : 0;
-  const thin = draft.ok && Math.abs(vsVwap) < ROUND_TRIP_RATE * 100 * 0.9;
+  const executionInput = draft.ok ? { side: ticket.side, type: ticket.type, lots: draft.lots, price: draft.price ?? undefined, tif: ticket.tif } : null;
+  const executionReason = executionInput ? executionInputReason(executionInput) : null;
+  const preview = q && executionInput && !executionReason ? estimateExecution(q, executionInput) : null;
+  const notional = ticket.type === "market" ? preview?.notional ?? 0 : (enteredPrice ?? 0) * (lots ?? 0) * LOT_SHARES;
   const st = engine?.stats();
   const tooBig = st ? notional > st.equity * 0.3 : false;
   const buy = ticket.side === "buy";
+  const latestOrder = engine?.orders[0];
+  const latestOutcome = latestOrder ? orderPresentation(latestOrder) : null;
+  const heldLots = Math.abs(engine?.positions.get(selected)?.lots ?? 0);
 
   return (
-    <div className="trade-ticket flex h-full min-h-0 flex-col bg-surface">
+    <div data-order-ticket-start tabIndex={-1} className="trade-ticket flex h-full min-h-0 flex-col bg-surface outline-none">
       <div className="pane-title flex h-7 items-center justify-between gap-2 px-2">
         <span>委託下單</span>
         <span className="flex items-center gap-1.5">
@@ -118,10 +131,11 @@ export function OrderTicket() {
                     key={t}
                     type="button"
                     aria-disabled={!allowed}
-                    title={allowed ? "掛到取消或收盤" : SIM_TIF_HINT}
+                    aria-pressed={ticket.tif === t}
+                    title={allowed ? TIF_HELP[t] : SIM_TIF_HINT}
                     onClick={() => setTicket({ tif: t })}
                     className={cn(
-                      "h-6 px-1.5 font-mono text-2xs",
+                      "min-h-11 whitespace-normal px-2 py-2 text-sm leading-6",
                       ticket.tif === t
                         ? "bg-header-2 text-fg"
                         : allowed
@@ -129,12 +143,12 @@ export function OrderTicket() {
                           : "text-subtle",
                     )}
                   >
-                    {t}
+                    {TIF_LABELS[t]}
                   </button>
                 );
               })}
             </span>
-            <span className="text-subtle">{SIM_TIF_HINT}</span>
+            <span className="w-full text-sm leading-6 text-muted">{TIF_HELP[ticket.tif]}</span>
           </Field>
           <Field label="閃電下單">
             <span className="inline-flex overflow-hidden rounded-xs border border-border">
@@ -307,25 +321,36 @@ export function OrderTicket() {
         </div>
       )}
 
+      {executionReason && <p role="status" className="px-3 py-2 text-base leading-7 text-warn">{executionReason}</p>}
+
+      <section aria-label="送出前核對" className="border-t border-border bg-bg-1 px-3 py-3 text-base leading-7 lg:text-sm lg:leading-6">
+        <h3 className="font-semibold">送出前核對：{selected} {name}・{buy ? "買進" : "賣出"} {lots ?? "—"} 張</h3>
+        <p>{ticket.type === "market" ? "市價" : `限價 ${enteredPrice === null ? "尚未完成" : formatPrice(enteredPrice)}`} · {TIF_LABELS[ticket.tif]}</p>
+        <p className="text-muted">{TIF_HELP[ticket.tif]}</p>
+        {preview ? (
+          <dl className="mt-2 grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+            <div className="flex flex-wrap justify-between gap-x-3"><dt>五檔可立即成交</dt><dd>{preview.filledLots}／{lots} 張</dd></div>
+            <div className="flex flex-wrap justify-between gap-x-3"><dt>預估成交均價</dt><dd>{preview.averagePrice === null ? "尚無可成交量" : preview.averagePrice.toFixed(2)}</dd></div>
+            <div className="flex flex-wrap justify-between gap-x-3"><dt>可成交部分金額</dt><dd>{formatMoney(preview.notional)} 元</dd></div>
+            <div className="flex flex-wrap justify-between gap-x-3"><dt>該部分費稅估算</dt><dd>{formatMoney(preview.fee + preview.tax)} 元</dd></div>
+          </dl>
+        ) : <p className="mt-2 text-muted">完成正確的張數與價格後，這裡會顯示五檔估算。</p>}
+        {st && <p className="mt-2 text-muted">可用模擬資金 {formatMoney(st.availableCash)} 元；待買委託占用 {formatMoney(st.reservedCash)} 元。</p>}
+        <p className="mt-2 text-sm leading-6 text-muted">依目前生成五檔估算，送出時仍會核對資金與庫存；行情變動會改變成交結果。均價可能跨多個價位。</p>
+      </section>
+
       <div className="order-actions flex flex-wrap items-center gap-2 border-t border-border px-3 py-3">
         <div className="order-summary min-w-0 flex-1 font-mono text-xs">
           <div className={cn("mb-0.5", flashOrder ? "text-tape" : "text-muted")}>
-            {flashOrder ? "閃電即送 · 點賣檔限價買、點買檔限價賣" : "點五檔只帶價"}
+            {flashOrder ? "閃電即送 · 點賣檔限價買、點買檔限價賣" : "點五檔帶入價格與買賣方向"}
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 text-muted">
-            <span>
-              預估 <span className="text-fg">{draft.ok ? formatMoney(notional) : "待完成輸入"}</span>
-            </span>
-            <span>來回 {(ROUND_TRIP_RATE * 100).toFixed(2)}%</span>
-            <span>距昨 {draft.ok ? formatPct(vsPrev) : "—"}</span>
-            <span>距均 {draft.ok ? formatPct(vsVwap) : "—"}</span>
-          </div>
+          <p className="text-muted">核對上方成交估算與可用資金，再送出。</p>
           {ticket.type === "market" && (
-            <p className="mt-1 text-muted">市價依目前模擬價估算，成交價可能不同。</p>
+            <p className="mt-1 text-muted">市價依可成交五檔估算，未成交量不保證會成交。</p>
           )}
-          {(thin || tooBig) && (
+          {tooBig && (
             <div className="mt-0.5 text-warn">
-              {tooBig ? "超過權益 30%，先降張數。" : "偏離均價不夠費稅，這筆要靠方向。"}
+              本筆估算金額超過模擬權益 30%。
             </div>
           )}
         </div>
@@ -342,19 +367,34 @@ export function OrderTicket() {
             </Button>
           ))}
         </div>
-        <Button size="sm" variant="outline" onClick={flattenSelected} className="ticket-flatten">
+        <Button size="sm" variant="outline" onClick={flattenSelected} disabled={heldLots === 0} className="ticket-flatten">
           平倉此檔
         </Button>
         <Button
           size="md"
           variant={buy ? "buy" : "sell"}
           onClick={submit}
-          disabled={!draft.ok}
+          disabled={!draft.ok || Boolean(executionReason)}
           className="ticket-submit min-w-28"
         >
           {buy ? "送出買進" : "送出賣出"}
         </Button>
       </div>
+      <p className="px-3 pb-3 text-sm leading-6 text-muted">平倉此檔會先取消此商品待單，再按可用五檔平倉。量不足時仍會留下庫存，請核對結果。</p>
+      {latestOrder && latestOutcome && (
+        <section aria-label="最近一筆委託結果" className="m-3 mt-0 rounded-xl border border-border-strong bg-bg-1 p-3 text-base leading-7 lg:text-sm">
+          <h3 className="font-semibold">最近委託 {latestOrder.id} · {latestOrder.code} {latestOrder.side === "buy" ? "買進" : "賣出"}</h3>
+          <p role="status">{latestOutcome.statusLabel}：已成交 {latestOrder.filled}／{latestOrder.lots} 張</p>
+          <p>等待 {latestOutcome.waitingLots} 張 · 已取消 {latestOutcome.cancelledLots} 張</p>
+          {latestOrder.cancelReason && <p className="text-muted">{latestOrder.cancelReason}</p>}
+          <button type="button" className="mt-2 min-h-12 w-full rounded-lg border border-border-strong px-3 py-2 font-medium" onClick={() => {
+            setOrderScope("all");
+            setRightTab("orders");
+            setMobileTab("pos");
+            document.getElementById("mobile-tab-pos")?.focus();
+          }}>查看本盤全部委託</button>
+        </section>
+      )}
     </div>
   );
 }

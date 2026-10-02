@@ -54,6 +54,13 @@ test("automatic close cannot satisfy voluntary flatten rule", () => {
   });
   assert.equal(result.verdicts.find((v) => v.rule.code === "flatten_before_close")?.passed, false);
 });
+
+test("newest-first engine fills in the same second are analyzed in execution sequence", () => {
+  const older = { ...fill("buy", 100, 0, 2, 100), id: "F2" };
+  const newer = { ...fill("sell", 101, 0, 1, 100), id: "F4" };
+  assert.deepEqual(analyzeFills([newer, older]), analyzeFills([older, newer]));
+  assert.equal(analyzeFills([newer, older]).winningTrades, 1);
+});
 test("third lesson needs complete low+10min coverage and actual risk reduction", () => {
   const base = {
     lessonId: "tue-dump",

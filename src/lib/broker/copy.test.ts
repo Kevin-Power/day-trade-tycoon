@@ -22,14 +22,15 @@ describe("classroom broker copy", () => {
     assert.notEqual(LIVE_ADAPTER_UNWIRED_REASON, LIVE_UNWIRED_REASON);
   });
 
-  it("rejects IOC/FOK on sim with the same sentence the ticket toasts", () => {
+  it("accepts supported simulation time-in-force values and rejects unknown values", () => {
     assert.equal(simAllowsTif("ROD"), true);
-    assert.equal(simAllowsTif("IOC"), false);
-    assert.equal(simAllowsTif("FOK"), false);
+    assert.equal(simAllowsTif("IOC"), true);
+    assert.equal(simAllowsTif("FOK"), true);
     assert.equal(rejectUnsupportedTif("ROD"), null);
-    assert.equal(rejectUnsupportedTif("IOC"), SIM_ROD_ONLY_REASON);
-    assert.equal(rejectUnsupportedTif("FOK"), SIM_ROD_ONLY_REASON);
-    assert.match(SIM_ROD_ONLY_REASON, /僅支援 ROD/);
+    assert.equal(rejectUnsupportedTif("IOC"), null);
+    assert.equal(rejectUnsupportedTif("FOK"), null);
+    assert.equal(rejectUnsupportedTif("INVALID" as "ROD"), SIM_ROD_ONLY_REASON);
+    assert.match(SIM_ROD_ONLY_REASON, /ROD、IOC、FOK/);
   });
 
   it("explains a failed cancel instead of staying silent", () => {

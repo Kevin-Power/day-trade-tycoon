@@ -122,9 +122,12 @@ test("retrying local storage preserves the same complete review without recomput
   store.getState().settle();
   const id = store.getState().lastResult.id;
   const review = persistence.loadReview(id);
-  const original = JSON.stringify(review);
+  const original = JSON.parse(JSON.stringify(review));
   storage.failWrites = false;
   assert.equal(persistence.saveReview(review), true);
   assert.equal(persistence.loadReviewState(id).localSaved, true);
-  assert.equal(JSON.stringify(persistence.loadReview(id)), original);
+  // Schema parsing can reorder object keys; every stored value and array order
+  // must still match the original snapshot, and retrying must not mutate it.
+  assert.deepEqual(JSON.parse(JSON.stringify(review)), original);
+  assert.deepEqual(JSON.parse(JSON.stringify(persistence.loadReview(id))), original);
 });

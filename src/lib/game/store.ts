@@ -30,6 +30,7 @@ import {
   type TradePlanInput,
 } from "@/lib/game/trade-plan";
 import { reviewSaveMessage, type ReviewSyncStatus } from "@/lib/game/review-storage-status";
+import { orderPresentation } from "@/lib/game/order-presentation";
 import { flashClickDecision, isExamScenario, ticketAfterClickPrice } from "@/lib/game/flash-order";
 import {
   finishedLearnerGuideState,
@@ -91,6 +92,8 @@ type GameStore = {
   accountId: string;
   mobileTab: MobileTab;
   rightTab: RightTab;
+  orderScope: "working" | "all";
+  orderPage: number;
   chartStyle: ChartStyle;
   teachMode: boolean;
   flashOrder: boolean;
@@ -123,6 +126,8 @@ type GameStore = {
   setVenue: (v: Venue) => void;
   setMobileTab: (t: MobileTab) => void;
   setRightTab: (t: RightTab) => void;
+  setOrderScope: (scope: "working" | "all") => void;
+  setOrderPage: (page: number) => void;
   setChartStyle: (s: ChartStyle) => void;
   setTeachMode: (on: boolean) => void;
   setFlashOrder: (on: boolean) => void;
@@ -157,6 +162,8 @@ export const useGame = create<GameStore>((set, get) => ({
   accountId: SIM_ACCOUNT,
   mobileTab: "watch",
   rightTab: "pos",
+  orderScope: "working",
+  orderPage: 0,
   chartStyle: "jiangbo",
   teachMode: true,
   flashOrder: false,
@@ -206,6 +213,8 @@ export const useGame = create<GameStore>((set, get) => ({
       firstPlannedOrder: null,
       mobileTab: "watch",
       rightTab: "pos",
+      orderScope: "working",
+      orderPage: 0,
       lastResult: null,
       lastVerdicts: [],
       syncStatus: "local",
@@ -240,6 +249,8 @@ export const useGame = create<GameStore>((set, get) => ({
       tradePlan: null,
       firstPlannedOrder: null,
       paused: false,
+      orderScope: "working",
+      orderPage: 0,
       lastResult: null,
       ticket: { side: "buy", type: "limit", lots: 1, price: 0, tif: "ROD" },
       ticketDraft: { lots: "1", price: "" },
@@ -258,7 +269,7 @@ export const useGame = create<GameStore>((set, get) => ({
     const { engine, scenario, profile } = get();
     if (!engine || !scenario || get().phase === "result") return;
     if (!engine.ended) {
-      engine.step(engine.endT - engine.t + 1);
+      engine.finish();
     }
     const st = engine.stats();
     const pass = evaluatePass({ lessonId: scenario.id, pnl: st.pnl, fees: st.fees, maxDrawdown: st.maxDrawdown,
@@ -284,6 +295,7 @@ export const useGame = create<GameStore>((set, get) => ({
     const next = applySession(profile, rec);
     const bundle = { rec, verdicts: pass.verdicts, fills: [...engine.fills], code: get().selected,
       capital: scenario.capital, equity: st.equity, sessionLabel: engine.session.label,
+      openPositionsAtEnd: engine.openPositions().map(({ code, lots, last }) => ({ code, lots, last })),
       firstTradePlan: snapshotFirstTradePlan(get().tradePlan, get().firstPlannedOrder) };
     const localReviewSaved = saveReview(bundle);
     set({ phase: "result", lastResult: rec, lastVerdicts: pass.verdicts, profile: next, paused: true, syncStatus: "local", localReviewSaved, learnerGuideReady: false });
@@ -417,6 +429,8 @@ export const useGame = create<GameStore>((set, get) => ({
 
   setMobileTab: (t) => set({ mobileTab: t }),
   setRightTab: (t) => set({ rightTab: t }),
+  setOrderScope: (scope) => set({ orderScope: scope, orderPage: 0 }),
+  setOrderPage: (page) => set({ orderPage: Number.isFinite(page) ? Math.max(0, Math.floor(page)) : 0 }),
   setChartStyle: (s) => set({ chartStyle: s }),
   setTeachMode: (on) => {
     saveTeachMode(on);
@@ -519,7 +533,8 @@ export const useGame = create<GameStore>((set, get) => ({
       if (paused) f.filledWhilePaused = true;
       toastFill(f);
     }
-    if (res.fills.length === 0) toast("已掛出委託");
+    const outcome = orderPresentation(res.order);
+    toast(`委託 ${res.order.id}：${outcome.statusLabel}，已成交 ${res.order.filled}／${res.order.lots} 張。${res.order.cancelReason ?? ""}`);
     get().bump();
   },
 
@@ -536,6 +551,8 @@ export const useGame = create<GameStore>((set, get) => ({
     }
     const res = getBroker(venue, engine).flatten(selected);
     if (!res.ok) {
+      // Flatten may already have cancelled old orders before the new close is rejected.
+      get().bump();
       playError();
       toast.error(res.reason);
       return;
@@ -544,6 +561,10 @@ export const useGame = create<GameStore>((set, get) => ({
       if (paused) f.filledWhilePaused = true;
       toastFill(f);
     }
+    const remaining = Math.abs(engine.positions.get(selected)?.lots ?? 0);
+    toast(remaining > 0
+      ? `${selected} 尚有 ${remaining} 張庫存。未成交的平倉數量已取消，請核對後再操作。`
+      : `${selected} 已無庫存，此商品原有待單已取消。`);
     get().bump();
   },
 
@@ -566,7 +587,10 @@ export const useGame = create<GameStore>((set, get) => ({
         if (!previousFills.has(fill)) fill.filledWhilePaused = true;
       }
     }
-    toast("已送出全部平倉");
+    const remaining = engine.openPositions();
+    toast(remaining.length > 0
+      ? `尚有 ${remaining.length} 檔、共 ${remaining.reduce((sum, p) => sum + Math.abs(p.lots), 0)} 張未平倉；請到庫存核對。`
+      : "已無庫存，原有待單已取消。請核對成交紀錄。");
     get().bump();
   },
 

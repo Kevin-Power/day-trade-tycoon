@@ -29,6 +29,7 @@ export const firstPlannedOrderSchema = z.object({
   code,
   side,
   type: z.enum(["limit", "market"]),
+  tif: z.enum(["ROD", "IOC", "FOK"]).optional(),
   lots,
   price: numeric.positive(),
   time: numeric.nonnegative(),

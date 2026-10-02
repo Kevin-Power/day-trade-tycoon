@@ -376,7 +376,7 @@ function OrderDetails({ order }: { order: FirstPlannedOrder }) {
         {formatTime(order.time)} · {order.code} · {order.side === "buy" ? "買進" : "賣出"}{" "}
         {formatLots(order.lots)} 張
       </p>
-      <p>{order.type === "market" ? "市價委託" : `限價 ${formatPrice(order.price)}`}</p>
+      <p>{order.type === "market" ? "市價委託" : `限價 ${formatPrice(order.price)}`} · {order.tif ?? "舊紀錄未記效期"}</p>
     </div>
   );
 }

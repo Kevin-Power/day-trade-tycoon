@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useGate } from "@/lib/gate/context";
 import { teachingOhlcNote } from "@/lib/market/universe";
 
-export const MANUAL_VERSION = "2026-10-02";
+export const MANUAL_VERSION = "2026-10-03";
 const PDF_HREF = "/daytrade-tycoon-manual.pdf";
 const GITHUB = "https://github.com/Kevin-Power/day-trade-tycoon";
 
@@ -200,11 +200,10 @@ function Play() {
         </Step>
         <Step n="3" title="看盤，再下單">
           下單頁可先寫第一筆進場計畫，記下自己的進場、離場條件與模擬虧損額度。這是討論用的紀錄，不是自動停損。第一筆委託成功送出後就保留原樣，掛單或撤單也不補改。不填仍可練習，紀錄會如實留白。委託單選買進或賣出、限價或市價、張數、價格。核對後點「送出」；鍵盤可用
-          Tab 移到送出按鈕再按 Enter。Space 暫停。模擬盤目前只吃 ROD。
+          Tab 移到送出按鈕再按 Enter。Space 暫停。ROD 留單等待、IOC 立即撮合後取消剩餘、FOK 全部成交或全部取消。
         </Step>
         <Step n="4" title="部位與出場">
-          單檔建議不超過權益 30%。進場同時寫停損。13:20
-          還沒平，就是紀律破了；系統會在收盤前市價清倉。
+          平倉會先取消對應待單，再依五檔量嘗試出場。請確認庫存為零；量不足時仍會有未平部位。結束練習時系統也會嘗試平倉，但不保證完全成交。
         </Step>
         <Step n="5" title="復盤">
           結算後先對照第一筆計畫與實際委託，再檢查成交、成本和課綱條件。同班已授權講師可唯讀查看已提交的完整復盤，一起討論理由。計畫目前只暫存在本盤，結算後才隨復盤保存；未結算就重新整理會遺失。模擬結果不能當作實際獲利或能力合格的證明。
@@ -222,10 +221,10 @@ function Play() {
             />
             <Row k="買進／賣出" v="委託單上方切換。紅色買、綠色賣，跟台股習慣一致。" />
             <Row k="通路 實盤" v="點了不會送到券商。教室下單仍走模擬撮合。" />
-            <Row k="TIF" v="模擬盤只吃 ROD。點 IOC／FOK 會提示，不會改條件。" />
+            <Row k="TIF" v="ROD 留單等待；IOC 成交多少算多少，剩餘取消；FOK 必須全數可成交，否則全撤。" />
             <Row
               k="閃電下單"
-              v="預設關。開了之後點五檔即以目前張數送單；關了只帶價。期末考暫停中會提示，不靜默。"
+              v="預設關。點賣方五檔會帶入買進，點買方五檔會帶入賣出；閃電開啟時直接依目前張數送單。期末考暫停中會提示。"
             />
             <Row
               k="回大廳"
@@ -387,25 +386,24 @@ function Broker() {
     <Section id="broker" n="05" title="模擬盤與之後的實盤">
       <p className="text-pretty leading-relaxed text-muted">
         委託單已經做成券商那張：帳號、盤別現股當沖、通路模擬／實盤、TIF（畫面看得到
-        ROD／IOC／FOK）、買進賣出、限價市價、張數與價格。現在通路停在模擬，帳號 CLASSROOM-SIM，TIF
-        只吃 ROD。
+        ROD／IOC／FOK）、買進賣出、限價市價、張數與價格。現在通路停在模擬，帳號 CLASSROOM-SIM，三種 TIF 都由教室引擎處理。
       </p>
       <div className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
         <Fact
           label="現在（模擬）"
-          body="教室引擎撮合。TIF 只吃 ROD（點 IOC／FOK 會提示、不改條件）。費稅、漲跌停、收盤強平都在教室裡算完。點實盤會提示，不會送到券商。"
+          body="按生成五檔可用量撮合，待單預留資金，同價先送先處理；支援 ROD／IOC／FOK。全部委託可核對原量、成交和取消量。仍非真實逐筆或交易所完整撮合。"
         />
         <Fact
           label="之後（實盤）"
-          body="只換 src/lib/broker 這層。金鑰放伺服器，不進瀏覽器。上實盤前一定要先做學員登入。還沒接哪一家券商。"
+          body="需依選定券商另做帳戶授權、伺服器訂單服務、非同步委託與成交回報、風控及對帳。目前尚未指定券商，實盤按鈕不會送單。"
         />
       </div>
       <ol className="mt-5 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-muted">
-        <li>簽券商 API 合約，拿到測試帳再拿正式帳。</li>
-        <li>伺服器環境變數設定券商位址。不要寫進前端。</li>
-        <li>把 liveBroker 接到現有的下單入口。回傳碼對齊教室的成功／失敗。</li>
-        <li>先做登入與權限。沒有身份的實盤，等於把金鑰敞著。</li>
-        <li>先小額、先白名單學員，再談全班。</li>
+        <li>先確認券商、商品、帳戶資格與官方測試環境。</li>
+        <li>金鑰與憑證只放受保護的伺服器，每位使用者只能操作自己的授權帳戶。</li>
+        <li>區分已送出、券商接受、部分成交、已成交、取消中與結果待確認。</li>
+        <li>逾時先查單；不得把重送當成恢復，成交回報需防重複並持續對帳。</li>
+        <li>先通過券商測試環境與風控驗收，再由帳戶本人確認正式啟用。</li>
       </ol>
       <p className="mt-4 text-sm leading-relaxed text-muted">
         這條路是有的，但不是這份說明書要賣的現況。現況能賣的是教室。
@@ -442,8 +440,8 @@ function Rules() {
             <Row k="時間" v="09:00–13:30。可 4x／6x／8x。教材開盤那課最慢。" />
             <Row k="手續費" v="約 0.0855%（1.425‰ × 六折），最低 20 元。" />
             <Row k="當沖稅" v="賣出 0.15%。" />
-            <Row k="來回成本" v="約 0.32%。價差不夠這條線，這筆就不該出手。" />
-            <Row k="強平" v="收盤前未平倉，系統市價出場。當沖不是投資。" />
+            <Row k="來回成本" v="教室概估約 0.321%；逐成交最低費、價差與取整會使結果不同，實際券商費用另行核對。" />
+            <Row k="結束平倉" v="系統先撤待單再嘗試平倉。量不足時保留未平部位，不當成自行完成平倉。" />
           </tbody>
         </table>
       </div>

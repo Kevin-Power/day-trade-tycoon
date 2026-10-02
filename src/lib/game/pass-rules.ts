@@ -22,7 +22,14 @@ export function analyzeFills(fills: Fill[]) {
   let afterLowExposure = Number.POSITIVE_INFINITY;
   const exposure = () =>
     [...positions.values()].reduce((sum, p) => sum + Math.abs(p.lots) * p.avg * 1000, 0);
-  for (const f of [...fills].sort((a, b) => a.time - b.time)) {
+  // Engine IDs carry their session sequence, so paused/same-second fills must
+  // follow execution order even though the display ledger is newest-first.
+  const sequence = (f: Fill) => /^F\d+$/.test(f.id) ? Number(f.id.slice(1)) : null;
+  for (const f of [...fills].sort((a, b) => {
+    const time = a.time - b.time;
+    const aSeq = sequence(a), bSeq = sequence(b);
+    return time || (aSeq !== null && bSeq !== null ? aSeq - bSeq : 0);
+  })) {
     const current = positions.get(f.code) ?? { lots: 0, avg: 0, fees: 0, opened: f.time };
     const signed = f.side === "buy" ? f.lots : -f.lots;
     const sameSide = current.lots === 0 || Math.sign(current.lots) === Math.sign(signed);
@@ -86,7 +93,9 @@ export function evaluatePass(input: PassInput): { passed: boolean; verdicts: Rul
           rule,
           passed: input.positionsOpen === 0 && !input.forcedClose,
           detail: input.forcedClose
-            ? "結束時仍有部位，由系統強制平倉"
+            ? input.positionsOpen > 0
+              ? "結束時由系統嘗試平倉，仍有未平部位"
+              : "結束時仍有部位，由系統強制平倉"
             : input.positionsOpen
               ? "仍有未平部位"
               : "結束前已無部位",

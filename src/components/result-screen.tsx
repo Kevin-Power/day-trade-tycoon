@@ -11,6 +11,7 @@ import { ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
 import { classroomSampleMicro } from "@/lib/provenance";
 import { ReviewConditions } from "@/components/review-conditions";
 import { reviewSaveMessage } from "@/lib/game/review-storage-status";
+import { formatPrice } from "@/lib/market/ticks";
 
 export function ResultScreen() {
   const rec = useGame((s) => s.lastResult);
@@ -25,6 +26,7 @@ export function ResultScreen() {
   const titleRef = useRef<HTMLHeadingElement>(null);
   if (!rec || !engine || !scenario) return null;
   const st = engine.stats();
+  const openPositions = engine.openPositions();
   const rank = rankFor(profile.careerPnl);
   const lesson = lessonById(scenario.id);
   const nxt = nextLesson(scenario.id);
@@ -101,6 +103,40 @@ export function ResultScreen() {
               <Cell label="費稅" value={formatMoney(rec.fees, 0)} />
               <Cell label="最大回撤" value={`${(rec.maxDrawdown * 100).toFixed(2)}%`} />
             </div>
+
+            <section
+              className="mt-5 rounded-xl border border-border bg-bg/60 p-4 text-base leading-7"
+              aria-labelledby="result-positions-title"
+            >
+              <h3 id="result-positions-title" className="font-semibold">
+                結束時庫存
+              </h3>
+              {openPositions.length > 0 ? (
+                <>
+                  <p className="mt-2 font-medium">仍有 {openPositions.length} 檔模擬部位未平倉</p>
+                  <ul className="mt-3 space-y-3">
+                    {openPositions.map((position) => (
+                      <li
+                        key={position.code}
+                        className="rounded-lg border border-border bg-surface p-3"
+                      >
+                        <p>
+                          <span className="font-mono font-semibold">{position.code}</span>{" "}
+                          {position.lots > 0 ? "買進（多單）" : "賣出（空單）"} · 剩餘{" "}
+                          {Math.abs(position.lots)} 張
+                        </p>
+                        <p className="text-muted">最後模擬價 {formatPrice(position.last)}</p>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 text-muted">
+                    模擬淨損益包含未平倉部位按最後模擬價計算的估值，尚未扣除未來平倉的手續費與交易稅。練習結束不代表已全部平倉。
+                  </p>
+                </>
+              ) : (
+                <p className="mt-2 text-muted">結束時零庫存，沒有未平倉部位。</p>
+              )}
+            </section>
 
             {lesson && (
               <div className="mt-5 rounded-xl border border-border bg-bg/60 p-4">

@@ -1,4 +1,43 @@
-/** TWSE tick size by price band. */
+// Stock price grid: TWSE Operating Rules, Article 62.
+// https://twse-regulation.twse.com.tw/TW/law/DOC01.aspx?FLCODE=FL007304&FLNO=62
+// Integer cents and a continuous tick index keep both directions legal at band edges.
+const PRICE_BANDS = [
+  { cents: 0, tick: 1, index: 0 },
+  { cents: 1000, tick: 5, index: 1000 },
+  { cents: 5000, tick: 10, index: 1800 },
+  { cents: 10000, tick: 50, index: 2300 },
+  { cents: 50000, tick: 100, index: 3100 },
+  { cents: 100000, tick: 500, index: 3600 },
+] as const;
+
+function bandFor(cents: number) {
+  for (let i = PRICE_BANDS.length - 1; i > 0; i--) {
+    if (cents >= PRICE_BANDS[i].cents) return PRICE_BANDS[i];
+  }
+  return PRICE_BANDS[0];
+}
+
+// Remove only arithmetic noise near an integer, e.g. 9.95 * 100 = 994.9999999999999.
+function stableInteger(value: number): number {
+  const nearest = Math.round(value);
+  const tolerance = Math.min(1e-8, Number.EPSILON * Math.max(1, Math.abs(value)) * 4);
+  return Math.abs(value - nearest) <= tolerance ? nearest : value;
+}
+
+function priceCents(price: number): number {
+  const cents = stableInteger(price * 100);
+  return Number.isFinite(cents) && cents > 0 && cents <= Number.MAX_SAFE_INTEGER ? cents : 0;
+}
+
+function alignCents(cents: number, round: (value: number) => number): number {
+  if (!Number.isFinite(cents) || cents <= 0 || cents > Number.MAX_SAFE_INTEGER) return 0;
+  const tick = bandFor(cents).tick;
+  // Stabilize whole and half ticks so an exact midpoint such as 9.995 ties upward.
+  const aligned = round(stableInteger((cents / tick) * 2) / 2) * tick;
+  return Number.isSafeInteger(aligned) && aligned > 0 ? aligned / 100 : 0;
+}
+
+/** TWSE stock tick size by price band. */
 export function tickSize(price: number): number {
   const p = Math.abs(price);
   if (p < 10) return 0.01;
@@ -10,30 +49,51 @@ export function tickSize(price: number): number {
 }
 
 export function roundToTick(price: number): number {
-  if (!Number.isFinite(price) || price <= 0) return 0;
-  const t = tickSize(price);
-  const n = Math.round(price / t);
-  return Math.round(n * t * 1e6) / 1e6;
+  return alignCents(priceCents(price), Math.round);
 }
 
+/**
+ * Legacy off-tick prices first round to the nearest tick (ties upward), then move
+ * by a whole number of legal ticks. A tick index is equivalent to stepping one
+ * tick at a time, without a long loop for large counts. Invalid inputs or moving
+ * below the minimum price return 0, which is not a valid order price.
+ */
 export function stepTick(price: number, dir: number): number {
-  const t = tickSize(price);
-  return roundToTick(price + dir * t);
+  const rounded = roundToTick(price);
+  if (rounded === 0 || !Number.isSafeInteger(dir)) return 0;
+  const cents = Math.round(rounded * 100);
+  const band = bandFor(cents);
+  const index = band.index + (cents - band.cents) / band.tick + dir;
+  if (!Number.isSafeInteger(index) || index < 1) return 0;
+  let nextBand: (typeof PRICE_BANDS)[number] = PRICE_BANDS[0];
+  for (let i = PRICE_BANDS.length - 1; i > 0; i--) {
+    if (index >= PRICE_BANDS[i].index) {
+      nextBand = PRICE_BANDS[i];
+      break;
+    }
+  }
+  const nextCents = nextBand.cents + (index - nextBand.index) * nextBand.tick;
+  return Number.isSafeInteger(nextCents) ? nextCents / 100 : 0;
 }
 
+// The classroom models ordinary stock limits within +/-10% (Article 63).
+// It does not model the sub-one-tick or newly listed stock exceptions in that rule.
+// https://twse-regulation.twse.com.tw/TW/law/DOC01.aspx?FLCODE=FL007304&FLNO=63
 export function limitUp(prevClose: number): number {
-  return roundToTick(prevClose * 1.1);
+  const cents = priceCents(prevClose);
+  return cents >= 1 ? alignCents((cents * 11) / 10, Math.floor) : 0;
 }
 
 export function limitDown(prevClose: number): number {
-  const raw = prevClose * 0.9;
-  const t = tickSize(raw);
-  return Math.round(Math.ceil(raw / t) * t * 1e6) / 1e6;
+  const cents = priceCents(prevClose);
+  return cents >= 1 ? alignCents((cents * 9) / 10, Math.ceil) : 0;
 }
 
 export function clampLimit(price: number, prevClose: number): number {
+  if (priceCents(price) === 0) return 0;
   const lo = limitDown(prevClose);
   const hi = limitUp(prevClose);
+  if (lo === 0 || hi === 0 || lo > hi) return 0;
   return roundToTick(Math.min(hi, Math.max(lo, price)));
 }
 

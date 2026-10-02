@@ -33,6 +33,9 @@ function simBroker(engine: DayMarket | null): BrokerPort {
     ready: Boolean(engine),
     place(intent: OrderIntent): BrokerAck {
       if (!engine) return { ok: false, reason: "盤室尚未開啟" };
+      if (intent.venue !== "sim" || intent.accountId !== SIM_ACCOUNT || intent.kind !== "daytrade") {
+        return { ok: false, reason: "委託通路、帳號或商品類型與模擬帳戶不符" };
+      }
       const tifReason = rejectUnsupportedTif(intent.tif);
       if (tifReason) return { ok: false, reason: tifReason };
       return engine.place({
@@ -41,6 +44,7 @@ function simBroker(engine: DayMarket | null): BrokerPort {
         type: intent.type,
         lots: intent.lots,
         price: intent.price,
+        tif: intent.tif,
       });
     },
     cancel(orderId: string) {

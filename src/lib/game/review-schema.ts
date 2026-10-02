@@ -75,6 +75,16 @@ const reviewBundleBaseSchema = z
     equity: numeric,
     sessionLabel: text,
     firstTradePlan: firstTradePlanSnapshotSchema.optional(),
+    openPositionsAtEnd: z
+      .array(
+        z.object({
+          code: z.string().min(1).max(16),
+          lots: numeric.int().refine((lots) => lots !== 0, "未平倉張數不可為零"),
+          last: numeric.positive(),
+        }),
+      )
+      .max(500)
+      .optional(),
   });
 
 function checkReviewIntegrity(bundle: z.infer<typeof reviewBundleBaseSchema>, ctx: z.RefinementCtx) {

@@ -3,8 +3,9 @@ import { LIVE_ADAPTER_UNWIRED_REASON, LIVE_UNWIRED_REASON } from "@/lib/broker/c
 
 /**
  * Live-order hop. Classroom currently always simulates.
- * Later: verify session, map the ticket to the broker wire format, POST to
- * BROKER_BASE_URL with a server-side key. Never put that key in VITE_*.
+ * Live integration requires account authorization, durable idempotent intents,
+ * asynchronous broker acknowledgements/fills and reconciliation. See
+ * docs/broker-integration.md. A configured URL alone must never enable sends.
  */
 export const Route = createFileRoute("/api/broker/order")({
   server: {

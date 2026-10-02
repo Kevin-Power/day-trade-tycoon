@@ -35,6 +35,7 @@ export function SessionReport({
   const navigate = useNavigate();
   const teacherView = viewer?.kind === "teacher";
   const rec = bundle.rec;
+  const openPositions = bundle.openPositionsAtEnd;
   const lesson = lessonById(rec.scenarioId);
   const codes = [...new Set(bundle.fills.map((fill) => fill.code))];
   const [code, setCode] = useState(bundle.code);
@@ -137,6 +138,40 @@ export function SessionReport({
             </div>
           ))}
         </div>
+        <section
+          className="academy-card mt-5 p-5 text-base leading-7 sm:p-6"
+          aria-labelledby="review-positions-title"
+        >
+          <h2 id="review-positions-title" className="text-lg font-semibold">
+            結束時庫存
+          </h2>
+          {openPositions === undefined ? (
+            <p className="mt-3 text-muted">
+              這份紀錄未保存結束時庫存，無法判定平倉狀態。損益保留當時紀錄；若當時有未平倉部位，可能包含其估值且未扣未來平倉費稅。
+            </p>
+          ) : openPositions.length > 0 ? (
+            <>
+              <p className="mt-3 font-medium">仍有 {openPositions.length} 檔模擬部位未平倉</p>
+              <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+                {openPositions.map((position) => (
+                  <li key={position.code} className="rounded-xl border border-border bg-bg/60 p-4">
+                    <p>
+                      <span className="font-mono font-semibold">{position.code}</span>{" "}
+                      {position.lots > 0 ? "買進（多單）" : "賣出（空單）"} · 剩餘{" "}
+                      {Math.abs(position.lots)} 張
+                    </p>
+                    <p className="text-muted">最後模擬價 {formatPrice(position.last)}</p>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-muted">
+                模擬淨損益包含未平倉部位按最後模擬價計算的估值，尚未扣除未來平倉的手續費與交易稅。練習結束不代表已全部平倉。
+              </p>
+            </>
+          ) : (
+            <p className="mt-3 text-muted">結束時零庫存，沒有未平倉部位。</p>
+          )}
+        </section>
         <TradePlanReview bundle={bundle} />
         <section className="academy-card mt-7 p-5 sm:p-6" aria-labelledby="review-discipline-title">
           <div className="mb-5">

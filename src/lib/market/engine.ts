@@ -15,15 +15,18 @@ import {
   CLOSE_SECONDS,
   commission,
   DAYTRADE_TAX,
+  FEE_RATE,
   formatPrice,
   limitDown,
   limitUp,
   LOT_SHARES,
+  MIN_FEE,
   roundToTick,
-  tickSize,
+  stepTick,
 } from "@/lib/market/ticks";
 import { INDEX_PREV, UNIVERSE, lookupStock, type Sector, type StockDef } from "@/lib/market/universe";
 import { sessionById, type IndexSession } from "@/lib/market/week";
+import { estimateExecution, executionInputReason, type ExecutionInput } from "./execution.ts";
 import {
   indexSeriesFor,
   projectStock,
@@ -217,7 +220,6 @@ export class DayMarket {
       if (this.t >= this.endT) {
         this.forceFlatten();
         this.ended = true;
-        this.warning = "收盤，未平倉部位已市價出場。";
       }
     }
   }
@@ -338,29 +340,26 @@ export class DayMarket {
 
   private rebuildBook(st: StockState) {
     const last = st.last;
-    const t = tickSize(last);
     const spreadTicks = this.rng() < 0.7 ? 1 : 2;
-    const bid0 = roundToTick(last - spreadTicks * t);
-    const ask0 = roundToTick(last + (this.rng() < 0.35 ? 0 : spreadTicks * t));
+    const bid0 = stepTick(last, -spreadTicks);
+    const ask0 = stepTick(last, this.rng() < 0.35 ? 0 : spreadTicks);
     const lo = limitDown(st.prev);
     const hi = limitUp(st.prev);
     const bids: BookLevel[] = [];
     const asks: BookLevel[] = [];
-    let bp = Math.min(bid0, ask0 - t);
-    let ap = Math.max(ask0, bp + t);
-    bp = Math.max(lo, roundToTick(bp));
-    ap = Math.min(hi, roundToTick(ap));
     for (let i = 0; i < 5; i++) {
-      const p = roundToTick(bp - i * tickSize(bp));
-      if (p < lo) break;
+      const p = stepTick(bid0, -i);
+      if (p <= 0 || p < lo) break;
+      if (p > hi) continue;
       bids.push({
         price: p,
         lots: irand(this.rng, 2, 6) * st.def.liquidity + irand(this.rng, 0, 18),
       });
     }
     for (let i = 0; i < 5; i++) {
-      const p = roundToTick(ap + i * tickSize(ap));
+      const p = stepTick(ask0, i);
       if (p > hi) break;
+      if (p <= 0 || p < lo) continue;
       asks.push({
         price: p,
         lots: irand(this.rng, 2, 6) * st.def.liquidity + irand(this.rng, 0, 18),
@@ -415,6 +414,8 @@ export class DayMarket {
     const changePct = (change / st.prev) * 100;
     const hi = limitUp(st.prev);
     const lo = limitDown(st.prev);
+    const bids = st.bids.filter((level) => level.lots > 0);
+    const asks = st.asks.filter((level) => level.lots > 0);
     return {
       code: st.def.code,
       name: st.def.name,
@@ -427,17 +428,17 @@ export class DayMarket {
       low: st.low,
       change,
       changePct,
-      bid: st.bids[0]?.price ?? st.last,
-      ask: st.asks[0]?.price ?? st.last,
-      bidLots: st.bids[0]?.lots ?? 0,
-      askLots: st.asks[0]?.lots ?? 0,
+      bid: bids[0]?.price ?? st.last,
+      ask: asks[0]?.price ?? st.last,
+      bidLots: bids[0]?.lots ?? 0,
+      askLots: asks[0]?.lots ?? 0,
       tickLots: st.tickLots,
       volume: st.volume,
       vwap: this.vwapOf(st),
       inner: st.inner,
       outer: st.outer,
-      bids: st.bids.map((l) => ({ ...l })),
-      asks: st.asks.map((l) => ({ ...l })),
+      bids: bids.map((l) => ({ ...l })),
+      asks: asks.map((l) => ({ ...l })),
       atLimitUp: st.last >= hi - 1e-9,
       atLimitDown: st.last <= lo + 1e-9,
       flash: this.t <= st.flashUntil ? st.flash : 0,
@@ -504,57 +505,22 @@ export class DayMarket {
     return bestP;
   }
 
-  place(input: {
-    code: string;
-    side: Side;
-    type: "limit" | "market";
-    lots: number;
-    price?: number;
-  }): PlaceResult {
+  place(input: ExecutionInput & { code: string }): PlaceResult {
     if (this.ended) return { ok: false, reason: "已收盤" };
+    const invalid = executionInputReason(input);
+    if (invalid) return { ok: false, reason: invalid };
     const st = this.stocks.get(input.code);
     if (!st) return { ok: false, reason: "找不到商品" };
-    const lots = Math.floor(input.lots);
-    if (lots < 1 || lots > 200) return { ok: false, reason: "張數需介於 1–200" };
-
-    const pos = this.positions.get(input.code);
-    const posLots = pos?.lots ?? 0;
-    if (input.side === "sell" && posLots <= 0 && !this.scenario.allowShort) {
-      return { ok: false, reason: "此關不可先賣（尚未開通現股當沖）" };
-    }
-
+    const lots = input.lots;
+    const tif = input.tif ?? "ROD";
+    const estimate = estimateExecution(st, input);
     const px =
       input.type === "market"
-        ? input.side === "buy"
-          ? (st.asks[0]?.price ?? st.last)
-          : (st.bids[0]?.price ?? st.last)
-        : roundToTick(input.price ?? st.last);
-    if (px <= 0) return { ok: false, reason: "價格不正確" };
+        ? (estimate.levels[0]?.price ?? st.last)
+        : input.price!;
     const lo = limitDown(st.prev);
     const hi = limitUp(st.prev);
     if (px < lo || px > hi) return { ok: false, reason: "超出漲跌停" };
-
-    if (input.side === "buy") {
-      const notional = px * lots * LOT_SHARES;
-      if (this.cash < notional + commission(notional)) {
-        return { ok: false, reason: "可用餘額不足" };
-      }
-    }
-
-    const grossNow = this.grossExposure();
-    const extra =
-      input.side === "buy"
-        ? posLots >= 0
-          ? px * lots * LOT_SHARES
-          : 0
-        : posLots <= 0
-          ? px * lots * LOT_SHARES
-          : 0;
-    const cap = this.equity() * this.scenario.leverage;
-    if (grossNow + extra > cap * 1.01) {
-      return { ok: false, reason: `超過當沖額度（${this.scenario.leverage} 倍）` };
-    }
-
     const order: Order = {
       id: `O${this.seq++}`,
       code: input.code,
@@ -565,94 +531,199 @@ export class DayMarket {
       filled: 0,
       status: "pending",
       time: this.t,
+      tif,
     };
-    this.orders.unshift(order);
-    const fills = this.tryFill(order, st, input.type === "market");
-    if (order.status === "pending" && input.type === "market") {
-      order.status = "cancelled";
-      return { ok: false, reason: "無對手量，未成交" };
+    if (input.side === "sell" && !this.scenario.allowShort && lots > this.availableSellLots(input.code)) {
+      return { ok: false, reason: "可賣庫存不足（本關不可先賣，未成交賣單也會占用庫存）" };
     }
+    if (input.side === "buy") {
+      const reserve = tif === "ROD" ? this.buyReservation(order, estimate.remainingLots) : 0;
+      if (estimate.notional + estimate.fee + reserve > this.availableCash() + 1e-8) {
+        return { ok: false, reason: "可用餘額不足（已扣除未成交買單占用）" };
+      }
+    }
+    this.orders.unshift(order);
+    const fills = this.tryFill(order, st);
     return { ok: true, order, fills };
+  }
+
+  private working(order: Order): boolean {
+    return order.status === "pending" || order.status === "partial";
+  }
+
+  private buyReservation(order: Order, remaining = order.lots - order.filled): number {
+    if (order.side !== "buy" || remaining <= 0) return 0;
+    const st = this.stocks.get(order.code);
+    const price = order.type === "market" && st ? limitUp(st.prev) : order.price;
+    // A later fill can split arbitrarily; ceil is an upper bound for every split.
+    const feePerLot = Math.max(MIN_FEE, Math.ceil(price * LOT_SHARES * FEE_RATE));
+    return remaining * (price * LOT_SHARES + feePerLot);
+  }
+
+  reservedCash(excludeId?: string): number {
+    return this.orders.reduce((total, order) => total + (order.id !== excludeId && this.working(order) ? this.buyReservation(order) : 0), 0);
+  }
+
+  availableCash(excludeId?: string): number {
+    return Math.max(0, this.cash - this.reservedCash(excludeId));
+  }
+
+  private availableSellLots(code: string, excludeId?: string): number {
+    const held = this.positions.get(code)?.lots ?? 0;
+    const committed = this.orders.reduce((lots, order) => lots + (order.id !== excludeId && order.code === code && order.side === "sell" && this.working(order) ? order.lots - order.filled : 0), 0);
+    return Math.max(0, held - committed);
   }
 
   cancel(id: string): boolean {
     const o = this.orders.find((x) => x.id === id);
     if (!o || o.status === "filled" || o.status === "cancelled") return false;
     o.status = "cancelled";
+    o.cancelReason = "使用者取消未成交餘量";
     return true;
   }
 
   flatten(code: string): PlaceResult {
     const pos = this.positions.get(code);
     if (!pos || pos.lots === 0) return { ok: false, reason: "無庫存" };
+    for (const order of this.orders) {
+      if (order.code === code && this.working(order)) this.cancel(order.id);
+    }
     return this.place({
       code,
       side: pos.lots > 0 ? "sell" : "buy",
       type: "market",
-      lots: Math.abs(pos.lots),
+      lots: Math.min(200, Math.abs(pos.lots)),
+      tif: "IOC",
     });
   }
 
-  flattenAll() {
-    const codes = [...this.positions.values()].filter((p) => p.lots !== 0).map((p) => p.code);
-    for (const c of codes) this.flatten(c);
+  flattenAll(): PlaceResult[] {
+    for (const order of this.orders) {
+      if (this.working(order)) this.cancel(order.id);
+    }
+    // Sell long positions first so their proceeds are available for short covers.
+    const codes = [...this.positions.values()].filter((p) => p.lots !== 0)
+      .sort((a, b) => Number(b.lots > 0) - Number(a.lots > 0)).map((p) => p.code);
+    const results: PlaceResult[] = [];
+    for (const code of codes) {
+      // Large accumulated positions close in valid <=200-lot submissions.
+      while (Math.abs(this.positions.get(code)?.lots ?? 0) > 0) {
+        const result = this.flatten(code);
+        results.push(result);
+        if (!result.ok || result.order.filled < result.order.lots) break;
+      }
+    }
+    return results;
   }
 
-  private forceFlatten() {
+  finish() {
+    if (this.ended) return;
+    this.forceFlatten("結束練習");
+    this.ended = true;
+  }
+
+  private forceFlatten(label = "收盤") {
     this.forcedClose ||= [...this.positions.values()].some((position) => position.lots !== 0);
-    for (const o of this.orders) {
-      if (o.status === "pending" || o.status === "partial") o.status = "cancelled";
-    }
     this.flattenAll();
+    const remaining = [...this.positions.values()].filter((position) => position.lots !== 0);
+    this.warning = remaining.length
+      ? `${label}，仍有 ${remaining.length} 檔未能全部平倉；結果保留未平部位，請查看庫存與取消原因。`
+      : `${label}，已無未平倉部位，未成交委託已取消。`;
+    this.updateEquityStats();
   }
 
   private matchResting() {
-    for (const o of this.orders) {
-      if (o.status !== "pending" && o.status !== "partial") continue;
+    const pending = this.orders.slice().reverse().filter((order) => this.working(order));
+    pending.sort((a, b) => {
+      const book = a.code.localeCompare(b.code) || a.side.localeCompare(b.side);
+      if (book) return book;
+      if (a.type !== b.type) return a.type === "market" ? -1 : 1;
+      const price = a.type === "market" ? 0 : a.side === "buy" ? b.price - a.price : a.price - b.price;
+      return price || a.time - b.time;
+    });
+    for (const o of pending) {
       const st = this.stocks.get(o.code);
       if (!st) continue;
-      this.tryFill(o, st, false);
+      this.tryFill(o, st);
     }
   }
 
-  private tryFill(order: Order, st: StockState, aggressive: boolean): Fill[] {
-    const out: Fill[] = [];
-    let remain = order.lots - order.filled;
-    if (remain <= 0) return out;
+  private fillRiskReason(order: Order, st: StockState, lots: number, price: number,
+    state = { cash: this.cash, lots: this.positions.get(order.code)?.lots ?? 0 }): string | null {
+    const held = this.positions.get(order.code)?.lots ?? 0;
+    const notional = price * lots * LOT_SHARES;
+    const cost = commission(notional) + (order.side === "sell" ? Math.round(notional * DAYTRADE_TAX) : 0);
+    const cash = state.cash + (order.side === "buy" ? -notional - cost : notional - cost);
+    const next = state.lots + (order.side === "buy" ? lots : -lots);
+    if (order.side === "buy" && cash + 1e-8 < this.reservedCash(order.id)) return "成交前可用餘額不足，未成交餘量取消";
+    if (!this.scenario.allowShort && order.side === "sell") {
+      const otherSells = held - this.availableSellLots(order.code, order.id);
+      if (lots > Math.max(0, state.lots - otherSells)) return "成交前可賣庫存不足，未成交餘量取消";
+    }
+    const closes = state.lots * (order.side === "buy" ? 1 : -1) < 0 ? Math.min(Math.abs(state.lots), lots) : 0;
+    if (lots > closes) {
+      const otherValue = this.equity() - this.cash - held * st.last * LOT_SHARES;
+      const otherGross = this.grossExposure() - Math.abs(held) * st.last * LOT_SHARES;
+      const equity = cash + next * price * LOT_SHARES + otherValue;
+      const gross = Math.abs(next) * price * LOT_SHARES + otherGross;
+      if (gross > Math.max(0, equity) * this.scenario.leverage * 1.01 + 1e-8) return `成交前超過當沖額度（${this.scenario.leverage} 倍），未成交餘量取消`;
+    }
+    return null;
+  }
 
-    if (order.side === "buy") {
-      const levels = aggressive ? st.asks : st.asks.filter((l) => l.price <= order.price + 1e-9);
-      if (!aggressive && st.last > order.price + 1e-9 && (st.asks[0]?.price ?? 9e9) > order.price) {
-        return out;
-      }
-      for (const lvl of levels) {
-        if (remain <= 0) break;
-        if (!aggressive && lvl.price > order.price + 1e-9) break;
-        const take = Math.min(remain, Math.max(1, lvl.lots));
-        const fillPx = lvl.price;
-        const fill = this.execute(order, st, "buy", take, fillPx);
-        out.push(fill);
-        remain -= take;
-        lvl.lots = Math.max(0, lvl.lots - take);
-      }
-    } else {
-      const levels = aggressive ? st.bids : st.bids.filter((l) => l.price >= order.price - 1e-9);
-      if (!aggressive && st.last < order.price - 1e-9 && (st.bids[0]?.price ?? 0) < order.price) {
-        return out;
-      }
-      for (const lvl of levels) {
-        if (remain <= 0) break;
-        if (!aggressive && lvl.price < order.price - 1e-9) break;
-        const take = Math.min(remain, Math.max(1, lvl.lots));
-        const fill = this.execute(order, st, "sell", take, lvl.price);
-        out.push(fill);
-        remain -= take;
-        lvl.lots = Math.max(0, lvl.lots - take);
+  private consumeDepth(st: StockState, side: Side, price: number, lots: number) {
+    const levels = side === "buy" ? st.asks : st.bids;
+    let remain = lots;
+    for (const level of levels) {
+      if (level.price !== price || level.lots <= 0) continue;
+      const take = Math.min(remain, level.lots);
+      level.lots -= take;
+      remain -= take;
+      if (remain === 0) break;
+    }
+  }
+
+  private tryFill(order: Order, st: StockState): Fill[] {
+    const out: Fill[] = [];
+    const remain = order.lots - order.filled;
+    if (remain <= 0 || !this.working(order)) return out;
+    const tif = order.tif ?? "ROD";
+    const plan = estimateExecution(st, { ...order, lots: remain });
+    const cancel = (reason: string) => { order.status = "cancelled"; order.cancelReason = reason; };
+    if (tif === "FOK") {
+      if (plan.filledLots !== remain) { cancel("FOK 五檔可成交量不足，全筆取消"); return out; }
+      const state = { cash: this.cash, lots: this.positions.get(order.code)?.lots ?? 0 };
+      for (const level of plan.levels) {
+        const reason = this.fillRiskReason(order, st, level.lots, level.price, state);
+        if (reason) { cancel(`FOK ${reason}，全筆未成交`); return out; }
+        const notional = level.price * level.lots * LOT_SHARES;
+        const cost = commission(notional) + (order.side === "sell" ? Math.round(notional * DAYTRADE_TAX) : 0);
+        state.cash += order.side === "buy" ? -notional - cost : notional - cost;
+        state.lots += order.side === "buy" ? level.lots : -level.lots;
       }
     }
-
+    for (const level of plan.levels) {
+      let low = 0;
+      let high = level.lots;
+      while (low < high) {
+        const mid = Math.ceil((low + high) / 2);
+        if (this.fillRiskReason(order, st, mid, level.price)) high = mid - 1;
+        else low = mid;
+      }
+      if (low > 0) {
+        out.push(this.execute(order, st, order.side, low, level.price));
+        this.consumeDepth(st, order.side, level.price, low);
+      }
+      if (low < level.lots) {
+        cancel(this.fillRiskReason(order, st, 1, level.price) ?? "成交前風險檢查未通過，未成交餘量取消");
+        break;
+      }
+    }
     if (order.filled >= order.lots) order.status = "filled";
-    else if (order.filled > 0) order.status = "partial";
+    else if (order.status !== "cancelled") {
+      if (tif === "IOC") cancel("IOC 未成交餘量已取消");
+      else order.status = order.filled > 0 ? "partial" : "pending";
+    }
     return out;
   }
 
@@ -692,13 +763,14 @@ export class DayMarket {
     };
     // Canonical session history: display limits belong in the UI, not this ledger.
     this.fills.unshift(fill);
+    this.updateEquityStats();
     return fill;
   }
 
   private applyPosition(code: string, side: Side, lots: number, price: number, cost: number) {
     let pos = this.positions.get(code);
     if (!pos) {
-      pos = { code, lots: 0, avg: 0, realized: 0 };
+      pos = { code, lots: 0, avg: 0, realized: 0, openCost: 0 };
       this.positions.set(code, pos);
     }
     const signed = side === "buy" ? lots : -lots;
@@ -710,11 +782,14 @@ export class DayMarket {
       const absAdd = Math.abs(signed);
       pos.avg = absPrev + absAdd === 0 ? 0 : (pos.avg * absPrev + price * absAdd) / (absPrev + absAdd);
       pos.lots = next;
+      pos.openCost = (pos.openCost ?? 0) + cost;
       return;
     }
 
     const closeLots = Math.min(Math.abs(prev), lots);
-    const pnl = (price - pos.avg) * closeLots * LOT_SHARES * (prev > 0 ? 1 : -1) - cost;
+    const openingCost = (pos.openCost ?? 0) * closeLots / Math.abs(prev);
+    const closingCost = cost * closeLots / lots;
+    const pnl = (price - pos.avg) * closeLots * LOT_SHARES * (prev > 0 ? 1 : -1) - openingCost - closingCost;
     pos.realized += pnl;
     this.realized += pnl;
     this.tradeCount += 1;
@@ -723,11 +798,14 @@ export class DayMarket {
     if (Math.abs(next) < 1e-9) {
       pos.lots = 0;
       pos.avg = 0;
+      pos.openCost = 0;
     } else if (prev * next < 0) {
       pos.lots = next;
       pos.avg = price;
+      pos.openCost = cost - closingCost;
     } else {
       pos.lots = next;
+      pos.openCost = (pos.openCost ?? 0) - openingCost;
     }
   }
 
@@ -748,7 +826,7 @@ export class DayMarket {
       if (pos.lots === 0) continue;
       const st = this.stocks.get(pos.code);
       if (!st) continue;
-      u += pos.lots * (st.last - pos.avg) * LOT_SHARES;
+      u += pos.lots * (st.last - pos.avg) * LOT_SHARES - (pos.openCost ?? 0);
     }
     return u;
   }
@@ -773,7 +851,7 @@ export class DayMarket {
         ...pos,
         last: st.last,
         name: st.def.name,
-        uPnl: pos.lots * (st.last - pos.avg) * LOT_SHARES,
+        uPnl: pos.lots * (st.last - pos.avg) * LOT_SHARES - (pos.openCost ?? 0),
       });
     }
     return out;
@@ -799,7 +877,7 @@ export class DayMarket {
   private updateWarning() {
     const left = this.endT - this.t;
     if (left <= 10 * 60 && left > 0 && this.openPositions().length) {
-      this.warning = `距離收盤 ${Math.ceil(left / 60)} 分鐘，未平倉將強制市價出場。`;
+      this.warning = `距離收盤 ${Math.ceil(left / 60)} 分鐘，屆時會撤單並依五檔嘗試平倉；量不足仍會保留庫存。`;
     } else if (left > 10 * 60) {
       this.warning = this.news ? null : this.warning && this.warning.startsWith("距離") ? null : this.warning;
     }
@@ -811,6 +889,8 @@ export class DayMarket {
     return {
       equity: eq,
       cash: this.cash,
+      reservedCash: this.reservedCash(),
+      availableCash: this.availableCash(),
       pnl,
       pnlPct: (pnl / this.capital) * 100,
       realized: this.realized,

@@ -82,6 +82,8 @@ export type ReviewBundle = {
   equity: number;
   sessionLabel: string;
   firstTradePlan?: FirstTradePlanSnapshot;
+  /** Missing on older records; an empty array explicitly records zero inventory. */
+  openPositionsAtEnd?: Array<{ code: string; lots: number; last: number }>;
 };
 
 const memoryReviews = new Map<string, ReviewBundle>();
