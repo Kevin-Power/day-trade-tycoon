@@ -13,6 +13,14 @@ import {
 } from "@/lib/game/persist";
 import { evaluatePass, type RuleVerdict } from "@/lib/game/pass-rules";
 import { SERVER_REVIEW_FILL_LIMIT } from "@/lib/game/review-schema";
+import {
+  firstPlannedOrderSchema,
+  snapshotFirstTradePlan,
+  tradePlanSchema,
+  type FirstPlannedOrder,
+  type TradePlan,
+  type TradePlanInput,
+} from "@/lib/game/trade-plan";
 import { reviewSaveMessage, type ReviewSyncStatus } from "@/lib/game/review-storage-status";
 import { flashClickDecision, isExamScenario, ticketAfterClickPrice } from "@/lib/game/flash-order";
 import {
@@ -68,6 +76,8 @@ type GameStore = {
   speed: number;
   paused: boolean;
   ticket: Ticket;
+  tradePlan: TradePlan | null;
+  firstPlannedOrder: FirstPlannedOrder | null;
   venue: Venue;
   accountId: string;
   mobileTab: MobileTab;
@@ -98,6 +108,8 @@ type GameStore = {
   setSpeed: (n: number) => void;
   select: (code: string) => void;
   setTicket: (patch: Partial<Ticket>) => void;
+  saveTradePlan: (input: TradePlanInput) => { ok: boolean; reason?: string };
+  removeTradePlan: () => void;
   setVenue: (v: Venue) => void;
   setMobileTab: (t: MobileTab) => void;
   setRightTab: (t: RightTab) => void;
@@ -128,6 +140,8 @@ export const useGame = create<GameStore>((set, get) => ({
   speed: 8,
   paused: false,
   ticket: { side: "buy", type: "limit", lots: 1, price: 0, tif: "ROD" },
+  tradePlan: null,
+  firstPlannedOrder: null,
   venue: "sim",
   accountId: SIM_ACCOUNT,
   mobileTab: "watch",
@@ -176,6 +190,8 @@ export const useGame = create<GameStore>((set, get) => ({
       speed: initialPracticeSpeed(sc.speed, guide),
       paused: !!beat || guide,
       ticket: { side: "buy", type: "limit", lots: 1, price: roundToTick(px), tif: "ROD" },
+      tradePlan: null,
+      firstPlannedOrder: null,
       mobileTab: "watch",
       rightTab: "pos",
       lastResult: null,
@@ -209,6 +225,8 @@ export const useGame = create<GameStore>((set, get) => ({
       phase: "lobby",
       engine: null,
       scenario: null,
+      tradePlan: null,
+      firstPlannedOrder: null,
       paused: false,
       lastResult: null,
       activeBeat: null,
@@ -251,7 +269,8 @@ export const useGame = create<GameStore>((set, get) => ({
     };
     const next = applySession(profile, rec);
     const bundle = { rec, verdicts: pass.verdicts, fills: [...engine.fills], code: get().selected,
-      capital: scenario.capital, equity: st.equity, sessionLabel: engine.session.label };
+      capital: scenario.capital, equity: st.equity, sessionLabel: engine.session.label,
+      firstTradePlan: snapshotFirstTradePlan(get().tradePlan, get().firstPlannedOrder) };
     const localReviewSaved = saveReview(bundle);
     set({ phase: "result", lastResult: rec, lastVerdicts: pass.verdicts, profile: next, paused: true, syncStatus: "local", localReviewSaved, learnerGuideReady: false });
     if (getProfileIdentity()) {
@@ -321,6 +340,35 @@ export const useGame = create<GameStore>((set, get) => ({
       if (q) next.price = roundToTick(patch.side === "buy" ? q.ask : q.bid);
     }
     set({ ticket: next });
+  },
+
+  saveTradePlan: (input) => {
+    const { phase, engine, selected, ticket, firstPlannedOrder } = get();
+    if (phase !== "live" || !engine) {
+      return { ok: false, reason: "請先進入一堂模擬練習，再寫第一筆進場計畫。" };
+    }
+    if (firstPlannedOrder) {
+      return { ok: false, reason: "第一筆委託已送出，這一堂的進場計畫已鎖定，不能補寫或改寫。" };
+    }
+    const parsed = tradePlanSchema.safeParse({
+      ...input,
+      version: 1,
+      code: selected,
+      side: ticket.side,
+      lots: ticket.lots,
+      simTime: engine.t,
+    });
+    if (!parsed.success) {
+      return { ok: false, reason: "請填寫進場與離場條件（各 1–200 字）、大於 0 的討論虧損額度，並確認張數為 1–200 的整數。" };
+    }
+    set({ tradePlan: parsed.data });
+    return { ok: true };
+  },
+
+  removeTradePlan: () => {
+    if (get().phase === "live" && get().firstPlannedOrder === null) {
+      set({ tradePlan: null });
+    }
   },
 
   setVenue: (v) => {
@@ -420,6 +468,11 @@ export const useGame = create<GameStore>((set, get) => ({
       playError();
       toast.error(res.reason);
       return;
+    }
+    if (get().firstPlannedOrder === null) {
+      // Both regular and flash submissions pass here. Acceptance locks the
+      // first intent even if it has no fills yet or no plan was written.
+      set({ firstPlannedOrder: firstPlannedOrderSchema.parse(res.order) });
     }
     for (const f of res.fills) {
       if (paused) f.filledWhilePaused = true;

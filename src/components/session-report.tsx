@@ -25,11 +25,20 @@ import { cn, formatMoney, formatSigned, formatTime } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
 import { PracticeGoalEditor } from "@/components/practice-goal";
 import { ReviewConditions } from "@/components/review-conditions";
+import { TradePlanReview } from "@/components/trade-plan";
+import { formatPrice } from "@/lib/market/ticks";
 
 const FILLS_PER_PAGE = 100;
 
-export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
+export function SessionReport({
+  bundle,
+  viewer,
+}: {
+  bundle: ReviewBundle;
+  viewer?: { kind: "teacher"; studentName: string };
+}) {
   const navigate = useNavigate();
+  const teacherView = viewer?.kind === "teacher";
   const rec = bundle.rec;
   const lesson = lessonById(rec.scenarioId);
   const codes = [...new Set(bundle.fills.map((fill) => fill.code))];
@@ -39,7 +48,10 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
   const [chartPage, setChartPage] = useState(0);
   const [tablePage, setTablePage] = useState(0);
   const chartFills = fills.slice(chartPage * FILLS_PER_PAGE, (chartPage + 1) * FILLS_PER_PAGE);
-  const tableFills = bundle.fills.slice(tablePage * FILLS_PER_PAGE, (tablePage + 1) * FILLS_PER_PAGE);
+  const tableFills = bundle.fills.slice(
+    tablePage * FILLS_PER_PAGE,
+    (tablePage + 1) * FILLS_PER_PAGE,
+  );
   return (
     <main className="academy-page">
       <header className="academy-header">
@@ -52,12 +64,16 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
             type="button"
             className="academy-nav-link"
             onClick={() => {
+              if (teacherView) {
+                void navigate({ to: "/teacher" });
+                return;
+              }
               useGame.getState().leave();
               void navigate({ to: "/" });
             }}
           >
             <ArrowLeft aria-hidden="true" className="size-4" />
-            教室大廳
+            {teacherView ? "講師工作區" : "教室大廳"}
           </button>
         </div>
       </header>
@@ -67,6 +83,17 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
         </p>
         <h1 className="academy-title mt-2">{rec.scenarioName} · 完整復盤</h1>
         <p className="academy-description mt-3">把每一次模擬操作，整理成下一次能實踐的改進。</p>
+        {teacherView && (
+          <aside
+            className="mt-5 rounded-xl border border-brand/20 bg-brand/5 p-4 text-base leading-7"
+            aria-label="講師唯讀復盤"
+          >
+            <p className="font-semibold">{viewer.studentName || "本班學員"} · 講師唯讀檢視</p>
+            <p className="mt-2 text-muted">
+              以下是學員自述與瀏覽器產生的模擬紀錄，供課堂討論，並非防作弊驗證或能力證明。請對照進出場理由與實際操作觀察。
+            </p>
+          </aside>
+        )}
         <p
           className={cn(
             "mt-4 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs",
@@ -106,6 +133,7 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
             </div>
           ))}
         </div>
+        <TradePlanReview bundle={bundle} />
         <section className="academy-card mt-7 p-5 sm:p-6" aria-labelledby="review-discipline-title">
           <div className="mb-5">
             <p className="academy-eyebrow">01 · 本盤條件檢核</p>
@@ -147,7 +175,10 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
                 <select
                   aria-label="復盤標的"
                   value={selected}
-                  onChange={(event) => { setCode(event.target.value); setChartPage(0); }}
+                  onChange={(event) => {
+                    setCode(event.target.value);
+                    setChartPage(0);
+                  }}
                   className="academy-input min-w-32 text-sm"
                 >
                   {codes.map((item) => (
@@ -159,8 +190,13 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
             <p className="mt-3 text-sm leading-6 text-muted">
               圖上僅呈現本次記錄的模擬成交點，紅色買進、綠色賣出。
             </p>
-            <FillPages total={fills.length} page={chartPage} onChange={setChartPage} label="成交軌跡分頁" />
-            <div className="mt-5 h-64 sm:h-72">
+            <FillPages
+              total={fills.length}
+              page={chartPage}
+              onChange={setChartPage}
+              label="成交軌跡分頁"
+            />
+            <div className="mt-5 h-64 min-w-0 overflow-hidden sm:h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart>
                   <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
@@ -181,6 +217,11 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
                   />
                   <Tooltip
                     cursor={{ strokeDasharray: "3 3" }}
+                    labelFormatter={(value) => formatTime(Number(value))}
+                    formatter={(value, name) => [
+                      name === "時間" ? formatTime(Number(value)) : formatPrice(Number(value)),
+                      name,
+                    ]}
                     contentStyle={{
                       background: "var(--color-surface)",
                       color: "var(--color-fg)",
@@ -221,7 +262,14 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
               <span className="text-xs text-muted sm:hidden">表格可左右滑動</span>
             )}
           </div>
-          <div className="px-5 sm:px-6"><FillPages total={bundle.fills.length} page={tablePage} onChange={setTablePage} label="完整成交紀錄分頁" /></div>
+          <div className="px-5 sm:px-6">
+            <FillPages
+              total={bundle.fills.length}
+              page={tablePage}
+              onChange={setTablePage}
+              label="完整成交紀錄分頁"
+            />
+          </div>
           {bundle.fills.length > 0 ? (
             <div className="term-scroll max-h-[30rem] overflow-auto">
               <table className="w-full min-w-[44rem] whitespace-nowrap text-left text-sm">
@@ -298,47 +346,72 @@ export function SessionReport({ bundle }: { bundle: ReviewBundle }) {
             </ul>
           </section>
         )}
-        <PracticeGoalEditor scenarioId={rec.scenarioId} scenarioName={rec.scenarioName} />
+        {!teacherView && (
+          <PracticeGoalEditor scenarioId={rec.scenarioId} scenarioName={rec.scenarioName} />
+        )}
         <ProvenanceMicro
           className="mt-5"
           text="資料來源為本次教室模擬操作。歷史行情與教室生成資料的組合不等於真實成交，模擬成果不代表實際交易結果。"
         />
-        <div className="academy-card mt-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-          <div>
-            <h2 className="font-semibold">把復盤帶進下一次練習</h2>
-            <p className="mt-1.5 text-sm text-muted">先選一個想改善的動作，再重練這堂課。</p>
+        {!teacherView && (
+          <div className="academy-card mt-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <div>
+              <h2 className="font-semibold">把復盤帶進下一次練習</h2>
+              <p className="mt-1.5 text-sm text-muted">先選一個想改善的動作，再重練這堂課。</p>
+            </div>
+            <button
+              type="button"
+              className="academy-button-primary shrink-0"
+              onClick={() => {
+                useGame.getState().start(rec.scenarioId);
+                void navigate({ to: "/" });
+              }}
+            >
+              <RotateCcw aria-hidden="true" className="size-4" />
+              重練本課
+            </button>
           </div>
-          <button
-            type="button"
-            className="academy-button-primary shrink-0"
-            onClick={() => {
-              useGame.getState().start(rec.scenarioId);
-              void navigate({ to: "/" });
-            }}
-          >
-            <RotateCcw aria-hidden="true" className="size-4" />
-            重練本課
-          </button>
-        </div>
+        )}
       </div>
     </main>
   );
 }
 
-function FillPages({ total, page, onChange, label }: { total: number; page: number; onChange: (page: number) => void; label: string }) {
+function FillPages({
+  total,
+  page,
+  onChange,
+  label,
+}: {
+  total: number;
+  page: number;
+  onChange: (page: number) => void;
+  label: string;
+}) {
   if (total <= FILLS_PER_PAGE) return null;
   const last = Math.ceil(total / FILLS_PER_PAGE) - 1;
   return (
     <nav aria-label={label} className="my-4 space-y-2 text-base leading-7">
-      <p role="status" className="text-muted">第 {page * FILLS_PER_PAGE + 1}–{Math.min(total, (page + 1) * FILLS_PER_PAGE)} 筆，共 {total} 筆（由新到舊）</p>
+      <p role="status" className="text-muted">
+        第 {page * FILLS_PER_PAGE + 1}–{Math.min(total, (page + 1) * FILLS_PER_PAGE)} 筆，共 {total}{" "}
+        筆（由新到舊）
+      </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
           { label: "最新一頁", target: 0, disabled: page === 0 },
           { label: "上一頁", target: page - 1, disabled: page === 0 },
           { label: "下一頁", target: page + 1, disabled: page === last },
           { label: "最早一頁", target: last, disabled: page === last },
-        ].map(item => (
-          <button key={item.label} type="button" disabled={item.disabled} onClick={() => onChange(item.target)} className="min-h-12 whitespace-normal rounded-lg border border-border px-3 py-2 text-base disabled:opacity-40">{item.label}</button>
+        ].map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            disabled={item.disabled}
+            onClick={() => onChange(item.target)}
+            className="min-h-12 whitespace-normal rounded-lg border border-border px-3 py-2 text-base disabled:opacity-40"
+          >
+            {item.label}
+          </button>
         ))}
       </div>
     </nav>

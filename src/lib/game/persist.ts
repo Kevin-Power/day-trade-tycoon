@@ -1,6 +1,7 @@
 import { EMPTY_PROFILE, PROFILE_VERSION, type Fill, type Profile, type SessionRecord } from "@/lib/game/types";
 import type { RuleVerdict } from "@/lib/game/pass-rules";
 import { localReviewBundleSchema } from "@/lib/game/review-schema";
+import type { FirstTradePlanSnapshot } from "@/lib/game/trade-plan";
 
 export { loadFlashOrder, saveFlashOrder } from "@/lib/game/flash-order";
 
@@ -80,6 +81,7 @@ export type ReviewBundle = {
   capital: number;
   equity: number;
   sessionLabel: string;
+  firstTradePlan?: FirstTradePlanSnapshot;
 };
 
 const memoryReviews = new Map<string, ReviewBundle>();

@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import * as guide from "../src/lib/game/learner-guide.ts";
+import * as tradePlan from "../src/lib/game/trade-plan.ts";
 
 // Run the production store actions with a tiny engine and storage fixture. A guide
 // action must never reach the engine, even when a normal teaching pause allows it.
@@ -34,6 +35,7 @@ function storeFixture(completedSessions = 0) {
     "@/lib/game/review-storage-status": {},
     "@/lib/game/flash-order": { isExamScenario: (id) => id === "tycoon" },
     "@/lib/game/learner-guide": guide,
+    "@/lib/game/trade-plan": tradePlan,
     "@/lib/game/audio": { unlockAudio: () => {}, playError: () => {}, playFill: () => {} },
     "@/lib/market/engine": {
       DayMarket: class {

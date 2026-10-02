@@ -1,8 +1,16 @@
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { TradePlanEntry } from "@/components/trade-plan";
 import { ClassroomSimMark, ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
 import { useGame } from "@/lib/game/store";
-import { LIVE_UNWIRED_REASON, SIM_ACCOUNT, SIM_TIF_HINT, simAllowsTif, venueLabel, type TimeInForce } from "@/lib/broker";
+import {
+  LIVE_UNWIRED_REASON,
+  SIM_ACCOUNT,
+  SIM_TIF_HINT,
+  simAllowsTif,
+  venueLabel,
+  type TimeInForce,
+} from "@/lib/broker";
 import { blotterMicro } from "@/lib/provenance";
 import { LOT_SHARES, ROUND_TRIP_RATE, stepTick } from "@/lib/market/ticks";
 import { cn, formatMoney, formatPct } from "@/lib/utils";
@@ -29,8 +37,12 @@ export function OrderTicket() {
     ticket.price > 0 ? ticket.price : ticket.side === "buy" ? (q?.ask ?? 0) : (q?.bid ?? 0);
   const estimatePrice = ticket.type === "market" ? (q?.last ?? 0) : price;
   const notional = estimatePrice * ticket.lots * LOT_SHARES;
-  const vsPrev = q && estimatePrice > 0 && q.prevClose > 0 ? ((estimatePrice - q.prevClose) / q.prevClose) * 100 : 0;
-  const vsVwap = q && estimatePrice > 0 && q.vwap > 0 ? ((estimatePrice - q.vwap) / q.vwap) * 100 : 0;
+  const vsPrev =
+    q && estimatePrice > 0 && q.prevClose > 0
+      ? ((estimatePrice - q.prevClose) / q.prevClose) * 100
+      : 0;
+  const vsVwap =
+    q && estimatePrice > 0 && q.vwap > 0 ? ((estimatePrice - q.vwap) / q.vwap) * 100 : 0;
   const thin = Math.abs(vsVwap) < ROUND_TRIP_RATE * 100 * 0.9;
   const st = engine?.stats();
   const tooBig = st ? notional > st.equity * 0.3 : false;
@@ -41,95 +53,104 @@ export function OrderTicket() {
       <div className="pane-title flex h-7 items-center justify-between gap-2 px-2">
         <span>委託下單</span>
         <span className="flex items-center gap-1.5">
-          <span className="hidden font-mono text-micro text-fg/80 sm:inline">現股當沖 · 1 張 = 1,000 股</span>
+          <span className="hidden font-mono text-micro text-fg/80 sm:inline">
+            現股當沖 · 1 張 = 1,000 股
+          </span>
           <ClassroomSimMark />
           <ProvenanceBadge kind="classroom" />
         </span>
       </div>
       <ProvenanceMicro text={blotterMicro()} />
+      <TradePlanEntry />
 
       <details className="border-b border-border bg-bg-1">
-      <summary className="cursor-pointer px-3 py-2.5 text-xs text-muted">更多下單設定 · 模擬帳戶</summary>
-      <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2">
-        <Field label="帳號">
-          <span className="font-mono">{accountId || SIM_ACCOUNT}</span>
-        </Field>
-        <Field label="盤別">
-          <span className="text-tape">現股當沖</span>
-        </Field>
-        <Field label="通路">
-          <span className="inline-flex overflow-hidden rounded-xs border border-border">
-            <button
-              type="button"
-              onClick={() => setVenue("sim")}
-              className={cn(
-                "h-6 px-2 text-2xs",
-                venue === "sim" ? "bg-header-2 text-fg" : "text-muted hover:text-fg",
-              )}
-            >
-              模擬
-            </button>
-            <button
-              type="button"
-              title={LIVE_UNWIRED_REASON}
-              onClick={() => setVenue("live")}
-              className="h-6 px-2 text-2xs text-muted hover:text-fg"
-            >
-              實盤
-            </button>
-          </span>
-        </Field>
-        <Field label="TIF">
-          <span className="inline-flex overflow-hidden rounded-xs border border-border">
-            {TIF.map((t) => {
-              const allowed = simAllowsTif(t);
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  aria-disabled={!allowed}
-                  title={allowed ? "掛到取消或收盤" : SIM_TIF_HINT}
-                  onClick={() => setTicket({ tif: t })}
-                  className={cn(
-                    "h-6 px-1.5 font-mono text-2xs",
-                    ticket.tif === t ? "bg-header-2 text-fg" : allowed ? "text-muted hover:text-fg" : "text-subtle",
-                  )}
-                >
-                  {t}
-                </button>
-              );
-            })}
-          </span>
-          <span className="text-subtle">{SIM_TIF_HINT}</span>
-        </Field>
-        <Field label="閃電下單">
-          <span className="inline-flex overflow-hidden rounded-xs border border-border">
-            <button
-              type="button"
-              aria-pressed={!flashOrder}
-              onClick={() => flashOrder && setFlashOrder(false)}
-              className={cn(
-                "h-6 px-1.5 text-2xs",
-                !flashOrder ? "bg-header-2 text-fg" : "text-muted hover:text-fg",
-              )}
-            >
-              關
-            </button>
-            <button
-              type="button"
-              aria-pressed={flashOrder}
-              onClick={() => !flashOrder && setFlashOrder(true)}
-              className={cn(
-                "h-6 px-1.5 text-2xs",
-                flashOrder ? "bg-header-2 text-tape" : "text-muted hover:text-fg",
-              )}
-            >
-              開
-            </button>
-          </span>
-        </Field>
-        <span className="ml-auto font-mono text-2xs text-muted">{venueLabel(venue)}</span>
-      </div>
+        <summary className="cursor-pointer px-3 py-2.5 text-xs text-muted">
+          更多下單設定 · 模擬帳戶
+        </summary>
+        <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2">
+          <Field label="帳號">
+            <span className="font-mono">{accountId || SIM_ACCOUNT}</span>
+          </Field>
+          <Field label="盤別">
+            <span className="text-tape">現股當沖</span>
+          </Field>
+          <Field label="通路">
+            <span className="inline-flex overflow-hidden rounded-xs border border-border">
+              <button
+                type="button"
+                onClick={() => setVenue("sim")}
+                className={cn(
+                  "h-6 px-2 text-2xs",
+                  venue === "sim" ? "bg-header-2 text-fg" : "text-muted hover:text-fg",
+                )}
+              >
+                模擬
+              </button>
+              <button
+                type="button"
+                title={LIVE_UNWIRED_REASON}
+                onClick={() => setVenue("live")}
+                className="h-6 px-2 text-2xs text-muted hover:text-fg"
+              >
+                實盤
+              </button>
+            </span>
+          </Field>
+          <Field label="TIF">
+            <span className="inline-flex overflow-hidden rounded-xs border border-border">
+              {TIF.map((t) => {
+                const allowed = simAllowsTif(t);
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    aria-disabled={!allowed}
+                    title={allowed ? "掛到取消或收盤" : SIM_TIF_HINT}
+                    onClick={() => setTicket({ tif: t })}
+                    className={cn(
+                      "h-6 px-1.5 font-mono text-2xs",
+                      ticket.tif === t
+                        ? "bg-header-2 text-fg"
+                        : allowed
+                          ? "text-muted hover:text-fg"
+                          : "text-subtle",
+                    )}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </span>
+            <span className="text-subtle">{SIM_TIF_HINT}</span>
+          </Field>
+          <Field label="閃電下單">
+            <span className="inline-flex overflow-hidden rounded-xs border border-border">
+              <button
+                type="button"
+                aria-pressed={!flashOrder}
+                onClick={() => flashOrder && setFlashOrder(false)}
+                className={cn(
+                  "h-6 px-1.5 text-2xs",
+                  !flashOrder ? "bg-header-2 text-fg" : "text-muted hover:text-fg",
+                )}
+              >
+                關
+              </button>
+              <button
+                type="button"
+                aria-pressed={flashOrder}
+                onClick={() => !flashOrder && setFlashOrder(true)}
+                className={cn(
+                  "h-6 px-1.5 text-2xs",
+                  flashOrder ? "bg-header-2 text-tape" : "text-muted hover:text-fg",
+                )}
+              >
+                開
+              </button>
+            </span>
+          </Field>
+          <span className="ml-auto font-mono text-2xs text-muted">{venueLabel(venue)}</span>
+        </div>
       </details>
 
       <div className="ticket-fields grid flex-1 grid-cols-2 gap-2 p-2 sm:grid-cols-12">
@@ -141,7 +162,11 @@ export function OrderTicket() {
           </div>
         </div>
 
-        <div className="ticket-side col-span-2 flex min-w-0 rounded-sm bg-bg p-0.5 sm:col-span-3" role="group" aria-label="買進或賣出">
+        <div
+          className="ticket-side col-span-2 flex min-w-0 rounded-sm bg-bg p-0.5 sm:col-span-3"
+          role="group"
+          aria-label="買進或賣出"
+        >
           <button
             type="button"
             aria-pressed={buy}
@@ -166,7 +191,11 @@ export function OrderTicket() {
           </button>
         </div>
 
-        <div className="ticket-type flex min-w-0 rounded-sm bg-bg p-0.5 sm:col-span-2" role="group" aria-label="委託方式">
+        <div
+          className="ticket-type flex min-w-0 rounded-sm bg-bg p-0.5 sm:col-span-2"
+          role="group"
+          aria-label="委託方式"
+        >
           <button
             type="button"
             aria-pressed={ticket.type === "limit"}
@@ -266,7 +295,9 @@ export function OrderTicket() {
             <span>距昨 {formatPct(vsPrev)}</span>
             <span>距均 {formatPct(vsVwap)}</span>
           </div>
-          {ticket.type === "market" && <p className="mt-1 text-muted">市價依目前模擬價估算，成交價可能不同。</p>}
+          {ticket.type === "market" && (
+            <p className="mt-1 text-muted">市價依目前模擬價估算，成交價可能不同。</p>
+          )}
           {(thin || tooBig) && (
             <div className="mt-0.5 text-warn">
               {tooBig ? "超過權益 30%，先降張數。" : "偏離均價不夠費稅，這筆要靠方向。"}
@@ -275,7 +306,13 @@ export function OrderTicket() {
         </div>
         <div className="ticket-presets flex flex-wrap gap-2" role="group" aria-label="快速選擇張數">
           {[1, 2, 5, 10].map((n) => (
-            <Button key={n} size="xs" variant="subtle" aria-pressed={ticket.lots === n} onClick={() => setTicket({ lots: n })}>
+            <Button
+              key={n}
+              size="xs"
+              variant="subtle"
+              aria-pressed={ticket.lots === n}
+              onClick={() => setTicket({ lots: n })}
+            >
               {n} 張
             </Button>
           ))}
@@ -283,7 +320,12 @@ export function OrderTicket() {
         <Button size="sm" variant="outline" onClick={flattenSelected} className="ticket-flatten">
           平倉此檔
         </Button>
-        <Button size="md" variant={buy ? "buy" : "sell"} onClick={submit} className="ticket-submit min-w-28">
+        <Button
+          size="md"
+          variant={buy ? "buy" : "sell"}
+          onClick={submit}
+          className="ticket-submit min-w-28"
+        >
           {buy ? "送出買進" : "送出賣出"}
         </Button>
       </div>

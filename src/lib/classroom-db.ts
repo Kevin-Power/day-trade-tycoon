@@ -169,3 +169,18 @@ export const loadSessionDetail = createServerFn({ method: "GET" })
     const result = reviewBundleSchema.safeParse(JSON.parse(rows[0].review_json));
     return result.success ? (result.data as ReviewBundle) : null;
   });
+
+export const loadTeacherSessionDetail = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .inputValidator(z.object({ id: z.string().min(1).max(120) }))
+  .handler(async ({ data, context }) => {
+    const { getSql } = await import("@/lib/db");
+    const { requireAuthenticatedUser } = await import("@/lib/auth/verify.server");
+    const { readTeacherClassroomReview } = await import("@/lib/classroom-review.server");
+    const user = await requireAuthenticatedUser();
+    if (user.id !== context.userId) throw new Error("登入身分不一致");
+    return readTeacherClassroomReview(await getSql(), data.id, user, {
+      teacherIds: process.env.CLASSROOM_TEACHER_IDS,
+      teacherEmails: process.env.TEACHER_EMAILS,
+    });
+  });

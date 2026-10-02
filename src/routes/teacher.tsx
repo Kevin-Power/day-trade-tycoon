@@ -27,17 +27,27 @@ function TeacherPage() {
   const { user, isPending } = useCurrentUserState();
   const userId = user?.id;
   const [data, setData] = useState<Roster | null>(null);
-  const [open, setOpen] = useState<string | null>(null);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+  const [openedStudent, setOpenedStudent] = useState<{ userId: string; studentId: string } | null>(
+    null,
+  );
+  const open = openedStudent?.userId === userId ? openedStudent?.studentId : null;
 
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
     void loadTeacherRoster()
       .then((result) => {
-        if (!cancelled) setData(result);
+        if (!cancelled) {
+          setData(result);
+          setLoadedUserId(userId);
+        }
       })
       .catch(() => {
-        if (!cancelled) setData({ ok: false, reason: "此帳號尚未由管理員授予講師權限" });
+        if (!cancelled) {
+          setData({ ok: false, reason: "此帳號尚未由管理員授予講師權限" });
+          setLoadedUserId(userId);
+        }
       });
     return () => {
       cancelled = true;
@@ -46,6 +56,7 @@ function TeacherPage() {
 
   if (isPending) return <TeacherLoading message="確認講師帳號…" />;
   if (!user) return <RedirectToSignIn />;
+  if (!data || loadedUserId !== userId) return <TeacherLoading message="正在整理班級紀錄…" />;
 
   if (data && data.ok === false) {
     return (
@@ -68,8 +79,6 @@ function TeacherPage() {
       </main>
     );
   }
-
-  if (!data) return <TeacherLoading message="正在整理班級紀錄…" />;
 
   const students = data?.ok ? data.students.filter((s) => s.role !== "teacher") : [];
   const sessions = data?.ok ? data.sessions : [];
@@ -181,7 +190,13 @@ function TeacherPage() {
                             className="inline-flex min-h-9 items-center gap-2.5 rounded-sm text-left font-medium hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                             aria-expanded={open === s.user_id}
                             aria-controls={`student-lessons-${s.user_id}`}
-                            onClick={() => setOpen(open === s.user_id ? null : s.user_id)}
+                            onClick={() =>
+                              setOpenedStudent(
+                                open === s.user_id
+                                  ? null
+                                  : { userId: user.id, studentId: s.user_id },
+                              )
+                            }
                           >
                             <ChevronDown
                               aria-hidden="true"
@@ -225,6 +240,7 @@ function TeacherPage() {
                             className="border-t border-border bg-bg/40 px-5 py-5 sm:px-6"
                           >
                             <LessonStrip mine={mine} />
+                            <StudentReviews sessions={mine} />
                           </td>
                         </tr>
                       )}
@@ -266,6 +282,82 @@ function TeacherLoading({ message }: { message: string }) {
         {message}
       </div>
     </main>
+  );
+}
+
+function StudentReviews({
+  sessions,
+}: {
+  sessions: { id: string; lesson_id: string; passed: boolean; ended_at: string | null }[];
+}) {
+  const pageSize = 6;
+  const [page, setPage] = useState(0);
+  const lastPage = Math.max(0, Math.ceil(sessions.length / pageSize) - 1);
+  const currentPage = Math.min(page, lastPage);
+  const visible = sessions.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  if (!sessions.length)
+    return (
+      <p className="mt-5 text-base leading-7 text-muted">
+        學員保存練習後，就能在這裡逐次查看完整復盤。
+      </p>
+    );
+  return (
+    <section className="mt-6 border-t border-border pt-5" aria-label="逐次練習復盤">
+      <h3 className="text-lg font-semibold">逐次練習復盤</h3>
+      <p className="mt-2 text-base leading-7 text-muted">
+        依保存時間由新到舊排列。開啟後可對照首筆計畫、課程條件與完整成交紀錄。
+      </p>
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+        {visible.map((session) => (
+          <li
+            key={session.id}
+            className="rounded-xl border border-border bg-surface p-4 text-base leading-7"
+          >
+            <p className="font-semibold">
+              {LESSONS.find((lesson) => lesson.id === session.lesson_id)?.skill ??
+                session.lesson_id}
+            </p>
+            <p className="mt-1 text-muted">
+              {session.ended_at ?? "時間未記錄"} ·{" "}
+              {session.passed ? "課程條件已完成" : "仍有條件待練習"}
+            </p>
+            <Link
+              to="/teacher-review/$id"
+              params={{ id: session.id }}
+              className="academy-button-secondary mt-3 min-h-12 w-full text-base"
+            >
+              查看完整復盤
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {sessions.length > pageSize && (
+        <nav
+          aria-label="學員練習紀錄分頁"
+          className="mt-4 flex flex-wrap items-center gap-3 text-base"
+        >
+          <button
+            type="button"
+            disabled={currentPage === 0}
+            onClick={() => setPage(currentPage - 1)}
+            className="academy-button-secondary min-h-12 disabled:opacity-40"
+          >
+            較新紀錄
+          </button>
+          <p role="status">
+            第 {currentPage + 1} 頁，共 {lastPage + 1} 頁
+          </p>
+          <button
+            type="button"
+            disabled={currentPage === lastPage}
+            onClick={() => setPage(currentPage + 1)}
+            className="academy-button-secondary min-h-12 disabled:opacity-40"
+          >
+            較早紀錄
+          </button>
+        </nav>
+      )}
+    </section>
   );
 }
 

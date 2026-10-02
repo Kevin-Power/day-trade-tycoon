@@ -108,7 +108,7 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
   for (const file of await readdir(join(dirname(releaseEntry), "_ssr"))) {
     if (!file.endsWith(".mjs")) continue;
     const text = await readFile(join(dirname(releaseEntry), "_ssr", file), "utf8");
-    for (const name of ["loadTeacherRoster", "upsertMyProfile"]) {
+    for (const name of ["loadTeacherRoster", "upsertMyProfile", "saveClassroomSession", "loadTeacherSessionDetail"]) {
       const match = text.match(new RegExp("var " + name + " = [\\s\\S]*?createSsrRpc\\(\"([a-f0-9]+)\"\\)"));
       if (match) functionIds[name] = match[1];
     }
@@ -118,15 +118,16 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
     const headers = new Headers({ "origin": canonicalOrigin, "sec-fetch-site": "same-origin",
       "x-tsr-serverFn": "true", "accept": "application/json", "content-type": "application/json" });
     headers.set("cookie", [...jar].map(([key, value]) => key + "=" + value).join("; "));
-    const body = data === undefined ? undefined : JSON.stringify(await toJSONAsync({ data }));
-    const response = await fetch(base + "/_serverFn/" + functionIds[name], {
-      method, headers, body, signal: AbortSignal.timeout(20000),
+    const payload = data === undefined ? undefined : JSON.stringify(await toJSONAsync({ data }));
+    const query = method === "GET" && payload !== undefined ? "?payload=" + encodeURIComponent(payload) : "";
+    const response = await fetch(base + "/_serverFn/" + functionIds[name] + query, {
+      method, headers, body: method === "GET" ? undefined : payload, signal: AbortSignal.timeout(20000),
     });
     absorb(jar, response);
-    const payload = await response.json();
-    const result = response.headers.get("x-tss-serialized") ? fromCrossJSON(payload, { plugins: [] }) : payload;
+    const responsePayload = await response.json();
+    const result = response.headers.get("x-tss-serialized") ? fromCrossJSON(responsePayload, { plugins: [] }) : responsePayload;
     if (result?.error) throw result.error;
-    return result?.result ?? result;
+    return result && Object.hasOwn(result, "result") ? result.result : result;
   }
   try {
     await launch();
@@ -180,6 +181,24 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
     assert.equal((await serverFn("loadTeacherRoster", "GET", undefined, student)).ok, false);
     await assert.rejects(serverFn("upsertMyProfile", "POST", { displayName: "Fixture student", classCode: "TEACHER", acceptTos: true }, student));
     t.diagnostic("HTTP student: claiming verified status or teacher code cannot grant teacher privilege");
+    stage = "teacher read-only classroom review";
+    const fixtureReview = {
+      rec: { id: "http-teacher-review", scenarioId: "wed-open", scenarioName: "Fixture lesson", endedAt: 1, pnl: 0, pnlPct: 0, trades: 0, wins: 0, fees: 0, maxDrawdown: 0, grade: "C", title: "Fixture lesson" },
+      verdicts: [], fills: [], code: "2330", capital: 1000000, equity: 1000000, sessionLabel: "Fixture classroom",
+      firstTradePlan: {
+        plan: { version: 1, code: "2330", side: "buy", lots: 1, simTime: 120, entryCondition: "觀察後確認自己的進場條件", exitCondition: "進場理由不成立時離場", maxLoss: 1000 },
+        order: { id: "http-order-1", code: "2330", side: "buy", type: "limit", lots: 1, price: 100, time: 180 },
+      },
+    };
+    assert.equal((await serverFn("saveClassroomSession", "POST", fixtureReview, student)).ok, true);
+    const teacherDetail = await serverFn("loadTeacherSessionDetail", "GET", { id: fixtureReview.rec.id }, owner);
+    assert.deepEqual(teacherDetail.bundle, fixtureReview);
+    assert.equal(teacherDetail.studentName, "Fixture student");
+    await assert.rejects(serverFn("loadTeacherSessionDetail", "GET", { id: fixtureReview.rec.id }, student));
+    const gateOnly = new Map([...owner].filter(([key]) => key.includes("classroom_gate")));
+    await assert.rejects(serverFn("loadTeacherSessionDetail", "GET", { id: fixtureReview.rec.id }, gateOnly));
+    assert.equal(await serverFn("loadTeacherSessionDetail", "GET", { id: "unknown-record" }, owner), null);
+    t.diagnostic("HTTP teacher review: first-trade plan survives student save and same-class teacher read; unverified student and gate-only visitor denied");
     stage = "gate limiter";
     let last;
     for (let i = 0; i < 13; i++) last = await request("/api/gate", {

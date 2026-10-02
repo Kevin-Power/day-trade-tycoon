@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { firstTradePlanSnapshotSchema } from "./trade-plan.ts";
 
 const text = z.string().max(200);
 const numeric = z.number().finite();
@@ -73,6 +74,7 @@ const reviewBundleBaseSchema = z
     capital: numeric.positive(),
     equity: numeric,
     sessionLabel: text,
+    firstTradePlan: firstTradePlanSnapshotSchema.optional(),
   });
 
 function checkReviewIntegrity(bundle: z.infer<typeof reviewBundleBaseSchema>, ctx: z.RefinementCtx) {

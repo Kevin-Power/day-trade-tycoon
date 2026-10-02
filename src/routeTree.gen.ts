@@ -19,6 +19,7 @@ import { Route as TryRouteImport } from './routes/try'
 import { Route as ApiGateRouteImport } from './routes/api/gate'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiTapeRouteImport } from './routes/api/tape'
+import { Route as TeacherReviewIdRouteImport } from './routes/teacher-review.$id'
 import { Route as ApiAdminSetupRouteImport } from './routes/api/admin/setup'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiBrokerOrderRouteImport } from './routes/api/broker/order'
@@ -75,6 +76,11 @@ const ApiTapeRoute = ApiTapeRouteImport.update({
   path: '/api/tape',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TeacherReviewIdRoute = TeacherReviewIdRouteImport.update({
+  id: '/teacher-review/$id',
+  path: '/teacher-review/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminSetupRoute = ApiAdminSetupRouteImport.update({
   id: '/api/admin/setup',
   path: '/api/admin/setup',
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/api/gate': typeof ApiGateRoute
   '/api/health': typeof ApiHealthRoute
   '/api/tape': typeof ApiTapeRoute
+  '/teacher-review/$id': typeof TeacherReviewIdRoute
   '/api/admin/setup': typeof ApiAdminSetupRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/api/gate': typeof ApiGateRoute
   '/api/health': typeof ApiHealthRoute
   '/api/tape': typeof ApiTapeRoute
+  '/teacher-review/$id': typeof TeacherReviewIdRoute
   '/api/admin/setup': typeof ApiAdminSetupRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/api/gate': typeof ApiGateRoute
   '/api/health': typeof ApiHealthRoute
   '/api/tape': typeof ApiTapeRoute
+  '/teacher-review/$id': typeof TeacherReviewIdRoute
   '/api/admin/setup': typeof ApiAdminSetupRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
     | '/api/gate'
     | '/api/health'
     | '/api/tape'
+    | '/teacher-review/$id'
     | '/api/admin/setup'
     | '/api/auth/$'
     | '/api/broker/order'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/api/gate'
     | '/api/health'
     | '/api/tape'
+    | '/teacher-review/$id'
     | '/api/admin/setup'
     | '/api/auth/$'
     | '/api/broker/order'
@@ -200,6 +211,7 @@ export interface FileRouteTypes {
     | '/api/gate'
     | '/api/health'
     | '/api/tape'
+    | '/teacher-review/$id'
     | '/api/admin/setup'
     | '/api/auth/$'
     | '/api/broker/order'
@@ -218,6 +230,7 @@ export interface RootRouteChildren {
   ApiGateRoute: typeof ApiGateRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiTapeRoute: typeof ApiTapeRoute
+  TeacherReviewIdRoute: typeof TeacherReviewIdRoute
   ApiAdminSetupRoute: typeof ApiAdminSetupRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiBrokerOrderRoute: typeof ApiBrokerOrderRoute
@@ -297,6 +310,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTapeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/teacher-review/$id': {
+      id: '/teacher-review/$id'
+      path: '/teacher-review/$id'
+      fullPath: '/teacher-review/$id'
+      preLoaderRoute: typeof TeacherReviewIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/setup': {
       id: '/api/admin/setup'
       path: '/api/admin/setup'
@@ -346,6 +366,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGateRoute: ApiGateRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiTapeRoute: ApiTapeRoute,
+  TeacherReviewIdRoute: TeacherReviewIdRoute,
   ApiAdminSetupRoute: ApiAdminSetupRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiBrokerOrderRoute: ApiBrokerOrderRoute,
