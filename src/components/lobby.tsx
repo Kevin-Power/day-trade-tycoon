@@ -12,6 +12,7 @@ import { ProvenanceBadge, ProvenanceMicro, SimChip } from "@/components/provenan
 import { teachingUniverseLine } from "@/lib/market/universe";
 import { WEEK_SESSIONS, formatIndex } from "@/lib/market/week";
 import { useGate } from "@/lib/gate/context";
+import { ClassroomAccount } from "@/components/classroom-account";
 import {
   SIM_CHIP_NOTE,
   classroomSampleMicro,
@@ -76,7 +77,7 @@ export function Lobby() {
             </span>
           ) : (
             <a
-              href="/daytrade-tycoon-offline.zip"
+              href="/api/download/offline"
               download="當沖大富翁-地端教室.zip"
               className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-border-strong bg-surface px-3 text-xs text-fg hover:bg-elevated"
             >
@@ -101,6 +102,7 @@ export function Lobby() {
       </header>
 
       <main className="relative mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
+        <ClassroomAccount />
         <section className="stagger-in mb-8 max-w-3xl pt-4 sm:pt-10">
           <p className="mb-3 text-xs tracking-[0.28em] text-muted">本週實盤 · 2026/08/24–08/26</p>
           <h1 className="text-balance text-4xl font-medium leading-tight tracking-tight sm:text-5xl">

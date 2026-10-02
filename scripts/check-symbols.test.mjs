@@ -12,5 +12,5 @@ test("check:symbols exits 0 on the current teaching set", () => {
     encoding: "utf8",
   });
   assert.equal(r.status, 0, r.stderr || r.stdout);
-  assert.match(r.stdout, /17 檔/);
+  assert.match(r.stdout, /24 檔/);
 });

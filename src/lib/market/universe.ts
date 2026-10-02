@@ -1,4 +1,6 @@
 import pack from "./symbols.json" with { type: "json" };
+import catalogue from "./catalogue.json" with { type: "json" };
+import catalogueDays from "./catalogue-days.json" with { type: "json" };
 
 export type Sector =
   | "semiconductor"
@@ -63,3 +65,26 @@ export const STOCK_BY_CODE = Object.fromEntries(UNIVERSE.map((s) => [s.code, s])
   string,
   StockDef
 >;
+
+export const STOCK_CATALOGUE = catalogue.symbols.map((s) => ({
+  code: s.code, name: s.name, market: (s.market === "TPEx" ? "otc" : "tse") as Market,
+}));
+export const CATALOGUE_COUNT = STOCK_CATALOGUE.length;
+
+/** Search metadata is a frozen classroom snapshot, never a live price feed. */
+export function searchStocks(query: string, market?: Market) {
+  const term = query.trim().toLowerCase();
+  return STOCK_CATALOGUE.filter((s) => (!market || s.market === market) &&
+    (!term || s.code.includes(term) || s.name.toLowerCase().includes(term))).slice(0, 60);
+}
+
+export function lookupStock(code: string): StockDef | undefined {
+  if (STOCK_BY_CODE[code]) return STOCK_BY_CODE[code];
+  const entry = STOCK_CATALOGUE.find((s) => s.code === code);
+  const days = (catalogueDays.days as Record<string, Record<string, number[]>>)[code];
+  const row = days?.wed ?? days?.tue ?? days?.mon;
+  if (!entry || !row || !(row[0]! > 0)) return undefined;
+  const stock: StockDef = { ...entry, sector: "other", prevClose: row[0]!, vol: 0.025, beta: 1, liquidity: 5 };
+  STOCK_BY_CODE[code] = stock;
+  return stock;
+}

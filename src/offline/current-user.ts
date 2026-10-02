@@ -1,0 +1,3 @@
+/** Distributed static lessons have no remote identity or remote storage. */
+export function useCurrentUserState() { return { user: null, isPending: false }; }
+export function useCurrentUser() { return null; }

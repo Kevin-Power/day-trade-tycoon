@@ -8,7 +8,10 @@ import {
   saveFlashOrder,
   saveProfile,
   saveTeachMode,
+  saveReview,
+  getProfileIdentity,
 } from "@/lib/game/persist";
+import { evaluatePass, type RuleVerdict } from "@/lib/game/pass-rules";
 import { flashClickDecision, isExamScenario, ticketAfterClickPrice } from "@/lib/game/flash-order";
 import { playError, playFill, unlockAudio } from "@/lib/game/audio";
 import { DayMarket, describeFill } from "@/lib/market/engine";
@@ -67,6 +70,8 @@ type GameStore = {
   hydrated: boolean;
   frame: number;
   lastResult: SessionRecord | null;
+  lastVerdicts: RuleVerdict[];
+  syncStatus: "local" | "saving" | "saved" | "failed";
   sound: boolean;
   hydrate: () => void;
   start: (scenarioId: string) => void;
@@ -119,6 +124,8 @@ export const useGame = create<GameStore>((set, get) => ({
   hydrated: false,
   frame: 0,
   lastResult: null,
+  lastVerdicts: [],
+  syncStatus: "local",
   sound: true,
 
   hydrate: () => {
@@ -135,7 +142,7 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!sc) return;
     unlockAudio();
     const engine = new DayMarket(sc);
-    const q = engine.quote("2330") ?? engine.allQuotes()[0];
+    const q = engine.quote(sc.id === "wed-open" ? "2317" : "2330") ?? engine.allQuotes()[0];
     const code = q?.code ?? "2330";
     const px = q ? q.ask : 0;
     const teach = get().teachMode;
@@ -151,6 +158,8 @@ export const useGame = create<GameStore>((set, get) => ({
       mobileTab: "watch",
       rightTab: "pos",
       lastResult: null,
+      lastVerdicts: [],
+      syncStatus: "local",
       frame: 0,
       activeBeat: beat,
       dismissedBeats: [],
@@ -171,13 +180,16 @@ export const useGame = create<GameStore>((set, get) => ({
 
   settle: () => {
     const { engine, scenario, profile } = get();
-    if (!engine || !scenario) return;
+    if (!engine || !scenario || get().phase === "result") return;
     if (!engine.ended) {
       engine.step(engine.endT - engine.t + 1);
     }
     const st = engine.stats();
+    const pass = evaluatePass({ lessonId: scenario.id, pnl: st.pnl, fees: st.fees, maxDrawdown: st.maxDrawdown,
+      endT: engine.t, positionsOpen: [...engine.positions.values()].filter((p) => p.lots !== 0).length,
+      fills: engine.fills, forcedClose: engine.forcedClose });
     const rec: SessionRecord = {
-      id: `S${Date.now()}`,
+      id: crypto.randomUUID(),
       scenarioId: scenario.id,
       scenarioName: scenario.name,
       endedAt: Date.now(),
@@ -189,9 +201,24 @@ export const useGame = create<GameStore>((set, get) => ({
       maxDrawdown: st.maxDrawdown,
       grade: gradeFor(st.pnlPct, st.trades, st.maxDrawdown),
       title: scenario.name,
+      passed: pass.passed,
+      pausedFills: engine.fills.filter((fill) => fill.filledWhilePaused).length,
+      violations: pass.verdicts.filter((verdict) => !verdict.passed).map((verdict) => verdict.rule.label),
     };
     const next = applySession(profile, rec);
-    set({ phase: "result", lastResult: rec, profile: next, paused: true });
+    const bundle = { rec, verdicts: pass.verdicts, fills: [...engine.fills], code: get().selected,
+      capital: scenario.capital, equity: st.equity, sessionLabel: engine.session.label };
+    saveReview(bundle);
+    set({ phase: "result", lastResult: rec, lastVerdicts: pass.verdicts, profile: next, paused: true, syncStatus: "local" });
+    if (getProfileIdentity()) {
+      set({ syncStatus: "saving" });
+      void import("@/lib/classroom-db").then((module) => module.saveClassroomSession({ data: bundle }))
+        .then(() => { if (get().lastResult?.id === rec.id) set({ syncStatus: "saved" }); })
+        .catch(() => {
+          if (get().lastResult?.id === rec.id) set({ syncStatus: "failed" });
+          toast.error("伺服器尚未存入本次練習；本機復盤已保留，可從完整復盤重試。");
+        });
+    }
   },
 
   togglePause: () => set({ paused: !get().paused }),
@@ -199,6 +226,10 @@ export const useGame = create<GameStore>((set, get) => ({
 
   select: (code) => {
     const { engine, ticket, frame } = get();
+    if (engine && !engine.ensureSymbol(code)) {
+      toast.error("這個標的沒有本盤可用教材資料");
+      return;
+    }
     const q = engine?.quote(code);
     const price = q ? (ticket.side === "buy" ? q.ask : q.bid) : ticket.price;
     set({
@@ -316,28 +347,44 @@ export const useGame = create<GameStore>((set, get) => ({
       toast.error(res.reason);
       return;
     }
-    for (const f of res.fills) toastFill(f);
+    for (const f of res.fills) {
+      if (paused) f.filledWhilePaused = true;
+      toastFill(f);
+    }
     if (res.fills.length === 0) toast("已掛出委託");
     get().bump();
   },
 
   flattenSelected: () => {
-    const { engine, selected, venue } = get();
+    const { engine, selected, venue, paused, scenario, activeBeat } = get();
     if (!engine) return;
+    if (isExamScenario(scenario?.id) && (paused || activeBeat)) {
+      toast.error("測驗不可在暫停中下單");
+      return;
+    }
     const res = getBroker(venue, engine).flatten(selected);
     if (!res.ok) {
       playError();
       toast.error(res.reason);
       return;
     }
-    for (const f of res.fills) toastFill(f);
+    for (const f of res.fills) {
+      if (paused) f.filledWhilePaused = true;
+      toastFill(f);
+    }
     get().bump();
   },
 
   flattenAll: () => {
-    const { engine } = get();
+    const { engine, paused, scenario, activeBeat } = get();
     if (!engine) return;
+    if (isExamScenario(scenario?.id) && (paused || activeBeat)) {
+      toast.error("測驗不可在暫停中下單");
+      return;
+    }
+    const fillCount = engine.fills.length;
     engine.flattenAll();
+    if (paused) for (const fill of engine.fills.slice(fillCount)) fill.filledWhilePaused = true;
     toast("已送出全部平倉");
     get().bump();
   },

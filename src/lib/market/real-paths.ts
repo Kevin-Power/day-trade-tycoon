@@ -1,5 +1,6 @@
 import { clampLimit, roundToTick } from "@/lib/market/ticks";
 import raw from "@/lib/market/real-paths.json";
+import catalogueDays from "@/lib/market/catalogue-days.json";
 import { getTapeDay } from "@/lib/market/tape";
 
 export const PATH_DT = 5;
@@ -76,7 +77,10 @@ export function stockDayFor(code: string, sessionId: string): DayOhlc | null {
   const live = getTapeDay(sessionId);
   if (live) return live.stocks[code] ?? null;
   const row = pack.stocks[code];
-  if (!row) return null;
+  if (!row) {
+    const day = (catalogueDays.days as Record<string, Record<string, number[]>>)[code]?.[sessionId];
+    return day ? { prev: day[0]!, open: day[1]!, high: day[2]!, low: day[3]!, close: day[4]! } : null;
+  }
   const sid = (sessionId in row ? sessionId : "wed") as SessionId;
   return row[sid] ?? null;
 }
@@ -89,6 +93,10 @@ export function stockField(sessionId: string, field: keyof DayOhlc): Record<stri
     return out;
   }
   const out: Record<string, number> = {};
+  for (const code of Object.keys(catalogueDays.days)) {
+    const day = stockDayFor(code, sessionId);
+    if (day) out[code] = day[field];
+  }
   for (const [code, days] of Object.entries(pack.stocks)) {
     const sid = (sessionId in days ? sessionId : "wed") as SessionId;
     const day = days[sid];

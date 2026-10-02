@@ -5,6 +5,8 @@ import { useGame } from "@/lib/game/store";
 import { formatPrice } from "@/lib/market/ticks";
 import { freezeWeekLabel, officialWatchlistMicro } from "@/lib/provenance";
 import { cn, formatLots } from "@/lib/utils";
+import { CATALOGUE_COUNT, searchStocks } from "@/lib/market/universe";
+import { stockDayFor } from "@/lib/market/real-paths";
 
 type ListTab = "all" | "tse" | "otc";
 
@@ -27,8 +29,10 @@ export function Watchlist() {
   const select = useGame((s) => s.select);
   const frame = useGame((s) => s.frame);
   const [tab, setTab] = useState<ListTab>("all");
+  const [query, setQuery] = useState("");
   void frame;
   const quotes = (engine?.allQuotes() ?? []).filter((q) => tab === "all" || q.market === tab);
+  const results = query.trim() ? searchStocks(query, tab === "all" ? undefined : tab) : [];
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-bg">
@@ -52,6 +56,24 @@ export function Watchlist() {
         <ProvenanceBadge kind="official" />
       </div>
       <ProvenanceMicro text={officialWatchlistMicro(freezeWeekLabel(engine?.session.date))} />
+      <div className="border-b border-border px-2 py-1">
+        <input aria-label="搜尋上市櫃" value={query} onChange={(e) => setQuery(e.target.value)}
+          placeholder={`搜尋 ${CATALOGUE_COUNT} 檔代號或名稱`} autoComplete="off"
+          className="h-8 w-full bg-transparent text-xs text-fg outline-none placeholder:text-subtle" />
+      </div>
+      {query.trim() ? <div className="term-scroll min-h-0 flex-1 overflow-auto">
+        <p className="px-2 py-1 text-micro text-muted">教材週名稱目錄；有當日教材資料才能加入模擬。</p>
+        {results.length === 0 && <p className="p-3 text-xs text-muted">沒有符合的商品。</p>}
+        {results.map((item) => {
+          const available = engine && stockDayFor(item.code, engine.session.id);
+          return <button key={item.code} type="button" disabled={!available}
+            onClick={() => { select(item.code); setQuery(""); }}
+            className="flex w-full items-center justify-between border-b border-border px-3 py-2 text-left text-xs hover:bg-elevated disabled:opacity-40">
+            <span><span className="mr-2 font-mono text-muted">{item.code}</span>{item.name}</span>
+            <span className="text-micro text-muted">{available ? "加入模擬" : "此日無資料"}</span>
+          </button>;
+        })}
+      </div> : <>
       <div className="term-scroll min-h-0 flex-1 overflow-auto">
         <table className="w-full min-w-watchlist border-collapse font-mono text-micro">
           <thead className="sticky top-0 z-10 bg-header-2 text-fg">
@@ -140,6 +162,7 @@ export function Watchlist() {
           </tbody>
         </table>
       </div>
+      </>}
     </div>
   );
 }

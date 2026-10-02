@@ -1,4 +1,5 @@
 import { getRequest } from "@tanstack/react-start/server";
+import { readAuthConfig } from "./config.server.ts";
 
 /**
  * Fetch-Metadata sibling isolation — **server-only** (`.server.ts` suffix).
@@ -35,6 +36,8 @@ export function assertSameSiteRequest(): void {
   const request = getRequest();
   if (!request) return; // no request context (e.g. build) — nothing to guard
   const h = request.headers;
+  const origin = h.get("origin");
+  if (origin && origin !== readAuthConfig().origin) throw new CrossSiteRequestError();
   const site = h.get("sec-fetch-site");
   // Non-browser client (no header), the app's own origin, or a direct
   // (address-bar/bookmark) load are all fine.

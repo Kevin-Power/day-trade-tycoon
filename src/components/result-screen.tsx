@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Link } from "@tanstack/react-router";
 import { debrief, lessonById, nextLesson } from "@/lib/game/curriculum";
 import { rankFor } from "@/lib/game/scenarios";
 import { useGame } from "@/lib/game/store";
@@ -14,6 +15,7 @@ export function ResultScreen() {
   const scenario = useGame((s) => s.scenario);
   const start = useGame((s) => s.start);
   const leave = useGame((s) => s.leave);
+  const syncStatus = useGame((s) => s.syncStatus);
   if (!rec || !engine || !scenario) return null;
   const st = engine.stats();
   const rank = rankFor(profile.careerPnl);
@@ -44,6 +46,10 @@ export function ResultScreen() {
         <h2 id="result-title" className="mt-1 text-2xl font-medium">
           {rec.scenarioName} · {rec.grade}
         </h2>
+        <div className="mt-3 flex items-center justify-between gap-3 text-xs">
+          <span className="text-muted">{syncStatus === "saved" ? "已儲存至教室主機" : syncStatus === "saving" ? "正在儲存至教室主機…" : syncStatus === "failed" ? "伺服器儲存失敗，本機復盤已保留" : "本機復盤紀錄"}</span>
+          {import.meta.env.BASE_URL !== "./" && <Link to="/session/$id/review" params={{ id: rec.id }} className="rounded border border-border-strong px-3 py-2 text-tape">查看完整復盤</Link>}
+        </div>
         <p className="mt-2 text-sm leading-relaxed text-muted">{review?.headline ?? ""}</p>
         {review && review.tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">

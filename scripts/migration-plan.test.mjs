@@ -56,9 +56,15 @@ test("non-.sql entries are dropped (readdir also yields the auth/ directory)", (
   assert.deepEqual(pendingMigrations(["auth", "README.md"], []), []);
 });
 
-test("the auth schema ships outside the globbed directory", () => {
+test("standalone identity schema is active before classroom and owner setup migrations", () => {
   const migrationsDir = join(projectRoot(), "migrations");
-  assert.deepEqual(pendingMigrations(readdirSync(migrationsDir), []), []);
+  const names = pendingMigrations(readdirSync(migrationsDir), []).map(({ name }) => name);
+  assert.equal(names[0], AUTH_MIGRATION);
+  assert.ok(names.includes("0003_classroom.sql"));
+  assert.ok(names.includes("0004_admin_setup.sql"));
+  assert.ok(names.indexOf(AUTH_MIGRATION) < names.indexOf("0003_classroom.sql"));
+  assert.ok(names.indexOf("0003_classroom.sql") < names.indexOf("0004_admin_setup.sql"));
+  assert.equal(pendingMigrations(readdirSync(migrationsDir), names).length, 0);
   assert.ok(readdirSync(join(migrationsDir, "auth")).includes("0001_auth.sql"));
 });
 
@@ -66,7 +72,7 @@ test("this workspace's auth schema copy is byte-identical to its source", () => 
   // An edited copy diverges silently: basename keying skips it on a database
   // that already ran the original, and applies it on a fresh PGLite preview.
   const pair = authSchemaCopy(projectRoot());
-  if (pair === null) return; // sign-in off — nothing has been copied up
+  assert.ok(pair, "Standalone authentication requires its schema in the active migration directory");
   assert.equal(
     pair.copy,
     pair.source,

@@ -11,10 +11,18 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LicenseRouteImport } from './routes/license'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as ManualRouteImport } from './routes/manual'
+import { Route as SetupRouteImport } from './routes/setup'
+import { Route as TeacherRouteImport } from './routes/teacher'
 import { Route as ApiGateRouteImport } from './routes/api/gate'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiTapeRouteImport } from './routes/api/tape'
+import { Route as ApiAdminSetupRouteImport } from './routes/api/admin/setup'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiBrokerOrderRouteImport } from './routes/api/broker/order'
+import { Route as ApiDownloadOfflineRouteImport } from './routes/api/download/offline'
+import { Route as SessionIdReviewRouteImport } from './routes/session.$id.review'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -26,9 +34,24 @@ const LicenseRoute = LicenseRouteImport.update({
   path: '/license',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ManualRoute = ManualRouteImport.update({
   id: '/manual',
   path: '/manual',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeacherRoute = TeacherRouteImport.update({
+  id: '/teacher',
+  path: '/teacher',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiGateRoute = ApiGateRouteImport.update({
@@ -36,9 +59,24 @@ const ApiGateRoute = ApiGateRouteImport.update({
   path: '/api/gate',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTapeRoute = ApiTapeRouteImport.update({
   id: '/api/tape',
   path: '/api/tape',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminSetupRoute = ApiAdminSetupRouteImport.update({
+  id: '/api/admin/setup',
+  path: '/api/admin/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiBrokerOrderRoute = ApiBrokerOrderRouteImport.update({
@@ -46,66 +84,132 @@ const ApiBrokerOrderRoute = ApiBrokerOrderRouteImport.update({
   path: '/api/broker/order',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDownloadOfflineRoute = ApiDownloadOfflineRouteImport.update({
+  id: '/api/download/offline',
+  path: '/api/download/offline',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SessionIdReviewRoute = SessionIdReviewRouteImport.update({
+  id: '/session/$id/review',
+  path: '/session/$id/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/license': typeof LicenseRoute
+  '/login': typeof LoginRoute
   '/manual': typeof ManualRoute
+  '/setup': typeof SetupRoute
+  '/teacher': typeof TeacherRoute
   '/api/gate': typeof ApiGateRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/tape': typeof ApiTapeRoute
+  '/api/admin/setup': typeof ApiAdminSetupRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
+  '/api/download/offline': typeof ApiDownloadOfflineRoute
+  '/session/$id/review': typeof SessionIdReviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/license': typeof LicenseRoute
+  '/login': typeof LoginRoute
   '/manual': typeof ManualRoute
+  '/setup': typeof SetupRoute
+  '/teacher': typeof TeacherRoute
   '/api/gate': typeof ApiGateRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/tape': typeof ApiTapeRoute
+  '/api/admin/setup': typeof ApiAdminSetupRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
+  '/api/download/offline': typeof ApiDownloadOfflineRoute
+  '/session/$id/review': typeof SessionIdReviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/license': typeof LicenseRoute
+  '/login': typeof LoginRoute
   '/manual': typeof ManualRoute
+  '/setup': typeof SetupRoute
+  '/teacher': typeof TeacherRoute
   '/api/gate': typeof ApiGateRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/tape': typeof ApiTapeRoute
+  '/api/admin/setup': typeof ApiAdminSetupRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
+  '/api/download/offline': typeof ApiDownloadOfflineRoute
+  '/session/$id/review': typeof SessionIdReviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/license'
+    | '/login'
     | '/manual'
+    | '/setup'
+    | '/teacher'
     | '/api/gate'
+    | '/api/health'
     | '/api/tape'
+    | '/api/admin/setup'
+    | '/api/auth/$'
     | '/api/broker/order'
+    | '/api/download/offline'
+    | '/session/$id/review'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/license'
+    | '/login'
     | '/manual'
+    | '/setup'
+    | '/teacher'
     | '/api/gate'
+    | '/api/health'
     | '/api/tape'
+    | '/api/admin/setup'
+    | '/api/auth/$'
     | '/api/broker/order'
+    | '/api/download/offline'
+    | '/session/$id/review'
   id:
     | '__root__'
     | '/'
     | '/license'
+    | '/login'
     | '/manual'
+    | '/setup'
+    | '/teacher'
     | '/api/gate'
+    | '/api/health'
     | '/api/tape'
+    | '/api/admin/setup'
+    | '/api/auth/$'
     | '/api/broker/order'
+    | '/api/download/offline'
+    | '/session/$id/review'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LicenseRoute: typeof LicenseRoute
+  LoginRoute: typeof LoginRoute
   ManualRoute: typeof ManualRoute
+  SetupRoute: typeof SetupRoute
+  TeacherRoute: typeof TeacherRoute
   ApiGateRoute: typeof ApiGateRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   ApiTapeRoute: typeof ApiTapeRoute
+  ApiAdminSetupRoute: typeof ApiAdminSetupRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiBrokerOrderRoute: typeof ApiBrokerOrderRoute
+  ApiDownloadOfflineRoute: typeof ApiDownloadOfflineRoute
+  SessionIdReviewRoute: typeof SessionIdReviewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -124,11 +228,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LicenseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/manual': {
       id: '/manual'
       path: '/manual'
       fullPath: '/manual'
       preLoaderRoute: typeof ManualRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teacher': {
+      id: '/teacher'
+      path: '/teacher'
+      fullPath: '/teacher'
+      preLoaderRoute: typeof TeacherRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/gate': {
@@ -138,11 +263,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiGateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/tape': {
       id: '/api/tape'
       path: '/api/tape'
       fullPath: '/api/tape'
       preLoaderRoute: typeof ApiTapeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/setup': {
+      id: '/api/admin/setup'
+      path: '/api/admin/setup'
+      fullPath: '/api/admin/setup'
+      preLoaderRoute: typeof ApiAdminSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/broker/order': {
@@ -152,16 +298,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBrokerOrderRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/download/offline': {
+      id: '/api/download/offline'
+      path: '/api/download/offline'
+      fullPath: '/api/download/offline'
+      preLoaderRoute: typeof ApiDownloadOfflineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/session/$id/review': {
+      id: '/session/$id/review'
+      path: '/session/$id/review'
+      fullPath: '/session/$id/review'
+      preLoaderRoute: typeof SessionIdReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LicenseRoute: LicenseRoute,
+  LoginRoute: LoginRoute,
   ManualRoute: ManualRoute,
+  SetupRoute: SetupRoute,
+  TeacherRoute: TeacherRoute,
   ApiGateRoute: ApiGateRoute,
+  ApiHealthRoute: ApiHealthRoute,
   ApiTapeRoute: ApiTapeRoute,
+  ApiAdminSetupRoute: ApiAdminSetupRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiBrokerOrderRoute: ApiBrokerOrderRoute,
+  ApiDownloadOfflineRoute: ApiDownloadOfflineRoute,
+  SessionIdReviewRoute: SessionIdReviewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

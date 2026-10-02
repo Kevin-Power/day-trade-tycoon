@@ -4,24 +4,26 @@
   "sideEffects": false,
   "type": "module",
   "overrides": {
-    "nf3": "0.3.17"
+    "nf3": "0.3.17",
+    "rolldown": "1.1.0"
   },
   "scripts": {
-    "dev": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
-    "build": "node scripts/with-app-env.mjs vite build && npm run db:migrate",
+    "dev": "node scripts/run-vite.mjs dev",
+    "build": "node scripts/run-vite.mjs build && node scripts/copy-runtime-assets.mjs && node scripts/verify-build.mjs",
     "db:migrate": "node scripts/migrate.mjs",
-    "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
-    "preview": "node scripts/with-app-env.mjs vite preview",
+    "build:dev": "node scripts/run-vite.mjs build --mode development",
+    "preview": "node scripts/run-vite.mjs preview",
     "preview:restart": "node scripts/preview.mjs restart",
     "preview:stop": "node scripts/preview.mjs stop",
     "build:offline": "node scripts/build-offline.mjs",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "check:symbols": "node scripts/check-symbols.mjs",
     "build:manual-pdf": "node scripts/build-manual-pdf.mjs",
-    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/provenance.test.ts src/lib/game/flash-order.test.ts src/lib/broker/copy.test.ts src/lib/game/leave-desk.test.ts src/lib/market/symbols.test.ts src/lib/license.test.ts src/lib/gate/public-path.test.ts",
+    "test": "node scripts/test.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "start": "node .output/server/index.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
@@ -95,6 +97,6 @@
     "prettier": "^3.4.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.56.1",
-    "vite": "^8.2.0"
+    "vite": "8.1.5"
   }
 }

@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 /**
  * Teaching-universe SSOT check.
- * Source of truth: src/lib/market/symbols.json (current 17 names).
- * Do not expand to the abandoned #2 22-name pack unless product decides so.
+ * Source of truth: symbols.json (24 names recovered from the owner's live site).
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -18,8 +17,8 @@ const errors = [];
 const symbols = pack.symbols ?? [];
 const codes = symbols.map((s) => s.code);
 
-if (codes.length !== 17) {
-  errors.push(`symbols.json 應為教室現況 17 檔，實際 ${codes.length}（不要默默改成 #2 的 22）`);
+if (codes.length !== 24) {
+  errors.push(`symbols.json 應保留線上教室 24 檔，實際 ${codes.length}`);
 }
 if (new Set(codes).size !== codes.length) errors.push("symbols.json 代號重複");
 
@@ -30,8 +29,8 @@ if (pathCodes.join(",") !== ssot.join(",")) {
 }
 
 const otc = symbols.filter((s) => s.market === "otc");
-if (otc.length !== 1 || otc[0]?.code !== "6488") {
-  errors.push("上櫃應只有 6488 環球晶（現況 1 檔，不是缺表）");
+if (otc.map(s => s.code).sort().join(',') !== '6223,6488') {
+  errors.push("教學上櫃名單應包含 6223 旺矽與 6488 環球晶");
 }
 
 if (!lobby.includes("teachingUniverseLine")) {

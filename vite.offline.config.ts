@@ -14,7 +14,15 @@ export default defineConfig({
   publicDir: false,
   plugins: [tailwindcss(), viteReact()],
   resolve: {
-    alias: { "@": srcDir },
+    // Never bundle server functions or an online session client into the static classroom.
+    alias: [
+      { find: "@/lib/classroom-db", replacement: `${offlineRoot}/classroom-db.ts` },
+      { find: "@/lib/auth/use-current-user", replacement: `${offlineRoot}/current-user.ts` },
+      { find: "@/lib/auth/client", replacement: `${offlineRoot}/auth-client.ts` },
+      { find: "@/components/classroom-account", replacement: `${offlineRoot}/online-panels.tsx` },
+      { find: "@/components/leaderboard", replacement: `${offlineRoot}/online-panels.tsx` },
+      { find: "@", replacement: srcDir },
+    ],
   },
   build: {
     outDir,

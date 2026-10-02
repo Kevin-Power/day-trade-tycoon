@@ -22,7 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const TOC = [
-  { id: "brief", n: "00", label: "給金主看的一頁" },
+  { id: "brief", n: "00", label: "課程怎麼進行" },
   { id: "included", n: "01", label: "這包有什麼" },
   { id: "excluded", n: "02", label: "這包沒有什麼" },
   { id: "seats", n: "03", label: "席次怎麼算" },
@@ -135,18 +135,18 @@ function Nav() {
 
 function Brief() {
   return (
-    <Section id="brief" n="00" title="給金主看的一頁">
+    <Section id="brief" n="00" title="課程怎麼進行">
       <p className="text-pretty leading-relaxed text-muted">
-        股文觀指要的不是再做一個看盤軟體，是讓學員在像真的盤面上，把判斷、費稅、停損、部位、收盤平倉練到肌肉記得。授權賣的就是那間教室，不是實盤通道。
+        講師帶領學員完成模擬練習，逐步理解判斷、費稅、停損、部位與收盤平倉。每堂課結束後，透過交易紀錄與復盤整理自己的決策。
       </p>
       <div className="mt-5 overflow-hidden rounded-lg border border-border">
         <table className="w-full text-left text-sm">
           <tbody>
             <Row k="這包有" v="模擬教室、課綱、地端包、說明書。" />
             <Row k="這包沒有" v="實盤下單、投顧、訊號、代操、保證獲利。" />
-            <Row k="席次現況" v="全班同一組入場密碼。還沒有按人頭帳號，軟體也不卡人數。" />
-            <Row k="報價" v={`${LICENSE_QUOTE}。這一頁不寫新台幣數字。`} />
-            <Row k="金流" v="沒有線上刷卡、沒有 LINE Pay。班費怎麼收，教室自己定。" />
+            <Row k="學員帳號" v="先使用教室入場碼，再登入個人帳號保存成績與復盤。報名資格由教室另行核對。" />
+            <Row k="課程費用" v={`${LICENSE_QUOTE}。開課日期、費用與名額以教室確認內容為準。`} />
+            <Row k="付款方式" v="請向教室確認報名與付款方式；網站目前沒有線上結帳。" />
           </tbody>
         </table>
       </div>
@@ -161,7 +161,7 @@ function Included() {
   return (
     <Section id="included" n="01" title="這包有什麼">
       <p className="text-pretty leading-relaxed text-muted">
-        能開班的是這四樣。講成「已經可以實盤下單」或「保證會賺」，是講錯了。
+        課程搭配以下練習工具與教材，供講師帶班和學員課後複習。
       </p>
       <div className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
         {LICENSE_INCLUDED.map((item) => (
@@ -176,7 +176,7 @@ function Excluded() {
   return (
     <Section id="excluded" n="02" title="這包沒有什麼">
       <p className="text-pretty leading-relaxed text-muted">
-        下面這些不是這份產品。對外簡報請直接劃掉，免得學員或金主以為已經買到。
+        本教室提供模擬教學，以下服務不包含在產品內。
       </p>
       <div className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
         {LICENSE_EXCLUDED.map((item) => (
@@ -184,7 +184,7 @@ function Excluded() {
         ))}
       </div>
       <p className="mt-4 text-sm leading-relaxed text-muted">
-        另外也還沒有：學員雲端帳號、講師後台、班級排行、教室聊天。那是後面的路，不是現況。
+        網站提供個人帳號、講師班級檢視與練習排行；目前沒有教室聊天或線上付款功能。
       </p>
     </Section>
   );
@@ -195,10 +195,10 @@ function Seats() {
     <Section id="seats" n="03" title="席次怎麼算">
       <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
         <Fact label="今天" body={SEAT_TODAY} />
-        <Fact label="之後（路線圖）" body={SEAT_ROADMAP} />
+        <Fact label="帳號與報名" body={SEAT_ROADMAP} />
       </div>
       <p className="mt-4 text-sm leading-relaxed text-muted">
-        跟講師談人數時，以教室現場為準，不是以這個網站的登入數為準。在每人帳號做好之前，席次是班務，不是軟體功能。
+        班級名額與開課安排由教室確認。建立網站帳號不代表已完成報名或付款，請以教室確認的學員名單為準。
       </p>
     </Section>
   );
@@ -208,7 +208,7 @@ function Skus() {
   return (
     <Section id="skus" n="04" title="線上與地端">
       <p className="text-pretty leading-relaxed text-muted">
-        兩個方案可以只談一個，也可以一起談。地端＝教材週、線上＝每日練習。不要講成兩套規則。
+        線上教室可保存帳號成績與復盤；地端包可在自己的電腦練習教材情境。兩者使用相同的模擬規則。
       </p>
       <div className="mt-5 overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-xl text-left text-sm">
@@ -246,7 +246,7 @@ function Quote() {
             {LICENSE_SKUS.map((sku) => (
               <Row key={sku.id} k={sku.name} v={LICENSE_QUOTE} />
             ))}
-            <Row k="講師帳／每人帳號" v="尚未開賣。那是路線圖，這一欄也是洽教室／講師報價，不是官價。" />
+            <Row k="帳號與課程名額" v="請向教室確認課程包含的使用期間、教材與名額；建立帳號不會自動扣款。" />
           </tbody>
         </table>
       </div>
@@ -262,8 +262,7 @@ function Risk() {
       <ul className="space-y-3 text-sm leading-relaxed text-muted">
         <li>這不是投資建議，不是獲利保證，不是代操。</li>
         <li>教室成績不能外推到實盤。實盤有滑價、排隊、斷線、情緒，教室沒有全部模擬到。</li>
-        <li>沒有向金管會申請的證券業務。產品定位是教學模擬。</li>
-        <li>石大哥如果聽到「已經可以實盤下單」或「買了就會賺」，那是講錯了。</li>
+        <li>所有下單均為模擬，沒有連接券商真實交易帳戶。</li>
       </ul>
     </Section>
   );
@@ -276,7 +275,7 @@ function Colophon() {
         當沖大富翁 · 股文觀指教室 · {LICENSE_VERSION} · {LICENSE_TITLE}
       </p>
       <p className="mt-1">
-        要開班、要授權、要地端包：{LICENSE_QUOTE}。內容以產品現況為準，實盤未接線前請勿對外宣稱可下真單。
+        課程、授權與地端包：{LICENSE_QUOTE}。本產品供教學模擬與復盤使用。
       </p>
     </footer>
   );

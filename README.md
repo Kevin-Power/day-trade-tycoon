@@ -1,58 +1,52 @@
-# 當沖大富翁 · Day Trade Tycoon
+# 當沖大富翁
 
-台股當沖教室。盤面比照券商現股當沖：自選、五檔、江波、委託單、庫存／委託／成交。
+講師帶班的台股模擬教室：五堂課加一期末練習，支援個人帳號、班級進度、成交復盤與離線教材。所有下單均為模擬，實盤 adapter 與 API 維持不可送單。
 
-目前走 **模擬撮合**。下單畫面已與實盤共用同一張委託單；接上券商 API 之後只換 `src/lib/broker` 這層，不必重做 UI。
+本專案由 Windows 主機獨立執行，正式入口為 https://rich.yilutek.com 。登入、學員資料與課程操作不依賴 Grok。
 
-## 教室裡有什麼
+## 功能與資料
 
-- 課綱凍結 **2026/08/24–08/26**（證交所每 5 秒加權指數）
-- 線上教室每個交易日 **13:50** 後自動抓最新完整盤做自由練習
-- 個股用當日公開開高低收套上同一條大盤節奏（**不是逐筆成交**）
-- 紅漲綠跌、1 張 = 1,000 股、±10% 漲跌停、來回成本約 0.32%
-- 進教室要入場密碼（講師發給學員，全班同一組）。不是每人一個帳號
+- 教材週固定為 2026/08/24–08/26；第 1 課 30 分鐘，第 3 課 130 分鐘。
+- 保留原站 24 檔教學自選與 1,979 檔搜尋目錄；只有具備該日教材 OHLC 的商品可加入模擬。
+- 加權 5 秒資料與個股日 OHLC 為原站教材快照；個股分時、五檔與撮合為教學投影，不是逐筆行情。資料恢復來源見 `docs/source-recovery.md`。
+- 共同入場碼由伺服器驗證；個人帳號以 email/password 登入。講師權限需主機核准，學生填班級代碼不能提權。
+- 訪客與离線紀錄保存在瀏覽器；帳號提交的復盤保存在本機持久資料庫。模擬評分不是防作弊認證或獲利證明。
+- 報名、費用與付款由教室核對；未接線上金流，不因註冊而表示已繳費。
 
-## 說明書
+## 維運
 
-線上教室大廳有「說明書」，給石大哥與講師當面過：學員怎麼玩、資料邊界、模擬與實盤路線。可列印，也可下載 PDF。靜態 PDF 由 `npm run build:manual-pdf` 從現況 `/manual` HTML 重印（需本機 `npm run dev`，或加 `--start`）。
+完整設定、啟停、備份與回復步驟見 `docs/self-hosting.md`。
 
-## 本機跑
-
-```bash
-npm install
-npm run dev
+```powershell
+npm ci
+npm run build
+npm run typecheck
+npm test
+npm run lint
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\hosting\host.ps1 status
 ```
 
-預覽綁在 `0.0.0.0:8080`。
+正式服務綁定 `127.0.0.1:8790`，透過專用 Cloudflare Tunnel 對外。資料與秘密保存在 Git 以外的 `%LOCALAPPDATA%\DayTradeTycoon`。發佈以 `scripts/hosting/stage-release.mjs` 建立不可覆寫的 release，再正常停止舊服務、選定新 release、驗證後啟動。
 
-地端教室包：
+開發伺服器使用 `npm run dev`，只綁 `127.0.0.1:18790`。开发需明確設定自己的測試入場碼 hash；不能將正式秘密寫進 Git。
 
-```bash
-npm run build:offline
-```
+`vite@8.1.5` 與 `rolldown@1.1.0` 已固定，用來避開 Node SSR build 產生未定義 export 的已知問題；build 會檢查每個產出的 server module 語法。升級時必須再做真實 HTTP 與瀏覽器驗收，不能只看 build exit code。
 
-解壓 `public/daytrade-tycoon-offline.zip`，雙擊 `START.bat`，不必連網。地端只用內建教材週。
+## 學員教材
 
-## 下單通路（之後接實盤）
+- 線上說明書：`/manual`
+- 課程方案：`/license`（公開，價格與日期由講師確認）
+- PDF：`npm run build:manual-pdf`
+- 離線包：`npm run build:offline`，輸出 `downloads/daytrade-tycoon-offline.zip`
 
-| 檔案 | 用途 |
-| --- | --- |
-| `src/lib/broker/types.ts` | 委託意圖、TIF、盤別 |
-| `src/lib/broker/index.ts` | `getBroker("sim" \| "live")` |
-| `src/routes/api/broker/order.ts` | 實盤 hop，尚未接線時回 501 |
+離線包不直接放在 public；下載路由要求有效的教室入場 session。包內只含教材與本機模擬，不含正式入場碼、帳號服務或資料庫。
 
-模擬盤帳號 `CLASSROOM-SIM`，TIF 目前僅 **ROD**。實盤需要：
+## 驗證範圍
 
-1. 伺服器環境變數 `BROKER_BASE_URL`（不要放 `VITE_`）
-2. 把 `liveBroker()` 改成打 `/api/broker/order`
-3. 上實盤前務必加登入，金鑰只放伺服器
+預設測試會列出實際 test files，避免 Windows shell 不展開 glob 而出現零測試。安全測試涵蓋角色、session ownership、不可覆寫、交易 rollback、cookie 驗證與 Windows 磁碟持久化。`scripts/hosting/auth-integration.test.mjs` 可在指定 `CLASSROOM_TEST_RELEASE` 下，以隔離資料庫進行真實 HTTP 登入、講師初始化與重啟測試。
 
-點委託單上的「實盤」會提示：尚未接上券商 API，不會送到券商，教室下單仍走模擬撮合。模擬 TIF 只吃 ROD；點 IOC／FOK 同樣只提示、不改條件。盤中按「回大廳」時，若還有庫存或未成交委託會先確認；確定離開會捨棄這盤，不自動平倉、不寫入戰績。
-
-教學標的以 `src/lib/market/symbols.json` 為唯一來源（現況 17 檔）。大廳／說明書檔數與 `real-paths.json` 由 `npm run check:symbols` 核對。
+`docs/feature-gaps.md` 保留舊版歷史盤點；目前服務狀態以接手紀錄與本機維運文件為準。
 
 ## 授權
 
 給股文觀指教室使用。未另聲明則保留權利。
-
-站上有一頁「教室授權／班級方案」（`/license`，大廳與入場閘都連得到，不必入場密碼）：這包有模擬教室、課綱、地端包、說明書；沒有實盤下單、投顧、保證獲利。今天是全班同一組入場密碼；每人帳號是之後的路。報價欄只寫「洽教室／講師報價」，沒有官價，也沒有線上金流。

@@ -52,10 +52,11 @@ describe("classroom license copy", () => {
     assert.equal(FAKE_PRICE.test(page), false);
   });
 
-  it("describes shared password today and per-seat accounts as roadmap", () => {
+  it("distinguishes classroom access, individual identity and payment", () => {
     assert.match(SEAT_TODAY, /同一組入場密碼/);
     assert.match(SEAT_ROADMAP, /每人一個帳號/);
-    assert.match(SEAT_ROADMAP, /還沒做/);
+    assert.match(SEAT_TODAY, /不代表完成繳費/);
+    assert.match(SEAT_ROADMAP, /尚未提供/);
   });
 
   it("renders from the copy SSOT and is linked from lobby and gate", () => {

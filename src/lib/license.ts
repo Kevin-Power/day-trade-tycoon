@@ -1,6 +1,6 @@
 /** Buyer-facing classroom package copy. No invented NT$ prices. */
 
-export const LICENSE_VERSION = "2026-09-21";
+export const LICENSE_VERSION = "2026-10-02";
 export const LICENSE_QUOTE = "洽教室／講師報價";
 export const LICENSE_TITLE = "教室授權／班級方案";
 
@@ -13,7 +13,7 @@ export const LICENSE_INCLUDED = [
   {
     id: "curriculum",
     title: "課綱",
-    body: "教材週凍結 2026/08/24–08/26。六課加期末考，當沖六式每盤都用。線上另有交易日收盤後的自由練習。",
+    body: "教材週凍結 2026/08/24–08/26。五課加一期末考，講師帶班搭配模擬練習與逐筆復盤。線上另有交易日收盤後的自由練習。",
   },
   {
     id: "offline",
@@ -61,27 +61,27 @@ export const LICENSE_SKUS = [
   {
     id: "bundle",
     name: "線上＋地端",
-    includes: "上面兩包都有。規則同一套，不要講成兩個版本。",
+    includes: "包含線上教室與地端教材包，使用相同模擬規則。",
     quote: LICENSE_QUOTE,
   },
 ] as const;
 
 export const SEAT_TODAY =
-  "今天是全班同一組入場密碼，講師發給學員。軟體不管人數上限，戰績存在該機瀏覽器。授權先按「班級／地端包」談，不是按登入人頭。";
+  "全班同一組入場密碼由講師提供。學員可建立自己的帳號，儲存已提交的模擬復盤；訪客練習只保存在該機瀏覽器。報名資格由教室核對，註冊帳號不代表完成繳費。";
 
 export const SEAT_ROADMAP =
-  "之後才做每人一個帳號、講師看全班。那是路線圖，還沒做。在那之前，不要對外講「已經有席次帳號」。";
+  "每人一個帳號與講師班級檢視已納入教室。授權人數、課程日期與費用由教室確認；線上付款與自動發放繳費權限尚未提供。";
 
 export const LICENSE_LEAD =
-  "當沖大富翁賣的是教室，不是券商、不是投顧、不是保證獲利。這一頁給金主、講師、要開班的人看：這包有什麼、沒有什麼、席次怎麼算、報價找誰。";
+  "透過講師帶班、模擬下單與課後復盤，練習進場前的計畫、交易成本與風險控制。適合希望先建立操作紀律，再評估是否參與實際交易的學員。";
 
-export const LICENSE_ONE_LINER = "一句話：先賣教室。實盤是下一張合約，不該擋這一期開課。";
+export const LICENSE_ONE_LINER = "先在模擬教室練清楚每一筆交易的理由、風險與成本。";
 
 export const LICENSE_PRICING_NOTE =
-  "報價欄是預留。沒有官價、沒有早鳥、沒有一班多少錢。數字在講師那邊，這一頁只寫「洽教室／講師報價」。";
+  "洽教室／講師報價，確認上課日期、費用、名額、使用期間與教材範圍後再報名。";
 
 export const LICENSE_PAYMENT_NOTE =
-  "沒有線上刷卡，也沒有 LINE Pay。班費怎麼收（現場、匯款、其他）由教室決定。這一頁不接金流。";
+  "本網站不接金流。付款方式與報名完成通知由教室提供，請先取得教室確認。";
 
 export function licensePlainText(): string {
   const parts = [

@@ -1,4 +1,8 @@
 node_modules
+.output/
+.app/
+.local-data/
+downloads/
 .vercel
 dist
 dist-offline

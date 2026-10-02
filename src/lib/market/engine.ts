@@ -22,7 +22,7 @@ import {
   roundToTick,
   tickSize,
 } from "@/lib/market/ticks";
-import { INDEX_PREV, UNIVERSE, type Sector, type StockDef } from "@/lib/market/universe";
+import { INDEX_PREV, UNIVERSE, lookupStock, type Sector, type StockDef } from "@/lib/market/universe";
 import { sessionById, type IndexSession } from "@/lib/market/week";
 import {
   indexSeriesFor,
@@ -108,6 +108,7 @@ export class DayMarket {
   orders: Order[] = [];
   positions = new Map<string, Position>();
   fills: Fill[] = [];
+  forcedClose = false;
   private tradeWins = 0;
   private tradeCount = 0;
   private roundTrips: { pnl: number }[] = [];
@@ -277,7 +278,7 @@ export class DayMarket {
 
   private tickStock(st: StockState, dt: number) {
     const pxPath = sample5(st.path, this.t);
-    let px = clampLimit(pxPath, st.prev);
+    const px = clampLimit(pxPath, st.prev);
     const prevLast = st.last;
     st.last = px;
     st.high = Math.max(st.high, px);
@@ -376,7 +377,37 @@ export class DayMarket {
   }
 
   allQuotes(): Quote[] {
-    return UNIVERSE.map((s) => this.toQuote(this.stocks.get(s.code)!));
+    return [...this.stocks.values()].map((stock) => this.toQuote(stock));
+  }
+
+  /** Add catalogue symbols only when this session contains frozen OHLC data. */
+  ensureSymbol(code: string): boolean {
+    if (this.stocks.has(code)) return true;
+    const def = lookupStock(code);
+    const day = stockDayFor(code, this.session.id);
+    if (!def || !day) return false;
+    const path = projectStock(this.indexPath, day);
+    const st: StockState = {
+      def, prev: day.prev, open: day.open, last: sample5(path, this.t),
+      high: day.open, low: day.open, volume: 0, inner: 0, outer: 0, tickLots: 0,
+      bids: [], asks: [], idio: 0, path, bars: [], ticks: [], priceVol: new Map(),
+      forming: { t: 0, o: day.open, h: day.open, l: day.open, c: day.open, v: 0 },
+      flash: 0, flashUntil: 0,
+    };
+    // Reconstruct only projected price history. No transactions or account state
+    // are replayed, and historical volume is not invented for a newly added name.
+    for (let at = 0; at <= this.t; at += 5) {
+      const price = sample5(path, at);
+      st.high = Math.max(st.high, price);
+      st.low = Math.min(st.low, price);
+      this.pushBar(st.bars, price, 0, Math.floor(at / 60) * 60);
+      this.pushTick(st.ticks, at, price);
+    }
+    this.pushBar(st.bars, st.last, 0, Math.floor(this.t / 60) * 60);
+    st.forming = st.bars[st.bars.length - 1] ?? st.forming;
+    this.rebuildBook(st);
+    this.stocks.set(code, st);
+    return true;
   }
 
   private toQuote(st: StockState): Quote {
@@ -568,6 +599,7 @@ export class DayMarket {
   }
 
   private forceFlatten() {
+    this.forcedClose ||= [...this.positions.values()].some((position) => position.lots !== 0);
     for (const o of this.orders) {
       if (o.status === "pending" || o.status === "partial") o.status = "cancelled";
     }

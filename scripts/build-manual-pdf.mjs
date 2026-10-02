@@ -1,118 +1,74 @@
 #!/usr/bin/env node
-/**
- * Rebuild public/daytrade-tycoon-manual.pdf from the live /manual HTML.
- * There was no previous build script; the static PDF was a Chromium print
- * dated 2026-09-01 and lagged the HTML (徽章、閃電下單、回大廳確認).
- *
- *   npm run dev                     # already running on :8080
- *   npm run build:manual-pdf
- *
- *   npm run build:manual-pdf -- --start
- */
-import { spawn } from "node:child_process";
+/** Build the learner PDF from local docs/pdf-source.json; no browser, web server or login. */
+import { spawnSync } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
-import { checkedOutputPath, checkedUrl } from "./browser-guard.mjs";
-import { isMainModule } from "./with-app-env.mjs";
-
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const DEFAULT_URL = "http://127.0.0.1:8080";
-const GATE_KEY = "day-tycoon-gate-v1"; // src/lib/gate/storage.ts
-const OUT = join(root, "public", "daytrade-tycoon-manual.pdf");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 export function parsePdfArgs(argv, env = process.env) {
-  const start = argv.includes("--start");
-  const urlFlag = argv.indexOf("--url");
-  const url = urlFlag === -1 ? env.MANUAL_PDF_URL || DEFAULT_URL : argv[urlFlag + 1];
-  if (!url) return { error: "missing --url" };
-  return { start, url };
-}
-
-function wait(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-async function waitForHttp(url, timeoutMs) {
-  const start = Date.now();
-  let last = "";
-  while (Date.now() - start < timeoutMs) {
-    try {
-      const res = await fetch(url, { redirect: "manual" });
-      if (res.ok || res.status === 302 || res.status === 301) return;
-      last = `HTTP ${res.status}`;
-    } catch (err) {
-      last = err?.message || String(err);
-    }
-    await wait(400);
+  const allowed = new Set(["--python", "--output"]);
+  const parsed = {
+    python: env.MANUAL_PDF_PYTHON || "",
+    output: join(root, "public", "daytrade-tycoon-manual.pdf"),
+  };
+  for (let i = 0; i < argv.length; i += 2) {
+    const flag = argv[i];
+    if (!allowed.has(flag) || !argv[i + 1] || argv[i + 1].startsWith("--"))
+      return {
+        error:
+          "Usage: npm run build:manual-pdf -- [--python path] [--output path]. No --start or --url is needed.",
+      };
+    parsed[flag.slice(2)] = argv[i + 1];
   }
-  throw new Error(`server not ready at ${url}: ${last}`);
+  return parsed;
 }
 
-async function printManual(baseUrl, outPath) {
-  const browser = await chromium.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-dev-shm-usage"],
-  });
-  try {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 1600 } });
-    await context.addInitScript((key) => {
-      localStorage.setItem(key, "1");
-    }, GATE_KEY);
-    const page = await context.newPage();
-    const url = new URL("/manual", baseUrl).href;
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
-    await page.waitForTimeout(1200);
-    const body = await page.locator("body").innerText();
-    if (!body.includes("說明書") || !body.includes("2026-09-21")) {
-      throw new Error(
-        `printed page is not the current /manual HTML (gate still up, or stale?). prefix=${body.slice(0, 160)}`,
-      );
-    }
-    if (!body.includes("閃電下單") || !body.includes("回大廳")) {
-      throw new Error("printed /manual is missing 閃電下單 or 回大廳 copy");
-    }
-    await page.pdf({
-      path: outPath,
-      format: "A4",
-      printBackground: true,
-      preferCSSPageSize: true,
-    });
-  } finally {
-    await browser.close();
-  }
+export function pythonCandidates(explicit = "") {
+  if (explicit) return [explicit];
+  const bundled = join(
+    homedir(),
+    ".cache",
+    "codex-runtimes",
+    "codex-primary-runtime",
+    "dependencies",
+    "python",
+    process.platform === "win32" ? "python.exe" : "bin/python3",
+  );
+  return [...(existsSync(bundled) ? [bundled] : []), "python", "python3"];
 }
 
-async function main(argv) {
-  const parsed = parsePdfArgs(argv);
-  if (parsed.error) {
-    console.error(parsed.error);
-    process.exit(1);
-  }
-  const baseUrl = checkedUrl(parsed.url.endsWith("/") ? parsed.url : `${parsed.url}/`).replace(/\/$/, "");
-  const outPath = checkedOutputPath(OUT, [root], "manual PDF");
-
-  let child = null;
-  if (parsed.start) {
-    child = spawn(process.execPath, [join(root, "scripts/with-app-env.mjs"), "vite", "dev", "--host", "127.0.0.1", "--port", "8080"], {
-      cwd: root,
-      stdio: "ignore",
-      env: process.env,
-    });
-  }
-  try {
-    await waitForHttp(baseUrl, parsed.start ? 90000 : 8000);
-    await printManual(`${baseUrl}/`, outPath);
-    if (!existsSync(outPath) || statSync(outPath).size < 20_000) {
-      throw new Error("PDF missing or too small");
-    }
-    console.log(`wrote ${outPath} (${statSync(outPath).size} bytes) from ${baseUrl}/manual`);
-  } finally {
-    if (child?.pid) child.kill("SIGTERM");
-  }
+function main(argv) {
+  const args = parsePdfArgs(argv);
+  if (args.error) throw new Error(args.error);
+  const python = pythonCandidates(args.python).find(
+    (candidate) =>
+      spawnSync(candidate, ["-c", "import reportlab, pypdf"], {
+        windowsHide: true,
+        stdio: "ignore",
+      }).status === 0,
+  );
+  if (!python)
+    throw new Error(
+      "Python with reportlab and pypdf is required. Set MANUAL_PDF_PYTHON or pass --python. No network install is performed.",
+    );
+  const output = resolve(root, args.output);
+  const result = spawnSync(
+    python,
+    [
+      join(root, "scripts", "build-manual-pdf.py"),
+      "--source",
+      join(root, "docs", "pdf-source.json"),
+      "--output",
+      output,
+    ],
+    { cwd: root, windowsHide: true, stdio: "inherit", env: process.env },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`Manual PDF builder exited ${result.status}`);
+  if (!existsSync(output) || statSync(output).size < 20000)
+    throw new Error("Generated PDF is missing or unexpectedly small.");
 }
-
-if (isMainModule(import.meta.url)) {
-  await main(process.argv.slice(2));
-}
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+  main(process.argv.slice(2));

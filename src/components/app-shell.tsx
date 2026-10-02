@@ -3,12 +3,18 @@ import { Toaster } from "sonner";
 import { Lobby } from "@/components/lobby";
 import { Terminal } from "@/components/terminal";
 import { persistOnHide, useGame } from "@/lib/game/store";
+import { setProfileIdentity } from "@/lib/game/persist";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export function AppShell() {
   const phase = useGame((s) => s.phase);
   const hydrate = useGame((s) => s.hydrate);
+  const { user, isPending } = useCurrentUserState();
+  const userId = user && !user.isDevFallback ? user.id : null;
 
   useEffect(() => {
+    if (isPending) return;
+    setProfileIdentity(userId);
     hydrate();
     const onHide = () => {
       if (document.hidden) persistOnHide();
@@ -19,7 +25,7 @@ export function AppShell() {
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", persistOnHide);
     };
-  }, [hydrate]);
+  }, [hydrate, userId, isPending]);
 
   return (
     <>

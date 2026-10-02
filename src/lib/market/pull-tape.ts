@@ -7,6 +7,9 @@ const TTL_MS = 10 * 60 * 1000;
 
 type Mem = { key: string; at: number; payload: TapePayload };
 let mem: Mem | null = null;
+let inFlight: Promise<TapePayload> | null = null;
+let lastAttemptAt = 0;
+let lastAttempt: TapePayload | null = null;
 
 function round2(n: number) {
   return Math.round(n * 100) / 100;
@@ -304,7 +307,15 @@ export async function pullRecentTape(opts?: { fresh?: boolean }): Promise<TapePa
   if (!opts?.fresh && mem && mem.key === key && Date.now() - mem.at < TTL_MS && mem.payload.ok) {
     return mem.payload;
   }
-  const payload = await pullFresh();
-  if (payload.ok) mem = { key, at: Date.now(), payload };
-  return payload;
+  if (inFlight) return inFlight;
+  // The refresh button cannot fan out repeated upstream requests per visitor.
+  // Failed pulls also back off, while a prior valid cached result stays usable.
+  if (Date.now() - lastAttemptAt < 60_000 && lastAttempt) return mem?.payload ?? lastAttempt;
+  lastAttemptAt = Date.now();
+  inFlight = pullFresh().then((payload) => {
+    lastAttempt = payload;
+    if (payload.ok) mem = { key, at: Date.now(), payload };
+    return payload;
+  }).finally(() => { inFlight = null; });
+  return inFlight;
 }
