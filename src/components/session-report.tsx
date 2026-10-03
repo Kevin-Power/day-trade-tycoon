@@ -20,6 +20,8 @@ import { PracticeGoalEditor } from "@/components/practice-goal";
 import { ReviewConditions } from "@/components/review-conditions";
 import { TradePlanReview } from "@/components/trade-plan";
 import { formatPrice } from "@/lib/market/ticks";
+import { LearningProgressCard } from "@/components/learning-progress-card";
+import { DisplayControls } from "@/components/display-controls";
 
 const FILLS_PER_PAGE = 100;
 
@@ -56,21 +58,24 @@ export function SessionReport({
             <ClipboardList aria-hidden="true" className="size-5 text-brand" />
             當沖大富翁<span className="border-l border-border pl-2.5 text-muted">練習復盤</span>
           </span>
-          <button
-            type="button"
-            className="academy-nav-link"
-            onClick={() => {
-              if (teacherView) {
-                void navigate({ to: "/teacher" });
-                return;
-              }
-              useGame.getState().leave();
-              void navigate({ to: "/" });
-            }}
-          >
-            <ArrowLeft aria-hidden="true" className="size-4" />
-            {teacherView ? "講師工作區" : "教室大廳"}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <DisplayControls />
+            <button
+              type="button"
+              className="academy-nav-link"
+              onClick={() => {
+                if (teacherView) {
+                  void navigate({ to: "/teacher" });
+                  return;
+                }
+                useGame.getState().leave();
+                void navigate({ to: "/" });
+              }}
+            >
+              <ArrowLeft aria-hidden="true" className="size-4" />
+              {teacherView ? "講師工作區" : "教室大廳"}
+            </button>
+          </div>
         </div>
       </header>
       <div className="academy-container py-8 sm:py-11">
@@ -99,6 +104,9 @@ export function SessionReport({
             </p>
           </aside>
         )}
+        <div className="mt-6">
+          <LearningProgressCard bundle={bundle} />
+        </div>
         <p
           className={cn(
             "mt-4 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs",
@@ -114,8 +122,10 @@ export function SessionReport({
           )}
           {lesson
             ? rec.passed
-              ? "本次已完成課程條件"
-              : "本次仍有條件待練習"
+              ? "教材挑戰：本次條件已達成"
+              : rec.passed === false
+                ? "教材挑戰：仍有條件可練習"
+                : "舊紀錄未保存教材挑戰結果"
             : "自由練習不評定課程通過"}
         </p>
         <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">

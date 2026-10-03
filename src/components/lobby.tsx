@@ -16,9 +16,19 @@ import {
   Target,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { nextRank, rankFor, SCENARIOS, type Scenario } from "@/lib/game/scenarios";
+import { useEffect, useState } from "react";
+import { SCENARIOS, type Scenario } from "@/lib/game/scenarios";
 import { lessonById, PRINCIPLES } from "@/lib/game/curriculum";
+import { COURSE_PATH, courseStepFor } from "@/lib/game/learning-path";
+import {
+  RECENT_LEARNING_REVIEW_LIMIT,
+  summarizeLearningProgress,
+  type LearningProgress,
+  type LearningProgressSummary,
+} from "@/lib/game/learning-progress";
+import { getProfileIdentity, loadReview } from "@/lib/game/persist";
 import { useGame } from "@/lib/game/store";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { playOpen, unlockAudio } from "@/lib/game/audio";
 import type { Profile, SessionRecord } from "@/lib/game/types";
 import { cn, formatMoney, formatPct, formatSigned } from "@/lib/utils";
@@ -41,8 +51,41 @@ export function Lobby() {
   const start = useGame((state) => state.start);
   const openLearnerGuide = useGame((state) => state.openLearnerGuide);
   const hydrated = useGame((state) => state.hydrated);
+  const { user, isPending } = useCurrentUserState();
+  const userId = user && !user.isDevFallback ? user.id : null;
+  const profileReady = hydrated && !isPending && getProfileIdentity() === userId;
+  const [learning, setLearning] = useState<{
+    identity: string | null;
+    profile: Profile;
+    summary: LearningProgressSummary;
+  } | null>(null);
   const { lock } = useGate();
   const firstLesson = SCENARIOS[0];
+
+  useEffect(() => {
+    if (!profileReady || getProfileIdentity() !== userId || useGame.getState().profile !== profile)
+      return;
+    const reviews = profile.history.slice(0, RECENT_LEARNING_REVIEW_LIMIT).flatMap((record) => {
+      const review = loadReview(record.id);
+      return review?.rec.id === record.id && review.rec.scenarioId === record.scenarioId
+        ? [review]
+        : [];
+    });
+    setLearning({ identity: userId, profile, summary: summarizeLearningProgress(reviews) });
+  }, [profile, profileReady, userId]);
+
+  // Identity and profile must both match before any saved learning evidence is shown.
+  const summary =
+    profileReady && learning?.identity === userId && learning.profile === profile
+      ? learning.summary
+      : undefined;
+  const recentReview = summary?.recent[0];
+  const missingReviews = summary
+    ? profile.history
+        .slice(0, RECENT_LEARNING_REVIEW_LIMIT)
+        .filter((record) => !summary.recent.some((progress) => progress.sessionId === record.id))
+        .length
+    : 0;
 
   function beginLesson(id: string) {
     unlockAudio();
@@ -123,36 +166,48 @@ export function Lobby() {
               id="classroom-title"
               className="academy-title text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
             >
-              當沖大富翁
+              今天，練好一個動作
             </h1>
             <p className="academy-description mt-3 max-w-xl text-pretty text-sm leading-7 text-muted sm:text-base">
-              從第一筆有計畫的下單開始。跟著講師練成本、停損與部位控制，再用復盤看見可以改進的地方。
+              先選一個操作目標，完成模擬練習，再回來核對紀錄。從會看委託與成交，到能說清楚自己的進場與離場條件，一步一步練習。
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              {firstLesson && (
-                <button
-                  type="button"
-                  disabled={!hydrated}
-                  onClick={() => beginLesson(firstLesson.id)}
-                  className="academy-button-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
+              {recentReview ? (
+                <Link
+                  to="/session/$id/review"
+                  params={{ id: recentReview.sessionId }}
+                  className="academy-button-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold"
                 >
-                  <Play className="size-4" aria-hidden="true" />
-                  {!hydrated ? "載入教室…" : profile.sessions ? "重練第一課" : "開始第一課"}
-                  <span className="border-l border-current/20 pl-2 text-xs font-normal">
-                    {firstLesson.minutes} 分鐘教材
-                  </span>
-                </button>
+                  <FileText className="size-5 shrink-0" aria-hidden="true" />
+                  接續上次復盤
+                  <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+                </Link>
+              ) : (
+                firstLesson && (
+                  <button
+                    type="button"
+                    disabled={!summary}
+                    onClick={() => beginLesson(firstLesson.id)}
+                    className="academy-button-primary inline-flex min-h-12 flex-wrap items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold disabled:opacity-50"
+                  >
+                    <Play className="size-4" aria-hidden="true" />
+                    {!summary ? "載入教室…" : "開始第一課"}
+                    <span className="border-l border-current/20 pl-2 text-sm font-normal">
+                      {firstLesson.minutes} 分鐘教材
+                    </span>
+                  </button>
+                )
               )}
               <a
                 href="#courses"
-                className="academy-nav-link inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm"
+                className="academy-nav-link inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3 text-base"
               >
                 選擇課程 <ArrowDown className="size-4" aria-hidden="true" />
               </a>
               {firstLesson ? (
                 <button
                   type="button"
-                  disabled={!hydrated}
+                  disabled={!profileReady}
                   onClick={() => {
                     beginLesson(firstLesson.id);
                     openLearnerGuide();
@@ -163,6 +218,14 @@ export function Lobby() {
                 </button>
               ) : null}
             </div>
+            {recentReview && (
+              <p className="mt-3 text-base leading-relaxed text-muted">
+                {recentReview.achievedCount > 0
+                  ? `上次留下 ${recentReview.achievedCount} 項操作足跡。`
+                  : "上次的練習紀錄已可回看。"}
+                回看一次，選好下一個練習重點。
+              </p>
+            )}
           </div>
           <div className="academy-card min-w-0 rounded-2xl border border-border bg-surface p-5">
             <p className="text-base font-medium text-muted">每次練習，完成三件事</p>
@@ -186,18 +249,31 @@ export function Lobby() {
 
         <PracticeGoalReminder />
 
+        <LearningFootprints summary={summary} missingReviews={missingReviews} />
+
         <section id="courses" aria-labelledby="courses-title" className="scroll-mt-6">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
             <div>
-              <h2 id="courses-title" className="text-lg font-semibold">
-                課程練習
+              <h2 id="courses-title" className="text-xl font-semibold">
+                我的課程路線
               </h2>
-              <p className="mt-1 text-xs leading-5 text-muted">
-                五堂實作＋期末練習，建議依序進行。
+              <p className="mt-1 text-base leading-relaxed text-muted">
+                五堂實作與綜合練習。可以照順序，也可以回到想再練一次的課。
               </p>
             </div>
             <span className="text-xs leading-5 text-muted">分鐘數為模擬盤時間，可加速與暫停</span>
           </div>
+          <ol aria-label="課程學習階段" className="mb-4 grid gap-2 sm:grid-cols-3">
+            {[...new Set(COURSE_PATH.map((step) => step.stage))].map((stage, index) => (
+              <li
+                key={stage}
+                className="flex min-w-0 items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-base"
+              >
+                <span className="font-mono text-muted">0{index + 1}</span>
+                <span className="min-w-0 font-medium">{stage}</span>
+              </li>
+            ))}
+          </ol>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {SCENARIOS.map((scenario, index) => (
               <CourseCard
@@ -205,11 +281,17 @@ export function Lobby() {
                 scenario={scenario}
                 index={index}
                 lastRecord={
-                  hydrated
+                  profileReady
                     ? profile.history.find((record) => record.scenarioId === scenario.id)
                     : undefined
                 }
-                ready={hydrated}
+                progress={summary?.recent.find(
+                  (progress) =>
+                    progress.sessionId ===
+                    profile.history.find((record) => record.scenarioId === scenario.id)?.id,
+                )}
+                progressReady={Boolean(summary)}
+                ready={profileReady}
                 onStart={() => beginLesson(scenario.id)}
               />
             ))}
@@ -223,21 +305,51 @@ export function Lobby() {
         <section aria-labelledby="progress-title" className="mt-9 border-t border-border pt-7">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 id="progress-title" className="text-lg font-semibold">
-              我的練習
+              復盤與學員帳戶
             </h2>
             <span className="text-xs text-muted">
               本機統計 · <ProvenanceBadge kind="classroom" />
             </span>
           </div>
-          <PracticeMetrics profile={profile} hydrated={hydrated} />
-          <div className="mt-4">
+          <p className="mb-4 text-base leading-relaxed text-muted">
+            本機只保留最近最多 30 份練習紀錄，以下先列出最近 8
+            份。切換裝置或清除瀏覽器資料，顯示的紀錄可能不同。
+          </p>
+          <div className="mb-4">
             <ClassroomAccount />
           </div>
           <RecentPractice
             history={profile.history}
-            hydrated={hydrated}
+            summary={summary}
             onStart={() => firstLesson && beginLesson(firstLesson.id)}
           />
+          <details className="academy-card mt-4 rounded-2xl border border-border bg-surface">
+            <summary className="min-h-12 cursor-pointer px-4 py-4 text-base font-medium sm:px-5">
+              模擬損益紀錄
+            </summary>
+            <div className="border-t border-border p-4 sm:p-5">
+              <p className="mb-4 text-base leading-relaxed text-muted">
+                這裡保留本機累計的模擬結果，供復盤參考。累計統計可能涵蓋更早的練習；操作足跡只使用目前可讀取的最近最多
+                30 份完整紀錄。
+              </p>
+              <PracticeMetrics profile={profile} hydrated={profileReady} />
+              {profileReady && profile.history.length > 0 && (
+                <ul className="mt-4 divide-y divide-border">
+                  {profile.history.slice(0, 8).map((record) => (
+                    <li
+                      key={record.id}
+                      className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-2 py-3 text-base"
+                    >
+                      <span className="min-w-0 break-words text-muted">{record.scenarioName}</span>
+                      <span className={cn("font-mono tabular", toneClass(record.pnl))}>
+                        {formatSigned(record.pnl, 0)} · {formatPct(record.pnlPct)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </details>
         </section>
 
         <section aria-labelledby="materials-title" className="mt-9">
@@ -366,52 +478,86 @@ function CourseCard({
   scenario,
   index,
   lastRecord,
+  progress,
+  progressReady,
   ready,
   onStart,
 }: {
   scenario: Scenario;
   index: number;
   lastRecord?: SessionRecord;
+  progress?: LearningProgress;
+  progressReady: boolean;
   ready: boolean;
   onStart: () => void;
 }) {
   const lesson = lessonById(scenario.id);
+  const step = courseStepFor(scenario.id);
+  const latestProgress = progress?.sessionId === lastRecord?.id ? progress : undefined;
   const first = index === 0;
   return (
     <article className="academy-card flex min-w-0 flex-col rounded-2xl border border-border bg-surface p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-3 text-xs">
-        <span className="font-medium text-muted">{lesson?.no || scenario.tag}</span>
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-[11px] text-muted">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <span className="font-medium text-muted">
+          {lesson?.no || scenario.tag} · {step?.stage || "自主練習"}
+        </span>
+        <span className="inline-flex items-center gap-1.5 font-mono text-sm text-muted">
           <Clock3 className="size-3.5" aria-hidden="true" />
           {scenario.minutes} 分 · {scenario.speed}×
         </span>
       </div>
       <h3 className="mt-2.5 text-lg font-semibold tracking-tight">
-        {lesson?.skill || scenario.name}
+        {step?.title || lesson?.skill || scenario.name}
       </h3>
-      <p className="mt-1 text-[11px] text-subtle">{scenario.name}</p>
-      <p className="mb-4 mt-3 flex-1 text-sm leading-6 text-muted">{scenario.objective}</p>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-3 text-[11px] leading-5 text-muted">
+      <p className="mt-1 text-sm text-muted">{scenario.name}</p>
+      <p className="mt-3 flex-1 text-base leading-relaxed text-muted">
+        {step?.focus || "練習觀察盤面、核對操作，再用復盤紀錄找出下一次的重點。"}
+      </p>
+      {step && (
+        <details className="my-3 rounded-xl border border-border bg-bg px-3">
+          <summary className="min-h-12 cursor-pointer py-3 text-base font-medium">
+            這一課怎麼練
+          </summary>
+          <ol className="list-decimal space-y-2 pb-3 pl-5 text-base leading-relaxed text-muted">
+            {step.steps.map((action) => (
+              <li key={action} className="pl-1">
+                {action}
+              </li>
+            ))}
+          </ol>
+          <p className="border-t border-border py-3 text-base leading-relaxed">
+            <span className="font-medium">復盤想一想：</span>
+            {step.reflection}
+          </p>
+        </details>
+      )}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-3 text-sm leading-relaxed text-muted">
         <span>模擬本金 {formatMoney(scenario.capital)}</span>
         <span>
           {scenario.leverage}× 額度 · {scenario.allowShort ? "可先賣" : "僅先買"}
         </span>
       </div>
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <span className="min-w-0 text-[11px] leading-5 text-muted">
-          {lastRecord
-            ? `最近練習：${lastRecord.passed === true ? "通過" : lastRecord.passed === false ? "待練習" : `模擬結果 ${lastRecord.grade}`}`
-            : first
-              ? "建議從這裡開始"
-              : "依自己的進度練習"}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <span className="min-w-0 text-base leading-relaxed text-muted">
+          {!progressReady
+            ? "正在讀取操作紀錄…"
+            : lastRecord
+              ? latestProgress
+                ? latestProgress.achievedCount > 0
+                  ? `最近一次：已留下 ${latestProgress.achievedCount} 項操作足跡`
+                  : "最近一次：練習紀錄已可回看"
+                : "最近一次：未找到完整紀錄"
+              : first
+                ? "建議從這裡開始"
+                : "依自己的進度練習"}
         </span>
         <button
           type="button"
           disabled={!ready}
           onClick={onStart}
-          aria-label={`進入${lesson?.no || scenario.name}：${lesson?.skill || scenario.name}`}
+          aria-label={`進入${lesson?.no || scenario.name}：${step?.title || lesson?.skill || scenario.name}`}
           className={cn(
-            "inline-flex min-h-10 shrink-0 items-center justify-center gap-1 rounded-lg px-3 text-xs font-medium disabled:opacity-50",
+            "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-4 py-3 text-base font-medium disabled:opacity-50",
             first ? "academy-button-primary" : "academy-button-secondary",
           )}
         >
@@ -422,12 +568,75 @@ function CourseCard({
   );
 }
 
+function LearningFootprints({
+  summary,
+  missingReviews,
+}: {
+  summary?: LearningProgressSummary;
+  missingReviews: number;
+}) {
+  return (
+    <section aria-labelledby="learning-footprints-title" className="my-7 min-w-0">
+      <h2 id="learning-footprints-title" className="text-xl font-semibold">
+        看見自己的操作足跡
+      </h2>
+      <p className="mt-2 text-base leading-relaxed text-muted">
+        把做過的動作看清楚，再決定下次練什麼。每次練習不必集滿四項；等待條件出現，也可以是這次的選擇。
+      </p>
+      {!summary ? (
+        <p role="status" className="mt-4 text-base text-muted">
+          正在讀取這個帳戶的本機紀錄…
+        </p>
+      ) : summary.reviewCount === 0 ? (
+        <div className="academy-card mt-4 rounded-2xl border border-border bg-surface p-5">
+          <p className="text-lg font-medium">從一份能回看的練習開始</p>
+          <p className="mt-2 text-base leading-relaxed text-muted">
+            選一課，寫下想練的動作。結算後，這裡會依保存的計畫、成交與庫存紀錄呈現操作足跡。
+          </p>
+        </div>
+      ) : (
+        <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {summary.milestones.map((milestone) => (
+            <li
+              key={milestone.id}
+              className="academy-card min-w-0 rounded-2xl border border-border bg-surface p-4"
+            >
+              <p className="flex items-start gap-2 text-base font-medium">
+                {milestone.achievedSessions > 0 && (
+                  <Check className="mt-0.5 size-5 shrink-0 text-brand" aria-hidden="true" />
+                )}
+                {milestone.title}
+              </p>
+              <p className="mt-3 text-xl font-semibold">
+                {milestone.achievedSessions > 0
+                  ? `${milestone.achievedSessions} 份留下足跡`
+                  : milestone.knownSessions === 0
+                    ? "資料不足，未判定"
+                    : "尚無這項足跡"}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                {milestone.knownSessions} 份有可核對欄位
+                {milestone.unknownSessions > 0 &&
+                  ` · ${milestone.unknownSessions} 份資料不足，未判定`}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-sm leading-relaxed text-muted">
+        只依這個帳戶在目前瀏覽器最近最多 30 份練習計算
+        {summary ? `，已讀取 ${summary.reviewCount} 份完整紀錄` : ""}。
+        {missingReviews > 0 && `另有 ${missingReviews} 份練習摘要未找到完整紀錄，未計入足跡。`}
+        操作足跡呈現紀錄中發生的事，不代表已掌握技能；平倉可能包含部分減碼或系統平倉。
+      </p>
+    </section>
+  );
+}
+
 function PracticeMetrics({ profile, hydrated }: { profile: Profile; hydrated: boolean }) {
-  const rank = rankFor(profile.careerPnl);
-  const next = nextRank(profile.careerPnl);
   const hasSessions = hydrated && profile.sessions > 0;
   return (
-    <div className="academy-card grid min-w-0 grid-cols-2 divide-x divide-border overflow-hidden rounded-2xl border border-border bg-surface lg:grid-cols-4">
+    <div className="grid min-w-0 gap-3 sm:grid-cols-3">
       <PracticeMetric
         label="模擬累積淨損益"
         value={hasSessions ? formatSigned(profile.careerPnl, 0) : "—"}
@@ -435,7 +644,7 @@ function PracticeMetrics({ profile, hydrated }: { profile: Profile; hydrated: bo
         note={hasSessions ? "僅計本機已結算練習" : "完成第一盤後顯示"}
       />
       <PracticeMetric
-        label="已完成練習"
+        label="累計結算盤數"
         value={hydrated ? `${profile.sessions} 盤` : "—"}
         note="未結算的練習不計入"
       />
@@ -443,13 +652,6 @@ function PracticeMetrics({ profile, hydrated }: { profile: Profile; hydrated: bo
         label="獲利盤占比"
         value={hasSessions ? `${((profile.wins / profile.sessions) * 100).toFixed(0)}%` : "—"}
         note={hasSessions ? classroomSampleMicro(profile.sessions) : "尚無教室樣本"}
-        className="border-t border-border lg:border-t-0"
-      />
-      <PracticeMetric
-        label="目前練習段位"
-        value={hydrated ? rank.title : "—"}
-        note={next ? `下一階 ${next.title} · ${next.need}` : "已達目前最高段位"}
-        className="border-t border-border lg:border-t-0"
       />
     </div>
   );
@@ -469,8 +671,8 @@ function PracticeMetric({
   className?: string;
 }) {
   return (
-    <div className={cn("min-w-0 p-4 sm:p-5", className)}>
-      <p className="text-xs text-muted">{label}</p>
+    <div className={cn("min-w-0 rounded-xl border border-border bg-bg p-4", className)}>
+      <p className="text-base text-muted">{label}</p>
       <p
         className={cn(
           "mt-2 break-words font-mono text-xl font-medium tabular",
@@ -479,81 +681,84 @@ function PracticeMetric({
       >
         {value}
       </p>
-      <p className="mt-2 text-[11px] leading-5 text-subtle">{note}</p>
+      <p className="mt-2 text-sm leading-relaxed text-muted">{note}</p>
     </div>
   );
 }
 
 function RecentPractice({
   history,
-  hydrated,
+  summary,
   onStart,
 }: {
   history: SessionRecord[];
-  hydrated: boolean;
+  summary?: LearningProgressSummary;
   onStart: () => void;
 }) {
   return (
     <div className="academy-card overflow-hidden rounded-2xl border border-border bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-4 sm:px-5">
-        <h3 className="text-sm font-semibold">最近的本機練習</h3>
-        <span className="text-[11px] text-muted">最近 8 盤 · 點選查看本人復盤</span>
+        <h3 className="text-base font-semibold">回看最近的練習</h3>
+        <span className="text-sm text-muted">最近 8 份 · 點選查看本人復盤</span>
       </div>
-      {!hydrated ? (
-        <p role="status" className="px-5 py-8 text-sm text-muted">
+      {!summary ? (
+        <p role="status" className="px-5 py-8 text-base text-muted">
           正在載入這台裝置的練習紀錄…
         </p>
       ) : history.length === 0 ? (
         <div className="flex flex-col items-start gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-medium">你的第一份復盤，從第一課開始</p>
-            <p className="mt-1 text-xs leading-6 text-muted">
+            <p className="text-base font-medium">你的第一份復盤，從第一課開始</p>
+            <p className="mt-1 text-base leading-relaxed text-muted">
               完成模擬下單與結算後，這裡會留下練習紀錄。
             </p>
           </div>
           <button
             type="button"
             onClick={onStart}
-            className="academy-button-secondary inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-sm"
+            className="academy-button-secondary inline-flex min-h-12 items-center gap-2 rounded-xl px-4 py-3 text-base"
           >
             開始練習 <ArrowRight className="size-4" aria-hidden="true" />
           </button>
         </div>
       ) : (
         <ul className="divide-y divide-border">
-          {history.slice(0, 8).map((record) => (
-            <li key={record.id}>
-              <Link
-                to="/session/$id/review"
-                params={{ id: record.id }}
-                className="group flex min-w-0 items-center gap-3 px-4 py-4 transition-colors hover:bg-elevated focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand sm:px-5"
-              >
-                <span className="hidden size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-bg text-muted sm:flex">
-                  <FileText className="size-4" aria-hidden="true" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{record.scenarioName}</p>
-                  <p className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[11px] leading-5 text-muted">
-                    <span>{lessonById(record.scenarioId)?.no || "自由練習"}</span>
-                    <span>模擬結果 {record.grade}</span>
-                    <span>{record.trades} 次平倉</span>
-                  </p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className={cn("font-mono text-sm tabular", toneClass(record.pnl))}>
-                    {formatSigned(record.pnl, 0)}
-                  </p>
-                  <p className={cn("mt-1 font-mono text-[11px] tabular", toneClass(record.pnlPct))}>
-                    {formatPct(record.pnlPct)}
-                  </p>
-                </div>
-                <ChevronRight
-                  className="size-4 shrink-0 text-subtle transition-transform group-hover:translate-x-0.5"
-                  aria-hidden="true"
-                />
-              </Link>
-            </li>
-          ))}
+          {history.slice(0, 8).map((record) => {
+            const progress = summary.recent.find((item) => item.sessionId === record.id);
+            return (
+              <li key={record.id}>
+                <Link
+                  to="/session/$id/review"
+                  params={{ id: record.id }}
+                  className="group flex min-w-0 items-center gap-3 px-4 py-4 transition-colors hover:bg-elevated focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand sm:px-5"
+                >
+                  <span className="hidden size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-bg text-muted sm:flex">
+                    <FileText className="size-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-base font-medium">{record.scenarioName}</p>
+                    <p className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-sm leading-relaxed text-muted">
+                      <span>{lessonById(record.scenarioId)?.no || "自由練習"}</span>
+                      <span>{new Date(record.endedAt).toLocaleDateString("zh-TW")}</span>
+                      <span>{record.trades} 次平倉</span>
+                    </p>
+                    <p className="mt-2 text-base leading-relaxed text-muted">
+                      {progress
+                        ? progress.achievedCount > 0
+                          ? `已留下 ${progress.achievedCount} 項操作足跡`
+                          : "練習紀錄已可回看"
+                        : "未找到完整紀錄"}
+                      {progress?.noRecordedFills && " · 本盤未記錄成交"}
+                    </p>
+                  </div>
+                  <ChevronRight
+                    className="size-4 shrink-0 text-subtle transition-transform group-hover:translate-x-0.5"
+                    aria-hidden="true"
+                  />
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

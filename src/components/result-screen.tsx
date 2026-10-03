@@ -3,7 +3,6 @@ import { useRef } from "react";
 import { ArrowRight, BookOpen, CheckCircle2, ChevronRight, RotateCcw } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { lessonById, nextLesson } from "@/lib/game/curriculum";
-import { rankFor } from "@/lib/game/scenarios";
 import { useGame } from "@/lib/game/store";
 import { cn, formatMoney, formatPct, formatSigned } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
@@ -12,12 +11,16 @@ import { classroomSampleMicro } from "@/lib/provenance";
 import { ReviewConditions } from "@/components/review-conditions";
 import { reviewSaveMessage } from "@/lib/game/review-storage-status";
 import { formatPrice } from "@/lib/market/ticks";
+import { LearningProgressCard } from "@/components/learning-progress-card";
+import { courseStepFor } from "@/lib/game/learning-path";
 
 export function ResultScreen() {
   const rec = useGame((s) => s.lastResult);
-  const profile = useGame((s) => s.profile);
+  const tradePlan = useGame((s) => s.tradePlan);
+  const firstPlannedOrder = useGame((s) => s.firstPlannedOrder);
   const engine = useGame((s) => s.engine);
   const scenario = useGame((s) => s.scenario);
+  const selected = useGame((s) => s.selected);
   const start = useGame((s) => s.start);
   const leave = useGame((s) => s.leave);
   const syncStatus = useGame((s) => s.syncStatus);
@@ -27,9 +30,20 @@ export function ResultScreen() {
   if (!rec || !engine || !scenario) return null;
   const st = engine.stats();
   const openPositions = engine.openPositions();
-  const rank = rankFor(profile.careerPnl);
   const lesson = lessonById(scenario.id);
   const nxt = nextLesson(scenario.id);
+  const course = courseStepFor(scenario.id);
+  const bundle = {
+    rec,
+    verdicts,
+    fills: engine.fills,
+    code: selected,
+    capital: scenario.capital,
+    equity: st.equity,
+    sessionLabel: engine.session.label,
+    firstTradePlan: { plan: tradePlan, order: firstPlannedOrder },
+    openPositionsAtEnd: openPositions.map(({ code, lots, last }) => ({ code, lots, last })),
+  };
 
   return (
     <Dialog.Root
@@ -66,43 +80,55 @@ export function ResultScreen() {
                 id="result-title"
                 className="text-xl font-semibold leading-snug outline-none sm:text-2xl"
               >
-                {rec.scenarioName}
+                {course?.title ?? rec.scenarioName}
               </Dialog.Title>
-              <span className="flex min-w-0 max-w-full flex-wrap items-center gap-2 rounded-xl border border-border bg-bg px-3 py-2">
-                <span className="text-sm text-muted">本盤模擬結果</span>
-                <span className="font-mono text-xl font-semibold">{rec.grade}</span>
-              </span>
             </div>
             <Dialog.Description
               id="result-description"
               className="mt-3 text-sm leading-6 text-muted"
             >
-              結果標記反映本盤模擬數值，不能單靠盈虧判斷操作紀律。請檢視成交、紀律與成本，再選一項下次練習重點。
+              一次練習不用把所有事都做好。先看這次留下的紀錄，再選一個下次要練的重點。
             </Dialog.Description>
           </header>
           <div className="px-5 py-5 sm:px-7">
+            <LearningProgressCard bundle={bundle} />
             {engine.fills.length === 0 ? (
-              <p className="mb-4 text-base leading-7 text-muted">
-                本盤沒有成交，尚無資料確認買進或平倉操作。
+              <p className="mt-4 text-base leading-7 text-muted">
+                本盤尚無成交。可以先留下觀察或未進場的原因，不必為了完成畫面而勉強交易。
               </p>
             ) : null}
-            {verdicts.length ? <ReviewConditions verdicts={verdicts} compact /> : null}
-
-            <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
-              <Cell prominent label="模擬淨損益" value={formatSigned(rec.pnl, 0)} tone={rec.pnl} />
-              <Cell prominent label="報酬率" value={formatPct(rec.pnlPct)} tone={rec.pnlPct} />
-            </div>
-            <div className="mt-3 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
-              <Cell label="交易次數" value={String(rec.trades)} />
-              <Cell
-                label="勝率"
-                value={rec.trades ? `${((rec.wins / rec.trades) * 100).toFixed(0)}%` : "—"}
-                badge="classroom"
-                note={classroomSampleMicro(rec.trades)}
-              />
-              <Cell label="費稅" value={formatMoney(rec.fees, 0)} />
-              <Cell label="最大回撤" value={`${(rec.maxDrawdown * 100).toFixed(2)}%`} />
-            </div>
+            <details className="mt-5 rounded-xl border border-border p-4">
+              <summary className="min-h-12 cursor-pointer text-base font-semibold leading-7">
+                查看本盤模擬數字與教材挑戰
+              </summary>
+              <p className="mb-4 mt-3 text-sm leading-6 text-muted">
+                原模擬結果標記：{rec.grade}。教材挑戰包含損益條件，與上方操作足跡分開檢視。
+              </p>
+              {verdicts.length ? <ReviewConditions verdicts={verdicts} compact /> : null}
+              <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
+                <Cell
+                  prominent
+                  label="模擬淨損益"
+                  value={formatSigned(rec.pnl, 0)}
+                  tone={rec.pnl}
+                />
+                <Cell prominent label="報酬率" value={formatPct(rec.pnlPct)} tone={rec.pnlPct} />
+              </div>
+              <div className="mt-3 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
+                <Cell label="交易次數" value={String(rec.trades)} />
+                <Cell
+                  label="勝率"
+                  value={rec.trades ? `${((rec.wins / rec.trades) * 100).toFixed(0)}%` : "—"}
+                  badge="classroom"
+                  note={classroomSampleMicro(rec.trades)}
+                />
+                <Cell label="費稅" value={formatMoney(rec.fees, 0)} />
+                <Cell label="最大回撤" value={`${(rec.maxDrawdown * 100).toFixed(2)}%`} />
+              </div>
+              <p className="mt-3 text-sm leading-6 text-muted">
+                權益 {formatMoney(st.equity, 0)} · 本金 {formatMoney(scenario.capital)}
+              </p>
+            </details>
 
             <section
               className="mt-5 rounded-xl border border-border bg-bg/60 p-4 text-base leading-7"
@@ -157,17 +183,6 @@ export function ResultScreen() {
                 </ul>
               </div>
             )}
-
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4 text-sm">
-              <span className="text-muted">模擬累計段位</span>
-              <span>
-                {rank.title} · 累計 {formatSigned(profile.careerPnl, 0)}
-              </span>
-            </div>
-
-            <p className="mt-2 text-xs leading-6 text-muted">
-              權益 {formatMoney(st.equity, 0)} · 本金 {formatMoney(scenario.capital)}
-            </p>
           </div>
           <footer className="shrink-0 border-t border-border bg-surface px-5 py-4 sm:px-7">
             <p role="status" className="mb-3 text-base leading-7 text-muted">
@@ -181,30 +196,34 @@ export function ResultScreen() {
                 className="academy-button-primary"
               >
                 <BookOpen aria-hidden="true" className="size-4" />
-                查看完整復盤
+                看復盤，選下一步
                 <ArrowRight aria-hidden="true" className="size-4" />
               </Link>
-              <button
-                type="button"
-                className="academy-button-secondary"
-                onClick={() => start(nxt?.id ?? scenario.id)}
-              >
-                {nxt ? `下一課 ${nxt.no}` : "再打一盤"}
+              <button type="button" className="academy-button-secondary" onClick={leave}>
+                回教室看學習足跡
                 <ChevronRight aria-hidden="true" className="size-4" />
               </button>
             </div>
             <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-              <button
-                type="button"
-                className="academy-nav-link min-h-10 text-xs"
-                onClick={() => start(scenario.id)}
+              <Link
+                to="/session/$id/review"
+                params={{ id: rec.id }}
+                hash="practice-goal"
+                className="academy-nav-link min-h-12 text-sm"
+                onClick={leave}
               >
                 <RotateCcw aria-hidden="true" className="size-3.5" />
-                重打本課
-              </button>
-              <button type="button" className="academy-nav-link min-h-10 text-xs" onClick={leave}>
-                回大廳
-              </button>
+                選好重點，再練本課
+              </Link>
+              {nxt && (
+                <button
+                  type="button"
+                  className="academy-nav-link min-h-12 whitespace-normal text-sm"
+                  onClick={() => start(nxt.id)}
+                >
+                  自主前往{nxt.no}：{courseStepFor(nxt.id)?.title ?? nxt.skill}
+                </button>
+              )}
             </div>
           </footer>
         </Dialog.Content>

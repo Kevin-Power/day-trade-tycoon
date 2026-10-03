@@ -128,7 +128,7 @@ function GoalEditor({ scenarioId, scenarioName, onPractice }: EditorProps) {
     }
     remember(next);
     setDraft({ focus: next.focus, note: next.note });
-    setMessage("已保存本課重點。回到教室大廳可查看，也可直接重練。");
+    setMessage("你已為下一次選好一個重點。已保存在這台裝置，回到教室大廳也能看到；準備好再練習。");
     if (andPractice) setPreparation({ kind: "saved", goal: next });
     else requestAnimationFrame(() => statusRef.current?.focus());
   }
@@ -140,7 +140,11 @@ function GoalEditor({ scenarioId, scenarioName, onPractice }: EditorProps) {
 
   return (
     <>
-      <section className="academy-card mt-6 p-5 sm:p-6" aria-labelledby={`${uid}-title`}>
+      <section
+        id="practice-goal"
+        className="academy-card mt-6 scroll-mt-4 p-5 sm:p-6"
+        aria-labelledby={`${uid}-title`}
+      >
         <h2 id={`${uid}-title`} className="text-xl font-semibold">
           下次只練一件事
         </h2>

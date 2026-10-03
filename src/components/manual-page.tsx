@@ -8,6 +8,7 @@ import { DISCLAIMER, DISCLOSURE_ROWS } from "@/lib/provenance";
 import { cn } from "@/lib/utils";
 import { useGate } from "@/lib/gate/context";
 import { teachingOhlcNote } from "@/lib/market/universe";
+import { COURSE_PATH } from "@/lib/game/learning-path";
 
 export const MANUAL_VERSION = "2026-10-03";
 const PDF_HREF = "/daytrade-tycoon-manual.pdf";
@@ -193,8 +194,7 @@ function Play() {
     <Section id="play" n="02" title="學員怎麼玩">
       <ol className="space-y-4 text-sm leading-relaxed">
         <Step n="1" title="大廳選課">
-          建議依序：開盤觀察 → 週一殺盤 → 早盤下殺 → V 轉 → 週三攻高 →
-          期末考。線上教室另外有「自由練習」，是教材週之後的完整交易日。
+          依「入門操作 → 風險紀律 → 自主練習」前進，每課先練一個小任務。條件未到可以觀察，不必為了完成任務而交易。線上教室另有教材週之後的「自由練習」。
         </Step>
         <Step n="2" title="先聽講解，再動手">
           進盤室會先暫停。黃虛線是昨收、藍線是均價。Space
@@ -211,6 +211,15 @@ function Play() {
           結算後先對照第一筆計畫與實際委託，再檢查成交、成本和課綱條件。同班已授權講師可唯讀查看已提交的完整復盤，一起討論理由。計畫目前只暫存在本盤，結算後才隨復盤保存；未結算就重新整理會遺失。模擬結果不能當作實際獲利或能力合格的證明。
         </Step>
       </ol>
+      <div className="mt-6 rounded-lg border border-border bg-surface p-4 text-base leading-7">
+        <h3 className="font-medium">先看操作足跡，再選下一步</h3>
+        <p className="mt-2 text-muted">
+          結果先看寫下計畫、留下成交、減碼／平倉與結束時零庫存。這些只是紀錄可見的操作，不是能力或獲利徽章；減碼可能尚未全平，沒有成交也不計為零庫存里程碑。
+        </p>
+        <p className="mt-2 text-muted">
+          按「看復盤，選下一步」，選擇「下次只練一件事」，再用「選好重點，再練本課」準備重練。也可按「回教室看學習足跡」；大廳統計限最近 30 份可讀的本機復盤，不代表生涯或跨裝置總成績，舊紀錄缺少的欄位不會補判。
+        </p>
+      </div>
       <div className="mt-6 overflow-hidden rounded-lg border border-border">
         <div className="pane-title flex h-7 items-center px-3 text-xs">盤室快捷</div>
         <table className="w-full text-left text-sm">
@@ -248,29 +257,28 @@ function Lessons() {
         教材凍結在 2026/08/24–08/26 三個交易日。路徑不改，是因為暫停點綁在真實分鐘：週三 09:00:20
         的低點、週二 11:00 的低點，不能每天被新盤蓋掉。
       </p>
+      <p className="mt-3 text-base leading-7 text-muted">
+        第 1 課是入門操作，第 2–4 課練風險紀律，第 5–6 課做自主練習。以下小任務幫助安排觀察、核對與復盤；原有課程挑戰規則不變。
+      </p>
       <div className="mt-5 overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-xl text-left text-sm">
           <thead className="bg-surface-2 text-micro tracking-wide text-muted">
             <tr>
-              <th className="px-3 py-2 font-medium">課</th>
-              <th className="px-3 py-2 font-medium">盤</th>
-              <th className="px-3 py-2 font-medium">練什麼</th>
-              <th className="px-3 py-2 font-medium">加權重點</th>
+              <th className="px-3 py-2 font-medium">課與階段</th>
+              <th className="px-3 py-2 font-medium">教材</th>
+              <th className="px-3 py-2 font-medium">本課目標</th>
+              <th className="px-3 py-2 font-medium">操作小任務</th>
             </tr>
           </thead>
           <tbody className="text-fg">
-            <Tr
-              cells={["第 1 課", "8/26 開盤 30 分", "成本與第一槍", "09:00:20 探 44,926 再拉回"]}
-            />
-            <Tr cells={["第 2 課", "8/24 全日", "不接飛刀", "開高走低，收在最低 44,762"]} />
-            <Tr
-              cells={["第 3 課", "8/25 早盤 130 分", "停損寫在進場", "觀察 11:00 低點後的部位控制"]}
-            />
-            <Tr cells={["第 4 課", "8/25 10:00 起", "順勢抱單", "11:00 印出 44,210，收在最高"]} />
-            <Tr cells={["第 5 課", "8/26 全日", "停利比停損難", "收 45,833，漲 663 點"]} />
-            <Tr
-              cells={["期末考", "8/26 全日 × 2 倍額度", "自己執行六式", "本金 500 萬，錯一次很痛"]}
-            />
+            {COURSE_PATH.map((course, index) => (
+              <Tr key={course.id} cells={[
+                `${index === 5 ? "期末練習" : `第 ${index + 1} 課`} · ${course.stage}`,
+                ["8/26 開盤 30 分", "8/24 全日", "8/25 早盤 130 分", "8/25 10:00 起", "8/26 全日", "8/26 全日 · 本金 500 萬、2 倍額度"][index],
+                course.title,
+                course.steps.join(" "),
+              ]} />
+            ))}
           </tbody>
         </table>
       </div>

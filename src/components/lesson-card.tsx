@@ -3,6 +3,7 @@ import { lessonById } from "@/lib/game/curriculum";
 import { useGame } from "@/lib/game/store";
 import { formatTime } from "@/lib/utils";
 import { LearnerGuide, LearnerGuideReady } from "@/components/learner-guide";
+import { courseStepFor } from "@/lib/game/learning-path";
 
 export function LessonCard() {
   const beat = useGame((s) => s.activeBeat);
@@ -13,6 +14,7 @@ export function LessonCard() {
   const guideReady = useGame((s) => s.learnerGuideReady);
   const reopenGuide = useGame((s) => s.openLearnerGuide);
   const lesson = scenario ? lessonById(scenario.id) : undefined;
+  const course = scenario ? courseStepFor(scenario.id) : undefined;
   if (guideStep !== null) return <LearnerGuide />;
   if (guideReady && !beat) return <LearnerGuideReady />;
   if (!beat || !lesson) return null;
@@ -33,6 +35,27 @@ export function LessonCard() {
           </span>
         </div>
         <div className="p-5">
+          {course && (
+            <aside
+              className="mb-4 rounded-xl border border-brand/20 bg-brand/5 p-4"
+              aria-label="本課小任務"
+            >
+              <p className="text-sm font-semibold text-brand">這次先練一件事</p>
+              <p className="mt-2 text-base font-medium leading-7">{course.focus}</p>
+              <details className="mt-2">
+                <summary className="min-h-12 cursor-pointer text-base leading-7">
+                  查看本課三個步驟
+                </summary>
+                <ol className="mt-2 space-y-2 text-base leading-7">
+                  {course.steps.map((step, index) => (
+                    <li key={step}>
+                      {index + 1}. {step}
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            </aside>
+          )}
           <h3 id="lesson-title" className="text-lg font-semibold">
             {beat.title}
           </h3>
