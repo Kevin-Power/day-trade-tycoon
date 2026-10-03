@@ -7,6 +7,8 @@ import { formatPrice } from "@/lib/market/ticks";
 import { formatIndex } from "@/lib/market/week";
 import { classroomBookMicro, classroomPathMicro, officialIndexPaneMicro } from "@/lib/provenance";
 import { cn, formatLots, formatPct, formatTime } from "@/lib/utils";
+import { deriveSwingHighs } from "@/lib/market/swing-highs";
+import { SwingHighSummary } from "@/components/swing-high-summary";
 
 const RANGES = [
   { minutes: 0, label: "全程" },
@@ -30,6 +32,9 @@ export function MobileMarket() {
   if (!engine || !q) return null;
   const idx = engine.indexQuote();
   const candles = chartStyle === "candles";
+  const wave = chartStyle === "jiangbo";
+  const bars = engine.bars(q.code);
+  const swingHighs = wave ? deriveSwingHighs(bars, engine.t, engine.startT, engine.endT) : undefined;
   const clock = formatTime(engine.t);
   const elapsed = Math.max(0, engine.t - engine.startT);
   const range = {
@@ -90,11 +95,16 @@ export function MobileMarket() {
         </div>
       </header>
 
-      <div role="group" aria-label="行情檢視方式" className="grid grid-cols-3 border-y border-border">
-        <button type="button" aria-pressed={!bookOpen && !candles}
+      <div role="group" aria-label="行情檢視方式" className="grid grid-cols-4 border-y border-border">
+        <button type="button" aria-pressed={!bookOpen && !candles && !wave}
           onClick={() => { setBookOpen(false); setChartStyle("tape"); }}
-          className={cn("min-h-12 min-w-0 border-b-2 px-2 py-2 text-base font-semibold", !bookOpen && !candles ? "border-brand bg-elevated text-fg" : "border-transparent text-muted")}>
+          className={cn("min-h-12 min-w-0 border-b-2 px-2 py-2 text-base font-semibold", !bookOpen && !candles && !wave ? "border-brand bg-elevated text-fg" : "border-transparent text-muted")}>
           分時
+        </button>
+        <button type="button" aria-pressed={!bookOpen && wave}
+          onClick={() => { setBookOpen(false); setChartStyle("jiangbo"); }}
+          className={cn("min-h-12 min-w-0 border-b-2 px-2 py-2 text-base font-semibold", !bookOpen && wave ? "border-brand bg-elevated text-fg" : "border-transparent text-muted")}>
+          江波
         </button>
         <button type="button" aria-pressed={!bookOpen && candles}
           onClick={() => { setBookOpen(false); setChartStyle("candles"); }}
@@ -110,7 +120,7 @@ export function MobileMarket() {
       {bookOpen ? <ReadOnlyBook quote={q} /> : (
         <div>
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-3 pt-2">
-            <span className="text-base font-medium">{candles ? "1 分鐘 K 線" : "分時走勢"}</span>
+            <span className="text-base font-medium">{candles ? "1 分鐘 K 線" : wave ? "江波圖 · 前後高" : "分時走勢"}</span>
             <span className="font-mono text-sm text-muted">模擬 {clock}</span>
           </div>
           <div role="group" aria-label="走勢時間範圍" className="grid grid-cols-3 gap-1 px-3 py-2">
@@ -125,7 +135,7 @@ export function MobileMarket() {
           {rangeNote && <p className="px-3 pb-2 text-sm text-muted">{rangeNote}</p>}
           <div className="market-chart-frame h-[clamp(18rem,45dvh,28rem)] min-w-0 @min-[44rem]:h-[clamp(22rem,48dvh,32rem)]">
             <TapeChart
-              bars={engine.bars(q.code)}
+              bars={bars}
               ticks={engine.ticks(q.code)}
               prev={q.prevClose}
               high={q.high}
@@ -138,12 +148,14 @@ export function MobileMarket() {
               startT={engine.startT}
               endT={engine.endT}
               now={engine.t}
-              variant={candles ? "candles" : "stock"}
+              variant={candles ? "candles" : wave ? "jiangbo" : "stock"}
+              swingHighs={swingHighs?.confirmed}
               range={range}
               interactive
-              ariaLabel={`${q.code} ${q.name} 模擬${candles ? "1 分鐘 K 線" : "分時走勢"}與成交量，${minutes ? `近 ${minutes} 分鐘` : "本盤全程"}`}
+              ariaLabel={`${q.code} ${q.name} 模擬${candles ? "1 分鐘 K 線" : wave ? "江波圖" : "分時走勢"}與成交量，${minutes ? `近 ${minutes} 分鐘` : "本盤全程"}`}
             />
           </div>
+          {swingHighs && <SwingHighSummary data={swingHighs} visibleStart={range.start} />}
           <div className="space-y-1 px-3 py-2 text-sm leading-relaxed text-muted">
             <p>點按圖表查看時間與價格，也可使用左右方向鍵。</p>
             <p>{classroomPathMicro()}</p>

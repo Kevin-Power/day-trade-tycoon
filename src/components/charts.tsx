@@ -14,6 +14,7 @@ import {
 import { formatPrice } from "@/lib/market/ticks";
 import { formatIndex } from "@/lib/market/week";
 import { formatTime } from "@/lib/utils";
+import type { SwingHighResult } from "@/lib/market/swing-highs";
 
 export type TapeChartProps = {
   bars: Bar[];
@@ -36,6 +37,7 @@ export type TapeChartProps = {
   range?: ChartRange;
   interactive?: boolean;
   ariaLabel?: string;
+  swingHighs?: SwingHighResult["confirmed"];
 };
 
 function tokens(canvas: HTMLCanvasElement) {
@@ -401,6 +403,46 @@ function paint(
     ctx.lineTo(x + 4, y + dir * 7);
     ctx.closePath();
     ctx.fill();
+  }
+  // These are minute-high intervals; the exact trade second is not in a Bar.
+  for (const [index, highPoint] of (opt.swingHighs ?? []).entries()) {
+    if (highPoint.confirmedAt > window.dataEnd || highPoint.t < window.start || highPoint.t > window.dataEnd) continue;
+    const x = xOf(highPoint.t);
+    const y = yOf(highPoint.p);
+    const endX = xOf(Math.min(highPoint.t + 60, window.dataEnd));
+    const color = index === 0 && opt.swingHighs?.length === 2 ? c.vwap : c.warn;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(w - padR, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(endX, y);
+    ctx.stroke();
+    const radius = c.fontSize * 0.7 + 3;
+    const badgeX = Math.min(w - padR - radius, Math.max(padL + radius, (x + endX) / 2));
+    const badgeY = Math.max(padT + radius, y - radius - 5 - index * radius * 2);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(badgeX, badgeY + radius);
+    ctx.lineTo((x + endX) / 2, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(badgeX, badgeY, radius, 0, Math.PI * 2);
+    ctx.fillStyle = c.bg;
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(opt.swingHighs?.length === 2 ? String(index + 1) : "高", badgeX, badgeY);
+    ctx.restore();
   }
   ctx.restore();
 

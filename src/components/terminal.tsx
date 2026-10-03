@@ -22,6 +22,8 @@ import { DisplayControls } from "@/components/display-controls";
 import { LightningOrder } from "@/components/lightning-order";
 import { useDisplayPreferences } from "@/lib/display-preferences";
 import { useTerminalLayout } from "@/lib/use-terminal-layout";
+import { deriveSwingHighs } from "@/lib/market/swing-highs";
+import { SwingHighSummary } from "@/components/swing-high-summary";
 
 const MOBILE_TABS = [
   { id: "watch", label: "自選行情", icon: ListFilter },
@@ -406,6 +408,8 @@ function SelectedChart() {
   const cost = pos && pos.lots !== 0 ? pos.avg : undefined;
   const wave = chartStyle === "jiangbo";
   const candles = chartStyle === "candles";
+  const bars = engine.bars(q.code);
+  const swingHighs = wave ? deriveSwingHighs(bars, engine.t, engine.startT, engine.endT) : undefined;
   return (
     <div className="flex h-full min-h-88 flex-col bg-bg lg:min-h-0">
       <div className="pane-title flex shrink-0 flex-wrap items-center gap-2 px-3 py-2 lg:h-7 lg:flex-nowrap lg:px-2 lg:py-0">
@@ -455,7 +459,7 @@ function SelectedChart() {
       <ProvenanceMicro text={classroomPathMicro()} className="shrink-0 text-sm lg:text-2xs" />
       <div className="pane-sunken min-h-52 flex-1 bg-bg lg:min-h-40">
         <TapeChart
-          bars={engine.bars(q.code)}
+          bars={bars}
           ticks={engine.ticks(q.code)}
           prev={q.prevClose}
           high={q.high}
@@ -473,8 +477,10 @@ function SelectedChart() {
           endT={engine.endT}
           now={engine.t}
           variant={candles ? "candles" : wave ? "jiangbo" : "stock"}
+          swingHighs={swingHighs?.confirmed}
         />
       </div>
+      {swingHighs && <SwingHighSummary data={swingHighs} visibleStart={engine.startT} />}
     </div>
   );
 }
