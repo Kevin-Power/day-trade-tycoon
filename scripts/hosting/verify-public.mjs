@@ -23,7 +23,7 @@ assert.ok(assets.length > 0);
 for (const path of assets) assert.equal((await request(path)).status, 200, path);
 const license = await request('/license');
 assert.equal(license.status, 200);
-assert.match(await license.text(), /課程怎麼進行/);
+assert.match(await license.text(), /從第一筆有計畫的操作開始/);
 const trial = await request('/try');
 assert.equal(trial.status, 200);
 assert.equal(trial.headers.getSetCookie().length, 0);

@@ -29,6 +29,8 @@ function storeFixture(completedSessions = 0) {
     "@/lib/game/scenarios": { scenarioById: (id) => ({ id, speed: 4, startMinute: 0 }) },
     "@/lib/game/persist": {
       getProfileIdentity: () => null,
+      loadProfile: () => ({ sessions: completedSessions }),
+      loadTeachMode: () => true,
       saveTeachMode: () => {},
       saveFlashOrder: () => {},
     },

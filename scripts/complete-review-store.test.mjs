@@ -39,6 +39,7 @@ test("a real 83-fill session keeps its early averaging-down evidence and paused 
   assert.equal(state.syncStatus, "saved");
   assert.equal(requests.length, 1);
   assert.equal(requests[0].fills.length, 83);
+  assert.equal(requests[0].expectedUserId, "student-a");
   const reloaded = gameStoreFixture({ userId: "student-a", values }).persistence.loadReview(state.lastResult.id);
   assert.equal(reloaded.fills.length, 83);
   assert.equal(reloaded.fills.at(-1).filledWhilePaused, true);
@@ -72,11 +73,10 @@ test("5001 fills remain complete locally and after reload while the server's 500
 });
 
 test("quota failure retains the current complete review only in identity-scoped memory and reports unsaved", () => {
-  const { store, persistence, values, messages, load } = gameStoreFixture({ userId: "student-a", failWrites: true });
+  // Start as a guest so the whole session has one owner and no server fallback.
+  const { store, persistence, values, messages, load } = gameStoreFixture({ failWrites: true });
   buy(store);
   store.getState().flattenSelected();
-  // Use guest settlement so this test cannot be rescued by a server write.
-  persistence.setProfileIdentity(null);
   store.getState().settle();
   const state = store.getState();
   const id = state.lastResult.id;
@@ -92,6 +92,192 @@ test("quota failure retains the current complete review only in identity-scoped 
   persistence.setProfileIdentity(null);
   assert.equal(persistence.loadReview(id).fills.length, 2);
   assert.equal(gameStoreFixture({ values }).persistence.loadReview(id), null, "transient copies must not pretend to survive reload");
+});
+
+test("identity hydration removes the old live engine and settled result while retaining each profile", async () => {
+  for (const phase of ["live", "result"]) {
+    const { store, persistence, requests } = gameStoreFixture({ userId: "student-a" });
+    buy(store);
+    const oldEngine = store.getState().engine;
+    if (phase === "result") {
+      store.getState().settle();
+      await flushStorePromises();
+    } else {
+      store.getState().setFlashOrder(true);
+      assert.equal(store.getState().flashOrder, true);
+    }
+    // A same-identity hydration must not reset an active practice.
+    store.getState().hydrate();
+    assert.equal(store.getState().engine, oldEngine);
+    const savedId = store.getState().lastResult?.id;
+    persistence.setProfileIdentity("student-b");
+    persistence.saveProfile({ ...persistence.loadProfile(), sessions: 7 });
+    store.getState().hydrate();
+    const state = store.getState();
+    assert.equal(state.phase, "lobby");
+    assert.equal(state.engine, null);
+    assert.equal(state.scenario, null);
+    assert.equal(state.lastResult, null);
+    assert.equal(state.lastVerdicts.length, 0);
+    assert.equal(state.tradePlan, null);
+    assert.equal(state.firstPlannedOrder, null);
+    assert.equal(state.flashOrder, false);
+    assert.equal(state.flashActivation, null);
+    assert.equal(state.profileIdentity, "student-b");
+    assert.equal(state.profile.sessions, 7);
+    assert.equal(state.profile.history.length, 0);
+    assert.equal(requests.length, phase === "result" ? 1 : 0);
+    if (savedId) {
+      assert.equal(persistence.loadReview(savedId), null);
+      persistence.setProfileIdentity("student-a");
+      store.getState().hydrate();
+      assert.equal(persistence.loadReview(savedId).rec.id, savedId);
+      assert.equal(store.getState().profile.history[0].id, savedId);
+      assert.equal(store.getState().phase, "lobby");
+    }
+  }
+});
+
+test("account changes block settlement and order mutations before a hydration effect runs", async () => {
+  const actions = ["settle", "submit", "submitLightning", "flattenSelected", "flattenAll", "cancelOrder"];
+  for (const action of actions) {
+    const { store, persistence, values, requests } = gameStoreFixture({ userId: "student-a" });
+    buy(store);
+    const engine = store.getState().engine;
+    store.getState().setTicket({ side: "buy", type: "limit", price: engine.quote("2317").bid - 1 });
+    const pendingAck = store.getState().submit();
+    assert.equal(pendingAck.ok, true);
+    const pendingId = engine.orders[0].id;
+    store.getState().setFlashOrder(true);
+    const activationId = store.getState().flashActivation.id;
+    const before = JSON.stringify({ fills: engine.fills, orders: engine.orders, positions: [...engine.positions], ended: engine.ended });
+    persistence.setProfileIdentity("student-b");
+    if (action === "submitLightning") {
+      store.getState().submitLightning({ code: "2317", side: "buy", price: engine.quote("2317").ask, activationId });
+    } else if (action === "cancelOrder") {
+      store.getState().cancelOrder(pendingId);
+    } else {
+      store.getState()[action]();
+    }
+    await flushStorePromises();
+    assert.equal(JSON.stringify({ fills: engine.fills, orders: engine.orders, positions: [...engine.positions], ended: engine.ended }), before, `${action} must not mutate the prior owner's engine`);
+    assert.equal(store.getState().phase, "lobby", action);
+    assert.equal(store.getState().engine, null, action);
+    assert.equal(store.getState().lastResult, null, action);
+    assert.equal(store.getState().profileIdentity, "student-b", action);
+    assert.equal(requests.length, 0, action);
+    assert.equal([...values.keys()].some((key) => key.includes("review") || key.includes("day-tycoon-v1")), false, `${action} must not save an old-owner result under either identity`);
+  }
+});
+
+test("switching identities before the asynchronous server import prevents sending A's result as B", async () => {
+  const { store, persistence, requests } = gameStoreFixture({ userId: "student-a" });
+  buy(store);
+  store.getState().settle();
+  const id = store.getState().lastResult.id;
+  assert.equal(store.getState().syncStatus, "saving");
+  assert.equal(requests.length, 0, "the dynamic import has not resolved in the same turn");
+  persistence.setProfileIdentity("student-b");
+  store.getState().hydrate();
+  await flushStorePromises();
+  assert.equal(requests.length, 0);
+  assert.equal(store.getState().syncStatus, "local");
+  assert.equal(store.getState().profile.history.length, 0);
+  assert.equal(persistence.loadReview(id), null);
+  persistence.setProfileIdentity("student-a");
+  assert.equal(persistence.loadReviewState(id).localSaved, true);
+  assert.equal(persistence.loadReview(id).rec.id, id);
+});
+
+test("late remote success or failure for A cannot change B's active practice or surface an A error", async () => {
+  for (const outcome of ["resolve", "reject"]) {
+    let release;
+    let fail;
+    const remoteGate = new Promise((resolve, reject) => { release = resolve; fail = reject; });
+    const { store, persistence, requests, messages } = gameStoreFixture({ userId: "student-a", remoteGate });
+    buy(store);
+    store.getState().settle();
+    const savedId = store.getState().lastResult.id;
+    await flushStorePromises();
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].expectedUserId, "student-a");
+    assert.equal(store.getState().syncStatus, "saving");
+    persistence.setProfileIdentity("student-b");
+    persistence.saveProfile({ ...persistence.loadProfile(), sessions: 1 });
+    store.getState().hydrate();
+    store.getState().start("wed-open");
+    store.getState().dismissBeat();
+    buy(store);
+    const bEngine = store.getState().engine;
+    const bProfile = JSON.stringify(store.getState().profile);
+    const messageCount = messages.length;
+    if (outcome === "resolve") release();
+    else fail(new Error("A's delayed server response failed"));
+    await flushStorePromises();
+    assert.equal(store.getState().engine, bEngine);
+    assert.equal(store.getState().phase, "live");
+    assert.equal(store.getState().syncStatus, "local");
+    assert.equal(store.getState().localReviewSaved, false);
+    assert.equal(store.getState().lastResult, null);
+    assert.equal(JSON.stringify(store.getState().profile), bProfile);
+    assert.equal(messages.length, messageCount);
+    assert.equal(persistence.loadReview(savedId), null);
+    persistence.setProfileIdentity("student-a");
+    assert.equal(persistence.loadReviewState(savedId).localSaved, true);
+  }
+});
+
+test("persistOnHide does not save a stale profile into the newly selected identity", () => {
+  const { store, persistence, values, load } = gameStoreFixture({ userId: "student-a" });
+  const persistOnHide = load("@/lib/game/store").persistOnHide;
+  persistence.saveProfile({ ...persistence.loadProfile(), sessions: 3 });
+  const savedA = values.get("day-tycoon-v1:user:student-a");
+  store.setState({ profile: { ...store.getState().profile, sessions: 99 } });
+  store.getState().setFlashOrder(true);
+  persistence.setProfileIdentity("student-b");
+  persistence.saveProfile({ ...persistence.loadProfile(), sessions: 7 });
+  const savedB = values.get("day-tycoon-v1:user:student-b");
+  persistOnHide();
+  assert.equal(store.getState().flashOrder, false);
+  assert.equal(values.get("day-tycoon-v1:user:student-a"), savedA);
+  assert.equal(values.get("day-tycoon-v1:user:student-b"), savedB);
+  store.getState().hydrate();
+  assert.equal(store.getState().profile.sessions, 7);
+  store.setState({ profile: { ...store.getState().profile, sessions: 8 } });
+  persistOnHide();
+  assert.equal(persistence.loadProfile().sessions, 8, "matching identity should still save its own profile");
+  persistence.setProfileIdentity("student-a");
+  store.getState().hydrate();
+  assert.equal(store.getState().profile.sessions, 3);
+});
+
+test("starting a new lesson immediately after an account change cannot carry A's profile into B", async () => {
+  const { store, persistence, requests } = gameStoreFixture({ userId: "student-a" });
+  buy(store);
+  store.getState().settle();
+  await flushStorePromises();
+  const aId = store.getState().lastResult.id;
+  const aProfile = JSON.stringify(persistence.loadProfile());
+  assert.equal(store.getState().profile.history.length, 1);
+  persistence.setProfileIdentity("student-b");
+  // The user action arrives before React's identity hydration effect.
+  store.getState().start("mon");
+  store.getState().dismissBeat();
+  assert.equal(store.getState().profileIdentity, "student-b");
+  assert.equal(store.getState().profile.history.length, 0);
+  assert.equal(store.getState().profile.sessions, 0);
+  store.getState().settle();
+  await flushStorePromises();
+  const bId = store.getState().lastResult.id;
+  assert.notEqual(aId, bId);
+  assert.equal(persistence.loadProfile().history.length, 1);
+  assert.equal(persistence.loadProfile().history[0].id, bId);
+  assert.equal(persistence.loadProfile().sessions, 1);
+  assert.equal(persistence.loadReview(aId), null);
+  assert.equal(requests.at(-1).expectedUserId, "student-b");
+  persistence.setProfileIdentity("student-a");
+  assert.equal(JSON.stringify(persistence.loadProfile()), aProfile);
+  assert.equal(persistence.loadReview(aId).rec.id, aId);
 });
 
 test("a rejected server write plus failed local storage never claims the review was saved", async () => {

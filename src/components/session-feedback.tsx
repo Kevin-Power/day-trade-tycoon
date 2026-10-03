@@ -151,9 +151,19 @@ function FeedbackContents({ sessionId, canWrite = false }: Props) {
         className="academy-card mt-6 scroll-mt-6 p-5 sm:p-6"
         aria-labelledby={`${uid}-title`}
       >
-        <h2 id={`${uid}-title`} className="text-xl font-semibold">
-          講師回饋
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id={`${uid}-title`} className="text-xl font-semibold">
+            講師回饋
+          </h2>
+          <button
+            type="button"
+            className="academy-button-secondary min-h-12"
+            disabled={loading || saving || retryPending}
+            onClick={() => setReload((value) => value + 1)}
+          >
+            {loading ? "更新中…" : "更新回饋"}
+          </button>
+        </div>
         <p className="mt-3 text-base leading-7 text-muted">
           每次選一個動作練習，再回來對照。回饋按新增時間排列，最新在上方。
         </p>

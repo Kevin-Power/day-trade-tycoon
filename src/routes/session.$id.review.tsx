@@ -25,6 +25,7 @@ function ReviewRoute() {
   const [localSaved, setLocalSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [reload, setReload] = useState(0);
   const requestKey = `${userId ?? "guest"}:${id}`;
   const currentRequest = useRef(requestKey);
   currentRequest.current = requestKey;
@@ -60,16 +61,32 @@ function ReviewRoute() {
     return () => {
       cancelled = true;
     };
-  }, [id, userId, isPending, requestKey]);
+  }, [id, userId, isPending, requestKey, reload]);
   if (isPending || loading || loadedKey !== requestKey)
     return <main className="min-h-dvh bg-bg p-8 text-fg">載入復盤中…</main>;
   if (!bundle)
     return (
       <main className="min-h-dvh bg-bg p-8 text-fg">
-        <h1 className="text-xl">找不到這份復盤</h1>
+        <h1 className="text-xl">{message ? "暫時無法讀取復盤" : "找不到這份復盤"}</h1>
         <p className="mt-3 text-sm text-muted">
-          這個編號沒有可讀取的紀錄。請用原本學員帳號登入，或回到儲存練習的裝置。
+          {message
+            ? "主機讀取失敗，這台裝置也沒有可用副本。請確認連線與登入狀態後重試。"
+            : "這個編號沒有可讀取的紀錄。請用原本學員帳號登入，或回到儲存練習的裝置。"}
         </p>
+        {userId && (
+          <button
+            type="button"
+            className="academy-button-secondary mt-4 mr-4"
+            onClick={() => setReload((value) => value + 1)}
+          >
+            重新讀取
+          </button>
+        )}
+        {!userId && (
+          <Link to="/login" className="academy-button-secondary mt-4 mr-4">
+            登入原學員帳號
+          </Link>
+        )}
         <Link to="/" className="mt-4 inline-block text-tape">
           回教室大廳
         </Link>
@@ -103,7 +120,7 @@ function ReviewRoute() {
             onClick={() => {
               setSaving(true);
               setMessage("");
-              void saveClassroomSession({ data: bundle })
+              void saveClassroomSession({ data: { ...bundle, expectedUserId: userId } })
                 .then(() => {
                   if (currentRequest.current === requestKey) setSaved(true);
                 })

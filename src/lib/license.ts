@@ -1,29 +1,29 @@
 /** Buyer-facing classroom package copy. No invented NT$ prices. */
 
-export const LICENSE_VERSION = "2026-10-02";
+export const LICENSE_VERSION = "2026-10-04";
 export const LICENSE_QUOTE = "洽教室／講師報價";
-export const LICENSE_TITLE = "教室授權／班級方案";
+export const LICENSE_TITLE = "從第一筆有計畫的操作開始";
 
 export const LICENSE_INCLUDED = [
   {
     id: "sim",
     title: "模擬教室",
-    body: "券商風格盤面：自選、江波、五檔、委託、庫存／成交。模擬撮合已開，費稅與收盤強平在教室裡算完。",
+    body: "熟悉行情、江波圖、五檔與委託畫面，練習核對成交、庫存及交易成本。所有操作均在模擬環境中進行。",
   },
   {
     id: "curriculum",
     title: "課綱",
-    body: "教材週凍結 2026/08/24–08/26。五課加一期末考，講師帶班搭配模擬練習與逐筆復盤。線上另有交易日收盤後的自由練習。",
+    body: "六組課程任務分成入門操作、風險紀律與自主練習。每課都有練習目標、三個步驟與復盤提問，可搭配講師帶班反覆練習。",
   },
   {
     id: "offline",
     title: "地端包",
-    body: "大廳可下載。解壓後雙擊 START.bat，教室電腦不必連網。地端只內建教材週，不會去抓最新盤。",
+    body: "提供 Windows 電腦使用的離線教材包，大廳可下載。解壓後執行 START.bat，即可練習內建教材情境；離線包不更新最新行情。",
   },
   {
     id: "manual",
     title: "說明書",
-    body: "學員怎麼玩、資料哪裡來、模擬跟實盤差在哪。可列印，也可下載 PDF。",
+    body: "從登入、第一筆操作到復盤的使用說明，也交代資料來源與模擬限制。提供線上閱讀、列印與 PDF 下載。",
   },
 ] as const;
 
@@ -31,17 +31,17 @@ export const LICENSE_EXCLUDED = [
   {
     id: "live",
     title: "實盤下單",
-    body: "委託單上看得到「實盤」，點了不會送到券商。教室下單仍走模擬撮合。",
+    body: "目前沒有連接券商真實交易帳戶。富邦 API 為後續串接方向，尚未提供實盤下單服務。",
   },
   {
     id: "advisory",
     title: "投顧、訊號、代操",
-    body: "這不是進出場訊號，也不是代操。講師帶打是教學，不是勸誘下單。",
+    body: "課程練習觀察、操作與復盤，不提供買賣訊號、代操或個別投資建議。",
   },
   {
     id: "guarantee",
     title: "保證獲利",
-    body: "教室成績不能外推到實盤。沒有保證會賺、沒有保證能過當沖考試。",
+    body: "模擬成績與學習足跡不能代表實盤獲利能力。課程不保證報酬，也不以一次賺賠判定是否學會。",
   },
 ] as const;
 
@@ -73,7 +73,7 @@ export const SEAT_ROADMAP =
   "每人一個帳號與講師班級檢視已納入教室。授權人數、課程日期與費用由教室確認；線上付款與自動發放繳費權限尚未提供。";
 
 export const LICENSE_LEAD =
-  "透過講師帶班、模擬下單與課後復盤，練習進場前的計畫、交易成本與風險控制。適合希望先建立操作紀律，再評估是否參與實際交易的學員。";
+  "講師帶著看，自己動手練，做完再一起復盤。用六組課程任務，循序練習進場計畫、委託核對、風險控制與收尾。每次先做好一個動作，再決定下一步。";
 
 export const LICENSE_ONE_LINER = "先在模擬教室練清楚每一筆交易的理由、風險與成本。";
 

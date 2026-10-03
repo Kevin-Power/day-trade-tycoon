@@ -116,6 +116,14 @@ export function Lobby() {
           </a>
           <nav aria-label="教室導覽" className="flex min-w-0 flex-wrap items-center gap-1 sm:gap-2">
             <DisplayControls />
+            {userId && (
+              <a
+                href="#my-learning"
+                className="academy-nav-link inline-flex min-h-11 items-center rounded-lg px-2.5 text-sm"
+              >
+                我的學習
+              </a>
+            )}
             <Link
               to="/manual"
               className="academy-nav-link inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs sm:px-3 sm:text-sm"
@@ -249,6 +257,8 @@ export function Lobby() {
 
         <PracticeGoalReminder />
 
+        <ClassroomAccount />
+
         <LearningFootprints summary={summary} missingReviews={missingReviews} />
 
         <section id="courses" aria-labelledby="courses-title" className="scroll-mt-6">
@@ -305,7 +315,7 @@ export function Lobby() {
         <section aria-labelledby="progress-title" className="mt-9 border-t border-border pt-7">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 id="progress-title" className="text-lg font-semibold">
-              復盤與學員帳戶
+              這台裝置的練習紀錄
             </h2>
             <span className="text-xs text-muted">
               本機統計 · <ProvenanceBadge kind="classroom" />
@@ -315,9 +325,6 @@ export function Lobby() {
             本機只保留最近最多 30 份練習紀錄，以下先列出最近 8
             份。切換裝置或清除瀏覽器資料，顯示的紀錄可能不同。
           </p>
-          <div className="mb-4">
-            <ClassroomAccount />
-          </div>
           <RecentPractice
             history={profile.history}
             summary={summary}
@@ -708,9 +715,9 @@ function RecentPractice({
       ) : history.length === 0 ? (
         <div className="flex flex-col items-start gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-base font-medium">你的第一份復盤，從第一課開始</p>
+            <p className="text-base font-medium">這台裝置尚無本機復盤</p>
             <p className="mt-1 text-base leading-relaxed text-muted">
-              完成模擬下單與結算後，這裡會留下練習紀錄。
+              在這台裝置完成練習與結算後，這裡會留下紀錄。已存到主機的復盤，可在「我的學習」查看。
             </p>
           </div>
           <button

@@ -12,7 +12,7 @@ const require = createRequire(import.meta.url);
 
 // Use the real store, broker, engine, pass rules, schemas and persistence. Only
 // browser effects, the Zustand binding and the network boundary are replaced.
-export function gameStoreFixture({ userId = null, failWrites = false, rejectRemote = false, values = new Map() } = {}) {
+export function gameStoreFixture({ userId = null, failWrites = false, rejectRemote = false, remoteGate = null, values = new Map() } = {}) {
   const storage = {
     failWrites,
     getItem: (key) => values.get(key) ?? null,
@@ -38,6 +38,7 @@ export function gameStoreFixture({ userId = null, failWrites = false, rejectRemo
     "@/lib/game/audio": { unlockAudio: () => {}, playError: () => {}, playFill: () => {} },
     "@/lib/classroom-db": { saveClassroomSession: async ({ data }) => {
       requests.push(data);
+      if (remoteGate) await remoteGate;
       if (rejectRemote) throw new Error("Server unavailable");
       return { ok: true };
     } },
@@ -73,6 +74,7 @@ export function gameStoreFixture({ userId = null, failWrites = false, rejectRemo
   const store = load("@/lib/game/store").useGame;
   const persistence = load("@/lib/game/persist");
   persistence.setProfileIdentity(userId);
+  store.getState().hydrate();
   // A completed session keeps these fixtures outside the first-time tour.
   store.getState().profile.sessions = 1;
   store.getState().start("wed-open");

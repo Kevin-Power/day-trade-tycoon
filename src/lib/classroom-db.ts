@@ -23,6 +23,8 @@ type SessionRow = {
   discipline_violations_json: string;
   passed: boolean;
   ended_at: string | null;
+  feedback_count: number;
+  last_feedback_at: string | null;
 };
 
 export const upsertMyProfile = createServerFn({ method: "POST" })
@@ -78,11 +80,16 @@ export const loadMyProfile = createServerFn({ method: "GET" })
 /** Educational client-generated records; ownership is enforced, scores are not an anti-cheat attestation. */
 export const saveClassroomSession = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(reviewBundleSchema)
+  .inputValidator(
+    z.intersection(reviewBundleSchema, z.object({ expectedUserId: z.string().min(1).max(200) })),
+  )
   .handler(async ({ data, context }) => {
+    if (data.expectedUserId !== context.userId)
+      throw new Error("登入帳號已變更，請回原帳號保存這份復盤");
     const { withSqlTransaction } = await import("@/lib/db");
     const { saveImmutableClassroomSession } = await import("@/lib/classroom-session.server");
-    return withSqlTransaction((sql) => saveImmutableClassroomSession(sql, data, context.userId));
+    const { expectedUserId: _expectedUserId, ...review } = data;
+    return withSqlTransaction((sql) => saveImmutableClassroomSession(sql, review, context.userId));
   });
 
 export const loadTeacherRoster = createServerFn({ method: "GET" })
@@ -112,7 +119,9 @@ export const loadTeacherRoster = createServerFn({ method: "GET" })
     }>`SELECT user_id, display_name, role FROM classroom_profiles WHERE class_code = ${classCode} ORDER BY display_name`;
     const sessions =
       await sql<SessionRow>`SELECT s.id, s.user_id, s.lesson_id, s.initial_equity, s.final_equity, s.max_drawdown_pct, s.trades_count, s.discipline_violations_json, s.passed, to_char(s.ended_at AT TIME ZONE 'Asia/Taipei', 'YYYY-MM-DD HH24:MI:SS') AS ended_at
-      FROM classroom_sessions s JOIN classroom_profiles p ON p.user_id = s.user_id WHERE p.class_code = ${classCode} ORDER BY s.ended_at DESC`;
+      , (SELECT COUNT(*)::int FROM classroom_session_feedback f WHERE f.session_id = s.id) AS feedback_count
+      , (SELECT to_char(MAX(f.created_at) AT TIME ZONE 'Asia/Taipei', 'YYYY-MM-DD HH24:MI:SS') FROM classroom_session_feedback f WHERE f.session_id = s.id) AS last_feedback_at
+      FROM classroom_sessions s JOIN classroom_profiles p ON p.user_id = s.user_id WHERE p.class_code = ${classCode} ORDER BY s.ended_at DESC, s.id DESC`;
     return { ok: true as const, classCode, students, sessions };
   });
 
@@ -143,7 +152,10 @@ export const loadMyCareer = createServerFn({ method: "GET" })
     const { getSql } = await import("@/lib/db");
     const sql = await getSql();
     const sessions =
-      await sql<SessionRow>`SELECT id, user_id, lesson_id, initial_equity, final_equity, max_drawdown_pct, trades_count, discipline_violations_json, passed, to_char(ended_at AT TIME ZONE 'Asia/Taipei', 'YYYY-MM-DD HH24:MI:SS') AS ended_at FROM classroom_sessions WHERE user_id = ${context.userId} ORDER BY ended_at DESC LIMIT 40`;
+      await sql<SessionRow>`SELECT s.id, s.user_id, s.lesson_id, s.initial_equity, s.final_equity, s.max_drawdown_pct, s.trades_count, s.discipline_violations_json, s.passed, to_char(s.ended_at AT TIME ZONE 'Asia/Taipei', 'YYYY-MM-DD HH24:MI:SS') AS ended_at
+      , (SELECT COUNT(*)::int FROM classroom_session_feedback f WHERE f.session_id = s.id) AS feedback_count
+      , (SELECT to_char(MAX(f.created_at) AT TIME ZONE 'Asia/Taipei', 'YYYY-MM-DD HH24:MI:SS') FROM classroom_session_feedback f WHERE f.session_id = s.id) AS last_feedback_at
+      FROM classroom_sessions s WHERE s.user_id = ${context.userId} ORDER BY s.ended_at DESC, s.id DESC LIMIT 40`;
     const totals = await sql<{
       career_pnl: number;
       count: number;

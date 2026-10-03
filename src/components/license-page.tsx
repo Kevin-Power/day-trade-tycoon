@@ -1,11 +1,25 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, BookOpen, LogOut, Printer } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  Check,
+  ClipboardList,
+  LogOut,
+  Monitor,
+  Printer,
+  ScanLine,
+  Smartphone,
+  Tablet,
+  TextCursorInput,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DisplayControls } from "@/components/display-controls";
 import { SimChip } from "@/components/provenance";
 import { DISCLAIMER } from "@/lib/provenance";
 import { useGate } from "@/lib/gate/context";
+import { COURSE_PATH } from "@/lib/game/learning-path";
 import {
   LICENSE_EXCLUDED,
   LICENSE_INCLUDED,
@@ -20,16 +34,20 @@ import {
   SEAT_ROADMAP,
   SEAT_TODAY,
 } from "@/lib/license";
-import { cn } from "@/lib/utils";
 
 const TOC = [
-  { id: "brief", n: "00", label: "課程怎麼進行" },
-  { id: "included", n: "01", label: "這包有什麼" },
-  { id: "excluded", n: "02", label: "這包沒有什麼" },
-  { id: "seats", n: "03", label: "席次怎麼算" },
-  { id: "skus", n: "04", label: "線上與地端" },
-  { id: "quote", n: "05", label: "報價欄位" },
-  { id: "risk", n: "06", label: "不承諾什麼" },
+  { id: "audience", label: "適合誰來練" },
+  { id: "courses", label: "三階段課程" },
+  { id: "practice", label: "怎麼上課" },
+  { id: "devices", label: "裝置與操作" },
+  { id: "enrollment", label: "報名與入場" },
+  { id: "included", label: "教材與授權" },
+] as const;
+
+const STAGES = [
+  { title: "入門操作", description: "從看懂畫面，到核對第一筆模擬委託。", number: "01" },
+  { title: "風險紀律", description: "練習等待條件、管理部位與執行出場。", number: "02" },
+  { title: "自主練習", description: "完成收尾與復盤，為下次選一個重點。", number: "03" },
 ] as const;
 
 export function LicensePage() {
@@ -37,12 +55,12 @@ export function LicensePage() {
   return (
     <div className="academy-page manual-sheet min-h-dvh bg-bg text-base leading-relaxed text-fg [overflow-wrap:anywhere]">
       <header className="no-print top-0 z-20 border-b border-border bg-bg/92 backdrop-blur-sm sm:sticky">
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link
             to="/"
-            className="inline-flex min-h-12 max-w-full items-center gap-2 rounded-sm px-3 py-2 text-base text-muted hover:bg-elevated hover:text-fg"
+            className="inline-flex min-h-12 max-w-full items-center gap-2 rounded-lg px-3 py-2 text-base text-muted hover:bg-elevated hover:text-fg"
           >
-            <ArrowLeft className="size-5 shrink-0" />
+            <ArrowLeft className="size-5 shrink-0" aria-hidden="true" />
             {unlocked ? "回大廳" : "回入場"}
           </Link>
           <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
@@ -50,9 +68,9 @@ export function LicensePage() {
             {unlocked ? (
               <Link
                 to="/manual"
-                className="inline-flex min-h-12 max-w-full items-center gap-2 rounded-sm border border-border-strong bg-surface px-3 py-2 text-base text-fg hover:bg-elevated"
+                className="inline-flex min-h-12 max-w-full items-center gap-2 rounded-lg border border-border-strong bg-surface px-3 py-2 text-base text-fg hover:bg-elevated"
               >
-                <BookOpen className="size-5 shrink-0" />
+                <BookOpen className="size-5 shrink-0" aria-hidden="true" />
                 說明書
               </Link>
             ) : null}
@@ -63,270 +81,369 @@ export function LicensePage() {
               className="h-auto min-h-12 max-w-full whitespace-normal py-2 text-base"
               onClick={() => window.print()}
             >
-              <Printer className="size-5 shrink-0" />
+              <Printer className="size-5 shrink-0" aria-hidden="true" />
               列印
             </Button>
             {unlocked ? (
               <button
                 type="button"
                 onClick={lock}
-                className="inline-flex size-12 shrink-0 items-center justify-center rounded-sm border border-border-strong bg-surface text-muted hover:bg-elevated hover:text-fg"
+                className="inline-flex size-12 shrink-0 items-center justify-center rounded-lg border border-border-strong bg-surface text-muted hover:bg-elevated hover:text-fg"
                 aria-label="登出"
               >
-                <LogOut className="size-5" />
+                <LogOut className="size-5" aria-hidden="true" />
               </button>
             ) : null}
           </div>
         </div>
       </header>
-
-      <article className="mx-auto w-full max-w-5xl px-4 pb-24 pt-8 sm:px-6 sm:pt-12">
-        <Cover />
-        <Nav />
-        <Brief />
+      <article className="mx-auto w-full max-w-6xl px-4 pb-20 pt-8 sm:px-6 sm:pt-12">
+        <Cover unlocked={unlocked} />
+        <nav
+          aria-label="課程說明章節"
+          className="academy-card mb-12 grid grid-cols-2 gap-1 p-3 sm:grid-cols-3 lg:grid-cols-6"
+        >
+          {TOC.map((item) => (
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              className="flex min-h-12 items-center justify-center rounded-lg px-3 py-2 text-center text-base text-muted hover:bg-elevated hover:text-fg"
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+        <Audience />
+        <Courses />
+        <Practice />
+        <Devices />
+        <Enrollment />
         <Included />
-        <Excluded />
-        <Seats />
-        <Skus />
-        <Quote />
         <Risk />
-        <Colophon />
+        <section className="academy-card border-brand/25 bg-brand/5 p-5 sm:p-8">
+          <p className="academy-eyebrow">先熟悉，再開始</p>
+          <h2 className="mt-3 text-2xl font-semibold tracking-tight">
+            先練一輪，看看自己卡在哪一步
+          </h2>
+          <p className="mt-3 max-w-2xl text-base leading-7 text-muted">
+            免費體驗會帶你核對委託、查看成交與理解成本。不用準備交易帳戶，也不會送出真實委託。
+          </p>
+          <EntryActions unlocked={unlocked} />
+        </section>
+        <footer className="mt-12 border-t border-border pt-6 text-sm leading-7 text-subtle">
+          <p>當沖大富翁 · 股文觀指教室 · 課程與授權說明 · {LICENSE_VERSION}</p>
+          <p>課程、授權與地端包：{LICENSE_QUOTE}。本產品供教學模擬與復盤使用。</p>
+        </footer>
       </article>
     </div>
   );
 }
 
-function Cover() {
+function Cover({ unlocked }: { unlocked: boolean }) {
   return (
-    <section className="mb-12 border-b border-border pb-10">
-      <div className="mb-6 flex items-center gap-3">
-        <Mark />
-        <div>
-          <div className="text-sm tracking-[0.22em] text-muted">DAY TRADE TYCOON</div>
-          <div className="text-base text-fg">股文觀指教室 · 授權說明</div>
+    <section className="mb-8 grid items-center gap-8 pb-5 lg:grid-cols-[1.2fr_1fr] lg:gap-12">
+      <div className="min-w-0">
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <Mark />
+          <div>
+            <p className="text-sm tracking-[0.16em] text-muted">DAY TRADE TYCOON</p>
+            <p className="text-base font-medium">當沖大富翁 · 講師帶班 × 模擬練習</p>
+          </div>
         </div>
-        <SimChip className="ml-auto hidden text-sm sm:inline" />
+        <h1 className="text-balance text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
+          {LICENSE_TITLE}
+        </h1>
+        <p className="mt-5 max-w-2xl text-pretty text-base leading-8 text-muted">{LICENSE_LEAD}</p>
+        <EntryActions unlocked={unlocked} />
+        <p className="mt-3 text-base leading-7 text-muted">
+          免費體驗不用帳號 · 不限時，可依自己的步調操作
+        </p>
       </div>
-      <p className="mb-3 text-sm tracking-[0.28em] text-muted">{LICENSE_VERSION}</p>
-      <h1 className="text-balance text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
-        {LICENSE_TITLE}
-      </h1>
-      <p className="mt-4 max-w-2xl text-pretty text-base leading-relaxed text-muted">
-        {LICENSE_LEAD}
-      </p>
-      <div className="no-print mt-6 max-w-md">
-        <Link to="/try" className="academy-button-primary !min-h-14 w-full !text-base">
-          先體驗 3 分鐘的模擬操作
-        </Link>
-        <p className="mt-2 text-base leading-7 text-muted">不用帳號 · 不限時 · 一步一步練習</p>
+      <div className="academy-card overflow-hidden border-brand/20">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-brand/5 px-5 py-4">
+          <p className="text-base font-semibold">一次練習，三個帶得走的收穫</p>
+          <SimChip />
+        </div>
+        <div className="space-y-6 p-5 sm:p-7">
+          <Outcome icon={<ClipboardList className="size-5" />} title="說得出自己的計畫">
+            操作前寫下條件與張數，讓每個決定有依據。
+          </Outcome>
+          <Outcome icon={<ScanLine className="size-5" />} title="看得懂自己的紀錄">
+            把委託、成交與庫存對起來，知道發生了什麼。
+          </Outcome>
+          <Outcome icon={<BookOpen className="size-5" />} title="選得出下一次的重點">
+            復盤留下觀察，一次練好一個動作。
+          </Outcome>
+        </div>
+        <p className="border-t border-border bg-surface-2 px-5 py-4 text-base leading-7 text-muted">
+          學習足跡呈現有紀錄的操作。條件未到，可以先觀察，不必為了完成課程硬下單。
+        </p>
       </div>
-      <ul className="mt-6 flex flex-wrap gap-2 text-sm">
-        <Chip>模擬教室</Chip>
-        <Chip>課綱</Chip>
-        <Chip>地端包</Chip>
-        <Chip>說明書</Chip>
-        <Chip tone="warn">實盤尚未接線</Chip>
-        <Chip tone="warn">非投顧 · 非保證獲利</Chip>
-      </ul>
     </section>
   );
 }
 
-function Nav() {
+function EntryActions({ unlocked }: { unlocked: boolean }) {
   return (
-    <nav
-      aria-label="課程說明章節"
-      className="academy-card mb-12 grid gap-1 p-4 sm:grid-cols-2 print:mb-8"
-    >
-      {TOC.map((t) => (
-        <a
-          key={t.id}
-          href={`#${t.id}`}
-          className="flex min-h-12 min-w-0 items-center gap-3 rounded-lg px-3 py-2 text-base text-muted hover:bg-elevated hover:text-fg"
-        >
-          <span className="shrink-0 font-mono text-base text-subtle">{t.n}</span>
-          {t.label}
-        </a>
-      ))}
-    </nav>
+    <div className="no-print mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+      <Link to="/try" className="academy-button-primary !min-h-14 !text-base">
+        免費體驗模擬操作
+        <ArrowRight className="size-5 shrink-0" aria-hidden="true" />
+      </Link>
+      <Link
+        to="/"
+        className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface px-5 py-3 text-center text-base font-semibold text-fg hover:bg-elevated"
+      >
+        {unlocked ? "回到我的教室" : "已有入場碼，進入教室"}
+      </Link>
+    </div>
   );
 }
 
-function Brief() {
+function Audience() {
   return (
-    <Section id="brief" n="00" title="課程怎麼進行">
-      <p className="text-pretty leading-relaxed text-muted">
-        講師帶領學員完成模擬練習，逐步理解判斷、費稅、停損、部位與收盤平倉。每堂課結束後，透過交易紀錄與復盤整理自己的決策。
-      </p>
-      <div className="mt-5 overflow-hidden rounded-lg border border-border">
-        <table className="w-full table-fixed text-left text-base">
-          <tbody>
-            <Row k="這包有" v="模擬教室、課綱、地端包、說明書。" />
-            <Row k="這包沒有" v="實盤下單、投顧、訊號、代操、保證獲利。" />
-            <Row
-              k="學員帳號"
-              v="先使用教室入場碼，再登入個人帳號保存成績與復盤。報名資格由教室另行核對。"
-            />
-            <Row k="課程費用" v={`${LICENSE_QUOTE}。開課日期、費用與名額以教室確認內容為準。`} />
-            <Row k="付款方式" v="請向教室確認報名與付款方式；網站目前沒有線上結帳。" />
-          </tbody>
-        </table>
+    <Section id="audience" eyebrow="從自己的起點開始" title="適合誰來練？">
+      <div className="grid gap-4 md:grid-cols-3">
+        <Fact
+          label="第一次接觸下單畫面"
+          body="想先弄懂買賣方向、張數、委託與成交，不急著投入真實資金。"
+        />
+        <Fact
+          label="操作過，想建立紀律"
+          body="想把進出場條件寫清楚，練習等待、停損與收盤前的部位核對。"
+        />
+        <Fact
+          label="想有人一起看復盤"
+          body="願意回看自己的紀錄、說明操作理由，再和講師討論下一次要練什麼。"
+        />
       </div>
-      <blockquote className="mt-6 border-l-2 border-tape pl-4 text-base leading-relaxed text-fg">
-        {LICENSE_ONE_LINER}
-      </blockquote>
+    </Section>
+  );
+}
+
+function Courses() {
+  return (
+    <Section id="courses" eyebrow="三階段 · 六組課程任務" title="從跟著做，到自己完成復盤">
+      <p className="max-w-3xl text-base leading-8 text-muted">
+        每課先知道要練什麼，再進入教材情境。六組任務可以反覆練習；實際堂數、上課節奏與講師回饋安排，由開課班級確認。
+      </p>
+      <div className="mt-6 grid gap-3 md:grid-cols-3">
+        {STAGES.map((stage) => (
+          <div key={stage.title} className="rounded-2xl border border-brand/20 bg-brand/5 p-4">
+            <p className="flex items-center gap-3 text-lg font-semibold">
+              <span className="font-mono text-sm text-brand">{stage.number}</span>
+              {stage.title}
+            </p>
+            <p className="mt-2 text-base leading-7 text-muted">{stage.description}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        {COURSE_PATH.map((course, index) => (
+          <section key={course.id} className="academy-card min-w-0 p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+              <span className="font-mono">練習 {String(index + 1).padStart(2, "0")}</span>
+              <span className="rounded-full bg-brand/8 px-3 py-1 text-brand">{course.stage}</span>
+            </div>
+            <h3 className="mt-4 text-xl font-semibold leading-snug">{course.title}</h3>
+            <p className="mt-3 text-base leading-7 text-muted">{course.focus}</p>
+            <details className="mt-4 border-t border-border pt-1">
+              <summary className="min-h-12 cursor-pointer py-3 text-base font-medium text-brand">
+                看這一課的三個步驟
+              </summary>
+              <ol className="list-decimal space-y-2 pl-6 text-base leading-7 text-muted">
+                {course.steps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+              <p className="mt-4 rounded-xl bg-surface-2 p-3 text-base leading-7">
+                <span className="font-medium">復盤想一想：</span>
+                {course.reflection}
+              </p>
+            </details>
+          </section>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function Practice() {
+  return (
+    <Section id="practice" eyebrow="每次都知道現在要做什麼" title="上課與練習，照這個節奏走">
+      <ol className="grid gap-4 md:grid-cols-2">
+        {[
+          {
+            title: "先定一個小目標",
+            body: "講師說明情境與觀察重點。開始前，選好這次要練的動作，寫下操作條件。",
+          },
+          {
+            title: "自己操作，逐步核對",
+            body: "在模擬盤面觀察與下單，查看委託、成交及庫存。條件沒出現時，也可以選擇等待。",
+          },
+          {
+            title: "打開復盤，看見足跡",
+            body: "查看有紀錄的計畫、成交與結束時庫存，再對照交易成本與操作理由。已登入學員可提交復盤供講師查看。",
+          },
+          {
+            title: "帶著一個重點再練",
+            body: "選出下次只想改善的一件事，保存在目前裝置。回到教室首頁，就能接續自己的練習方向。",
+          },
+        ].map((step, index) => (
+          <li
+            key={step.title}
+            className="flex min-w-0 gap-4 rounded-2xl border border-border bg-surface p-5"
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand/10 font-mono text-base text-brand">
+              {index + 1}
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-lg font-semibold">{step.title}</h3>
+              <p className="mt-2 text-base leading-7 text-muted">{step.body}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-5 border-l-2 border-brand pl-4 text-base leading-8">{LICENSE_ONE_LINER}</p>
+    </Section>
+  );
+}
+
+function Devices() {
+  return (
+    <Section id="devices" eyebrow="用熟悉的裝置，照自己的步調" title="手機、iPad 與桌機都能練">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Device
+          icon={<Smartphone className="size-6" />}
+          title="手機"
+          body="盤面分區切換，查看行情、委託與庫存；直向拿著也能跟著步驟操作。"
+        />
+        <Device
+          icon={<Tablet className="size-6" />}
+          title="iPad／平板"
+          body="畫面依可用寬度調整，橫向與直向都能瀏覽課程、盤面和復盤。"
+        />
+        <Device
+          icon={<Monitor className="size-6" />}
+          title="桌機"
+          body="較寬的畫面方便並排查看圖表與操作資訊，適合講師示範和課後複習。"
+        />
+        <Device
+          icon={<TextCursorInput className="size-6" />}
+          title="長輩與大字模式"
+          body="可切換大字與長輩模式，放大文字和主要操作區；不用趕，先看清楚再操作。"
+        />
+      </div>
+      <p className="mt-4 text-base leading-7 text-muted">
+        教室也提供模擬閃電下單。先熟悉商品、方向與張數，再練習快速操作。
+      </p>
+    </Section>
+  );
+}
+
+function Enrollment() {
+  return (
+    <Section id="enrollment" eyebrow="體驗後，再確認適合自己的班級" title="從體驗到正式入場">
+      <ol className="grid gap-4 md:grid-cols-3">
+        <li className="academy-card p-5">
+          <p className="text-sm font-medium text-brand">01 / 先體驗</p>
+          <h3 className="mt-3 text-lg font-semibold">熟悉模擬操作</h3>
+          <p className="mt-2 text-base leading-7 text-muted">
+            先使用免費體驗，了解畫面與練習方式，不用帳號即可開始。
+          </p>
+        </li>
+        <li className="academy-card p-5">
+          <p className="text-sm font-medium text-brand">02 / 確認班級</p>
+          <h3 className="mt-3 text-lg font-semibold">和授課講師確認安排</h3>
+          <p className="mt-2 text-base leading-7 text-muted">{LICENSE_PRICING_NOTE}</p>
+        </li>
+        <li className="academy-card p-5">
+          <p className="text-sm font-medium text-brand">03 / 正式練習</p>
+          <h3 className="mt-3 text-lg font-semibold">取得入場碼，建立帳號</h3>
+          <p className="mt-2 text-base leading-7 text-muted">
+            報名確認後依講師提供的方式入場，再登入個人帳號，提交自己的模擬復盤。
+          </p>
+        </li>
+      </ol>
+      <div className="mt-5 rounded-2xl border border-border bg-surface-2 p-5">
+        <h3 className="text-base font-semibold">報名前，一起確認這些內容</h3>
+        <ul className="mt-3 grid gap-3 text-base leading-7 text-muted sm:grid-cols-2">
+          {[
+            "課程日期、實際堂數與上課方式",
+            "費用、付款方式與取消退費約定",
+            "帳號使用期間與包含的教材",
+            "講師回饋方式、次數與提交期限",
+          ].map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <Check className="mt-1 size-5 shrink-0 text-brand" aria-hidden="true" />
+              {item}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-4 border-t border-border pt-4 text-base leading-7 text-muted">
+          {LICENSE_PAYMENT_NOTE} 建立帳號不代表已完成報名或付款。
+        </p>
+      </div>
     </Section>
   );
 }
 
 function Included() {
   return (
-    <Section id="included" n="01" title="這包有什麼">
-      <p className="text-pretty leading-relaxed text-muted">
-        課程搭配以下練習工具與教材，供講師帶班和學員課後複習。
-      </p>
-      <div className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
+    <Section id="included" eyebrow="教材與使用範圍" title="教室授權／班級方案">
+      <div className="grid gap-4 sm:grid-cols-2">
         {LICENSE_INCLUDED.map((item) => (
           <Fact key={item.id} label={item.title} body={item.body} />
         ))}
       </div>
-    </Section>
-  );
-}
-
-function Excluded() {
-  return (
-    <Section id="excluded" n="02" title="這包沒有什麼">
-      <p className="text-pretty leading-relaxed text-muted">
-        本教室提供模擬教學，以下服務不包含在產品內。
-      </p>
-      <div className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
-        {LICENSE_EXCLUDED.map((item) => (
-          <Fact key={item.id} label={item.title} body={item.body} />
-        ))}
-      </div>
-      <p className="mt-4 text-base leading-relaxed text-muted">
-        網站提供個人帳號、講師班級檢視與練習排行；目前沒有教室聊天或線上付款功能。
-      </p>
-    </Section>
-  );
-}
-
-function Seats() {
-  return (
-    <Section id="seats" n="03" title="席次怎麼算">
-      <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
-        <Fact label="今天" body={SEAT_TODAY} />
-        <Fact label="帳號與報名" body={SEAT_ROADMAP} />
-      </div>
-      <p className="mt-4 text-base leading-relaxed text-muted">
-        班級名額與開課安排由教室確認。建立網站帳號不代表已完成報名或付款，請以教室確認的學員名單為準。
-      </p>
-    </Section>
-  );
-}
-
-function Skus() {
-  return (
-    <Section id="skus" n="04" title="線上與地端">
-      <p className="text-pretty leading-relaxed text-muted">
-        線上教室可保存帳號成績與復盤；地端包可在自己的電腦練習教材情境。兩者使用相同的模擬規則。
-      </p>
-      <div className="mt-5 overflow-hidden rounded-lg border border-border">
-        <table className="w-full table-fixed text-left text-base">
-          <thead className="bg-surface-2 text-base tracking-wide text-muted">
-            <tr>
-              <th className="w-[28%] px-3 py-2 font-medium">方案</th>
-              <th className="px-3 py-2 font-medium">含什麼</th>
-              <th className="w-[28%] px-3 py-2 font-medium">報價</th>
-            </tr>
-          </thead>
-          <tbody>
-            {LICENSE_SKUS.map((sku) => (
-              <tr key={sku.id} className="border-t border-border">
-                <td className="px-3 py-2 align-top text-pretty font-medium">{sku.name}</td>
-                <td className="px-3 py-2 align-top text-pretty">{sku.includes}</td>
-                <td className="px-3 py-2 align-top">
-                  <QuoteChip />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Section>
-  );
-}
-
-function Quote() {
-  return (
-    <Section id="quote" n="05" title="報價欄位">
-      <p className="text-pretty leading-relaxed text-muted">{LICENSE_PRICING_NOTE}</p>
-      <div className="mt-5 overflow-hidden rounded-lg border border-dashed border-border-strong">
-        <table className="w-full table-fixed text-left text-base">
-          <tbody>
-            {LICENSE_SKUS.map((sku) => (
-              <Row key={sku.id} k={sku.name} v={LICENSE_QUOTE} />
-            ))}
-            <Row
-              k="帳號與課程名額"
-              v="請向教室確認課程包含的使用期間、教材與名額；建立帳號不會自動扣款。"
-            />
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-4 text-base leading-relaxed text-muted">{LICENSE_PAYMENT_NOTE}</p>
+      <details className="mt-5 rounded-2xl border border-border bg-surface p-5">
+        <summary className="min-h-12 cursor-pointer py-3 text-base font-semibold">
+          查看線上／地端授權與帳號說明
+        </summary>
+        <div className="mt-3 grid gap-4 md:grid-cols-3">
+          {LICENSE_SKUS.map((sku) => (
+            <div key={sku.id} className="rounded-xl bg-surface-2 p-4">
+              <h3 className="text-base font-semibold">{sku.name}</h3>
+              <p className="mt-2 text-base leading-7 text-muted">{sku.includes}</p>
+              <p className="mt-3 text-base font-medium text-brand">{sku.quote}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-5 text-base leading-7 text-muted">{SEAT_TODAY}</p>
+        <p className="mt-3 text-base leading-7 text-muted">{SEAT_ROADMAP}</p>
+      </details>
     </Section>
   );
 }
 
 function Risk() {
   return (
-    <Section id="risk" n="06" title="不承諾什麼">
-      <p className="mb-4 text-pretty text-base leading-relaxed text-muted">{DISCLAIMER}</p>
-      <ul className="space-y-3 text-base leading-relaxed text-muted">
-        <li>這不是投資建議，不是獲利保證，不是代操。</li>
-        <li>教室成績不能外推到實盤。實盤有滑價、排隊、斷線、情緒，教室沒有全部模擬到。</li>
-        <li>所有下單均為模擬，沒有連接券商真實交易帳戶。</li>
-      </ul>
+    <Section id="risk" eyebrow="先了解模擬教室的範圍" title="練習成果，回到紀錄來看">
+      <p className="max-w-3xl text-base leading-8 text-muted">{DISCLAIMER}</p>
+      <div className="mt-5 grid gap-4 md:grid-cols-3">
+        {LICENSE_EXCLUDED.map((item) => (
+          <Fact key={item.id} label={item.title} body={item.body} />
+        ))}
+      </div>
     </Section>
-  );
-}
-
-function Colophon() {
-  return (
-    <footer className="mt-16 border-t border-border pt-6 text-sm leading-relaxed text-subtle">
-      <p>
-        當沖大富翁 · 股文觀指教室 · {LICENSE_VERSION} · {LICENSE_TITLE}
-      </p>
-      <p className="mt-1">課程、授權與地端包：{LICENSE_QUOTE}。本產品供教學模擬與復盤使用。</p>
-    </footer>
-  );
-}
-
-function QuoteChip() {
-  return (
-    <span className="inline-block max-w-full rounded-xs border border-dashed border-border-strong bg-elevated px-1.5 py-0.5 text-base text-muted">
-      {LICENSE_QUOTE}
-    </span>
   );
 }
 
 function Section({
   id,
-  n,
+  eyebrow,
   title,
   children,
 }: {
   id: string;
-  n: string;
+  eyebrow: string;
   title: string;
   children: ReactNode;
 }) {
   return (
     <section id={id} className="manual-section mb-14 scroll-mt-6 sm:scroll-mt-24">
-      <h2 className="mb-4 flex items-baseline gap-3 text-xl font-medium tracking-tight">
-        <span className="shrink-0 font-mono text-sm text-subtle">{n}</span>
+      <p className="academy-eyebrow">{eyebrow}</p>
+      <h2 className="mb-5 mt-3 text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
         {title}
       </h2>
       {children}
@@ -334,40 +451,63 @@ function Section({
   );
 }
 
-function Chip({ children, tone }: { children: ReactNode; tone?: "warn" }) {
-  return (
-    <span
-      className={cn(
-        "rounded-xs px-1.5 py-0.5 tracking-wide",
-        tone === "warn" ? "bg-warn/15 text-warn" : "bg-elevated text-muted",
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
 function Fact({ label, body }: { label: string; body: string }) {
   return (
-    <div className="bg-surface px-4 py-3">
-      <div className="text-base font-medium text-muted">{label}</div>
-      <p className="mt-1 text-pretty text-base leading-relaxed">{body}</p>
+    <div className="academy-card min-w-0 p-5">
+      <h3 className="text-lg font-semibold">{label}</h3>
+      <p className="mt-3 text-base leading-7 text-muted">{body}</p>
     </div>
   );
 }
 
-function Row({ k, v }: { k: string; v: string }) {
+function Outcome({
+  icon,
+  title,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  children: ReactNode;
+}) {
   return (
-    <tr className="border-t border-border first:border-t-0">
-      <th className="w-[32%] px-3 py-2 align-top font-medium text-muted sm:w-40">{k}</th>
-      <td className="px-3 py-2 text-pretty">{v}</td>
-    </tr>
+    <div className="flex min-w-0 gap-3">
+      <span
+        className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"
+        aria-hidden="true"
+      >
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <p className="mt-1 text-base leading-7 text-muted">{children}</p>
+      </div>
+    </div>
+  );
+}
+
+function Device({ icon, title, body }: { icon: ReactNode; title: string; body: string }) {
+  return (
+    <div className="academy-card flex min-w-0 items-start gap-4 p-5">
+      <span className="mt-1 shrink-0 text-brand" aria-hidden="true">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <h3 className="text-lg font-semibold">{title}</h3>
+        <p className="mt-2 text-base leading-7 text-muted">{body}</p>
+      </div>
+    </div>
   );
 }
 
 function Mark() {
   return (
-    <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden className="shrink-0 rounded-sm">
+    <svg
+      width="40"
+      height="40"
+      viewBox="0 0 36 36"
+      aria-hidden="true"
+      className="shrink-0 rounded-xl"
+    >
       <rect width="36" height="36" fill="#163a6b" />
       <path d="M8 24 V14 H11 V24 Z" fill="#ff3b3b" />
       <path d="M9.5 10 V14 M9.5 24 V28" stroke="#ff3b3b" strokeWidth="1.4" />

@@ -108,7 +108,7 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
   for (const file of await readdir(join(dirname(releaseEntry), "_ssr"))) {
     if (!file.endsWith(".mjs")) continue;
     const text = await readFile(join(dirname(releaseEntry), "_ssr", file), "utf8");
-    for (const name of ["loadTeacherRoster", "upsertMyProfile", "saveClassroomSession", "loadTeacherSessionDetail", "loadSessionFeedback", "addSessionFeedback"]) {
+    for (const name of ["loadMyCareer", "loadTeacherRoster", "upsertMyProfile", "saveClassroomSession", "loadTeacherSessionDetail", "loadSessionFeedback", "addSessionFeedback"]) {
       const match = text.match(new RegExp("var " + name + " = [\\s\\S]*?createSsrRpc\\(\"([a-f0-9]+)\"\\)"));
       if (match) functionIds[name] = match[1];
     }
@@ -194,7 +194,16 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
         order: { id: "http-order-1", code: "2330", side: "buy", type: "limit", lots: 1, price: 100, time: 180, tif: "IOC" },
       },
     };
-    assert.equal((await serverFn("saveClassroomSession", "POST", fixtureReview, student)).ok, true);
+    await assert.rejects(serverFn("saveClassroomSession", "POST", { ...fixtureReview, expectedUserId: ownerId }, student), "Cookie account must match captured practice owner");
+    await assert.rejects(serverFn("saveClassroomSession", "POST", fixtureReview, student), "Saving must include the captured owner");
+    assert.equal((await serverFn("loadMyCareer", "GET", undefined, student)).count, 0);
+    assert.equal((await serverFn("saveClassroomSession", "POST", { ...fixtureReview, expectedUserId: studentSession.user.id }, student)).ok, true);
+    const beforeFeedback = await serverFn("loadMyCareer", "GET", undefined, student);
+    assert.equal(beforeFeedback.count, 1);
+    assert.equal(beforeFeedback.sessions[0].feedback_count, 0);
+    assert.equal(beforeFeedback.sessions[0].last_feedback_at, null);
+    assert.equal((await serverFn("loadMyCareer", "GET", undefined, owner)).count, 0, "Personal history must not include another account");
+    assert.equal((await serverFn("loadTeacherRoster", "GET", undefined, owner)).sessions[0].feedback_count, 0);
     const teacherDetail = await serverFn("loadTeacherSessionDetail", "GET", { id: fixtureReview.rec.id }, owner);
     assert.deepEqual(teacherDetail.bundle, fixtureReview);
     assert.equal(teacherDetail.studentName, "Fixture student");
@@ -257,6 +266,13 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
     const foreignHeaders = { origin: "https://attacker.invalid", "sec-fetch-site": "cross-site" };
     await assert.rejects(serverFn("addSessionFeedback", "POST", { ...feedbackInput, requestId: randomUUID() }, owner, foreignHeaders));
     await assert.rejects(serverFn("loadSessionFeedback", "GET", { sessionId: fixtureReview.rec.id }, student, foreignHeaders));
+    const studentCareer = await serverFn("loadMyCareer", "GET", undefined, student);
+    const rosterAfterFeedback = await serverFn("loadTeacherRoster", "GET", undefined, owner);
+    assert.equal(studentCareer.sessions[0].feedback_count, 1);
+    assert.match(studentCareer.sessions[0].last_feedback_at, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    assert.equal(rosterAfterFeedback.sessions[0].feedback_count, 1);
+    assert.equal(rosterAfterFeedback.sessions[0].last_feedback_at, studentCareer.sessions[0].last_feedback_at);
+    await assert.rejects(serverFn("loadMyCareer", "GET", undefined, gateOnly));
     const expectedFeedbackPage = { items: [feedback], nextCursor: null };
     assert.deepEqual(await serverFn("loadSessionFeedback", "GET", { sessionId: fixtureReview.rec.id }, student), expectedFeedbackPage);
     assert.deepEqual(await serverFn("loadSessionFeedback", "GET", { sessionId: fixtureReview.rec.id }, owner), expectedFeedbackPage);
@@ -288,7 +304,9 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
       "a request retried after restart must resolve to its original saved note");
     assert.deepEqual((await serverFn("loadTeacherSessionDetail", "GET", { id: fixtureReview.rec.id }, newLogin)).bundle, fixtureReview);
     t.diagnostic("HTTP restart: prior session, password login, teacher identity and consumed bootstrap marker survived");
-    t.diagnostic("HTTP feedback restart: teacher/student reads and same-request retry recover the exact original note; review remains unchanged");
+    assert.equal((await serverFn("loadMyCareer", "GET", undefined, student)).sessions[0].feedback_count, 1);
+    assert.equal((await serverFn("loadTeacherRoster", "GET", undefined, newLogin)).sessions[0].feedback_count, 1);
+    t.diagnostic("HTTP feedback restart: teacher/student reads, feedback indexes and same-request retry recover the exact original note; review remains unchanged");
     for (const secret of [password, entryCode, token, env.BETTER_AUTH_SECRET, ...owner.values()])
       assert.equal(childLog.includes(secret), false, "Child logs must not contain generated credentials");
   } catch (error) {

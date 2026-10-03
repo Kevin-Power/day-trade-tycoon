@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, LoaderCircle, UserRound } from "lucide-react";
-import { authClient, authEnabled } from "@/lib/auth/client";
-import { upsertMyProfile } from "@/lib/classroom-db";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { ArrowLeft, ArrowRight, CheckCircle2, LoaderCircle, UserRound } from "lucide-react";
+import { authClient, authEnabled, signOut } from "@/lib/auth/client";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { loadMyProfile, upsertMyProfile } from "@/lib/classroom-db";
 import { AuthPasswordInput, ClassroomAuthLayout } from "@/components/classroom-auth-layout";
 
 export const Route = createFileRoute("/login")({ component: Login });
@@ -16,47 +17,37 @@ const FEATURES = [
   },
 ] as const;
 
+type VerifiedAccount = { id: string; name: string; email: string };
+
 function Login() {
-  const navigate = useNavigate();
-  const [mode, setMode] = useState<"in" | "up">("in");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [classCode, setClassCode] = useState("");
-  const [accepted, setAccepted] = useState(false);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { user, isPending } = useCurrentUserState();
+  // Keep the same account-keyed profile form while the session hook catches up.
+  const [justAuthenticated, setJustAuthenticated] = useState<VerifiedAccount | null>(null);
+  const userId = user && !user.isDevFallback ? user.id : null;
+  useEffect(() => {
+    if (userId) setJustAuthenticated(null);
+  }, [userId]);
+  const account =
+    userId && user
+      ? { id: userId, name: user.displayName ?? "", email: user.primaryEmail ?? "" }
+      : justAuthenticated;
+  return (
+    <LoginLayout>
+      {isPending && !justAuthenticated ? (
+        <p role="status" className="flex items-center gap-3 py-8 text-base leading-7">
+          <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
+          正在確認登入狀態…
+        </p>
+      ) : account ? (
+        <ProfileCompletion key={account.id} account={account} />
+      ) : (
+        <AccountCredentials onAuthenticated={setJustAuthenticated} />
+      )}
+    </LoginLayout>
+  );
+}
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (!accepted || busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      const credentials = { email: email.trim(), password };
-      const result =
-        mode === "up"
-          ? await authClient.signUp.email({
-              ...credentials,
-              name: name.trim() || email.split("@")[0],
-            })
-          : await authClient.signIn.email(credentials);
-      if (result.error) throw new Error(result.error.message || "登入失敗");
-      await upsertMyProfile({
-        data: {
-          displayName: name.trim() || result.data?.user.name || email.split("@")[0],
-          classCode: classCode.trim() || undefined,
-          acceptTos: true,
-        },
-      });
-      await navigate({ to: "/" });
-    } catch (problem) {
-      setError(problem instanceof Error ? problem.message : "登入失敗，請稍後重試");
-    } finally {
-      setBusy(false);
-    }
-  }
-
+function LoginLayout({ children }: { children: ReactNode }) {
   return (
     <ClassroomAuthLayout
       heroTitle={
@@ -69,23 +60,67 @@ function Login() {
       heroDescription="用個人帳號整理學習進度，隨時回看你的模擬操作。練習不只看結果，也看每一步如何決定。"
       features={FEATURES}
       footer={
-        <Link to="/" className="academy-nav-link inline-flex items-center gap-2">
-          <ArrowLeft className="size-3.5" aria-hidden="true" />
+        <Link to="/" className="academy-nav-link inline-flex min-h-12 items-center gap-2">
+          <ArrowLeft className="size-4" aria-hidden="true" />
           回教室大廳
         </Link>
       }
     >
+      {children}
+      <p className="mt-5 text-sm leading-7 text-muted">
+        帳號註冊不代表完成繳費或取得課程資格，請依講師的入班安排使用。
+      </p>
+    </ClassroomAuthLayout>
+  );
+}
+
+function AccountCredentials({
+  onAuthenticated,
+}: {
+  onAuthenticated: (account: VerifiedAccount) => void;
+}) {
+  const [mode, setMode] = useState<"in" | "up">("in");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (inFlight.current || !authEnabled) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const credentials = { email: email.trim(), password };
+      const result =
+        mode === "up"
+          ? await authClient.signUp.email({ ...credentials, name: name.trim() })
+          : await authClient.signIn.email(credentials);
+      if (result.error) throw new Error(result.error.message || "登入失敗");
+      const verified = result.data?.user;
+      if (!verified?.id) throw new Error("尚未確認登入成功，請稍後重試。");
+      setPassword("");
+      onAuthenticated({ id: verified.id, name: verified.name ?? "", email: verified.email });
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : "登入失敗，請稍後重試");
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }
+  return (
+    <>
       <p className="academy-eyebrow flex items-center gap-2">
-        <UserRound className="size-3.5" aria-hidden="true" />
-        02 / 個人學習帳號
+        <UserRound className="size-4" aria-hidden="true" />1 / 2 · 個人學習帳號
       </p>
       <h1 className="mt-3 text-2xl font-semibold tracking-tight text-fg">
         {mode === "up" ? "建立學員帳號" : "歡迎回到教室"}
       </h1>
-      <p className="mt-2 text-sm leading-6 text-muted">
-        {mode === "up" ? "填寫基本資料，讓練習紀錄跟著你。" : "登入你的帳號，接續今天的學習。"}
+      <p className="mt-2 text-base leading-7 text-muted">
+        先確認帳號，下一步填寫班級資料與教學聲明。
       </p>
-
       <div
         className="mt-6 grid grid-cols-2 gap-1 rounded-xl bg-bg p-1"
         role="group"
@@ -101,17 +136,16 @@ function Login() {
               setMode(option);
               setError("");
             }}
-            className={`rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)] disabled:opacity-50 ${mode === option ? "bg-surface text-[var(--color-brand)] shadow-sm" : "text-muted hover:text-fg"}`}
+            className={`min-h-12 rounded-lg px-3 py-3 text-base font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)] disabled:opacity-50 ${mode === option ? "bg-surface text-[var(--color-brand)] shadow-sm" : "text-muted hover:text-fg"}`}
           >
             {option === "in" ? "登入帳號" : "首次註冊"}
           </button>
         ))}
       </div>
-
       <form onSubmit={submit} className="mt-6 space-y-5" aria-busy={busy}>
-        {mode === "up" ? (
+        {mode === "up" && (
           <div>
-            <label htmlFor="learner-name" className="block text-sm font-medium text-fg">
+            <label htmlFor="learner-name" className="block text-base font-medium text-fg">
               學員名稱
             </label>
             <input
@@ -127,9 +161,9 @@ function Login() {
               className="academy-input mt-2 w-full"
             />
           </div>
-        ) : null}
+        )}
         <div>
-          <label htmlFor="learner-email" className="block text-sm font-medium text-fg">
+          <label htmlFor="learner-email" className="block text-base font-medium text-fg">
             電子信箱
           </label>
           <input
@@ -164,61 +198,242 @@ function Login() {
               : "請輸入你的個人密碼，與教室入場碼不同。"
           }
         />
+        {error && (
+          <p role="alert" className="rounded-lg bg-up/5 px-3 py-3 text-base leading-7 text-up">
+            {error}
+          </p>
+        )}
+        {!authEnabled && (
+          <p role="status" className="text-base leading-7 text-muted">
+            此服務尚未啟用學員帳號，請聯絡講師。
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={busy || !authEnabled}
+          className="academy-button-primary min-h-12 w-full whitespace-normal text-base"
+        >
+          {busy ? (
+            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <ArrowRight className="size-4" aria-hidden="true" />
+          )}
+          {busy ? "確認帳號中…" : mode === "up" ? "建立帳號，繼續下一步" : "登入，繼續下一步"}
+        </button>
+      </form>
+    </>
+  );
+}
+
+function ProfileCompletion({ account }: { account: VerifiedAccount }) {
+  const navigate = useNavigate();
+  const [profileReady, setProfileReady] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [checkError, setCheckError] = useState("");
+  const [checkAttempt, setCheckAttempt] = useState(0);
+  const [name, setName] = useState(account.name || account.email.split("@")[0]);
+  const [classCode, setClassCode] = useState("");
+  const [accepted, setAccepted] = useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const inFlight = useRef(false);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    setChecking(true);
+    setCheckError("");
+    void loadMyProfile()
+      .then(async (profile) => {
+        if (cancelled) return;
+        if (profile && profile.user_id !== account.id)
+          throw new Error("登入帳號已變更，請重新確認。");
+        if (profile?.tos_accepted_at) {
+          await navigate({ to: "/" });
+          return;
+        }
+        if (profile?.display_name) setName(profile.display_name);
+        setProfileReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setCheckError("暫時無法確認班級資料。帳號已登入，請重試讀取。");
+      })
+      .finally(() => {
+        if (!cancelled) setChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [account.id, checkAttempt, navigate]);
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!profileReady || !accepted || inFlight.current || !authEnabled) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await upsertMyProfile({
+        data: {
+          displayName: name.trim(),
+          classCode: classCode.trim() || undefined,
+          acceptTos: true,
+        },
+      });
+      if (mounted.current) await navigate({ to: "/" });
+    } catch (problem) {
+      if (mounted.current)
+        setError(problem instanceof Error ? problem.message : "班級資料尚未儲存，請重試。");
+    } finally {
+      inFlight.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  }
+  async function switchAccount() {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setSwitching(true);
+    setError("");
+    try {
+      await signOut("/login");
+    } catch (problem) {
+      inFlight.current = false;
+      if (mounted.current) {
+        setSwitching(false);
+        setError(problem instanceof Error ? problem.message : "登出失敗，請再試一次。");
+      }
+    }
+  }
+  if (!profileReady)
+    return (
+      <section aria-label="確認班級資料">
+        <h1 className="text-2xl font-semibold">帳號已登入</h1>
+        <p className="mt-3 break-all text-base leading-7">{account.email || account.name}</p>
+        <p role="status" className="mt-4 text-base leading-7 text-muted">
+          {checking ? "正在確認班級資料…" : checkError || "資料已確認，正在進入教室…"}
+        </p>
+        {error && (
+          <p role="alert" className="mt-3 text-base leading-7 text-up">
+            {error}
+          </p>
+        )}
+        {checkError && (
+          <button
+            type="button"
+            className="academy-button-primary mt-4 min-h-12 w-full text-base"
+            disabled={checking || switching}
+            onClick={() => setCheckAttempt((attempt) => attempt + 1)}
+          >
+            重試讀取班級資料
+          </button>
+        )}
+        <button
+          type="button"
+          className="academy-nav-link mt-3 min-h-12 text-base"
+          disabled={switching}
+          onClick={() => void switchAccount()}
+        >
+          {switching ? "登出中…" : "使用另一個帳號"}
+        </button>
+      </section>
+    );
+  return (
+    <>
+      <p className="academy-eyebrow flex items-center gap-2">
+        <CheckCircle2 className="size-4" aria-hidden="true" />2 / 2 · 完成班級資料
+      </p>
+      <h1 className="mt-3 text-2xl font-semibold tracking-tight text-fg">
+        帳號已登入，再完成這一步
+      </h1>
+      <p className="mt-2 text-base leading-7 text-muted">
+        確認學員名稱、班級與教學聲明後，就能將練習儲存到教室主機。
+      </p>
+      <div className="mt-5 rounded-xl border border-border bg-bg/50 p-4">
+        <p className="text-sm text-muted">目前使用的帳號</p>
+        <p className="mt-1 break-all text-base font-medium">{account.email || account.name}</p>
+        <button
+          type="button"
+          disabled={busy || switching}
+          className="academy-nav-link mt-2 min-h-12 whitespace-normal text-base"
+          onClick={() => void switchAccount()}
+        >
+          {switching ? "登出中…" : "使用另一個帳號"}
+        </button>
+      </div>
+      <form onSubmit={submit} className="mt-6 space-y-5" aria-busy={busy || switching}>
         <div>
-          <label htmlFor="learner-class" className="block text-sm font-medium text-fg">
-            班級代碼 <span className="ml-1 text-xs font-normal text-muted">選填</span>
+          <label htmlFor="profile-name" className="block text-base font-medium text-fg">
+            學員名稱
+          </label>
+          <input
+            id="profile-name"
+            name="name"
+            required
+            maxLength={40}
+            autoComplete="name"
+            disabled={busy || switching}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="講師與同學看見的名稱"
+            className="academy-input mt-2 w-full"
+          />
+        </div>
+        <div>
+          <label htmlFor="learner-class" className="block text-base font-medium text-fg">
+            班級代碼 <span className="ml-1 text-sm font-normal text-muted">選填</span>
           </label>
           <input
             id="learner-class"
             name="classCode"
             maxLength={24}
-            disabled={busy}
+            disabled={busy || switching}
             value={classCode}
             onChange={(event) => setClassCode(event.target.value)}
             aria-describedby="learner-class-hint"
             placeholder="講師提供的班級代碼"
             className="academy-input mt-2 w-full"
           />
-          <p id="learner-class-hint" className="mt-2 text-xs leading-5 text-muted">
+          <p id="learner-class-hint" className="mt-2 text-sm leading-7 text-muted">
             講師未指定時，留空即可。
           </p>
         </div>
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-bg/50 p-4 text-xs leading-6 text-muted">
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-bg/50 p-4 text-base leading-7 text-muted">
           <input
             required
             type="checkbox"
             checked={accepted}
-            disabled={busy}
+            disabled={busy || switching}
             onChange={(event) => setAccepted(event.target.checked)}
-            className="mt-1 size-4 shrink-0 accent-[var(--color-brand)]"
+            className="mt-1 size-5 shrink-0 accent-[var(--color-brand)]"
           />
           <span>
             我了解此為模擬教學，行情包含歷史及教室生成資料，模擬結果不代表實際獲利。我的學習紀錄供本班講師查看，顯示名稱與練習成績可出現在本班排行。
           </span>
         </label>
-        {error ? (
-          <p role="alert" className="rounded-lg bg-up/5 px-3 py-2 text-sm leading-6 text-up">
-            {error}
-          </p>
-        ) : null}
-        {!authEnabled ? (
-          <p role="status" className="text-sm text-muted">
-            此服務尚未啟用學員帳號，請聯絡講師。
-          </p>
-        ) : null}
+        {error && (
+          <div role="alert" className="rounded-lg bg-up/5 px-4 py-3 text-base leading-7 text-up">
+            <p>{error}</p>
+            <p className="mt-2">帳號已登入，請確認資料後重試，不需要重新註冊或輸入密碼。</p>
+          </div>
+        )}
         <button
           type="submit"
-          disabled={busy || !accepted || !authEnabled}
-          className="academy-button-primary w-full"
+          disabled={busy || switching || !accepted || !authEnabled}
+          className="academy-button-primary min-h-12 w-full whitespace-normal text-base"
         >
-          {busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-          {busy ? "處理中…" : mode === "up" ? "註冊並進入教室" : "登入教室"}
-          {!busy ? <ArrowRight className="size-4" aria-hidden="true" /> : null}
+          {busy ? (
+            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <ArrowRight className="size-4" aria-hidden="true" />
+          )}
+          {busy ? "儲存班級資料中…" : "儲存資料，進入教室"}
         </button>
       </form>
-      <p className="mt-4 text-xs leading-6 text-muted">
-        帳號註冊不代表完成繳費或取得課程資格，請依講師的入班安排使用。
-      </p>
-    </ClassroomAuthLayout>
+    </>
   );
 }

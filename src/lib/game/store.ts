@@ -107,6 +107,8 @@ type GameStore = {
   learnerGuideReady: boolean;
   profile: Profile;
   hydrated: boolean;
+  profileIdentity: string | null | undefined;
+  sessionIdentity: string | null;
   frame: number;
   lastResult: SessionRecord | null;
   lastVerdicts: RuleVerdict[];
@@ -114,6 +116,7 @@ type GameStore = {
   localReviewSaved: boolean;
   sound: boolean;
   hydrate: () => void;
+  ensureSessionIdentity: () => boolean;
   start: (scenarioId: string) => void;
   openLearnerGuide: () => void;
   setLearnerGuideStep: (step: number) => void;
@@ -185,6 +188,8 @@ export const useGame = create<GameStore>((set, get) => ({
   learnerGuideReady: false,
   profile: { ...EMPTY_PROFILE },
   hydrated: false,
+  profileIdentity: undefined,
+  sessionIdentity: null,
   frame: 0,
   lastResult: null,
   lastVerdicts: [],
@@ -193,17 +198,31 @@ export const useGame = create<GameStore>((set, get) => ({
   sound: true,
 
   hydrate: () => {
+    const identity = getProfileIdentity();
+    if (get().phase !== "lobby" && get().sessionIdentity !== identity) {
+      const unfinished = get().phase === "live";
+      get().leave();
+      if (unfinished) toast("帳號已變更，未結算的練習已結束。請使用目前帳號重新開始；原帳號已保存的紀錄仍保留。");
+    }
     set({
       profile: loadProfile(),
+      profileIdentity: identity,
       hydrated: true,
       teachMode: loadTeachMode(),
       ...disarmedFlash,
     });
   },
 
+  ensureSessionIdentity: () => {
+    if (get().sessionIdentity === getProfileIdentity()) return true;
+    get().hydrate();
+    return false;
+  },
+
   start: (scenarioId) => {
     const sc = scenarioById(scenarioId);
     if (!sc) return;
+    if (get().profileIdentity !== getProfileIdentity()) get().hydrate();
     unlockAudio();
     const engine = new DayMarket(sc);
     const q = engine.quote(sc.id === "wed-open" ? "2317" : "2330") ?? engine.allQuotes()[0];
@@ -214,6 +233,8 @@ export const useGame = create<GameStore>((set, get) => ({
     const guide = shouldAutoOpenLearnerGuide(sc.id, get().profile.sessions, hasSeenLearnerGuide(getProfileIdentity()));
     set({
       phase: "live",
+      sessionIdentity: getProfileIdentity(),
+      profileIdentity: getProfileIdentity(),
       engine,
       scenario: sc,
       selected: code,
@@ -271,6 +292,9 @@ export const useGame = create<GameStore>((set, get) => ({
       orderScope: "working",
       orderPage: 0,
       lastResult: null,
+      lastVerdicts: [],
+      syncStatus: "local",
+      localReviewSaved: false,
       ticket: { side: "buy", type: "limit", lots: 1, price: 0, tif: "ROD" },
       ticketDraft: { lots: "1", price: "" },
       activeBeat: null,
@@ -281,6 +305,7 @@ export const useGame = create<GameStore>((set, get) => ({
   },
 
   settle: () => {
+    if (!get().ensureSessionIdentity()) return;
     if (get().learnerGuideStep !== null) {
       toast(LEARNER_GUIDE_PAUSE_MESSAGE);
       return;
@@ -318,17 +343,23 @@ export const useGame = create<GameStore>((set, get) => ({
       firstTradePlan: snapshotFirstTradePlan(get().tradePlan, get().firstPlannedOrder) };
     const localReviewSaved = saveReview(bundle);
     set({ phase: "result", ...disarmedFlash, lastResult: rec, lastVerdicts: pass.verdicts, profile: next, paused: true, syncStatus: "local", localReviewSaved, learnerGuideReady: false });
-    if (getProfileIdentity()) {
+    const ownerId = get().sessionIdentity;
+    if (ownerId) {
       if (bundle.fills.length > SERVER_REVIEW_FILL_LIMIT) {
         set({ syncStatus: "too-large" });
         toast.error(reviewSaveMessage("too-large", localReviewSaved));
         return;
       }
       set({ syncStatus: "saving" });
-      void import("@/lib/classroom-db").then((module) => module.saveClassroomSession({ data: bundle }))
-        .then(() => { if (get().lastResult?.id === rec.id) set({ syncStatus: "saved" }); })
+      void import("@/lib/classroom-db").then(async (module) => {
+        if (getProfileIdentity() !== ownerId) return false;
+        await module.saveClassroomSession({ data: { ...bundle, expectedUserId: ownerId } });
+        return true;
+      })
+        .then((saved) => { if (saved && getProfileIdentity() === ownerId && get().lastResult?.id === rec.id) set({ syncStatus: "saved" }); })
         .catch(() => {
-          if (get().lastResult?.id === rec.id) set({ syncStatus: "failed" });
+          if (getProfileIdentity() !== ownerId || get().lastResult?.id !== rec.id) return;
+          set({ syncStatus: "failed" });
           toast.error(reviewSaveMessage("failed", localReviewSaved));
         });
     } else if (!localReviewSaved) {
@@ -463,6 +494,7 @@ export const useGame = create<GameStore>((set, get) => ({
     else set({ teachMode: true });
   },
   setFlashOrder: (on, expected) => {
+    if (!get().ensureSessionIdentity()) return;
     if (!on) {
       get().disarmFlash();
       saveFlashOrder(false);
@@ -497,6 +529,7 @@ export const useGame = create<GameStore>((set, get) => ({
     set({ ...disarmedFlash, flashNotice: reason });
   },
   submitLightning: (input) => {
+    if (!get().ensureSessionIdentity()) return { ok: false, reason: "登入帳號已變更，請重新開始練習。" };
     const state = get();
     const lots = parseLotsDraft(state.ticketDraft.lots);
     const fail = (reason: string, disarm = false): BrokerAck => {
@@ -559,6 +592,7 @@ export const useGame = create<GameStore>((set, get) => ({
   bump: () => set({ frame: get().frame + 1 }),
 
   submit: () => {
+    if (!get().ensureSessionIdentity()) return { ok: false, reason: "登入帳號已變更，請重新開始練習。" };
     if (get().learnerGuideStep !== null) {
       toast(LEARNER_GUIDE_PAUSE_MESSAGE);
       return;
@@ -612,6 +646,7 @@ export const useGame = create<GameStore>((set, get) => ({
   },
 
   flattenSelected: () => {
+    if (!get().ensureSessionIdentity()) return;
     if (get().learnerGuideStep !== null) {
       toast(LEARNER_GUIDE_PAUSE_MESSAGE);
       return;
@@ -642,6 +677,7 @@ export const useGame = create<GameStore>((set, get) => ({
   },
 
   flattenAll: () => {
+    if (!get().ensureSessionIdentity()) return;
     if (get().learnerGuideStep !== null) {
       toast(LEARNER_GUIDE_PAUSE_MESSAGE);
       return;
@@ -668,6 +704,7 @@ export const useGame = create<GameStore>((set, get) => ({
   },
 
   cancelOrder: (id) => {
+    if (!get().ensureSessionIdentity()) return;
     const { engine, venue } = get();
     const ok = getBroker(venue, engine).cancel(id);
     if (!ok) {
@@ -689,5 +726,5 @@ export const useGame = create<GameStore>((set, get) => ({
 
 export function persistOnHide() {
   useGame.getState().disarmFlash("離開視窗後，閃電下單已解除。");
-  saveProfile(useGame.getState().profile);
+  if (useGame.getState().profileIdentity === getProfileIdentity()) saveProfile(useGame.getState().profile);
 }
