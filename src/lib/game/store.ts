@@ -67,7 +67,7 @@ import {
 export type MobileTab = "watch" | "chart" | "trade" | "pos";
 export type RightTab = "pos" | "orders" | "fills";
 export type Phase = "lobby" | "live" | "result";
-export type ChartStyle = "jiangbo" | "tape";
+export type ChartStyle = "jiangbo" | "tape" | "candles";
 
 type Ticket = {
   side: Side;

@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { ChartNoAxesCombined, ListFilter, Package, PanelTop } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChartNoAxesCombined, ListFilter, Moon, Package, PanelTop, Sun } from "lucide-react";
 import { AccountBar, NewsBar } from "@/components/account-bar";
 import { TapeChart } from "@/components/charts";
 import { LessonCard } from "@/components/lesson-card";
@@ -17,6 +17,7 @@ import { formatPrice } from "@/lib/market/ticks";
 import { formatIndex } from "@/lib/market/week";
 import { CoachCorner, ProvenanceBadge, ProvenanceMicro, SimChip } from "@/components/provenance";
 import { classroomPathMicro, officialIndexPaneMicro } from "@/lib/provenance";
+import { MobileMarket } from "@/components/mobile-market";
 
 const MOBILE_TABS = [
   { id: "watch", label: "自選行情", icon: ListFilter },
@@ -44,6 +45,20 @@ export function Terminal() {
   const last = useRef(0);
   const acc = useRef(0);
   const uiAcc = useRef(0);
+  const [marketTheme, setMarketTheme] = useState<"dark" | "light">("dark");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("day-tycoon-market-theme-v1");
+      if (saved === "light" || saved === "dark") setMarketTheme(saved);
+    } catch { /* A blocked preference store does not prevent practice. */ }
+  }, []);
+
+  function toggleTheme() {
+    const next = marketTheme === "dark" ? "light" : "dark";
+    setMarketTheme(next);
+    try { localStorage.setItem("day-tycoon-market-theme-v1", next); } catch { /* Session-only preference. */ }
+  }
 
   useEffect(() => {
     last.current = performance.now();
@@ -84,8 +99,9 @@ export function Terminal() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       const target = e.target as HTMLElement | null;
-      if (target?.closest("input,textarea,select,button,a,[contenteditable=true],[role=dialog]"))
+      if (target?.closest("input,textarea,select,button,a,summary,canvas,[contenteditable=true],[role=dialog]"))
         return;
       if (e.code === "Space") {
         e.preventDefault();
@@ -104,7 +120,8 @@ export function Terminal() {
   void frame;
 
   return (
-    <div className="terminal-shell relative flex h-dvh min-h-0 flex-col bg-bg text-fg">
+    <div data-market-theme={marketTheme} data-mobile-view={mobileTab} className="terminal-shell relative flex h-dvh min-h-0 flex-col bg-bg text-fg">
+      <div className={mobileTab === "chart" ? "hidden lg:contents" : "contents"}>
       <TopMenu
         name={lesson ? `${lesson.no} ${scenario.name}` : scenario.name}
         paused={paused}
@@ -112,22 +129,39 @@ export function Terminal() {
         code={selected}
         date={engine.session.label}
         venue={venueLabel(venue)}
+        theme={marketTheme}
+        onToggleTheme={toggleTheme}
       />
       <AccountBar />
       <NewsBar />
+      </div>
+      {mobileTab === "chart" && (
+        <div className="shrink-0 border-b border-border bg-bg lg:hidden">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 py-2">
+            <span className="text-sm text-muted">當沖大富翁 · 模擬看盤</span>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={togglePause} className="min-h-12 rounded-lg bg-brand px-3 text-sm font-semibold text-brand-fg">
+                {paused ? "繼續練習" : "暫停"}
+              </button>
+              <ThemeButton theme={marketTheme} onToggle={toggleTheme} />
+            </div>
+          </div>
+          <details className="market-practice-controls">
+            <summary className="min-h-12 cursor-pointer px-3 py-3 text-sm text-muted">
+              練習控制 · {paused ? "已暫停" : `${speed} 倍速`} · {formatTime(engine.t)}
+            </summary>
+            <AccountBar />
+            <NewsBar />
+          </details>
+          {engine.warning ? <p role="status" className="px-3 pb-2 text-sm leading-6 text-warn">{engine.warning}</p> : null}
+        </div>
+      )}
 
       <div className="term-mobile min-h-0 flex-1">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {mobileTab === "watch" && <Watchlist />}
           {mobileTab === "chart" && (
-            <div className="term-scroll flex min-h-0 flex-1 flex-col gap-px overflow-y-auto bg-border">
-              <div className="shrink-0">
-                <IndexPane />
-              </div>
-              <div className="shrink-0">
-                <SelectedChart />
-              </div>
-            </div>
+            <MobileMarket />
           )}
           {mobileTab === "trade" && (
             <div className="flex min-h-0 flex-1 flex-col overflow-auto">
@@ -207,7 +241,7 @@ export function Terminal() {
       <CoachCorner />
       <LessonCard />
       {paused && phase === "live" && !activeBeat && (
-        <div className="pointer-events-none absolute inset-x-0 top-24 flex justify-center">
+        <div className={cn("pointer-events-none absolute inset-x-0 top-24 flex justify-center", mobileTab === "chart" && "hidden lg:flex")}>
           <div className="rounded-sm border border-border bg-surface/95 px-3 py-1 text-xs text-muted">
             已暫停 · 可繼續下單，時間軸凍結
           </div>
@@ -224,6 +258,8 @@ function TopMenu({
   code,
   date,
   venue,
+  theme,
+  onToggleTheme,
 }: {
   name: string;
   paused: boolean;
@@ -231,22 +267,36 @@ function TopMenu({
   code: string;
   date: string;
   venue: string;
+  theme: "light" | "dark";
+  onToggleTheme: () => void;
 }) {
   return (
-    <div className="flex min-h-12 shrink-0 items-center gap-2 border-b border-border bg-bg-1 px-3 text-xs">
+    <div className="flex min-h-12 min-w-0 shrink-0 flex-wrap items-center gap-2 border-b border-border bg-bg-1 px-3 py-1 text-xs lg:flex-nowrap lg:py-0">
       <MarkTiny />
       <span className="shrink-0 font-medium tracking-wide">當沖大富翁</span>
       <SimChip label={venue} />
+      <ThemeButton theme={theme} onToggle={onToggleTheme} />
       <span className="hidden rounded-xs border border-border-strong/60 px-1.5 py-0.5 text-2xs text-fg/85 sm:inline">
         現股當沖
       </span>
       <span className="ml-1 hidden items-center gap-1 rounded-xs border border-border-strong bg-bg px-1.5 py-0.5 font-mono text-micro sm:flex">
         {code}.TW
       </span>
-      <span className="ml-auto truncate font-mono text-micro text-fg/80">
+      <span className="ml-auto min-w-0 basis-full break-words font-mono text-micro text-fg/80 lg:basis-auto lg:truncate">
         {name.startsWith(date) ? name : `${date} · ${name}`} · {paused ? "暫停" : `${speed}x`}
       </span>
     </div>
+  );
+}
+
+function ThemeButton({ theme, onToggle }: { theme: "light" | "dark"; onToggle: () => void }) {
+  return (
+    <button type="button" onClick={onToggle}
+      aria-label={theme === "dark" ? "切換明亮看盤" : "切換深色看盤"}
+      className="inline-flex min-h-12 shrink-0 items-center gap-2 rounded-lg border border-border px-3 text-sm text-fg lg:min-h-9">
+      {theme === "dark" ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
+      {theme === "dark" ? "明亮" : "深色"}
+    </button>
   );
 }
 
@@ -329,11 +379,12 @@ function SelectedChart() {
   const pos = engine.positions.get(q.code);
   const cost = pos && pos.lots !== 0 ? pos.avg : undefined;
   const wave = chartStyle === "jiangbo";
+  const candles = chartStyle === "candles";
   return (
     <div className="flex h-full min-h-88 flex-col bg-bg lg:min-h-0">
       <div className="pane-title flex shrink-0 flex-wrap items-center gap-2 px-3 py-2 lg:h-7 lg:flex-nowrap lg:px-2 lg:py-0">
         <span className="min-w-0 basis-full break-words text-base lg:shrink-0 lg:basis-auto lg:text-xs">
-          {wave ? "江波圖" : "分時"} {q.code} {q.name}
+          {candles ? "K 線" : wave ? "江波圖" : "分時"} {q.code} {q.name}
         </span>
         <div className="flex items-center gap-2 lg:gap-0.5" role="group" aria-label="走勢圖類型">
           <button
@@ -350,13 +401,17 @@ function SelectedChart() {
           <button
             type="button"
             onClick={() => setChartStyle("tape")}
-            aria-pressed={!wave}
+            aria-pressed={chartStyle === "tape"}
             className={cn(
               "min-h-12 min-w-16 rounded-md border border-border px-3 text-base tracking-wide lg:h-5 lg:min-h-0 lg:min-w-0 lg:rounded-xs lg:border-0 lg:px-1.5 lg:text-micro",
-              !wave ? "bg-header-2 text-fg" : "text-fg/70 hover:text-fg",
+              chartStyle === "tape" ? "bg-header-2 text-fg" : "text-fg/70 hover:text-fg",
             )}
           >
             分時
+          </button>
+          <button type="button" onClick={() => setChartStyle("candles")} aria-pressed={candles}
+            className={cn("min-h-12 min-w-16 rounded-md border border-border px-3 text-base lg:h-5 lg:min-h-0 lg:min-w-0 lg:rounded-xs lg:border-0 lg:px-1.5 lg:text-micro", candles ? "bg-header-2 text-fg" : "text-fg/70 hover:text-fg")}>
+            K 線
           </button>
         </div>
         <span
@@ -391,7 +446,7 @@ function SelectedChart() {
           startT={engine.startT}
           endT={engine.endT}
           now={engine.t}
-          variant={wave ? "jiangbo" : "stock"}
+          variant={candles ? "candles" : wave ? "jiangbo" : "stock"}
         />
       </div>
     </div>

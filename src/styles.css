@@ -276,6 +276,43 @@
   box-shadow: inset 0 0 0 1px var(--color-border);
 }
 
+/* The teaching platform stays light; the trading workspace has its own palette. */
+.terminal-shell[data-market-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #05080d;
+  --color-bg-1: #0b111a;
+  --color-surface: #0e1620;
+  --color-surface-2: #101d29;
+  --color-elevated: #192a39;
+  --color-header: #103c4d;
+  --color-header-2: #164b60;
+  --color-fg: #eef4fa;
+  --color-muted: #a7b7c9;
+  --color-subtle: #94a6ba;
+  --color-border: #263442;
+  --color-border-strong: #40566b;
+  --color-brand: #69d5eb;
+  --color-brand-fg: #04171e;
+  --color-up: #ff687c;
+  --color-up-dim: #311522;
+  --color-down: #32d99b;
+  --color-down-dim: #0b2a23;
+  --color-buy: #ff687c;
+  --color-sell: #32d99b;
+  --color-warn: #f3ce78;
+  --color-tape: #e2c981;
+  --color-vol: #8798f5;
+  --color-vwap: #8bbde4;
+  --color-ring: #78def0;
+  --color-accent: #69d5eb;
+  --color-accent-fg: #04171e;
+  --shadow-panel: 0 16px 48px rgb(0 0 0 / .5);
+}
+
+.terminal-shell[data-market-theme="dark"] :is(.bg-up, .bg-down).text-white {
+  color: #05080d;
+}
+
 /* Shared classroom hierarchy, separate from compact quote typography. */
 .academy-page { min-height: 100dvh; background: radial-gradient(ellipse at 85% 0%, #d9ede888, transparent 42%), var(--color-bg); color: var(--color-fg); }
 .academy-container { width: min(100%, 1240px); margin-inline: auto; padding-inline: clamp(20px, 4vw, 48px); }
@@ -310,6 +347,7 @@
   /* Let enlarged text push the page down instead of collapsing the practice area. */
   .terminal-shell { height: auto; min-height: 100dvh; }
   .terminal-shell .term-mobile { flex: none; height: max(320px, calc(100dvh - 340px)); }
+  .terminal-shell[data-mobile-view="chart"] .term-mobile { height: auto; min-height: calc(100dvh - 14rem); }
   .terminal-shell .term-mobile-nav { position: sticky; bottom: 0; }
   .terminal-shell .pane-title { flex-wrap: wrap; height: auto; gap: 6px; padding-block: 6px; }
   .terminal-shell .term-mobile-nav[aria-label] button { height: auto; min-height: 64px; padding: .5rem .25rem; font-size: 1rem; line-height: 1.4; white-space: normal; }

@@ -1,31 +1,21 @@
 import { useEffect, useRef } from "react";
 import type { Bar, TickPt } from "@/lib/game/types";
+import {
+  canvasResolution,
+  chartLinePoints,
+  chartWindow,
+  inChartWindow,
+  minuteColumnWidth,
+  nearestTimePoint,
+  splitPriceLine,
+  timeAxisTicks,
+  type ChartRange,
+} from "@/lib/market/chart-data";
 import { formatPrice } from "@/lib/market/ticks";
 import { formatIndex } from "@/lib/market/week";
 import { formatTime } from "@/lib/utils";
 
-function readToken(name: string, fallback: string) {
-  if (typeof window === "undefined") return fallback;
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return v || fallback;
-}
-
-function tokens() {
-  return {
-    bg: readToken("--color-bg", "#000000"),
-    grid: readToken("--color-border", "#243040"),
-    muted: readToken("--color-muted", "#8b9bb0"),
-    up: readToken("--color-up", "#ff3b3b"),
-    down: readToken("--color-down", "#17c964"),
-    fg: readToken("--color-fg", "#e6edf5"),
-    tape: readToken("--color-tape", "#e8c547"),
-    vol: readToken("--color-vol", "#c084fc"),
-    vwap: readToken("--color-vwap", "#9eb6d4"),
-    warn: readToken("--color-warn", "#e7b549"),
-  };
-}
-
-type LineChartProps = {
+export type TapeChartProps = {
   bars: Bar[];
   ticks: TickPt[];
   prev: number;
@@ -41,419 +31,474 @@ type LineChartProps = {
   startT: number;
   endT: number;
   now: number;
-  variant?: "index" | "stock" | "jiangbo";
+  variant?: "index" | "stock" | "jiangbo" | "candles";
+  /** Optional visible interval, always bounded by the lesson and current time. */
+  range?: ChartRange;
+  interactive?: boolean;
+  ariaLabel?: string;
 };
 
-export function TapeChart({
-  bars,
-  ticks,
-  prev,
-  high,
-  low,
-  last,
-  open,
-  cost,
-  poc,
-  fills,
-  newsAt,
-  showVolume,
-  startT,
-  endT,
-  now,
-  variant = "stock",
-}: LineChartProps) {
-  const ref = useRef<HTMLCanvasElement>(null);
+function tokens(canvas: HTMLCanvasElement) {
+  const style = getComputedStyle(canvas);
+  const read = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
+  return {
+    bg: read("--color-bg", "#080d14"),
+    grid: read("--color-border", "#243040"),
+    muted: read("--color-muted", "#8b9bb0"),
+    up: read("--color-up", "#ff3b3b"),
+    down: read("--color-down", "#17c964"),
+    fg: read("--color-fg", "#e6edf5"),
+    tape: read("--color-tape", "#e8c547"),
+    vol: read("--color-vol", "#c084fc"),
+    vwap: read("--color-vwap", "#9eb6d4"),
+    warn: read("--color-warn", "#e7b549"),
+    font: read("--font-mono", "ui-monospace, monospace"),
+    fontSize: Math.max(11, (parseFloat(style.fontSize) || 16) * 0.75),
+  };
+}
 
+type Cursor = { x: number; keyboard?: boolean } | null;
+
+export function TapeChart(props: TapeChartProps) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const latest = useRef(props);
+  const cursor = useRef<Cursor>(null);
+  const redraw = useRef<() => void>(() => {});
+
+  // Keep observers stable even when the simulator supplies new arrays each tick.
+  useEffect(() => {
+    latest.current = props;
+    redraw.current();
+  });
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-    const parent = canvas.parentElement;
-    if (!parent) return;
-
+    let frame = 0;
+    let disposed = false;
     const draw = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const w = parent.clientWidth;
-      const h = parent.clientHeight;
-      if (w < 8 || h < 8) return;
-      if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
-        canvas.width = Math.floor(w * dpr);
-        canvas.height = Math.floor(h * dpr);
-        canvas.style.width = `${w}px`;
-        canvas.style.height = `${h}px`;
-      }
+      frame = 0;
+      if (disposed) return;
+      const { width, height } = canvas.getBoundingClientRect();
+      if (width < 8 || height < 8) return;
+      const size = canvasResolution(width, height, window.devicePixelRatio);
+      if (canvas.width !== size.width) canvas.width = size.width;
+      if (canvas.height !== size.height) canvas.height = size.height;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      paint(ctx, w, h, {
-        bars,
-        ticks,
-        prev,
-        high,
-        low,
-        last,
-        open: open ?? last,
-        cost,
-        poc,
-        fills: fills ?? [],
-        newsAt: newsAt ?? [],
-        showVolume: !!showVolume,
-        startT,
-        endT,
-        now,
-        variant,
-      });
+      ctx.setTransform(size.scaleX, 0, 0, size.scaleY, 0, 0);
+      paint(
+        ctx,
+        width,
+        height,
+        latest.current,
+        tokens(canvas),
+        latest.current.interactive === false ? null : cursor.current,
+      );
     };
+    const schedule = () => {
+      if (!disposed && !frame) frame = requestAnimationFrame(draw);
+    };
+    redraw.current = schedule;
+    const resize = new ResizeObserver(schedule);
+    resize.observe(canvas);
+    const changes = new MutationObserver(schedule);
+    for (let element: HTMLElement | null = canvas; element; element = element.parentElement) {
+      changes.observe(element, {
+        attributes: true,
+        attributeFilter: ["class", "style", "data-market-theme"],
+      });
+    }
+    const palette = window.matchMedia("(prefers-color-scheme: dark)");
+    palette.addEventListener("change", schedule);
+    let resolution: MediaQueryList | undefined;
+    const watchResolution = () => {
+      resolution?.removeEventListener("change", watchResolution);
+      resolution = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+      resolution.addEventListener("change", watchResolution);
+      schedule();
+    };
+    watchResolution();
+    window.addEventListener("resize", schedule);
+    window.visualViewport?.addEventListener("resize", schedule);
+    document.fonts?.addEventListener("loadingdone", schedule);
+    void document.fonts?.ready.then(schedule);
+    schedule();
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(frame);
+      resize.disconnect();
+      changes.disconnect();
+      palette.removeEventListener("change", schedule);
+      resolution?.removeEventListener("change", watchResolution);
+      window.removeEventListener("resize", schedule);
+      window.visualViewport?.removeEventListener("resize", schedule);
+      document.fonts?.removeEventListener("loadingdone", schedule);
+      redraw.current = () => {};
+    };
+  }, []);
 
-    draw();
-    const ro = new ResizeObserver(draw);
-    ro.observe(parent);
-    return () => ro.disconnect();
-  }, [bars, ticks, prev, high, low, last, open, cost, poc, fills, newsAt, showVolume, startT, endT, now, variant]);
-
-  return <canvas ref={ref} className="block h-full w-full" />;
+  const clear = () => {
+    cursor.current = null;
+    redraw.current();
+  };
+  const interact = props.interactive !== false;
+  return (
+    <canvas
+      ref={ref}
+      className="block h-full w-full"
+      style={{ touchAction: "pan-y pinch-zoom" }}
+      role="img"
+      tabIndex={interact ? 0 : undefined}
+      aria-label={
+        props.ariaLabel ??
+        `${props.variant === "candles" ? "K 線" : "價格走勢"}與${props.showVolume ? "成交量，" : ""}最新報價 ${props.variant === "index" ? formatIndex(props.last) : formatPrice(props.last)}。${interact ? "按住或移動游標查看資料，方向鍵移動，Escape 關閉。" : ""}`
+      }
+      onPointerDown={(event) => {
+        if (interact) {
+          cursor.current = { x: event.clientX - event.currentTarget.getBoundingClientRect().left };
+          redraw.current();
+        }
+      }}
+      onPointerMove={(event) => {
+        if (interact && (event.pointerType === "mouse" || event.buttons > 0)) {
+          cursor.current = { x: event.clientX - event.currentTarget.getBoundingClientRect().left };
+          redraw.current();
+        }
+      }}
+      onPointerUp={(event) => {
+        if (event.pointerType !== "mouse") clear();
+      }}
+      onPointerLeave={clear}
+      onPointerCancel={clear}
+      onBlur={clear}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") clear();
+        if (!interact || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
+        event.preventDefault();
+        const width = event.currentTarget.getBoundingClientRect().width;
+        cursor.current = {
+          x: Math.min(
+            width - 12,
+            Math.max(
+              12,
+              (cursor.current?.x ?? width / 2) +
+                (event.key === "ArrowRight" ? 1 : -1) * Math.max(8, width / 30),
+            ),
+          ),
+          keyboard: true,
+        };
+        redraw.current();
+      }}
+    />
+  );
 }
 
 function paint(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
-  opt: {
-    bars: Bar[];
-    ticks: TickPt[];
-    prev: number;
-    high: number;
-    low: number;
-    last: number;
-    open: number;
-    cost?: number;
-    poc?: number;
-    fills: { t: number; p: number; side: "buy" | "sell" }[];
-    newsAt: number[];
-    showVolume: boolean;
-    startT: number;
-    endT: number;
-    now: number;
-    variant: "index" | "stock" | "jiangbo";
-  },
+  opt: TapeChartProps,
+  c: ReturnType<typeof tokens>,
+  cursor: Cursor,
 ) {
-  const c = tokens();
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = c.bg;
   ctx.fillRect(0, 0, w, h);
-
   const isIndex = opt.variant === "index";
-  const isWave = opt.variant === "jiangbo";
-  const padL = isIndex ? 62 : 52;
-  const padR = isIndex ? 72 : 58;
-  const padT = 8;
-  const volH = opt.showVolume ? Math.max(32, h * 0.2) : 0;
-  const padB = 18 + volH;
+  const isCandles = opt.variant === "candles";
+  const window = chartWindow({ ...opt, wave: opt.variant === "jiangbo" });
+  const bars = inChartWindow(opt.bars, window).filter((bar) =>
+    [bar.o, bar.h, bar.l, bar.c, bar.v].every(Number.isFinite),
+  );
+  const ticks = inChartWindow(opt.ticks, window).filter((point) => Number.isFinite(point.p));
+  const points = chartLinePoints({
+    bars,
+    ticks,
+    variant: opt.variant,
+    current:
+      window.dataEnd >= opt.now && opt.now >= window.start
+        ? { t: opt.now, p: opt.last }
+        : undefined,
+  });
+  const current =
+    window.dataEnd >= opt.now ? opt.last : (points.at(-1)?.p ?? bars.at(-1)?.c ?? opt.prev);
+  const label = (price: number) => (isIndex ? formatIndex(price) : formatPrice(price));
+  const font = `${c.fontSize}px ${c.font}`;
+  ctx.font = font;
+  const axisWidth = Math.max(
+    ...[opt.prev, current, ...bars.flatMap((bar) => [bar.h, bar.l])].map(
+      (price) => ctx.measureText(label(price)).width,
+    ),
+    30,
+  );
+  const padL = Math.ceil(axisWidth + 12);
+  const padR = Math.ceil(axisWidth + 14);
+  const padT = c.fontSize;
+  const axisH = c.fontSize + 12;
+  const volH = opt.showVolume ? Math.max(32, h * 0.21) : 0;
   const plotW = w - padL - padR;
-  const plotH = h - padT - padB;
-  if (plotW < 10 || plotH < 10) return;
-
-  const highs = opt.bars.map((b) => b.h);
-  const lows = opt.bars.map((b) => b.l);
-  const tickPx = opt.ticks.map((tk) => tk.p);
-  const hi = Math.max(
+  const plotH = h - padT - axisH - volH - 4;
+  if (plotW < 15 || plotH < 20) return;
+  const values = [
     opt.prev,
-    opt.last,
-    opt.open,
-    opt.high,
-    opt.cost ?? opt.last,
-    opt.poc ?? opt.last,
-    ...highs,
-    ...tickPx,
-  );
-  const lo = Math.min(
-    opt.prev,
-    opt.last,
-    opt.open,
-    opt.low,
-    opt.cost ?? opt.last,
-    opt.poc ?? opt.last,
-    ...lows,
-    ...tickPx,
-  );
-  const span = Math.max((hi - lo) * 1.18, Math.abs(opt.prev) * 0.003, isIndex ? 40 : 0.05);
-  const mid = (hi + lo) / 2;
-  const yMax = mid + span / 2;
-  const yMin = mid - span / 2;
-  const yOf = (p: number) => padT + ((yMax - p) / (yMax - yMin)) * plotH;
-  const spanT = Math.max(opt.endT - opt.startT, 60);
-  const minView = isWave ? Math.min(spanT, 20 * 60) : spanT;
-  const viewEnd = isWave
-    ? Math.min(opt.endT, Math.max(opt.now + 90, opt.startT + minView))
-    : opt.endT;
-  const xSpan = Math.max(viewEnd - opt.startT, 60);
-  const xOfT = (t: number) => padL + ((t - opt.startT) / xSpan) * plotW;
-  const label = (p: number) => (isIndex ? formatIndex(p) : formatPrice(p));
-
+    current,
+    opt.open ?? opt.prev,
+    opt.cost,
+    opt.poc,
+    ...(opt.variant === "jiangbo" && !opt.range ? [opt.high, opt.low] : []),
+    ...bars.flatMap((bar) => [bar.h, bar.l]),
+    ...points.map((point) => point.p),
+  ].filter((price): price is number => price !== undefined && Number.isFinite(price) && price > 0);
+  const high = Math.max(...values);
+  const low = Math.min(...values);
+  const span = Math.max((high - low) * 1.16, Math.abs(opt.prev) * 0.003, isIndex ? 40 : 0.05);
+  const max = (high + low + span) / 2;
+  const yOf = (price: number) => padT + ((max - price) / span) * plotH;
+  const timeSpan = Math.max(window.end - window.start, 1);
+  const xOf = (time: number) => padL + ((time - window.start) / timeSpan) * plotW;
+  const plotBottom = padT + plotH;
+  ctx.font = font;
+  ctx.lineWidth = 0.75;
   ctx.strokeStyle = c.grid;
-  ctx.lineWidth = 1;
-  ctx.font = "10px IBM Plex Mono, ui-monospace, monospace";
   ctx.fillStyle = c.muted;
-  ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  for (let i = 0; i <= 5; i++) {
-    const p = yMax - ((yMax - yMin) * i) / 5;
-    const y = yOf(p);
+  ctx.textAlign = "right";
+  const rows = Math.max(2, Math.min(5, Math.floor(plotH / (c.fontSize * 2.6))));
+  for (let i = 0; i <= rows; i++) {
+    const price = max - (span * i) / rows;
+    const y = yOf(price);
     ctx.beginPath();
     ctx.moveTo(padL, y);
     ctx.lineTo(w - padR, y);
     ctx.stroke();
-    ctx.fillText(label(p), padL - 6, y);
+    ctx.fillText(label(price), padL - 7, y);
   }
-
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  const step = xSpan <= 2400 ? 300 : xSpan <= 7200 ? 900 : 3600;
-  const t0 = Math.ceil(opt.startT / step) * step;
-  for (let t = t0; t <= viewEnd + 1; t += step) {
-    const x = xOfT(Math.min(viewEnd, Math.max(opt.startT, t)));
+  const labelWidth = ctx.measureText("09:00").width;
+  for (const time of timeAxisTicks(window.start, window.end, plotW, labelWidth)) {
+    const x = xOf(time);
     ctx.beginPath();
     ctx.moveTo(x, padT);
-    ctx.lineTo(x, padT + plotH);
+    ctx.lineTo(x, h - axisH);
     ctx.stroke();
-    ctx.fillText(formatTime(t).slice(0, 5), x, padT + plotH + 4);
+    ctx.fillText(formatTime(time).slice(0, 5), x, h - axisH + 4);
   }
 
-  const prevY = yOf(opt.prev);
-  ctx.save();
-  ctx.setLineDash([4, 3]);
-  ctx.strokeStyle = c.tape;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(padL, prevY);
-  ctx.lineTo(w - padR, prevY);
-  ctx.stroke();
-  ctx.restore();
-
-  if (!isIndex) {
-    const openY = yOf(opt.open);
-    ctx.save();
-    ctx.setLineDash([2, 3]);
-    ctx.strokeStyle = c.muted;
-    ctx.beginPath();
-    ctx.moveTo(padL, openY);
-    ctx.lineTo(w - padR, openY);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  let vwapNow = opt.last;
-  if (!isIndex && opt.bars.length) {
-    let accP = 0;
-    let accV = 0;
-    ctx.beginPath();
-    ctx.strokeStyle = c.vwap;
-    ctx.lineWidth = 1.2;
-    opt.bars.forEach((b, i) => {
-      accP += b.c * b.v;
-      accV += b.v;
-      const v = accV > 0 ? accP / accV : b.c;
-      vwapNow = v;
-      const x = xOfT(b.t);
-      const y = yOf(v);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.lineTo(xOfT(opt.now), yOf(vwapNow));
-    ctx.stroke();
-  }
-
-  if (opt.cost && opt.cost > 0 && !isIndex) {
-    const cy = yOf(opt.cost);
-    ctx.save();
-    ctx.setLineDash([6, 3]);
-    ctx.strokeStyle = c.warn;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(padL, cy);
-    ctx.lineTo(w - padR, cy);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  if (opt.poc && opt.poc > 0 && !isIndex) {
-    const y = yOf(opt.poc);
-    ctx.save();
-    ctx.setLineDash([1, 4]);
-    ctx.strokeStyle = c.vol;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(padL, y);
-    ctx.lineTo(w - padR, y);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  const nowX = xOfT(Math.min(opt.now, viewEnd));
-  ctx.save();
-  ctx.setLineDash([1, 4]);
-  ctx.strokeStyle = c.grid;
-  ctx.beginPath();
-  ctx.moveTo(nowX, padT);
-  ctx.lineTo(nowX, padT + plotH);
-  ctx.stroke();
-  ctx.restore();
-
-  const color = isIndex ? c.tape : opt.last >= opt.prev ? c.up : c.down;
-
+  // Every time-based layer is clipped, including volume, indicators and events.
   ctx.save();
   ctx.beginPath();
   ctx.rect(padL, padT, plotW, plotH);
   ctx.clip();
-
-  if (isWave && opt.ticks.length > 1) {
-    const n = opt.ticks.length;
-    ctx.lineWidth = 1.55;
+  const reference = (price: number | undefined, color: string, dash: number[]) => {
+    if (price === undefined || !Number.isFinite(price) || price <= 0) return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.setLineDash(dash);
+    ctx.beginPath();
+    ctx.moveTo(padL, yOf(price));
+    ctx.lineTo(w - padR, yOf(price));
+    ctx.stroke();
+    ctx.restore();
+  };
+  reference(opt.prev, c.tape, [4, 4]);
+  let vwapNow = current;
+  if (!isIndex) {
+    reference(opt.open, c.muted, [2, 4]);
+    reference(opt.cost, c.warn, [6, 3]);
+    reference(opt.poc, c.vol, [1, 4]);
+    // Accumulate existing session bars before the window to retain the same VWAP definition.
+    let weighted = 0;
+    let volume = 0;
+    let begun = false;
+    ctx.beginPath();
+    ctx.strokeStyle = c.vwap;
+    ctx.lineWidth = 1.25;
+    for (const bar of opt.bars) {
+      if (bar.t > window.dataEnd || ![bar.t, bar.c, bar.v].every(Number.isFinite)) continue;
+      weighted += bar.c * bar.v;
+      volume += bar.v;
+      vwapNow = volume > 0 ? weighted / volume : bar.c;
+      if (bar.t < window.start) continue;
+      const x = xOf(bar.t);
+      const y = yOf(vwapNow);
+      if (!begun) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+      begun = true;
+    }
+    ctx.stroke();
+  }
+  ctx.save();
+  ctx.setLineDash([2, 4]);
+  ctx.strokeStyle = c.grid;
+  ctx.lineWidth = 1;
+  for (const time of opt.newsAt ?? []) {
+    if (time < window.start || time > window.dataEnd) continue;
+    const x = xOf(time);
+    ctx.beginPath();
+    ctx.moveTo(x, padT);
+    ctx.lineTo(x, plotBottom);
+    ctx.stroke();
+  }
+  ctx.restore();
+  const barWidth = minuteColumnWidth(plotW, timeSpan);
+  if (isCandles) {
+    for (const bar of bars) {
+      const x = xOf(bar.t);
+      ctx.strokeStyle = ctx.fillStyle = bar.c >= bar.o ? c.up : c.down;
+      ctx.lineWidth = 1.25;
+      ctx.beginPath();
+      ctx.moveTo(x, yOf(bar.h));
+      ctx.lineTo(x, yOf(bar.l));
+      ctx.stroke();
+      const top = Math.min(yOf(bar.o), yOf(bar.c));
+      ctx.fillRect(
+        x - barWidth / 2,
+        top,
+        barWidth,
+        Math.max(1.5, Math.abs(yOf(bar.o) - yOf(bar.c))),
+      );
+    }
+  } else {
+    const runs = isIndex ? [{ above: true, points }] : splitPriceLine(points, opt.prev);
+    ctx.lineWidth = 2;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
-    const t0 = opt.ticks[0]!;
-    let runAbove = t0.p >= opt.prev;
-    ctx.beginPath();
-    ctx.strokeStyle = runAbove ? c.up : c.down;
-    ctx.moveTo(xOfT(t0.t), yOf(t0.p));
-    for (let i = 1; i < n; i++) {
-      const a = opt.ticks[i - 1]!;
-      const b = opt.ticks[i]!;
-      const above = b.p >= opt.prev;
-      if (above !== runAbove) {
-        const den = b.p - a.p;
-        const u = Math.abs(den) < 1e-9 ? 0 : (opt.prev - a.p) / den;
-        const uu = Math.min(1, Math.max(0, u));
-        const xCross = xOfT(a.t) + (xOfT(b.t) - xOfT(a.t)) * uu;
-        ctx.lineTo(xCross, yOf(opt.prev));
-        ctx.stroke();
-        runAbove = above;
-        ctx.beginPath();
-        ctx.strokeStyle = runAbove ? c.up : c.down;
-        ctx.moveTo(xCross, yOf(opt.prev));
-      }
-      ctx.lineTo(xOfT(b.t), yOf(b.p));
-    }
-    ctx.stroke();
-    const lastTk = opt.ticks[n - 1]!;
-    ctx.beginPath();
-    ctx.fillStyle = color;
-    ctx.arc(xOfT(lastTk.t), yOf(opt.last), 2.6, 0, Math.PI * 2);
-    ctx.fill();
-  } else {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    if (opt.bars.length) {
-      opt.bars.forEach((b, i) => {
-        const x = xOfT(b.t);
-        const y = yOf(b.c);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.lineTo(nowX, yOf(opt.last));
-    } else {
-      ctx.moveTo(xOfT(opt.startT), yOf(opt.last));
-      ctx.lineTo(nowX, yOf(opt.last));
-    }
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.fillStyle = color;
-    ctx.arc(nowX, yOf(opt.last), 2.6, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  if (!isIndex && opt.fills.length) {
-    for (const f of opt.fills.slice(0, 48)) {
-      const x = xOfT(f.t);
-      const y = yOf(f.p);
-      if (x < padL - 2 || x > padL + plotW + 2) continue;
+    for (const run of runs) {
+      ctx.strokeStyle = isIndex ? c.tape : run.above ? c.up : c.down;
       ctx.beginPath();
-      ctx.fillStyle = f.side === "buy" ? c.up : c.down;
-      ctx.moveTo(x, y);
-      if (f.side === "buy") {
-        ctx.lineTo(x - 3.5, y + 6);
-        ctx.lineTo(x + 3.5, y + 6);
-      } else {
-        ctx.lineTo(x - 3.5, y - 6);
-        ctx.lineTo(x + 3.5, y - 6);
-      }
-      ctx.closePath();
+      run.points.forEach((point, i) => {
+        if (i) ctx.lineTo(xOf(point.t), yOf(point.p));
+        else ctx.moveTo(xOf(point.t), yOf(point.p));
+      });
+      ctx.stroke();
+    }
+    const point = points.at(-1);
+    if (point) {
+      ctx.fillStyle = isIndex ? c.tape : point.p >= opt.prev ? c.up : c.down;
+      ctx.beginPath();
+      ctx.arc(xOf(point.t), yOf(point.p), 2.5, 0, Math.PI * 2);
       ctx.fill();
     }
   }
+  for (const fill of inChartWindow(opt.fills ?? [], window).slice(0, 48)) {
+    if (isIndex) break;
+    const x = xOf(fill.t);
+    const y = yOf(fill.p);
+    const dir = fill.side === "buy" ? 1 : -1;
+    ctx.fillStyle = fill.side === "buy" ? c.up : c.down;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - 4, y + dir * 7);
+    ctx.lineTo(x + 4, y + dir * 7);
+    ctx.closePath();
+    ctx.fill();
+  }
   ctx.restore();
 
-  if (opt.newsAt.length) {
+  if (opt.showVolume) {
+    const maxVolume = Math.max(1, ...bars.map((bar) => bar.v));
+    const base = h - axisH;
     ctx.save();
-    ctx.strokeStyle = c.grid;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([2, 3]);
-    for (const t of opt.newsAt) {
-      if (t < opt.startT - 20 || t > viewEnd + 20) continue;
-      const x = xOfT(t);
-      ctx.beginPath();
-      ctx.moveTo(x, padT);
-      ctx.lineTo(x, padT + plotH);
-      ctx.stroke();
+    ctx.beginPath();
+    ctx.rect(padL, plotBottom + 4, plotW, volH - 4);
+    ctx.clip();
+    for (const bar of bars) {
+      const height = (Math.max(0, bar.v) / maxVolume) * (volH - 8);
+      ctx.fillStyle = isIndex
+        ? c.vol
+        : (isCandles ? bar.c >= bar.o : bar.c >= opt.prev)
+          ? c.up
+          : c.down;
+      ctx.globalAlpha = 0.8;
+      ctx.fillRect(xOf(bar.t) - barWidth / 2, base - height, barWidth, height);
     }
     ctx.restore();
   }
-
-  if (opt.showVolume && opt.bars.length) {
-    const maxV = Math.max(...opt.bars.map((b) => b.v), 1);
-    const base = h - 6;
-    const bw = Math.max(1.4, (plotW / Math.max(opt.bars.length, 8)) * 0.62);
-    for (const b of opt.bars) {
-      const x = xOfT(b.t);
-      const bh = (b.v / maxV) * (volH - 8);
-      ctx.fillStyle = b.c >= opt.prev ? c.up : c.down;
-      if (isIndex) ctx.fillStyle = c.vol;
-      ctx.globalAlpha = 0.55;
-      ctx.fillRect(x - bw / 2, base - bh, bw, bh);
-      ctx.globalAlpha = 1;
+  ctx.font = font;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  const tagHeight = c.fontSize + 8;
+  const tagY = Math.min(plotBottom - tagHeight / 2, Math.max(padT + tagHeight / 2, yOf(current)));
+  ctx.fillStyle = current >= opt.prev ? c.up : c.down;
+  ctx.fillRect(w - padR + 3, tagY - tagHeight / 2, padR - 5, tagHeight);
+  ctx.fillStyle = c.bg;
+  ctx.fillText(label(current), w - padR / 2 + 1, tagY);
+  const marks = [{ text: "昨", price: opt.prev, color: c.tape }];
+  if (!isIndex) {
+    if (opt.open) marks.push({ text: "開", price: opt.open, color: c.muted });
+    if (bars.length) marks.push({ text: "均", price: vwapNow, color: c.vwap });
+    if (opt.cost) marks.push({ text: "成", price: opt.cost, color: c.warn });
+    if (opt.poc) marks.push({ text: "堆", price: opt.poc, color: c.vol });
+    if (opt.variant === "jiangbo" && !opt.range && opt.high > opt.low) {
+      marks.push(
+        { text: "壓", price: opt.high, color: c.up },
+        { text: "撐", price: opt.low, color: c.down },
+      );
     }
   }
-
-  const tag = (text: string, y: number, bg: string) => {
-    const yy = Math.min(padT + plotH - 8, Math.max(padT + 8, y));
-    ctx.fillStyle = bg;
-    ctx.fillRect(w - padR + 3, yy - 8, padR - 6, 16);
-    ctx.fillStyle = "#fff";
+  const visibleMarks = marks
+    .map((mark) => ({ ...mark, y: yOf(mark.price) }))
+    .sort((a, b) => a.y - b.y);
+  const markGap = c.fontSize + 3;
+  let lastMarkY = padT - markGap / 2;
+  ctx.textAlign = "left";
+  for (const mark of visibleMarks) {
+    const y = Math.max(lastMarkY + markGap, mark.y - c.fontSize / 2);
+    if (y > plotBottom - c.fontSize / 2) continue;
+    ctx.fillStyle = mark.color;
+    ctx.fillText(mark.text, padL + 4, y);
+    lastMarkY = y;
+  }
+  if (!points.length && !bars.length) {
+    ctx.fillStyle = c.muted;
     ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = "10px IBM Plex Mono, ui-monospace, monospace";
-    ctx.fillText(text, w - padR / 2 + 1, yy);
-  };
+    ctx.fillText("此區間尚無資料", padL + plotW / 2, padT + plotH / 2);
+  }
 
-  tag(label(opt.last), yOf(opt.last), opt.last >= opt.prev ? c.up : c.down);
-
-  if (!isIndex) {
-    const marks: { text: string; y: number; color: string }[] = [
-      { text: "昨", y: prevY, color: c.tape },
-      { text: "開", y: yOf(opt.open), color: c.muted },
-      { text: "均", y: yOf(vwapNow), color: c.vwap },
-    ];
-    if (opt.cost && opt.cost > 0) {
-      marks.push({ text: "成", y: yOf(opt.cost), color: c.warn });
-    }
-    if (opt.poc && opt.poc > 0) {
-      marks.push({ text: "堆", y: yOf(opt.poc), color: c.vol });
-    }
-    if (isWave && Math.abs(opt.high - opt.low) > Math.abs(opt.prev) * 0.0012) {
-      marks.push({ text: "壓", y: yOf(opt.high), color: c.up });
-      marks.push({ text: "撐", y: yOf(opt.low), color: c.down });
-    }
-    marks.sort((a, b) => a.y - b.y);
-    for (let i = 1; i < marks.length; i++) {
-      const gap = marks[i]!.y - marks[i - 1]!.y;
-      if (gap < 11) marks[i]!.y = marks[i - 1]!.y + 11;
-    }
-    ctx.font = "9px IBM Plex Mono, ui-monospace, monospace";
+  if (cursor && (cursor.keyboard || (cursor.x >= padL && cursor.x <= w - padR))) {
+    const time = window.start + Math.min(1, Math.max(0, (cursor.x - padL) / plotW)) * timeSpan;
+    const point = isCandles ? nearestTimePoint(bars, time) : nearestTimePoint(points, time);
+    if (!point) return;
+    const candle = "c" in point ? point : undefined;
+    const price = candle ? candle.c : (point as TickPt).p;
+    const x = xOf(point.t);
+    const y = yOf(price);
+    ctx.save();
+    ctx.strokeStyle = c.fg;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, padT);
+    ctx.lineTo(x, h - axisH);
+    ctx.moveTo(padL, y);
+    ctx.lineTo(w - padR, y);
+    ctx.stroke();
+    ctx.restore();
+    const lines = candle
+      ? [
+          `${formatTime(point.t).slice(0, 5)}  開 ${label(candle.o)}  收 ${label(candle.c)}`,
+          `高 ${label(candle.h)}  低 ${label(candle.l)}  量 ${candle.v} 張`,
+        ]
+      : [`${formatTime(point.t)}  ${label(price)}`];
+    ctx.font = font;
     ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    for (const m of marks) {
-      ctx.fillStyle = m.color;
-      ctx.fillText(m.text, padL + 4, Math.min(padT + plotH - 6, m.y));
-    }
+    ctx.textBaseline = "top";
+    const boxWidth = Math.min(
+      w - 16,
+      Math.max(...lines.map((line) => ctx.measureText(line).width)) + 16,
+    );
+    const boxHeight = lines.length * (c.fontSize + 7) + 9;
+    const boxX = Math.max(8, Math.min(w - boxWidth - 8, x - boxWidth / 2));
+    ctx.fillStyle = c.bg;
+    ctx.fillRect(boxX, 3, boxWidth, boxHeight);
+    ctx.strokeStyle = c.grid;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(boxX, 3, boxWidth, boxHeight);
+    ctx.fillStyle = c.fg;
+    lines.forEach((line, i) =>
+      ctx.fillText(line, boxX + 8, 8 + i * (c.fontSize + 7), boxWidth - 16),
+    );
   }
 }
