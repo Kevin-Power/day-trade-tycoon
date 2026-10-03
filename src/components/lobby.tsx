@@ -29,6 +29,7 @@ import { teachingUniverseLine } from "@/lib/market/universe";
 import { WEEK_SESSIONS, formatIndex } from "@/lib/market/week";
 import { useGate } from "@/lib/gate/context";
 import { ClassroomAccount } from "@/components/classroom-account";
+import { DisplayControls } from "@/components/display-controls";
 import { PracticeGoalReminder } from "@/components/practice-goal";
 import { classroomSampleMicro, officialIndexMicro, officialTurnoverMicro } from "@/lib/provenance";
 
@@ -70,7 +71,8 @@ export function Lobby() {
               </span>
             </span>
           </a>
-          <nav aria-label="教室導覽" className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <nav aria-label="教室導覽" className="flex min-w-0 flex-wrap items-center gap-1 sm:gap-2">
+            <DisplayControls />
             <Link
               to="/manual"
               className="academy-nav-link inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs sm:px-3 sm:text-sm"

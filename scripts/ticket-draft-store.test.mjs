@@ -14,11 +14,20 @@ test("quantity can stay empty while typing; submission and plan saving cannot re
   store.getState().setTicket({ lots: 2, type: "market" });
   store.getState().editTicketDraft("lots", "");
   assert.equal(store.getState().ticketDraft.lots, "");
-  assert.equal(store.getState().ticket.lots, 2, "numeric compatibility state must not become the submitted quantity");
+  assert.equal(
+    store.getState().ticket.lots,
+    2,
+    "numeric compatibility state must not become the submitted quantity",
+  );
   store.getState().submit();
   assertNotSubmitted(store);
   assert.match(messages.at(-1), /請完成張數/);
-  assert.equal(store.getState().saveTradePlan({ entryCondition: "先看", exitCondition: "再退出", maxLoss: 1000 }).ok, false);
+  assert.equal(
+    store
+      .getState()
+      .saveTradePlan({ entryCondition: "先看", exitCondition: "再退出", maxLoss: 1000 }).ok,
+    false,
+  );
   store.getState().editTicketDraft("lots", "1");
   store.getState().submit();
   assert.equal(store.getState().engine.orders[0].lots, 1);
@@ -42,8 +51,8 @@ test("cleared or incomplete limit prices cannot silently fall back to the old nu
   assert.equal(store.getState().firstPlannedOrder.price, ask);
 });
 
-test("flash price selection updates the visible price but cannot repair or bypass an empty quantity", () => {
-  const { store, messages } = gameStoreFixture();
+test("changing flash quantity disarms it and price selection cannot repair or bypass an empty quantity", () => {
+  const { store } = gameStoreFixture();
   store.getState().setFlashOrder(true);
   store.getState().editTicketDraft("lots", "");
   store.getState().editTicketDraft("price", "");
@@ -52,8 +61,10 @@ test("flash price selection updates the visible price but cannot repair or bypas
   assert.equal(store.getState().ticketDraft.lots, "");
   assert.equal(store.getState().ticketDraft.price, String(ask));
   assertNotSubmitted(store);
-  assert.match(messages.at(-1), /請完成張數/);
+  assert.equal(store.getState().flashOrder, false);
+  assert.match(store.getState().flashNotice, /重新啟用/);
   store.getState().editTicketDraft("lots", "1");
+  store.getState().setFlashOrder(true);
   store.getState().clickPrice(ask, "buy");
   assert.equal(store.getState().engine.fills.length, 1);
   assert.equal(store.getState().firstPlannedOrder.lots, 1);
@@ -66,7 +77,11 @@ test("flash remains unable to submit an invalid price, including when a price se
   store.getState().submit();
   assertNotSubmitted(store);
   store.getState().clickPrice(NaN, "buy");
-  assert.equal(store.getState().ticketDraft.price, "0", "the existing tick function normalizes nonfinite input to zero");
+  assert.equal(
+    store.getState().ticketDraft.price,
+    "0",
+    "the existing tick function normalizes nonfinite input to zero",
+  );
   assertNotSubmitted(store);
 });
 
@@ -119,10 +134,16 @@ test("symbol and side selection synchronize quote prices but preserve an incompl
   store.getState().editTicketDraft("lots", "");
   store.getState().editTicketDraft("price", "");
   store.getState().select("2882");
-  assert.equal(store.getState().ticketDraft.price, String(store.getState().engine.quote("2882").ask));
+  assert.equal(
+    store.getState().ticketDraft.price,
+    String(store.getState().engine.quote("2882").ask),
+  );
   assert.equal(store.getState().ticketDraft.lots, "");
   store.getState().setTicket({ side: "sell" });
-  assert.equal(store.getState().ticketDraft.price, String(store.getState().engine.quote("2882").bid));
+  assert.equal(
+    store.getState().ticketDraft.price,
+    String(store.getState().engine.quote("2882").bid),
+  );
   assert.equal(store.getState().ticketDraft.lots, "");
   store.getState().submit();
   assertNotSubmitted(store);
@@ -134,7 +155,10 @@ test("leaving or starting a new lesson clears unfinished drafts and initializes 
   store.getState().editTicketDraft("price", ".");
   store.getState().start("wed-open");
   assert.equal(store.getState().ticketDraft.lots, "1");
-  assert.equal(store.getState().ticketDraft.price, String(store.getState().engine.quote("2317").ask));
+  assert.equal(
+    store.getState().ticketDraft.price,
+    String(store.getState().engine.quote("2317").ask),
+  );
   store.getState().editTicketDraft("lots", "");
   store.getState().leave();
   assert.equal(store.getState().ticketDraft.lots, "1");

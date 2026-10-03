@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, BookOpen, LogOut, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DisplayControls } from "@/components/display-controls";
 import { SimChip } from "@/components/provenance";
 import { DISCLAIMER } from "@/lib/provenance";
 import { useGate } from "@/lib/gate/context";
@@ -45,6 +46,7 @@ export function LicensePage() {
             {unlocked ? "回大廳" : "回入場"}
           </Link>
           <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
+            <DisplayControls compact />
             {unlocked ? (
               <Link
                 to="/manual"

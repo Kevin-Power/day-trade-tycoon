@@ -1,0 +1,76 @@
+/* Text stays as selectable type; diagrams use their own pixel-scaled canvas. */
+html { text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+body { overflow-wrap: break-word; }
+.position-record-table { display: none; }
+.terminal-shell[data-terminal-layout="desktop"] .position-record-table { display: block; }
+.terminal-shell[data-terminal-layout="desktop"] .position-record-cards { display: none; }
+.position-record-table table { min-width: 38rem; }
+.position-record-table :is(th, td) { padding: .65rem .75rem; font-size: .875rem; }
+.positions-dock { min-width: 0; }
+.positions-dock > .pane-title { height: auto; }
+.terminal-shell:is([data-terminal-layout="tablet"], [data-terminal-layout="desktop"]) .watchlist-compact-card { display: block; }
+.terminal-shell:is([data-terminal-layout="tablet"], [data-terminal-layout="desktop"]) .watchlist-full-card { display: none; }
+.terminal-shell:is([data-terminal-layout="tablet"], [data-terminal-layout="desktop"]) .watchlist-cards { padding: .5rem; gap: .5rem; }
+.terminal-shell:is([data-terminal-layout="tablet"], [data-terminal-layout="desktop"]) .watchlist-instructions { display: none; }
+button, input, select, textarea, summary { touch-action: manipulation; }
+input, select, textarea { max-width: 100%; }
+@media (pointer: coarse) {
+  button, [role="button"], summary { min-height: 44px; }
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: max(16px, 1em); }
+}
+
+html[data-reading-mode="senior"] {
+  font-size: 125%;
+  --text-2xs: .8rem;
+  --text-micro: .85rem;
+  --text-xs: .9rem;
+  --text-sm: 1rem;
+  --text-base: 1.1rem;
+  --color-muted: #3b5068;
+  --color-subtle: #4a6078;
+  --color-border: #b7c7d8;
+}
+html[data-reading-mode="senior"] body { line-height: 1.65; }
+html[data-reading-mode="senior"] :focus-visible { outline-width: 3px; outline-offset: 3px; }
+html[data-reading-mode="senior"] :is(button, [role="button"], input:not([type="checkbox"]):not([type="radio"]), select, summary) {
+  min-height: 56px;
+  line-height: 1.5;
+}
+html[data-reading-mode="senior"] :is(button, summary) { white-space: normal; }
+html[data-reading-mode="senior"] input:is([type="checkbox"], [type="radio"]) { width: 1.2rem; height: 1.2rem; flex-shrink: 0; }
+html:not([data-reading-mode="senior"]) .terminal-shell {
+  --text-2xs: .75rem;
+  --text-micro: .8125rem;
+  --text-xs: .875rem;
+  --text-sm: .9375rem;
+}
+html[data-reading-mode="senior"] :is(.academy-nav-link, .academy-button-primary, .academy-button-secondary) {
+  min-height: 56px;
+  font-size: 1rem;
+}
+html[data-reading-mode="senior"] .academy-description { font-size: 1.05rem; }
+html[data-reading-mode="senior"] .academy-eyebrow { font-size: .9rem; }
+html[data-reading-mode="senior"] .academy-header nav { flex-wrap: wrap; flex-shrink: 1; }
+html[data-reading-mode="senior"] .academy-title { letter-spacing: -.02em; }
+html[data-reading-mode="senior"] .terminal-shell .pane-title { font-size: 1rem; }
+html[data-reading-mode="senior"] .terminal-shell[data-market-theme="dark"] {
+  --color-muted: #c2d0df;
+  --color-subtle: #b9cada;
+  --color-border: #52677e;
+  --color-border-strong: #7890a9;
+}
+html[data-reading-mode="senior"] :is(.flash-up, .flash-down, .stagger-in > *, .tape-track, .live-dot) {
+  animation: none !important;
+}
+html[data-reading-mode="senior"] .terminal-shell .trade-ticket { height: auto; }
+html[data-reading-mode="senior"] .terminal-shell .ticket-fields { grid-template-columns: minmax(0, 1fr); }
+html[data-reading-mode="senior"] .terminal-shell .ticket-fields > * { grid-column: 1; }
+html[data-reading-mode="senior"] .terminal-shell .ticket-number { min-height: 64px; height: auto; }
+html[data-reading-mode="senior"] .terminal-shell .ticket-number button { min-width: 56px; flex-shrink: 0; }
+html[data-reading-mode="senior"] .terminal-shell .ticket-number input { min-width: 0; width: 100%; }
+html[data-reading-mode="senior"] .terminal-shell .ticket-setting { flex-wrap: wrap; gap: .5rem; }
+html[data-reading-mode="senior"] .terminal-shell .order-actions { flex-wrap: wrap; }
+html[data-reading-mode="senior"] .terminal-shell .order-actions .order-summary { flex-basis: 100%; }
+html[data-reading-mode="senior"] .terminal-shell .ticket-presets { display: flex; flex-wrap: wrap; }
+html[data-reading-mode="senior"] .terminal-shell .ticket-presets > button { flex: 1 1 3rem; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

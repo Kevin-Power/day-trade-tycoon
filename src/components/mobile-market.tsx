@@ -53,14 +53,14 @@ export function MobileMarket() {
   ];
 
   return (
-    <section aria-label={`${q.code} ${q.name} 模擬行情`} className="min-w-0 bg-bg text-fg">
-      <header className="px-3 pb-3 pt-3">
+    <section aria-label={`${q.code} ${q.name} 模擬行情`} className="mobile-market @container min-w-0 bg-bg text-fg">
+      <header className="px-3 pb-3 pt-3 @min-[40rem]:px-5 @min-[40rem]:py-4">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
           <h2 className="min-w-0 break-words text-xl font-semibold">{q.name}</h2>
           <span className="font-mono text-base text-muted">{q.code}</span>
           <span className="rounded border border-border px-2 py-1 text-sm text-muted">模擬行情</span>
         </div>
-        <div className="mt-3 flex flex-wrap items-end gap-3">
+        <div className="mt-3 flex flex-wrap items-end gap-3 @min-[40rem]:gap-6">
           <div className="min-w-0 flex-1 basis-36">
             <p className="mb-1 text-sm text-muted">目前模擬價</p>
             <p className={cn("break-all font-mono text-[2.5rem] font-semibold leading-tight tabular", toneClass(q.change))}>
@@ -71,7 +71,7 @@ export function MobileMarket() {
               <span>{formatPct(q.changePct)}</span>
             </p>
           </div>
-          <dl className="grid min-w-0 flex-1 basis-40 grid-cols-2 gap-2">
+          <dl className="grid min-w-0 flex-1 basis-40 grid-cols-2 gap-2 @min-[40rem]:max-w-sm @min-[40rem]:gap-3">
             <div className="min-w-0 rounded-lg border border-border bg-surface px-2 py-2">
               <dt className="text-base text-muted">買價</dt>
               <dd className={cn("mt-1 break-all font-mono text-lg font-semibold tabular", q.bidLots > 0 ? toneClass(q.bid - q.prevClose) : "text-muted")}>
@@ -123,7 +123,7 @@ export function MobileMarket() {
             ))}
           </div>
           {rangeNote && <p className="px-3 pb-2 text-sm text-muted">{rangeNote}</p>}
-          <div className="h-[min(48dvh,22rem)] min-h-64 w-full">
+          <div className="market-chart-frame h-[clamp(18rem,45dvh,28rem)] min-w-0 @min-[44rem]:h-[clamp(22rem,48dvh,32rem)]">
             <TapeChart
               bars={engine.bars(q.code)}
               ticks={engine.ticks(q.code)}
@@ -144,7 +144,10 @@ export function MobileMarket() {
               ariaLabel={`${q.code} ${q.name} 模擬${candles ? "1 分鐘 K 線" : "分時走勢"}與成交量，${minutes ? `近 ${minutes} 分鐘` : "本盤全程"}`}
             />
           </div>
-          <p className="px-3 py-2 text-sm leading-relaxed text-muted">{classroomPathMicro()}</p>
+          <div className="space-y-1 px-3 py-2 text-sm leading-relaxed text-muted">
+            <p>點按圖表查看時間與價格，也可使用左右方向鍵。</p>
+            <p>{classroomPathMicro()}</p>
+          </div>
         </div>
       )}
 
@@ -162,7 +165,7 @@ export function MobileMarket() {
         </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 px-3 py-4">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 px-3 py-4 @min-[40rem]:grid-cols-3 @min-[40rem]:gap-x-6 @min-[40rem]:px-5">
         {quoteStats.map((stat) => (
           <div key={stat.label} className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
             <dt className="text-base text-muted">{stat.label}</dt>

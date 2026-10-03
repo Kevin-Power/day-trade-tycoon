@@ -76,9 +76,9 @@ export function OrderTicket() {
 
   return (
     <div data-order-ticket-start tabIndex={-1} className="trade-ticket flex h-full min-h-0 flex-col bg-surface outline-none">
-      <div className="pane-title flex h-7 items-center justify-between gap-2 px-2">
+      <div className="pane-title flex min-h-12 flex-wrap items-center justify-between gap-2 px-3 py-2">
         <span>委託下單</span>
-        <span className="flex items-center gap-1.5">
+        <span className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="hidden font-mono text-micro text-fg/80 sm:inline">
             現股當沖 · 1 張 = 1,000 股
           </span>
@@ -166,13 +166,13 @@ export function OrderTicket() {
               <button
                 type="button"
                 aria-pressed={flashOrder}
-                onClick={() => !flashOrder && setFlashOrder(true)}
+                onClick={() => setMobileTab("flash")}
                 className={cn(
                   "h-6 px-1.5 text-2xs",
                   flashOrder ? "bg-header-2 text-tape" : "text-muted hover:text-fg",
                 )}
               >
-                開
+                開啟專用頁
               </button>
             </span>
           </Field>

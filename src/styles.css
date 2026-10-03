@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "./reading-mode.css";
+@import "./responsive-terminal.css";
 @source "./**/*.{ts,tsx}";
 
 @theme {

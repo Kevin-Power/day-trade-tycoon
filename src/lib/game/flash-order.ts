@@ -4,6 +4,40 @@ export const FLASH_KEY = "day-tycoon-flash";
 
 export type ClickSide = "buy" | "sell";
 
+export type FlashActivation = {
+  id: string;
+  code: string;
+  lots: number;
+  tif: "ROD" | "IOC" | "FOK";
+};
+export type FlashSubmitInput = {
+  code: string;
+  side: ClickSide;
+  price: number;
+  activationId: string;
+  repeat?: boolean;
+};
+export type FlashLastResult = {
+  ok: boolean;
+  code: string;
+  side: ClickSide;
+  lots: number | null;
+  price: number;
+  tif: string;
+  at: number;
+  message: string;
+  orderId?: string;
+};
+export const FLASH_BURST_MS = 450;
+
+export function flashBurstBlocked(
+  lastAttemptAt: number | null,
+  now: number,
+  repeat = false,
+): boolean {
+  return repeat || (lastAttemptAt !== null && now - lastAttemptAt < FLASH_BURST_MS);
+}
+
 export type ClickTicket = {
   side: ClickSide;
   type: "limit" | "market";
@@ -56,9 +90,7 @@ export type FlashClickContext = {
 };
 
 export type FlashClickDecision =
-  | { action: "fill" }
-  | { action: "submit" }
-  | { action: "block"; reason: string };
+  { action: "fill" } | { action: "submit" } | { action: "block"; reason: string };
 
 export function isExamScenario(scenarioId: string | null | undefined): boolean {
   return scenarioId === "tycoon";

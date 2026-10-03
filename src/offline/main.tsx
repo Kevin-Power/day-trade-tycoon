@@ -1,6 +1,7 @@
 import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AppShell } from "@/components/app-shell";
+import { DisplayPreferencesEffect } from "@/components/display-controls";
 import { GateProvider } from "@/lib/gate/context";
 import { createHashHistory, createRootRoute, createRoute, createRouter, Link, Outlet, RouterProvider } from "@tanstack/react-router";
 import { ManualPage } from "@/components/manual-page";
@@ -22,7 +23,7 @@ document.addEventListener("click", (event) => {
   if (section) { event.preventDefault(); section.scrollIntoView({ behavior: "smooth" }); }
 });
 
-const rootRoute = createRootRoute({ component: () => <GateProvider><Outlet /></GateProvider> });
+const rootRoute = createRootRoute({ component: () => <><DisplayPreferencesEffect /><GateProvider><Outlet /></GateProvider></> });
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: AppShell });
 const manualRoute = createRoute({ getParentRoute: () => rootRoute, path: "/manual", component: ManualPage });
 const licenseRoute = createRoute({ getParentRoute: () => rootRoute, path: "/license", component: LicensePage });

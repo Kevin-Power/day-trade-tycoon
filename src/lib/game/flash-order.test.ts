@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   FLASH_EXAM_PAUSE_TOAST,
   FLASH_KEY,
+  FLASH_BURST_MS,
+  flashBurstBlocked,
   flashClickDecision,
   loadFlashOrder,
   saveFlashOrder,
@@ -29,7 +31,9 @@ function withWindow<T>(storage: StorageStub | undefined, fn: () => T): T {
   }
 }
 
-function memoryStorage(initial: Record<string, string> = {}): StorageStub & { data: Record<string, string> } {
+function memoryStorage(
+  initial: Record<string, string> = {},
+): StorageStub & { data: Record<string, string> } {
   const data = { ...initial };
   return {
     data,
@@ -42,8 +46,14 @@ function memoryStorage(initial: Record<string, string> = {}): StorageStub & { da
 
 describe("flash order preference", () => {
   it("defaults off without window or stored value", () => {
-    assert.equal(withWindow(undefined, () => loadFlashOrder()), false);
-    assert.equal(withWindow(memoryStorage(), () => loadFlashOrder()), false);
+    assert.equal(
+      withWindow(undefined, () => loadFlashOrder()),
+      false,
+    );
+    assert.equal(
+      withWindow(memoryStorage(), () => loadFlashOrder()),
+      false,
+    );
   });
 
   it("persists on/off like teachMode (1/0)", () => {
@@ -59,8 +69,24 @@ describe("flash order preference", () => {
   });
 });
 
+describe("flash repeat protection", () => {
+  it("ignores a click burst and held keys but permits a distinct later submission", () => {
+    assert.equal(flashBurstBlocked(null, 1000), false);
+    assert.equal(flashBurstBlocked(1000, 1001), true);
+    assert.equal(flashBurstBlocked(1000, 1000 + FLASH_BURST_MS - 1), true);
+    assert.equal(flashBurstBlocked(1000, 1000 + FLASH_BURST_MS), false);
+    assert.equal(flashBurstBlocked(1000, 5000, true), true);
+  });
+});
+
 describe("ticketAfterClickPrice", () => {
-  const ticket = { side: "sell" as const, type: "market" as const, lots: 5, price: 100, tif: "IOC" };
+  const ticket = {
+    side: "sell" as const,
+    type: "market" as const,
+    lots: 5,
+    price: 100,
+    tif: "IOC",
+  };
 
   it("fills limit price on tick and keeps lots/tif", () => {
     const next = ticketAfterClickPrice(ticket, 233.37);

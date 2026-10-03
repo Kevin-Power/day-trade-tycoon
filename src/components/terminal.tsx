@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChartNoAxesCombined, ListFilter, Moon, Package, PanelTop, Sun } from "lucide-react";
+import { ChartNoAxesCombined, ListFilter, Moon, Package, PanelTop, Sun, Zap } from "lucide-react";
 import { AccountBar, NewsBar } from "@/components/account-bar";
 import { TapeChart } from "@/components/charts";
 import { LessonCard } from "@/components/lesson-card";
@@ -15,15 +15,20 @@ import { cn, formatPct, formatTime } from "@/lib/utils";
 import { Arrow, toneClass } from "@/components/signed";
 import { formatPrice } from "@/lib/market/ticks";
 import { formatIndex } from "@/lib/market/week";
-import { CoachCorner, ProvenanceBadge, ProvenanceMicro, SimChip } from "@/components/provenance";
+import { ProvenanceBadge, ProvenanceMicro, SimChip } from "@/components/provenance";
 import { classroomPathMicro, officialIndexPaneMicro } from "@/lib/provenance";
 import { MobileMarket } from "@/components/mobile-market";
+import { DisplayControls } from "@/components/display-controls";
+import { LightningOrder } from "@/components/lightning-order";
+import { useDisplayPreferences } from "@/lib/display-preferences";
+import { useTerminalLayout } from "@/lib/use-terminal-layout";
 
 const MOBILE_TABS = [
   { id: "watch", label: "自選行情", icon: ListFilter },
   { id: "chart", label: "走勢圖", icon: ChartNoAxesCombined },
   { id: "trade", label: "模擬下單", icon: PanelTop },
   { id: "pos", label: "庫存成交", icon: Package },
+  { id: "flash", label: "閃電下單", icon: Zap },
 ] satisfies { id: MobileTab; label: string; icon: typeof ListFilter }[];
 
 export function Terminal() {
@@ -38,7 +43,6 @@ export function Terminal() {
   const phase = useGame((s) => s.phase);
   const mobileTab = useGame((s) => s.mobileTab);
   const setMobileTab = useGame((s) => s.setMobileTab);
-  const activeBeat = useGame((s) => s.activeBeat);
   const venue = useGame((s) => s.venue);
   const frame = useGame((s) => s.frame);
   const raf = useRef(0);
@@ -46,6 +50,24 @@ export function Terminal() {
   const acc = useRef(0);
   const uiAcc = useRef(0);
   const [marketTheme, setMarketTheme] = useState<"dark" | "light">("dark");
+  const { mode } = useDisplayPreferences();
+  const senior = mode === "senior";
+  const layout = useTerminalLayout(senior);
+  const singlePane = layout === "phone" || layout === "senior";
+  const activeView = !singlePane && mobileTab === "watch" ? "chart" : mobileTab;
+  const shellRef = useRef<HTMLDivElement>(null);
+  const previousView = useRef(activeView);
+
+  useEffect(() => {
+    if (previousView.current === activeView) return;
+    previousView.current = activeView;
+    const frameId = requestAnimationFrame(() => {
+      const pane = shellRef.current?.querySelector<HTMLElement>(`[data-terminal-pane="${activeView}"]`);
+      pane?.focus({ preventScroll: true });
+      pane?.scrollIntoView({ block: layout === "desktop" ? "nearest" : "start", behavior: "auto" });
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [activeView, layout]);
 
   useEffect(() => {
     try {
@@ -120,83 +142,83 @@ export function Terminal() {
   void frame;
 
   return (
-    <div data-market-theme={marketTheme} data-mobile-view={mobileTab} className="terminal-shell relative flex h-dvh min-h-0 flex-col bg-bg text-fg">
-      <div className={mobileTab === "chart" ? "hidden lg:contents" : "contents"}>
-      <TopMenu
-        name={lesson ? `${lesson.no} ${scenario.name}` : scenario.name}
-        paused={paused}
-        speed={speed}
-        code={selected}
-        date={engine.session.label}
-        venue={venueLabel(venue)}
-        theme={marketTheme}
-        onToggleTheme={toggleTheme}
-      />
-      <AccountBar />
-      <NewsBar />
-      </div>
-      {mobileTab === "chart" && (
-        <div className="shrink-0 border-b border-border bg-bg lg:hidden">
+    <div ref={shellRef} data-market-theme={marketTheme} data-mobile-view={mobileTab} data-terminal-layout={layout} className="terminal-shell relative flex min-h-dvh min-w-0 flex-col bg-bg text-fg">
+      {singlePane ? (
+        <header className="terminal-compact-header border-b border-border bg-bg">
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 py-2">
-            <span className="text-sm text-muted">當沖大富翁 · 模擬看盤</span>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={togglePause} className="min-h-12 rounded-lg bg-brand px-3 text-sm font-semibold text-brand-fg">
+            <span className="text-base font-medium">當沖大富翁 · 模擬看盤</span>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <button type="button" onClick={togglePause} className="min-h-12 rounded-lg bg-brand px-3 py-2 text-base font-semibold text-brand-fg">
                 {paused ? "繼續練習" : "暫停"}
               </button>
               <ThemeButton theme={marketTheme} onToggle={toggleTheme} />
+              <DisplayControls compact />
             </div>
           </div>
-          <details className="market-practice-controls">
-            <summary className="min-h-12 cursor-pointer px-3 py-3 text-sm text-muted">
-              練習控制 · {paused ? "已暫停" : `${speed} 倍速`} · {formatTime(engine.t)}
-            </summary>
-            <AccountBar />
-            <NewsBar />
-          </details>
-          {engine.warning ? <p role="status" className="px-3 pb-2 text-sm leading-6 text-warn">{engine.warning}</p> : null}
-        </div>
+        </header>
+      ) : (
+        <TopMenu
+          name={lesson ? `${lesson.no} ${scenario.name}` : scenario.name}
+          paused={paused}
+          speed={speed}
+          code={selected}
+          date={engine.session.label}
+          venue={venueLabel(venue)}
+          theme={marketTheme}
+          onToggleTheme={toggleTheme}
+          onTogglePause={togglePause}
+        />
+      )}
+      <details className="terminal-practice-controls border-b border-border bg-surface">
+        <summary className="min-h-12 cursor-pointer px-3 py-3 text-base text-muted">
+          帳戶與練習設定 · {paused ? "已暫停" : `${speed} 倍速`} · {formatTime(engine.t)}
+        </summary>
+        <AccountBar />
+        <NewsBar />
+      </details>
+      {engine.warning ? <p role="status" className="px-3 py-2 text-base leading-relaxed text-warn">{engine.warning}</p> : null}
+
+      {!singlePane && <TerminalNavigation active={activeView} onSelect={setMobileTab} singlePane={false} />}
+
+      {singlePane ? (
+        <main className="terminal-single">
+          <section data-terminal-pane={activeView} tabIndex={-1} aria-label={MOBILE_TABS.find((tab) => tab.id === activeView)?.label} className={cn("terminal-active-pane", (activeView === "watch" || activeView === "pos") && "terminal-list-pane")}>
+            <ActivePane key={layout} view={activeView} senior={senior} />
+          </section>
+        </main>
+      ) : layout === "tablet" ? (
+        <main className="terminal-tablet-workspace">
+          <aside aria-label="自選商品" className="terminal-watch-pane"><Watchlist /></aside>
+          <section data-terminal-pane={activeView} tabIndex={-1} aria-label={MOBILE_TABS.find((tab) => tab.id === activeView)?.label} className="terminal-active-pane terminal-tablet-active term-scroll">
+            <ActivePane view={activeView} senior={false} />
+          </section>
+        </main>
+      ) : (
+        <main data-active-view={activeView} className="terminal-desktop-workspace">
+          <aside aria-label="自選商品" className="terminal-watch-pane"><Watchlist /></aside>
+          {activeView !== "flash" && <div className="terminal-chart-column">
+            <section data-terminal-pane="chart" tabIndex={-1} aria-label="個股走勢" className="terminal-desktop-chart"><SelectedChart /></section>
+            <details className="terminal-index-details border-t border-border bg-bg">
+              <summary className="min-h-12 cursor-pointer px-3 py-3 text-base text-muted">加權指數參考 · {formatIndex(idx.last)} {formatPct(idx.changePct)}</summary>
+              <div className="terminal-index-chart"><IndexPane /></div>
+            </details>
+          </div>}
+          <aside data-terminal-pane={activeView === "flash" ? "flash" : "trade"} tabIndex={-1} aria-label={activeView === "flash" ? "閃電下單" : "委託與五檔"} className="terminal-order-pane term-scroll">
+            {activeView === "flash" ? <LightningOrder senior={false} active /> : <OrderStack />}
+          </aside>
+          {activeView !== "flash" && <section data-terminal-pane="pos" tabIndex={-1} aria-label="庫存成交" className="terminal-desktop-positions">
+            <details open={activeView === "pos"} onToggle={(event) => {
+              if (event.currentTarget.open && activeView !== "pos") setMobileTab("pos");
+              else if (!event.currentTarget.open && activeView === "pos") setMobileTab("chart");
+            }}>
+              <summary className="min-h-12 cursor-pointer border-t border-border bg-surface px-3 py-3 text-base font-medium">庫存與成交紀錄</summary>
+              <div className="terminal-positions-content"><PositionsDock /></div>
+            </details>
+          </section>}
+        </main>
       )}
 
-      <div className="term-mobile min-h-0 flex-1">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {mobileTab === "watch" && <Watchlist />}
-          {mobileTab === "chart" && (
-            <MobileMarket />
-          )}
-          {mobileTab === "trade" && (
-            <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-              <OrderTicket />
-              <div className="min-h-48 shrink-0 border-t border-border">
-                <QuotePanel />
-              </div>
-            </div>
-          )}
-          {mobileTab === "pos" && <PositionsDock />}
-        </div>
-      </div>
-
-      <div className="term-desk term-grid min-h-0 flex-1 gap-px bg-border">
-        <div className="term-watch min-h-0 overflow-hidden">
-          <Watchlist />
-        </div>
-        <div className="term-index min-h-0 overflow-hidden">
-          <IndexPane />
-        </div>
-        <div className="term-chart min-h-0 overflow-hidden">
-          <SelectedChart />
-        </div>
-        <div className="term-quote relative z-20 isolate min-h-0 overflow-hidden">
-          <QuotePanel />
-        </div>
-        <div className="term-ticket relative z-10 min-h-0 overflow-auto">
-          <OrderTicket />
-        </div>
-        <div className="term-pos min-h-0 overflow-hidden">
-          <PositionsDock />
-        </div>
-      </div>
-
-      <footer className="relative z-0 flex shrink-0 items-center justify-between border-t border-border bg-surface-2 px-2 py-1 text-2xs text-muted">
+      <footer className="terminal-status relative z-0 flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border bg-surface-2 px-3 py-2 text-sm text-muted">
         <span>
           {q ? (
             <>
@@ -206,48 +228,48 @@ export function Terminal() {
             </>
           ) : null}
         </span>
-        <span className="hidden font-mono sm:inline">
+        {!singlePane && <span className="font-mono">
           加權 {formatIndex(idx.last)} {formatPct(idx.changePct)} · {idx.turnoverYi.toFixed(0)} 億 ·
           聚焦送出按鈕後按 Enter · Space 暫停
-        </span>
-        <span className="term-mobile-nav">{formatTime(engine.t)}</span>
+        </span>}
+        <span className="font-mono">模擬 {formatTime(engine.t)}</span>
       </footer>
 
-      <nav
-        aria-label="模擬操作區"
-        className="term-mobile-nav grid grid-cols-4 border-t border-border bg-surface"
-      >
-        {MOBILE_TABS.map((t) => (
-          <button
-            key={t.id}
-            id={`mobile-tab-${t.id}`}
-            type="button"
-            onClick={() => setMobileTab(t.id)}
-            aria-current={mobileTab === t.id ? "page" : undefined}
-            className={cn(
-              "flex h-16 flex-col items-center justify-center gap-1 border-t-2 text-xs",
-              mobileTab === t.id
-                ? "border-brand bg-brand/10 text-brand"
-                : "border-transparent text-muted",
-            )}
-          >
-            <t.icon className="size-5" aria-hidden />
-            {t.label}
-          </button>
-        ))}
-      </nav>
+      {singlePane && <TerminalNavigation active={activeView} onSelect={setMobileTab} singlePane />}
 
       {phase === "result" && <ResultScreen />}
-      <CoachCorner />
       <LessonCard />
-      {paused && phase === "live" && !activeBeat && (
-        <div className={cn("pointer-events-none absolute inset-x-0 top-24 flex justify-center", mobileTab === "chart" && "hidden lg:flex")}>
-          <div className="rounded-sm border border-border bg-surface/95 px-3 py-1 text-xs text-muted">
-            已暫停 · 可繼續下單，時間軸凍結
-          </div>
-        </div>
-      )}
     </div>
+  );
+}
+
+function ActivePane({ view, senior }: { view: MobileTab; senior: boolean }) {
+  if (view === "watch") return <Watchlist />;
+  if (view === "trade") return <OrderStack />;
+  if (view === "pos") return <PositionsDock />;
+  if (view === "flash") return <LightningOrder senior={senior} active />;
+  return <MobileMarket />;
+}
+
+function OrderStack() {
+  return <div className="terminal-order-stack">
+    <OrderTicket />
+    <div className="terminal-book-pane border-t border-border"><QuotePanel /></div>
+  </div>;
+}
+
+function TerminalNavigation({ active, onSelect, singlePane }: { active: MobileTab; onSelect: (tab: MobileTab) => void; singlePane: boolean }) {
+  return (
+    <nav aria-label="模擬操作區" className={cn("terminal-navigation border-y border-border bg-surface", singlePane && "terminal-navigation-bottom")}>
+      {MOBILE_TABS.filter((tab) => singlePane || tab.id !== "watch").map((tab) => (
+        <button key={tab.id} id={`mobile-tab-${tab.id}`} type="button" onClick={() => onSelect(tab.id)}
+          aria-current={active === tab.id ? "page" : undefined}
+          className={cn("flex min-h-12 min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-2 text-base font-medium", active === tab.id ? "border-brand bg-brand/10 text-brand" : "border-transparent text-muted")}>
+          <tab.icon className="size-5 shrink-0" aria-hidden />
+          <span>{tab.label}</span>
+        </button>
+      ))}
+    </nav>
   );
 }
 
@@ -260,6 +282,7 @@ function TopMenu({
   venue,
   theme,
   onToggleTheme,
+  onTogglePause,
 }: {
   name: string;
   paused: boolean;
@@ -269,20 +292,23 @@ function TopMenu({
   venue: string;
   theme: "light" | "dark";
   onToggleTheme: () => void;
+  onTogglePause: () => void;
 }) {
   return (
-    <div className="flex min-h-12 min-w-0 shrink-0 flex-wrap items-center gap-2 border-b border-border bg-bg-1 px-3 py-1 text-xs lg:flex-nowrap lg:py-0">
+    <div className="terminal-top-menu flex min-h-12 min-w-0 shrink-0 flex-wrap items-center gap-2 border-b border-border bg-bg-1 px-3 py-2 text-base">
       <MarkTiny />
       <span className="shrink-0 font-medium tracking-wide">當沖大富翁</span>
       <SimChip label={venue} />
+      <button type="button" onClick={onTogglePause} className="min-h-12 rounded-lg bg-brand px-3 py-2 text-base font-semibold text-brand-fg">{paused ? "繼續練習" : "暫停"}</button>
       <ThemeButton theme={theme} onToggle={onToggleTheme} />
+      <DisplayControls compact />
       <span className="hidden rounded-xs border border-border-strong/60 px-1.5 py-0.5 text-2xs text-fg/85 sm:inline">
         現股當沖
       </span>
       <span className="ml-1 hidden items-center gap-1 rounded-xs border border-border-strong bg-bg px-1.5 py-0.5 font-mono text-micro sm:flex">
         {code}.TW
       </span>
-      <span className="ml-auto min-w-0 basis-full break-words font-mono text-micro text-fg/80 lg:basis-auto lg:truncate">
+      <span className="ml-auto min-w-0 break-words font-mono text-sm text-fg/80">
         {name.startsWith(date) ? name : `${date} · ${name}`} · {paused ? "暫停" : `${speed}x`}
       </span>
     </div>
@@ -293,7 +319,7 @@ function ThemeButton({ theme, onToggle }: { theme: "light" | "dark"; onToggle: (
   return (
     <button type="button" onClick={onToggle}
       aria-label={theme === "dark" ? "切換明亮看盤" : "切換深色看盤"}
-      className="inline-flex min-h-12 shrink-0 items-center gap-2 rounded-lg border border-border px-3 text-sm text-fg lg:min-h-9">
+      className="inline-flex min-h-12 shrink-0 items-center gap-2 rounded-lg border border-border px-3 py-2 text-base text-fg">
       {theme === "dark" ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
       {theme === "dark" ? "明亮" : "深色"}
     </button>

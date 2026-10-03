@@ -57,7 +57,7 @@ export function PositionsDock() {
   }
 
   return (
-    <div className="term-scroll h-full min-h-0 overflow-y-auto bg-bg lg:flex lg:flex-col lg:overflow-hidden">
+    <div className="positions-dock term-scroll h-full min-h-0 overflow-y-auto bg-bg lg:flex lg:flex-col lg:overflow-hidden">
       <div className="pane-title flex shrink-0 flex-wrap items-center gap-2 p-2 lg:gap-1 lg:px-1 lg:py-1">
         <div
           role="group"
@@ -78,7 +78,7 @@ export function PositionsDock() {
               onClick={() => setTab(id)}
               aria-pressed={tab === id}
               className={cn(
-                "min-h-12 min-w-0 rounded-lg px-2 py-2 text-base leading-6 lg:min-h-6 lg:rounded-xs lg:py-0 lg:text-micro",
+                "min-h-12 min-w-0 rounded-lg px-2 py-2 text-base leading-6",
                 tab === id ? "bg-header-2 text-fg" : "text-fg/70 hover:text-fg",
               )}
             >
@@ -93,7 +93,7 @@ export function PositionsDock() {
         <Button
           size="xs"
           variant="outline"
-          className="h-auto min-h-12 whitespace-normal px-3 py-2 text-base lg:min-h-7 lg:px-2 lg:py-0 lg:text-micro"
+          className="h-auto min-h-12 whitespace-normal px-3 py-2 text-base"
           onClick={flattenAll}
           disabled={pos.length === 0}
         >
@@ -202,7 +202,7 @@ export function PositionsDock() {
             </button>
           </nav>
         ) : null}
-        <div className="space-y-3 p-3 text-base leading-7 lg:hidden">
+        <div className="position-record-cards space-y-3 p-3 text-base leading-7">
           {tab === "pos" ? (
             <>
               <p className="text-muted">
@@ -339,7 +339,7 @@ export function PositionsDock() {
             </>
           ) : null}
         </div>
-        <div className="hidden lg:block">
+        <div className="position-record-table overflow-x-auto">
           {tab === "pos" && (
             <table className="w-full border-collapse font-mono text-micro">
               <thead className="sticky top-0 bg-surface-2 text-muted">

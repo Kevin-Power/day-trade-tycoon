@@ -1,6 +1,7 @@
 import { useState, type InputHTMLAttributes, type ReactNode, type Ref } from "react";
 import { ArrowUpRight, ChartNoAxesCombined, Eye, EyeOff } from "lucide-react";
 import { SimChip } from "@/components/provenance";
+import { DisplayControls } from "@/components/display-controls";
 
 type Feature = { title: string; description: string };
 
@@ -24,7 +25,7 @@ export function ClassroomAuthLayout({
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[36rem] bg-[radial-gradient(ellipse_at_top_left,color-mix(in_oklab,var(--color-brand)_9%,transparent),transparent_65%)]"
       />
       <div className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-9 lg:px-12">
-        <header className="flex items-center justify-between gap-4">
+        <header className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-[var(--color-brand)]/25 bg-[var(--color-brand)]/10 text-[var(--color-brand)]">
               <ChartNoAxesCombined className="size-6" aria-hidden="true" />
@@ -36,7 +37,10 @@ export function ClassroomAuthLayout({
               </p>
             </div>
           </div>
-          <SimChip label="模擬教學" className="!rounded-full !px-3 !py-1.5" />
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <SimChip label="模擬教學" className="!rounded-full !px-3 !py-1.5" />
+            <DisplayControls />
+          </div>
         </header>
 
         <div className="grid gap-8 py-10 sm:gap-10 sm:py-14 lg:min-h-[calc(100dvh-10rem)] lg:grid-cols-[1fr_1fr] lg:items-center lg:gap-16 lg:py-12">

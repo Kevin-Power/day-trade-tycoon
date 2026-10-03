@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Bar, TickPt } from "@/lib/game/types";
 import {
   canvasResolution,
@@ -40,6 +40,7 @@ export type TapeChartProps = {
 
 function tokens(canvas: HTMLCanvasElement) {
   const style = getComputedStyle(canvas);
+  const senior = document.documentElement.dataset.readingMode === "senior";
   const read = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
   return {
     bg: read("--color-bg", "#080d14"),
@@ -53,7 +54,7 @@ function tokens(canvas: HTMLCanvasElement) {
     vwap: read("--color-vwap", "#9eb6d4"),
     warn: read("--color-warn", "#e7b549"),
     font: read("--font-mono", "ui-monospace, monospace"),
-    fontSize: Math.max(11, (parseFloat(style.fontSize) || 16) * 0.75),
+    fontSize: Math.max(senior ? 16 : 12, (parseFloat(style.fontSize) || 16) * 0.75),
   };
 }
 
@@ -64,6 +65,8 @@ export function TapeChart(props: TapeChartProps) {
   const latest = useRef(props);
   const cursor = useRef<Cursor>(null);
   const redraw = useRef<() => void>(() => {});
+  const readoutId = useId();
+  const [readout, setReadout] = useState("");
 
   // Keep observers stable even when the simulator supplies new arrays each tick.
   useEffect(() => {
@@ -86,7 +89,7 @@ export function TapeChart(props: TapeChartProps) {
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       ctx.setTransform(size.scaleX, 0, 0, size.scaleY, 0, 0);
-      paint(
+      const description = paint(
         ctx,
         width,
         height,
@@ -94,6 +97,7 @@ export function TapeChart(props: TapeChartProps) {
         tokens(canvas),
         latest.current.interactive === false ? null : cursor.current,
       );
+      setReadout(description ?? "");
     };
     const schedule = () => {
       if (!disposed && !frame) frame = requestAnimationFrame(draw);
@@ -105,7 +109,7 @@ export function TapeChart(props: TapeChartProps) {
     for (let element: HTMLElement | null = canvas; element; element = element.parentElement) {
       changes.observe(element, {
         attributes: true,
-        attributeFilter: ["class", "style", "data-market-theme"],
+        attributeFilter: ["class", "style", "data-market-theme", "data-reading-mode"],
       });
     }
     const palette = window.matchMedia("(prefers-color-scheme: dark)");
@@ -142,54 +146,57 @@ export function TapeChart(props: TapeChartProps) {
     redraw.current();
   };
   const interact = props.interactive !== false;
+  const label = props.ariaLabel ??
+    `${props.variant === "candles" ? "K 線" : "價格走勢"}與${props.showVolume ? "成交量，" : ""}最新報價 ${props.variant === "index" ? formatIndex(props.last) : formatPrice(props.last)}`;
   return (
-    <canvas
-      ref={ref}
-      className="block h-full w-full"
-      style={{ touchAction: "pan-y pinch-zoom" }}
-      role="img"
-      tabIndex={interact ? 0 : undefined}
-      aria-label={
-        props.ariaLabel ??
-        `${props.variant === "candles" ? "K 線" : "價格走勢"}與${props.showVolume ? "成交量，" : ""}最新報價 ${props.variant === "index" ? formatIndex(props.last) : formatPrice(props.last)}。${interact ? "按住或移動游標查看資料，方向鍵移動，Escape 關閉。" : ""}`
-      }
-      onPointerDown={(event) => {
-        if (interact) {
-          cursor.current = { x: event.clientX - event.currentTarget.getBoundingClientRect().left };
-          redraw.current();
+    <div className="relative h-full w-full">
+      <canvas
+        ref={ref}
+        className="block h-full w-full"
+        style={{ touchAction: "pan-y pinch-zoom" }}
+        role="img"
+        aria-describedby={interact ? readoutId : undefined}
+        tabIndex={interact ? 0 : undefined}
+        aria-label={
+          `${label}。${interact ? "點按或移動游標查看資料，方向鍵移動，Escape 關閉。" : ""}`
         }
-      }}
-      onPointerMove={(event) => {
-        if (interact && (event.pointerType === "mouse" || event.buttons > 0)) {
-          cursor.current = { x: event.clientX - event.currentTarget.getBoundingClientRect().left };
-          redraw.current();
-        }
-      }}
-      onPointerUp={(event) => {
-        if (event.pointerType !== "mouse") clear();
-      }}
-      onPointerLeave={clear}
-      onPointerCancel={clear}
-      onBlur={clear}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") clear();
-        if (!interact || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
-        event.preventDefault();
-        const width = event.currentTarget.getBoundingClientRect().width;
-        cursor.current = {
-          x: Math.min(
-            width - 12,
-            Math.max(
-              12,
-              (cursor.current?.x ?? width / 2) +
-                (event.key === "ArrowRight" ? 1 : -1) * Math.max(8, width / 30),
+        onPointerDown={(event) => {
+          if (interact) {
+            event.currentTarget.focus({ preventScroll: true });
+            cursor.current = { x: event.clientX - event.currentTarget.getBoundingClientRect().left };
+            redraw.current();
+          }
+        }}
+        onPointerMove={(event) => {
+          if (interact && (event.pointerType === "mouse" || event.buttons > 0)) {
+            cursor.current = { x: event.clientX - event.currentTarget.getBoundingClientRect().left };
+            redraw.current();
+          }
+        }}
+        onPointerLeave={(event) => { if (event.pointerType === "mouse") clear(); }}
+        onPointerCancel={clear}
+        onBlur={clear}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") clear();
+          if (!interact || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
+          event.preventDefault();
+          const width = event.currentTarget.getBoundingClientRect().width;
+          cursor.current = {
+            x: Math.min(
+              width - 12,
+              Math.max(
+                12,
+                (cursor.current?.x ?? width / 2) +
+                  (event.key === "ArrowRight" ? 1 : -1) * Math.max(8, width / 30),
+              ),
             ),
-          ),
-          keyboard: true,
-        };
-        redraw.current();
-      }}
-    />
+            keyboard: true,
+          };
+          redraw.current();
+        }}
+      />
+      {interact && <output id={readoutId} className="sr-only" aria-live="polite" aria-atomic="true">{readout || "點按圖表或按左右方向鍵，查看所選時間的行情。"}</output>}
+    </div>
   );
 }
 
@@ -476,13 +483,20 @@ function paint(
     ctx.lineTo(w - padR, y);
     ctx.stroke();
     ctx.restore();
-    const lines = candle
-      ? [
-          `${formatTime(point.t).slice(0, 5)}  開 ${label(candle.o)}  收 ${label(candle.c)}`,
-          `高 ${label(candle.h)}  低 ${label(candle.l)}  量 ${candle.v} 張`,
-        ]
-      : [`${formatTime(point.t)}  ${label(price)}`];
+    const fields = candle
+      ? [formatTime(point.t).slice(0, 5), `開 ${label(candle.o)}`, `收 ${label(candle.c)}`, `高 ${label(candle.h)}`, `低 ${label(candle.l)}`, `量 ${candle.v} 張`]
+      : [formatTime(point.t), `價格 ${label(price)}`];
     ctx.font = font;
+    const lines: string[] = [];
+    let line = "";
+    for (const field of fields) {
+      const next = line ? `${line}  ${field}` : field;
+      if (line && ctx.measureText(next).width > w - 32) {
+        lines.push(line);
+        line = field;
+      } else line = next;
+    }
+    if (line) lines.push(line);
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
     const boxWidth = Math.min(
@@ -500,5 +514,7 @@ function paint(
     lines.forEach((line, i) =>
       ctx.fillText(line, boxX + 8, 8 + i * (c.fontSize + 7), boxWidth - 16),
     );
+    return fields.join("，");
   }
+  return "";
 }

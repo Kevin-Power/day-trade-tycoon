@@ -2,7 +2,6 @@ import { create } from "zustand";
 import { gradeFor, scenarioById, type Scenario } from "@/lib/game/scenarios";
 import {
   applySession,
-  loadFlashOrder,
   loadProfile,
   loadTeachMode,
   saveFlashOrder,
@@ -31,7 +30,7 @@ import {
 } from "@/lib/game/trade-plan";
 import { reviewSaveMessage, type ReviewSyncStatus } from "@/lib/game/review-storage-status";
 import { orderPresentation } from "@/lib/game/order-presentation";
-import { flashClickDecision, isExamScenario, ticketAfterClickPrice } from "@/lib/game/flash-order";
+import { flashBurstBlocked, flashClickDecision, isExamScenario, ticketAfterClickPrice, type FlashActivation, type FlashLastResult, type FlashSubmitInput } from "@/lib/game/flash-order";
 import {
   finishedLearnerGuideState,
   hasSeenLearnerGuide,
@@ -62,9 +61,10 @@ import {
   rejectUnsupportedTif,
   type TimeInForce,
   type Venue,
+  type BrokerAck,
 } from "@/lib/broker";
 
-export type MobileTab = "watch" | "chart" | "trade" | "pos";
+export type MobileTab = "watch" | "chart" | "trade" | "pos" | "flash";
 export type RightTab = "pos" | "orders" | "fills";
 export type Phase = "lobby" | "live" | "result";
 export type ChartStyle = "jiangbo" | "tape" | "candles";
@@ -97,6 +97,10 @@ type GameStore = {
   chartStyle: ChartStyle;
   teachMode: boolean;
   flashOrder: boolean;
+  flashActivation: FlashActivation | null;
+  flashLastAttemptAt: number | null;
+  flashLastResult: FlashLastResult | null;
+  flashNotice: string;
   activeBeat: LessonBeat | null;
   dismissedBeats: string[];
   learnerGuideStep: number | null;
@@ -130,11 +134,13 @@ type GameStore = {
   setOrderPage: (page: number) => void;
   setChartStyle: (s: ChartStyle) => void;
   setTeachMode: (on: boolean) => void;
-  setFlashOrder: (on: boolean) => void;
+  setFlashOrder: (on: boolean, expected?: Pick<FlashActivation, "code" | "lots" | "tif">) => void;
+  disarmFlash: (reason?: string) => void;
+  submitLightning: (input: FlashSubmitInput) => BrokerAck;
   dismissBeat: () => void;
   checkBeats: () => void;
   bump: () => void;
-  submit: () => void;
+  submit: () => BrokerAck | undefined;
   flattenSelected: () => void;
   flattenAll: () => void;
   cancelOrder: (id: string) => void;
@@ -146,6 +152,8 @@ function toastFill(fill: Fill) {
   toast.success(describeFill(fill, name));
   playFill(fill.side);
 }
+
+const disarmedFlash = { flashOrder: false, flashActivation: null } as const;
 
 export const useGame = create<GameStore>((set, get) => ({
   phase: "lobby",
@@ -167,6 +175,10 @@ export const useGame = create<GameStore>((set, get) => ({
   chartStyle: "jiangbo",
   teachMode: true,
   flashOrder: false,
+  flashActivation: null,
+  flashLastAttemptAt: null,
+  flashLastResult: null,
+  flashNotice: "尚未啟用；點價後先核對委託。",
   activeBeat: null,
   dismissedBeats: [],
   learnerGuideStep: null,
@@ -185,7 +197,7 @@ export const useGame = create<GameStore>((set, get) => ({
       profile: loadProfile(),
       hydrated: true,
       teachMode: loadTeachMode(),
-      flashOrder: loadFlashOrder(),
+      ...disarmedFlash,
     });
   },
 
@@ -211,6 +223,10 @@ export const useGame = create<GameStore>((set, get) => ({
       ticketDraft: ticketDraftFrom({ lots: 1, price: roundToTick(px) }),
       tradePlan: null,
       firstPlannedOrder: null,
+      ...disarmedFlash,
+      flashLastAttemptAt: null,
+      flashLastResult: null,
+      flashNotice: "新練習尚未啟用閃電下單。",
       mobileTab: "watch",
       rightTab: "pos",
       orderScope: "working",
@@ -229,7 +245,7 @@ export const useGame = create<GameStore>((set, get) => ({
 
   openLearnerGuide: () => {
     if (get().phase !== "live" || get().scenario?.id !== "wed-open") return;
-    set(learnerGuideStepState(0));
+    set({ ...learnerGuideStepState(0), ...disarmedFlash, flashNotice: "操作導覽中，閃電下單已解除。" });
   },
   setLearnerGuideStep: (step) => {
     if (get().learnerGuideStep === null) return;
@@ -248,6 +264,9 @@ export const useGame = create<GameStore>((set, get) => ({
       scenario: null,
       tradePlan: null,
       firstPlannedOrder: null,
+      ...disarmedFlash,
+      flashLastAttemptAt: null,
+      flashLastResult: null,
       paused: false,
       orderScope: "working",
       orderPage: 0,
@@ -298,7 +317,7 @@ export const useGame = create<GameStore>((set, get) => ({
       openPositionsAtEnd: engine.openPositions().map(({ code, lots, last }) => ({ code, lots, last })),
       firstTradePlan: snapshotFirstTradePlan(get().tradePlan, get().firstPlannedOrder) };
     const localReviewSaved = saveReview(bundle);
-    set({ phase: "result", lastResult: rec, lastVerdicts: pass.verdicts, profile: next, paused: true, syncStatus: "local", localReviewSaved, learnerGuideReady: false });
+    set({ phase: "result", ...disarmedFlash, lastResult: rec, lastVerdicts: pass.verdicts, profile: next, paused: true, syncStatus: "local", localReviewSaved, learnerGuideReady: false });
     if (getProfileIdentity()) {
       if (bundle.fills.length > SERVER_REVIEW_FILL_LIMIT) {
         set({ syncStatus: "too-large" });
@@ -340,6 +359,8 @@ export const useGame = create<GameStore>((set, get) => ({
     const price = q ? (ticket.side === "buy" ? q.ask : q.bid) : ticket.price;
     set({
       selected: code,
+      ...disarmedFlash,
+      flashNotice: "已選擇商品，請重新核對後啟用閃電下單。",
       mobileTab: "chart",
       frame: frame + 1,
       ticket: {
@@ -367,6 +388,8 @@ export const useGame = create<GameStore>((set, get) => ({
     }
     set({
       ticket: next,
+      ...((patch.lots !== undefined && String(next.lots) !== ticketDraft.lots) || (patch.tif !== undefined && patch.tif !== ticket.tif) || (patch.type !== undefined && patch.type !== ticket.type)
+        ? { ...disarmedFlash, flashNotice: "委託條件已變更，請重新啟用閃電下單。" } : {}),
       ticketDraft: {
         lots: patch.lots !== undefined ? String(next.lots) : ticketDraft.lots,
         price: patch.price !== undefined || patch.side ? String(next.price) : ticketDraft.price,
@@ -379,6 +402,7 @@ export const useGame = create<GameStore>((set, get) => ({
     const parsed = field === "lots" ? parseLotsDraft(value) : parsePriceDraft(value);
     set({
       ticketDraft: { ...ticketDraft, [field]: value },
+      ...(field === "lots" && value !== ticketDraft.lots ? { ...disarmedFlash, flashNotice: "張數已變更，請重新啟用閃電下單。" } : {}),
       ticket: {
         ...ticket,
         ...(parsed === null ? {} : { [field]: parsed }),
@@ -419,6 +443,7 @@ export const useGame = create<GameStore>((set, get) => ({
   },
 
   setVenue: (v) => {
+    get().disarmFlash("交易通路已重新核對，閃電下單已解除。");
     if (v === "live") {
       playError();
       toast.error(LIVE_UNWIRED_REASON);
@@ -427,7 +452,7 @@ export const useGame = create<GameStore>((set, get) => ({
     set({ venue: v, accountId: SIM_ACCOUNT });
   },
 
-  setMobileTab: (t) => set({ mobileTab: t }),
+  setMobileTab: (t) => set({ mobileTab: t, ...(t !== get().mobileTab ? { ...disarmedFlash, flashNotice: "已切換畫面，閃電下單已解除。" } : {}) }),
   setRightTab: (t) => set({ rightTab: t }),
   setOrderScope: (scope) => set({ orderScope: scope, orderPage: 0 }),
   setOrderPage: (page) => set({ orderPage: Number.isFinite(page) ? Math.max(0, Math.floor(page)) : 0 }),
@@ -437,24 +462,71 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!on) set({ teachMode: false, activeBeat: null, paused: get().learnerGuideStep !== null || get().learnerGuideReady });
     else set({ teachMode: true });
   },
-  setFlashOrder: (on) => {
+  setFlashOrder: (on, expected) => {
+    if (!on) {
+      get().disarmFlash();
+      saveFlashOrder(false);
+      return;
+    }
     if (get().learnerGuideStep !== null) {
       toast(LEARNER_GUIDE_PAUSE_MESSAGE);
+      get().disarmFlash(LEARNER_GUIDE_PAUSE_MESSAGE);
       return;
     }
-    if (get().flashOrder === on) return;
-    saveFlashOrder(on);
-    if (!on) {
-      set({ flashOrder: false });
-      toast("閃電下單已關 · 點五檔只帶價");
+    const { engine, phase, selected, ticket, ticketDraft, venue, accountId, scenario, paused, activeBeat } = get();
+    const lots = parseLotsDraft(ticketDraft.lots);
+    if (expected && (expected.code !== selected || expected.lots !== lots || expected.tif !== ticket.tif)) {
+      get().disarmFlash("畫面上的商品、張數或效期已變更，請重新核對後啟用。");
       return;
     }
-    const { scenario, activeBeat } = get();
-    // 教學關卡：開閃電時清掉分步引導，避免卡在引導卻靜默不送。
-    // 期末考 / 盲測：保留引導；暫停中送單由 submit 擋下並 toast。
-    if (isExamScenario(scenario?.id)) set({ flashOrder: true });
-    else set({ flashOrder: true, ...(activeBeat && !get().learnerGuideReady ? { activeBeat: null, paused: false } : {}) });
-    toast("閃電下單已開 · 點五檔即以目前張數送單");
+    const reason = phase !== "live" || !engine || engine.ended ? "請先進入尚未結束的模擬練習。"
+      : venue !== "sim" || accountId !== SIM_ACCOUNT ? "閃電下單僅適用本教室模擬帳戶。"
+      : lots === null ? TICKET_LOTS_ERROR
+      : rejectUnsupportedTif(ticket.tif)
+      ?? (isExamScenario(scenario?.id) && (paused || activeBeat) ? "測驗不可在暫停中下單" : null);
+    if (reason || lots === null) {
+      get().disarmFlash(reason ?? TICKET_LOTS_ERROR);
+      toast.error(reason ?? TICKET_LOTS_ERROR);
+      return;
+    }
+    if (get().flashOrder) return;
+    // Activation is explicit and scoped to this lesson; stored preferences never arm it.
+    set({ flashOrder: true, flashActivation: { id: crypto.randomUUID(), code: selected, lots, tif: ticket.tif }, flashNotice: `${selected} · ${lots} 張 · 限價 ${ticket.tif} 已啟用。` });
+  },
+  disarmFlash: (reason = "閃電下單已解除；點價後先核對委託。") => {
+    set({ ...disarmedFlash, flashNotice: reason });
+  },
+  submitLightning: (input) => {
+    const state = get();
+    const lots = parseLotsDraft(state.ticketDraft.lots);
+    const fail = (reason: string, disarm = false): BrokerAck => {
+      set({ ...(disarm ? disarmedFlash : {}), flashNotice: reason, flashLastResult: { ok: false, code: input.code, side: input.side, lots, price: input.price, tif: state.ticket.tif, at: Date.now(), message: reason } });
+      toast.error(reason);
+      return { ok: false, reason };
+    };
+    const now = Date.now();
+    if (flashBurstBlocked(state.flashLastAttemptAt, now, input.repeat)) {
+      const reason = "已略過長按或快速連點；請先核對上一筆結果，再次按下可送新委託。";
+      set({ flashNotice: reason });
+      return { ok: false, reason };
+    }
+    if (state.phase !== "live" || !state.engine || state.engine.ended) return fail("練習尚未開始或已結束。", true);
+    if (state.venue !== "sim" || state.accountId !== SIM_ACCOUNT) return fail("閃電下單僅適用本教室模擬帳戶。", true);
+    if (state.learnerGuideStep !== null) return fail(LEARNER_GUIDE_PAUSE_MESSAGE, true);
+    const activation = state.flashActivation;
+    if (lots === null) return fail(TICKET_LOTS_ERROR, true);
+    if (!state.flashOrder || !activation || input.activationId !== activation.id || input.code !== state.selected || activation.code !== state.selected || lots !== activation.lots || state.ticket.tif !== activation.tif) {
+      return fail("商品、張數或效期已變更／尚未啟用；請重新核對並啟用閃電下單。", true);
+    }
+    const decision = flashClickDecision({ flashOrder: true, teachMode: state.teachMode, guideActive: Boolean(state.activeBeat), paused: state.paused, examMode: isExamScenario(state.scenario?.id) });
+    if (decision.action === "block") return fail(decision.reason);
+    set({ ticket: { ...state.ticket, side: input.side, type: "limit", lots, price: input.price }, ticketDraft: { lots: state.ticketDraft.lots, price: String(input.price) }, flashLastAttemptAt: now });
+    const result = get().submit() ?? { ok: false as const, reason: "委託未送出，請重新核對練習狀態。" };
+    const message = result.ok
+      ? `委託 ${result.order.id}：${orderPresentation(result.order).statusLabel}，已成交 ${result.order.filled}／${result.order.lots} 張。${result.order.cancelReason ?? ""}`
+      : result.reason;
+    set({ flashLastResult: { ok: result.ok, code: input.code, side: input.side, lots, price: input.price, tif: state.ticket.tif, at: now, message, ...(result.ok ? { orderId: result.order.id } : {}) }, flashNotice: "" });
+    return result;
   },
   dismissBeat: () => {
     if (get().learnerGuideStep !== null) {
@@ -502,7 +574,7 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!draft.ok) {
       playError();
       toast.error(draft.reason);
-      return;
+      return { ok: false, reason: draft.reason };
     }
     const q = engine.quote(selected);
     const price =
@@ -522,7 +594,7 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!res.ok) {
       playError();
       toast.error(res.reason);
-      return;
+      return res;
     }
     if (get().firstPlannedOrder === null) {
       // Both regular and flash submissions pass here. Acceptance locks the
@@ -536,6 +608,7 @@ export const useGame = create<GameStore>((set, get) => ({
     const outcome = orderPresentation(res.order);
     toast(`委託 ${res.order.id}：${outcome.statusLabel}，已成交 ${res.order.filled}／${res.order.lots} 張。${res.order.cancelReason ?? ""}`);
     get().bump();
+    return res;
   },
 
   flattenSelected: () => {
@@ -607,24 +680,14 @@ export const useGame = create<GameStore>((set, get) => ({
   },
 
   clickPrice: (price, side) => {
-    const { ticket, ticketDraft, flashOrder, teachMode, activeBeat, paused, scenario } = get();
+    const { ticket, ticketDraft, flashOrder } = get();
     const next = ticketAfterClickPrice(ticket, price, side);
     set({ ticket: next, ticketDraft: { ...ticketDraft, price: String(next.price) } });
-    const decision = flashClickDecision({
-      flashOrder,
-      teachMode,
-      guideActive: Boolean(activeBeat),
-      paused,
-      examMode: isExamScenario(scenario?.id),
-    });
-    if (decision.action === "submit") get().submit();
-    else if (decision.action === "block") {
-      playError();
-      toast.error(decision.reason);
-    }
+    if (flashOrder) get().submitLightning({ code: get().selected, side: next.side, price: next.price, activationId: get().flashActivation?.id ?? "" });
   },
 }));
 
 export function persistOnHide() {
+  useGame.getState().disarmFlash("離開視窗後，閃電下單已解除。");
   saveProfile(useGame.getState().profile);
 }

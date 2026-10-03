@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Download, LogOut, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DisplayControls } from "@/components/display-controls";
 import { ProvenanceBadge, SimChip } from "@/components/provenance";
 import { DISCLAIMER, DISCLOSURE_ROWS } from "@/lib/provenance";
 import { cn } from "@/lib/utils";
@@ -30,7 +31,7 @@ export function ManualPage() {
   return (
     <div className="academy-page manual-sheet min-h-dvh bg-bg text-fg">
       <header className="no-print sticky top-0 z-20 border-b border-border bg-bg/92 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link
             to="/"
             className="inline-flex h-9 items-center gap-1.5 rounded-sm px-2 text-xs text-muted hover:bg-elevated hover:text-fg"
@@ -38,7 +39,8 @@ export function ManualPage() {
             <ArrowLeft className="size-3.5" />
             回大廳
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <DisplayControls compact />
             <a
               href={PDF_HREF}
               download="當沖大富翁-說明書.pdf"
@@ -224,8 +226,10 @@ function Play() {
             <Row k="TIF" v="ROD 留單等待；IOC 成交多少算多少，剩餘取消；FOK 必須全數可成交，否則全撤。" />
             <Row
               k="閃電下單"
-              v="預設關。點賣方五檔會帶入買進，點買方五檔會帶入賣出；閃電開啟時直接依目前張數送單。期末考暫停中會提示。"
+              v="到「閃電下單」頁先核對商品、張數與效期。預設先確認再送，明確啟用後點價才會直接送出模擬限價單；變更商品或張數、離開頁面後需要重新啟用。期末考暫停中不能送單。"
             />
+            <Row k="長輩模式" v="頁首可一鍵開啟大字、高對比與較大按鈕；看盤改為一次操作一個區域，偏好會記在這台裝置。" />
+            <Row k="手機／平板／桌機" v="手機用分頁切換；平板並排自選行情與操作區；桌機同時查看圖表、下單與庫存。窄視窗會自動改為適合的配置。" />
             <Row
               k="回大廳"
               v="有庫存或未成交委託時會確認。取消留下；確定離開會捨棄這盤，不自動平倉、不寫入戰績。要保存成果請按「結束練習」。"

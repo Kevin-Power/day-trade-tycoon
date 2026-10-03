@@ -1,6 +1,7 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { GateProvider } from "@/lib/gate/context";
+import { DisplayPreferencesEffect } from "@/components/display-controls";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "當沖大富翁";
@@ -35,6 +36,7 @@ export const Route = createRootRoute({
         <HeadContent />
       </head>
       <body className="antialiased">
+        <DisplayPreferencesEffect />
         <AuthProvider>
           <GateProvider>
             <Outlet />
