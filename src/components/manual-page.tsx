@@ -10,8 +10,8 @@ import { useGate } from "@/lib/gate/context";
 import { teachingOhlcNote } from "@/lib/market/universe";
 import { COURSE_PATH } from "@/lib/game/learning-path";
 
-export const MANUAL_VERSION = "2026-10-04";
-const PDF_HREF = "/daytrade-tycoon-manual.pdf";
+export const MANUAL_VERSION = "2026-10-05";
+const PDF_HREF = `/daytrade-tycoon-manual.pdf?v=${MANUAL_VERSION}`;
 const GITHUB = "https://github.com/Kevin-Power/day-trade-tycoon";
 
 const TOC = [
@@ -182,7 +182,7 @@ function What() {
         <Fact label="不給誰" body="要跟單、要保證獲利、要把教室當券商下單的人。那不是這份產品。" />
         <Fact
           label="戰績怎麼存"
-          body="進教室要入場密碼。登入個人帳號後可提交復盤至教室；訪客和離線練習保存在該機瀏覽器。提交失敗時請保留本機紀錄並重試。"
+          body="進教室要入場密碼。登入個人帳號後可提交復盤至教室；訪客和離線練習保存在該機瀏覽器。提交失敗時，先核對本機是否已保存，再依完整復盤頁的提示重試；本機未保存前先別重新整理或關閉頁面。"
         />
       </div>
     </Section>
@@ -201,7 +201,7 @@ function Play() {
         </Step>
         <Step n="3" title="看盤，再下單">
           下單頁可先寫第一筆進場計畫，記下自己的進場、離場條件與模擬虧損額度。這是討論用的紀錄，不是自動停損。第一筆委託成功送出後就保留原樣，掛單或撤單也不補改。不填仍可練習，紀錄會如實留白。委託單選買進或賣出、限價或市價、張數、價格。核對後點「送出」；鍵盤可用
-          Tab 移到送出按鈕再按 Enter。Space 暫停。ROD 留單等待、IOC 立即撮合後取消剩餘、FOK 全部成交或全部取消。
+          Tab 移到送出按鈕再按 Enter；盤面空白處可用 Space 暫停／繼續。ROD 留單等待、IOC 立即撮合後取消剩餘、FOK 全部成交或全部取消。
           送出後查看「最近一次送出結果」。若顯示「這次未建立委託」，先讀原因；這次不會新增委託或成交。成功建立委託也不等於全部成交，仍要核對已成交、等待與已取消張數。這項送出提示只保留在目前這一盤，不會另外寫入復盤。
         </Step>
         <Step n="4" title="部位與出場">
@@ -218,7 +218,7 @@ function Play() {
           結果先看寫下計畫、留下成交、減碼／平倉與結束時零庫存。這些只是紀錄可見的操作，不是能力或獲利徽章；減碼可能尚未全平，沒有成交也不計為零庫存里程碑。
         </p>
         <p className="mt-2 text-muted">
-          按「看復盤，選下一步」，選擇「下次只練一件事」，再用「選好重點，再練本課」準備重練。也可按「回教室看學習足跡」；大廳統計限最近 30 份可讀的本機復盤，不代表生涯或跨裝置總成績，舊紀錄缺少的欄位不會補判。
+        按「看復盤，選下一步」，選擇「下次只練一件事」，再按「保存重點並重練本課」，讀完重點後再開始。也可按「回教室看學習足跡」；大廳統計限最近 30 份可讀的本機復盤，不代表生涯或跨裝置總成績，舊紀錄缺少的欄位不會補判。
         </p>
       </div>
       <div className="mt-6 overflow-hidden rounded-lg border border-border">
@@ -259,7 +259,7 @@ function Lessons() {
         教材固定在 2026/08/24–08/26 三個交易日，方便講師對照同一段紀錄。盤中提示引導你核對當下可見資料；重練時可能記得後續走勢，因此熟悉教材不等於能判斷未知行情。
       </p>
       <p className="mt-3 text-base leading-7 text-muted">
-        第 1 課是入門操作，第 2–4 課練風險紀律，第 5–6 課做自主練習。以下小任務幫助安排觀察、核對與復盤；原有課程挑戰規則不變。
+        六組課程任務分成三階段：第 1 課是入門操作，第 2–4 課練風險紀律，第 5–6 課做自主練習。實際授課堂數與時段由班級安排。以下小任務幫助安排觀察、核對與復盤；原有課程挑戰規則不變。
       </p>
       <div className="mt-5 overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-xl text-left text-sm">
@@ -284,7 +284,10 @@ function Lessons() {
         </table>
       </div>
       <p className="mt-4 text-sm leading-relaxed text-muted">
-        當沖六式每盤都用：先算成本、江波對昨收、五檔與分價、停損寫在進場、部位三成、收盤前平倉。
+        教室六式每盤都用：先核對費稅、看懂基準線、分清委託與成交、先寫出場條件、核對本筆金額、收尾逐項核對。
+      </p>
+      <p className="mt-3 text-sm leading-relaxed text-muted">
+        下單頁在本筆估算金額超過模擬權益 30% 時提醒。這不是單檔累積部位上限，也不是個人的安全額度；送單前仍須核對張數、目前部位與可用資金。
       </p>
     </Section>
   );

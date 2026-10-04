@@ -51,4 +51,17 @@ const bytes = Buffer.from(await download.arrayBuffer());
 const expected = readFileSync(new URL('../../downloads/daytrade-tycoon-offline.zip', import.meta.url));
 const digest = data => createHash('sha256').update(data).digest('hex');
 assert.equal(digest(bytes), digest(expected));
-console.log(JSON.stringify({ verified: true, origin, health: 200, assets: assets.length, publicTrial: 200, trialAssets: trialAssets.length, trialIssuesCookie: false, ownerSetup: setupState.available ? 'ready-uninitialized' : 'initialized', unsignedDownload: 403, signedDownload: 200, zipBytes: bytes.length, zipSha256: digest(bytes) }));
+const manual = await request('/manual', { headers: { cookie } });
+assert.equal(manual.status, 200);
+// Admission is resolved in the browser, so the initial HTML has no PDF anchor.
+// Check the versioned artifact here; verify the rendered download in Chrome separately.
+const manualSource = JSON.parse(readFileSync(new URL('../../docs/pdf-source.json', import.meta.url), 'utf8'));
+assert.match(manualSource.version, /^\d{4}-\d{2}-\d{2}(?:-[a-z0-9]+)?$/);
+const pdfHref = `/daytrade-tycoon-manual.pdf?v=${encodeURIComponent(manualSource.version)}`;
+const pdf = await request(pdfHref, { headers: { cookie } });
+assert.equal(pdf.status, 200);
+assert.match(pdf.headers.get('content-type') ?? '', /application\/pdf/);
+const pdfBytes = Buffer.from(await pdf.arrayBuffer());
+const expectedPdf = readFileSync(new URL('../../public/daytrade-tycoon-manual.pdf', import.meta.url));
+assert.equal(digest(pdfBytes), digest(expectedPdf), 'Learner PDF download must match the current manual');
+console.log(JSON.stringify({ verified: true, origin, health: 200, assets: assets.length, publicTrial: 200, trialAssets: trialAssets.length, trialIssuesCookie: false, ownerSetup: setupState.available ? 'ready-uninitialized' : 'initialized', unsignedDownload: 403, signedDownload: 200, zipBytes: bytes.length, zipSha256: digest(bytes), pdfHref, pdfBytes: pdfBytes.length, pdfSha256: digest(pdfBytes) }));

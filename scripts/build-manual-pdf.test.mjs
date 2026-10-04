@@ -25,8 +25,8 @@ test("obsolete network/browser arguments cannot trigger a web request", () => {
   assert.ok(parsePdfArgs(["--output"], {}).error);
   assert.equal(parsePdfArgs([], {}).python, "");
 });
-test("manual source has eight learner-facing pages and current lesson lengths", () => {
-  assert.equal(source.pages.length, 8);
+test("manual source has ten learner-facing pages and current lesson lengths", () => {
+  assert.equal(source.pages.length, 10);
   const text = JSON.stringify(source);
   for (const term of [
     "30 分鐘",
