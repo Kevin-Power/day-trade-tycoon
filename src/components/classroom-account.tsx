@@ -87,7 +87,7 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
     <section
       id="my-learning"
       aria-labelledby="my-learning-title"
-      className="academy-card mb-8 scroll-mt-6 p-5 sm:p-6"
+      className="academy-card premium-learning-center mb-8 scroll-mt-6 p-5 sm:p-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
@@ -161,20 +161,20 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
       {career && (
         <>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl bg-bg p-4">
+            <div className="premium-learning-stat rounded-xl p-4">
               <p className="text-sm text-muted">已儲存的練習</p>
               <p className="mt-2 text-2xl font-semibold">
                 {career.count} <span className="text-base font-normal text-muted">盤</span>
               </p>
             </div>
-            <div className="rounded-xl bg-bg p-4">
+            <div className="premium-learning-stat rounded-xl p-4">
               <p className="text-sm text-muted">最近 40 盤練過的課程</p>
               <p className="mt-2 text-2xl font-semibold">
                 {practiced}{" "}
                 <span className="text-base font-normal text-muted">/ {COURSE_PATH.length} 課</span>
               </p>
             </div>
-            <div className="rounded-xl bg-bg p-4">
+            <div className="premium-learning-stat rounded-xl p-4">
               <p className="text-sm text-muted">最近 40 盤中已有回饋</p>
               <p className="mt-2 text-2xl font-semibold">
                 {feedbackSessions.length}{" "}
@@ -242,7 +242,7 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
                     key={session.id}
                     to="/session/$id/review"
                     params={{ id: session.id }}
-                    className="group min-w-0 rounded-xl border border-border p-4 transition-colors hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
+                    className="premium-review-link group min-w-0 border border-border p-4 hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
                   >
                     <p className="text-sm text-muted">
                       {session.ended_at?.slice(0, 16) || "未提供結束時間"}

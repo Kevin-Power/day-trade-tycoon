@@ -15,6 +15,7 @@ import {
   TextCursorInput,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandMark } from "@/components/brand-mark";
 import { DisplayControls } from "@/components/display-controls";
 import { SimChip } from "@/components/provenance";
 import { DISCLAIMER } from "@/lib/provenance";
@@ -42,6 +43,7 @@ const TOC = [
   { id: "devices", label: "裝置與操作" },
   { id: "enrollment", label: "報名與入場" },
   { id: "included", label: "教材與授權" },
+  { id: "risk", label: "模擬範圍" },
 ] as const;
 
 const STAGES = [
@@ -53,7 +55,7 @@ const STAGES = [
 export function LicensePage() {
   const { lock, unlocked } = useGate();
   return (
-    <div className="academy-page manual-sheet min-h-dvh bg-bg text-base leading-relaxed text-fg [overflow-wrap:anywhere]">
+    <div className="academy-page premium-course-page manual-sheet min-h-dvh bg-bg text-base leading-relaxed text-fg [overflow-wrap:anywhere]">
       <header className="no-print top-0 z-20 border-b border-border bg-bg/92 backdrop-blur-sm sm:sticky">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link
@@ -99,19 +101,24 @@ export function LicensePage() {
       </header>
       <article className="mx-auto w-full max-w-6xl px-4 pb-20 pt-8 sm:px-6 sm:pt-12">
         <Cover unlocked={unlocked} />
-        <nav
-          aria-label="課程說明章節"
-          className="academy-card mb-12 grid grid-cols-2 gap-1 p-3 sm:grid-cols-3 lg:grid-cols-6"
-        >
-          {TOC.map((item) => (
-            <a
-              key={item.id}
-              href={`#${item.id}`}
-              className="flex min-h-12 items-center justify-center rounded-lg px-3 py-2 text-center text-base text-muted hover:bg-elevated hover:text-fg"
-            >
-              {item.label}
-            </a>
-          ))}
+        <nav aria-label="課程說明章節" className="premium-toc mb-16 border-y border-border py-3">
+          <p className="mb-2 px-3 text-sm font-medium text-subtle">課程導覽</p>
+          <ol className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-4">
+            {TOC.map((item, index) => (
+              <li key={item.id} className="min-w-0">
+                <a
+                  href={`#${item.id}`}
+                  className="group flex min-h-12 items-center gap-3 rounded-lg px-3 py-2 text-base text-muted hover:bg-elevated hover:text-fg"
+                >
+                  <span className="font-mono text-xs text-subtle" aria-hidden="true">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span>{item.label}</span>
+                  <ArrowRight className="ml-auto size-4 shrink-0 text-brand" aria-hidden="true" />
+                </a>
+              </li>
+            ))}
+          </ol>
         </nav>
         <Audience />
         <Courses />
@@ -120,7 +127,7 @@ export function LicensePage() {
         <Enrollment />
         <Included />
         <Risk />
-        <section className="academy-card border-brand/25 bg-brand/5 p-5 sm:p-8">
+        <section className="premium-course-closing rounded-3xl border border-brand/25 bg-brand/5 p-5 sm:p-8 lg:p-10">
           <p className="academy-eyebrow">先熟悉，再開始</p>
           <h2 className="mt-3 text-2xl font-semibold tracking-tight">
             先練一輪，看看自己卡在哪一步
@@ -141,16 +148,16 @@ export function LicensePage() {
 
 function Cover({ unlocked }: { unlocked: boolean }) {
   return (
-    <section className="mb-8 grid items-center gap-8 pb-5 lg:grid-cols-[1.2fr_1fr] lg:gap-12">
+    <section className="premium-course-cover mb-10 grid items-center gap-8 pb-5 lg:grid-cols-[1.15fr_1fr] lg:gap-14">
       <div className="min-w-0">
-        <div className="mb-6 flex flex-wrap items-center gap-3">
-          <Mark />
-          <div>
-            <p className="text-sm tracking-[0.16em] text-muted">DAY TRADE TYCOON</p>
+        <div className="mb-8 flex items-center gap-3">
+          <BrandMark className="size-12 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs font-medium tracking-[0.16em] text-muted">DAY TRADE TYCOON</p>
             <p className="text-base font-medium">當沖大富翁 · 講師帶班 × 模擬練習</p>
           </div>
         </div>
-        <h1 className="text-balance text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
+        <h1 className="max-w-[13em] text-balance text-4xl font-semibold leading-[1.25] tracking-tight sm:text-5xl">
           {LICENSE_TITLE}
         </h1>
         <p className="mt-5 max-w-2xl text-pretty text-base leading-8 text-muted">{LICENSE_LEAD}</p>
@@ -158,24 +165,43 @@ function Cover({ unlocked }: { unlocked: boolean }) {
         <p className="mt-3 text-base leading-7 text-muted">
           免費體驗不用帳號 · 不限時，可依自己的步調操作
         </p>
+        <dl className="mt-8 flex flex-wrap gap-x-8 gap-y-4 border-t border-border pt-6">
+          <div className="flex items-baseline gap-2">
+            <dt className="order-2 text-sm text-muted">學習階段</dt>
+            <dd className="font-mono text-3xl font-medium text-brand">
+              {String(STAGES.length).padStart(2, "0")}
+            </dd>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <dt className="order-2 text-sm text-muted">課程任務</dt>
+            <dd className="font-mono text-3xl font-medium text-brand">
+              {String(COURSE_PATH.length).padStart(2, "0")}
+            </dd>
+          </div>
+        </dl>
       </div>
-      <div className="academy-card overflow-hidden border-brand/20">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-brand/5 px-5 py-4">
-          <p className="text-base font-semibold">一次練習，三個帶得走的收穫</p>
+      <div className="premium-outcome-panel min-w-0 rounded-3xl border border-brand/20 bg-surface p-5 sm:p-7 lg:p-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
+          <p className="text-sm font-medium tracking-wider">你的學習收穫</p>
           <SimChip />
         </div>
-        <div className="space-y-6 p-5 sm:p-7">
-          <Outcome icon={<ClipboardList className="size-5" />} title="說得出自己的計畫">
+        <h2 className="mb-7 mt-6 text-balance text-2xl font-semibold leading-relaxed">
+          一次練習，
+          <br className="hidden sm:block" />
+          三個帶得走的收穫
+        </h2>
+        <div className="space-y-7">
+          <Outcome number="01" icon={<ClipboardList className="size-5" />} title="說得出自己的計畫">
             操作前寫下條件與張數，讓每個決定有依據。
           </Outcome>
-          <Outcome icon={<ScanLine className="size-5" />} title="看得懂自己的紀錄">
+          <Outcome number="02" icon={<ScanLine className="size-5" />} title="看得懂自己的紀錄">
             把委託、成交與庫存對起來，知道發生了什麼。
           </Outcome>
-          <Outcome icon={<BookOpen className="size-5" />} title="選得出下一次的重點">
+          <Outcome number="03" icon={<BookOpen className="size-5" />} title="選得出下一次的重點">
             復盤留下觀察，一次練好一個動作。
           </Outcome>
         </div>
-        <p className="border-t border-border bg-surface-2 px-5 py-4 text-base leading-7 text-muted">
+        <p className="mt-7 border-t border-border pt-5 text-base leading-7 text-muted">
           學習足跡呈現有紀錄的操作。條件未到，可以先觀察，不必為了完成課程硬下單。
         </p>
       </div>
@@ -227,42 +253,66 @@ function Courses() {
       <p className="max-w-3xl text-base leading-8 text-muted">
         每課先知道要練什麼，再進入教材情境。六組任務可以反覆練習；實際堂數、上課節奏與講師回饋安排，由開課班級確認。
       </p>
-      <div className="mt-6 grid gap-3 md:grid-cols-3">
-        {STAGES.map((stage) => (
-          <div key={stage.title} className="rounded-2xl border border-brand/20 bg-brand/5 p-4">
-            <p className="flex items-center gap-3 text-lg font-semibold">
-              <span className="font-mono text-sm text-brand">{stage.number}</span>
-              {stage.title}
-            </p>
-            <p className="mt-2 text-base leading-7 text-muted">{stage.description}</p>
-          </div>
-        ))}
-      </div>
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
-        {COURSE_PATH.map((course, index) => (
-          <section key={course.id} className="academy-card min-w-0 p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
-              <span className="font-mono">練習 {String(index + 1).padStart(2, "0")}</span>
-              <span className="rounded-full bg-brand/8 px-3 py-1 text-brand">{course.stage}</span>
-            </div>
-            <h3 className="mt-4 text-xl font-semibold leading-snug">{course.title}</h3>
-            <p className="mt-3 text-base leading-7 text-muted">{course.focus}</p>
-            <details className="mt-4 border-t border-border pt-1">
-              <summary className="min-h-12 cursor-pointer py-3 text-base font-medium text-brand">
-                看這一課的三個步驟
-              </summary>
-              <ol className="list-decimal space-y-2 pl-6 text-base leading-7 text-muted">
-                {course.steps.map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ol>
-              <p className="mt-4 rounded-xl bg-surface-2 p-3 text-base leading-7">
-                <span className="font-medium">復盤想一想：</span>
-                {course.reflection}
-              </p>
-            </details>
-          </section>
-        ))}
+      <div className="mt-8 space-y-8">
+        {STAGES.map((stage) => {
+          const courses = COURSE_PATH.filter((course) => course.stage === stage.title);
+          return (
+            <section
+              key={stage.title}
+              className="premium-course-stage grid gap-5 border-t border-border pt-7 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8"
+              aria-labelledby={`stage-${stage.number}`}
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-brand">階段 {stage.number}</p>
+                <h3
+                  id={`stage-${stage.number}`}
+                  className="mt-2 text-2xl font-semibold tracking-tight"
+                >
+                  {stage.title}
+                </h3>
+                <p className="mt-3 text-base leading-7 text-muted">{stage.description}</p>
+                <p className="mt-4 text-sm text-subtle">{courses.length} 組課程任務</p>
+              </div>
+              <div className={`grid min-w-0 gap-4 ${courses.length > 1 ? "md:grid-cols-2" : ""}`}>
+                {courses.map((course) => {
+                  const index = COURSE_PATH.indexOf(course);
+                  return (
+                    <section
+                      key={course.id}
+                      className="premium-course-card premium-catalog-card min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6"
+                    >
+                      <div className="flex items-center gap-3 text-sm text-muted">
+                        <span
+                          className="premium-course-number font-mono text-3xl text-brand"
+                          aria-hidden="true"
+                        >
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <span>練習 {String(index + 1).padStart(2, "0")}</span>
+                      </div>
+                      <h4 className="mt-4 text-xl font-semibold leading-snug">{course.title}</h4>
+                      <p className="mt-3 text-base leading-7 text-muted">{course.focus}</p>
+                      <details className="mt-4 border-t border-border pt-1">
+                        <summary className="min-h-12 cursor-pointer py-3 text-base font-medium text-brand">
+                          看這一課的三個步驟
+                        </summary>
+                        <ol className="list-decimal space-y-2 pl-6 text-base leading-7 text-muted">
+                          {course.steps.map((step) => (
+                            <li key={step}>{step}</li>
+                          ))}
+                        </ol>
+                        <p className="mt-4 rounded-xl bg-surface-2 p-3 text-base leading-7">
+                          <span className="font-medium">復盤想一想：</span>
+                          {course.reflection}
+                        </p>
+                      </details>
+                    </section>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </Section>
   );
@@ -442,10 +492,12 @@ function Section({
 }) {
   return (
     <section id={id} className="manual-section mb-14 scroll-mt-6 sm:scroll-mt-24">
-      <p className="academy-eyebrow">{eyebrow}</p>
-      <h2 className="mb-5 mt-3 text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
-        {title}
-      </h2>
+      <div className="premium-section-heading mb-6">
+        <p className="academy-eyebrow">{eyebrow}</p>
+        <h2 className="mt-3 text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
+          {title}
+        </h2>
+      </div>
       {children}
     </section>
   );
@@ -461,24 +513,29 @@ function Fact({ label, body }: { label: string; body: string }) {
 }
 
 function Outcome({
+  number,
   icon,
   title,
   children,
 }: {
+  number: string;
   icon: ReactNode;
   title: string;
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 gap-3">
+    <div className="premium-outcome-row flex min-w-0 gap-4">
       <span
-        className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"
+        className="premium-outcome-icon flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"
         aria-hidden="true"
       >
         {icon}
       </span>
       <div className="min-w-0">
-        <h2 className="text-lg font-semibold">{title}</h2>
+        <p className="mb-1 font-mono text-xs text-muted" aria-hidden="true">
+          {number}
+        </p>
+        <h3 className="text-lg font-semibold">{title}</h3>
         <p className="mt-1 text-base leading-7 text-muted">{children}</p>
       </div>
     </div>
@@ -496,25 +553,5 @@ function Device({ icon, title, body }: { icon: ReactNode; title: string; body: s
         <p className="mt-2 text-base leading-7 text-muted">{body}</p>
       </div>
     </div>
-  );
-}
-
-function Mark() {
-  return (
-    <svg
-      width="40"
-      height="40"
-      viewBox="0 0 36 36"
-      aria-hidden="true"
-      className="shrink-0 rounded-xl"
-    >
-      <rect width="36" height="36" fill="#163a6b" />
-      <path d="M8 24 V14 H11 V24 Z" fill="#ff3b3b" />
-      <path d="M9.5 10 V14 M9.5 24 V28" stroke="#ff3b3b" strokeWidth="1.4" />
-      <path d="M16 24 V18 H19 V24 Z" fill="#8b9bb0" />
-      <path d="M17.5 15 V18 M17.5 24 V26" stroke="#8b9bb0" strokeWidth="1.4" />
-      <path d="M24 24 V11 H27 V24 Z" fill="#17c964" />
-      <path d="M25.5 8 V11 M25.5 24 V30" stroke="#17c964" strokeWidth="1.4" />
-    </svg>
   );
 }

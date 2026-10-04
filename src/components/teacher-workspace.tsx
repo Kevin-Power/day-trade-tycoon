@@ -5,7 +5,6 @@ import {
   BookOpen,
   ChevronDown,
   Download,
-  GraduationCap,
   MessageSquare,
   RefreshCw,
   Search,
@@ -13,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { DisplayControls } from "@/components/display-controls";
+import { BrandMark } from "@/components/brand-mark";
 import { LESSONS } from "@/lib/game/curriculum";
 import { courseStepFor } from "@/lib/game/learning-path";
 import { csvCell } from "@/lib/classroom-policy";
@@ -73,7 +73,7 @@ export function TeacherWorkspaceView({
       <header className="academy-header">
         <div className="academy-container flex flex-wrap items-center justify-between gap-3 py-4">
           <span className="flex items-center gap-2 text-base font-medium">
-            <GraduationCap aria-hidden="true" className="size-5 shrink-0 text-brand" />
+            <BrandMark className="size-10" />
             當沖大富翁・講師工作區
           </span>
           <div className="flex flex-wrap items-center gap-3">

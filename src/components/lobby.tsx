@@ -5,15 +5,18 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  ClipboardList,
   Clock3,
   Download,
   FileText,
-  GraduationCap,
+  Flag,
   HardDrive,
+  Layers3,
   LogOut,
   Play,
   ShieldCheck,
   Target,
+  Timer,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -40,11 +43,40 @@ import { WEEK_SESSIONS, formatIndex } from "@/lib/market/week";
 import { useGate } from "@/lib/gate/context";
 import { ClassroomAccount } from "@/components/classroom-account";
 import { DisplayControls } from "@/components/display-controls";
+import { BrandMark } from "@/components/brand-mark";
 import { PracticeGoalReminder } from "@/components/practice-goal";
 import { classroomSampleMicro, officialIndexMicro, officialTurnoverMicro } from "@/lib/provenance";
 
 const WEEK_ORDER = ["mon", "tue", "wed"] as const;
 const CLASSROOM_OFFLINE = import.meta.env.BASE_URL === "./";
+const PRACTICE_STEPS = [
+  {
+    number: "01",
+    title: "進場前有計畫",
+    description: "記下第一筆進場、離場條件與模擬虧損額度。",
+    icon: ClipboardList,
+  },
+  {
+    number: "02",
+    title: "盤中依規則操作",
+    description: "核對委託、成交與庫存，練習執行自己的計畫。",
+    icon: Target,
+  },
+  {
+    number: "03",
+    title: "結算後回來復盤",
+    description: "用紀錄回看操作，留下一個下次練習的重點。",
+    icon: BookOpen,
+  },
+] as const;
+const COURSE_ART = [
+  { tone: "plan", icon: ClipboardList },
+  { tone: "protect", icon: ShieldCheck },
+  { tone: "discipline", icon: Target },
+  { tone: "patience", icon: Timer },
+  { tone: "finish", icon: Flag },
+  { tone: "review", icon: Layers3 },
+] as const;
 
 export function Lobby() {
   const profile = useGame((state) => state.profile);
@@ -101,12 +133,7 @@ export function Lobby() {
             href="#classroom-top"
             className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg"
           >
-            <span
-              className="grid size-10 shrink-0 place-items-center rounded-xl border border-border-strong bg-surface"
-              aria-hidden="true"
-            >
-              <GraduationCap className="size-5" />
-            </span>
+            <BrandMark className="size-10 shrink-0" />
             <span className="min-w-0">
               <span className="block text-sm font-semibold tracking-wide">當沖大富翁</span>
               <span className="block text-[10px] tracking-[0.14em] text-muted">
@@ -156,12 +183,12 @@ export function Lobby() {
       >
         <section
           aria-labelledby="classroom-title"
-          className="grid gap-6 pb-7 pt-7 sm:py-8 lg:grid-cols-[1.3fr_0.7fr] lg:items-center lg:gap-10"
+          className="premium-lobby-hero grid gap-7 pb-8 pt-8 sm:py-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center lg:gap-12"
         >
-          <div className="min-w-0">
+          <div className="premium-hero-copy min-w-0">
             <div className="mb-3 flex flex-wrap items-center gap-2.5">
               <span className="academy-eyebrow text-xs font-medium tracking-[0.16em] text-muted">
-                你的模擬交易教室
+                當沖實作 · 模擬交易教室
               </span>
               <SimChip />
               {CLASSROOM_OFFLINE && (
@@ -172,14 +199,15 @@ export function Lobby() {
             </div>
             <h1
               id="classroom-title"
-              className="academy-title text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
+              className="premium-hero-title academy-title text-balance text-4xl font-semibold leading-tight tracking-tight sm:text-5xl"
             >
-              今天，練好一個動作
+              今天，練好
+              <span className="premium-hero-title-accent block">一個交易動作。</span>
             </h1>
-            <p className="academy-description mt-3 max-w-xl text-pretty text-sm leading-7 text-muted sm:text-base">
-              先選一個操作目標，完成模擬練習，再回來核對紀錄。從會看委託與成交，到能說清楚自己的進場與離場條件，一步一步練習。
+            <p className="academy-description mt-5 max-w-xl text-pretty text-base leading-8 text-muted">
+              先選一個目標，完成模擬練習，再用紀錄回看操作。從看懂委託與成交，到說清楚進場與離場條件，讓每一次練習都有方向。
             </p>
-            <div className="mt-5 flex flex-wrap items-center gap-3">
+            <div className="mt-6 flex flex-wrap items-center gap-3">
               {recentReview ? (
                 <Link
                   to="/session/$id/review"
@@ -235,23 +263,44 @@ export function Lobby() {
               </p>
             )}
           </div>
-          <div className="academy-card min-w-0 rounded-2xl border border-border bg-surface p-5">
-            <p className="text-base font-medium text-muted">每次練習，完成三件事</p>
-            <ol className="mt-4 space-y-4">
-              {[
-                ["01", "進場前有計畫", "在下單頁記下第一筆進場、離場條件與模擬虧損額度。"],
-                ["02", "盤中依規則操作", "核對委託、成交與庫存。"],
-                ["03", "結算後回來復盤", "記下一項下次要改進的事。"],
-              ].map(([number, title, description]) => (
-                <li key={number} className="flex items-start gap-3">
-                  <span className="mt-0.5 font-mono text-xs text-subtle">{number}</span>
-                  <div className="min-w-0">
-                    <p className="text-base font-medium">{title}</p>
-                    <p className="mt-0.5 text-sm leading-6 text-muted">{description}</p>
+          <div className="premium-practice-panel min-w-0 rounded-3xl border border-border p-5 sm:p-7">
+            <div className="premium-practice-heading flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium tracking-wide">每次練習，完成三件事</p>
+                <p className="mt-2 text-2xl font-semibold tracking-tight">先計畫，再行動。</p>
+              </div>
+              <span
+                className="premium-practice-panel-mark grid size-11 shrink-0 place-items-center rounded-full"
+                aria-hidden="true"
+              >
+                <Target className="size-5" />
+              </span>
+            </div>
+            <ol className="mt-6 space-y-5">
+              {PRACTICE_STEPS.map(({ number, title, description, icon: Icon }) => (
+                <li key={number} className="premium-practice-step flex items-start gap-4">
+                  <span
+                    className="premium-practice-step-icon grid size-10 shrink-0 place-items-center rounded-xl"
+                    aria-hidden="true"
+                  >
+                    <Icon className="size-[18px]" />
+                  </span>
+                  <div className="premium-practice-step-copy min-w-0 flex-1">
+                    <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-base font-medium">
+                      {title}
+                      <span className="font-mono text-xs opacity-65" aria-hidden="true">
+                        {number}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-sm leading-6 opacity-80">{description}</p>
                   </div>
                 </li>
               ))}
             </ol>
+            <p className="premium-practice-footer mt-6 flex items-center gap-2 border-t pt-4 text-sm leading-relaxed">
+              <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
+              在模擬環境中，練習自己的操作節奏。
+            </p>
           </div>
         </section>
 
@@ -262,9 +311,12 @@ export function Lobby() {
         <LearningFootprints summary={summary} missingReviews={missingReviews} />
 
         <section id="courses" aria-labelledby="courses-title" className="scroll-mt-6">
-          <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+          <div className="premium-section-heading mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 id="courses-title" className="text-xl font-semibold">
+              <p className="academy-eyebrow mb-2 text-xs font-medium tracking-[0.16em] text-muted">
+                循序練習 · 隨時回看
+              </p>
+              <h2 id="courses-title" className="text-2xl font-semibold tracking-tight">
                 我的課程路線
               </h2>
               <p className="mt-1 text-base leading-relaxed text-muted">
@@ -273,18 +325,23 @@ export function Lobby() {
             </div>
             <span className="text-xs leading-5 text-muted">分鐘數為模擬盤時間，可加速與暫停</span>
           </div>
-          <ol aria-label="課程學習階段" className="mb-4 grid gap-2 sm:grid-cols-3">
+          <ol
+            aria-label="課程學習階段"
+            className="premium-course-stages mb-5 grid gap-2 sm:grid-cols-3"
+          >
             {[...new Set(COURSE_PATH.map((step) => step.stage))].map((stage, index) => (
               <li
                 key={stage}
-                className="flex min-w-0 items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-base"
+                className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-base"
               >
-                <span className="font-mono text-muted">0{index + 1}</span>
+                <span className="premium-stage-number font-mono text-sm text-muted">
+                  0{index + 1}
+                </span>
                 <span className="min-w-0 font-medium">{stage}</span>
               </li>
             ))}
           </ol>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {SCENARIOS.map((scenario, index) => (
               <CourseCard
                 key={scenario.id}
@@ -313,10 +370,15 @@ export function Lobby() {
         </section>
 
         <section aria-labelledby="progress-title" className="mt-9 border-t border-border pt-7">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h2 id="progress-title" className="text-lg font-semibold">
-              這台裝置的練習紀錄
-            </h2>
+          <div className="premium-section-heading mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="academy-eyebrow mb-2 text-xs font-medium tracking-[0.16em] text-muted">
+                留下紀錄 · 練習回看
+              </p>
+              <h2 id="progress-title" className="text-2xl font-semibold tracking-tight">
+                這台裝置的練習紀錄
+              </h2>
+            </div>
             <span className="text-xs text-muted">
               本機統計 · <ProvenanceBadge kind="classroom" />
             </span>
@@ -360,10 +422,15 @@ export function Lobby() {
         </section>
 
         <section aria-labelledby="materials-title" className="mt-9">
-          <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-            <h2 id="materials-title" className="text-lg font-semibold">
-              教材與練習工具
-            </h2>
+          <div className="premium-section-heading mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="academy-eyebrow mb-2 text-xs font-medium tracking-[0.16em] text-muted">
+                隨時翻閱 · 反覆熟悉
+              </p>
+              <h2 id="materials-title" className="text-2xl font-semibold tracking-tight">
+                教材與練習工具
+              </h2>
+            </div>
             <Link
               to="/manual"
               className="academy-nav-link inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs"
@@ -472,8 +539,11 @@ export function Lobby() {
             </div>
           </div>
         </section>
-        <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-5 text-[11px] leading-5 text-subtle">
-          <span>當沖大富翁 · 講師帶班與模擬練習</span>
+        <footer className="premium-academy-footer mt-10 flex flex-wrap items-center justify-between gap-x-5 gap-y-3 border-t border-border pt-6 text-xs leading-6 text-muted">
+          <span className="flex items-center gap-2.5">
+            <BrandMark className="size-7 shrink-0" />
+            當沖大富翁 · 講師帶班與模擬練習
+          </span>
           <span>先有計畫，再用紀錄檢查每一次操作。</span>
         </footer>
       </main>
@@ -502,74 +572,92 @@ function CourseCard({
   const step = courseStepFor(scenario.id);
   const latestProgress = progress?.sessionId === lastRecord?.id ? progress : undefined;
   const first = index === 0;
+  const art = COURSE_ART[index % COURSE_ART.length];
+  const CourseIcon = art.icon;
   return (
-    <article className="academy-card flex min-w-0 flex-col rounded-2xl border border-border bg-surface p-4 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-        <span className="font-medium text-muted">
-          {lesson?.no || scenario.tag} · {step?.stage || "自主練習"}
+    <article
+      data-course={index + 1}
+      className="premium-course-card academy-card flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface"
+    >
+      <div
+        className="premium-course-art flex items-center justify-between gap-4 border-b border-border px-5 py-4"
+        data-tone={art.tone}
+        aria-hidden="true"
+      >
+        <span className="premium-course-number font-mono text-5xl font-medium tracking-tight">
+          {String(index + 1).padStart(2, "0")}
         </span>
-        <span className="inline-flex items-center gap-1.5 font-mono text-sm text-muted">
-          <Clock3 className="size-3.5" aria-hidden="true" />
-          {scenario.minutes} 分 · {scenario.speed}×
+        <span className="premium-course-symbol grid size-14 place-items-center rounded-2xl">
+          <CourseIcon className="size-7" strokeWidth={1.3} />
         </span>
       </div>
-      <h3 className="mt-2.5 text-lg font-semibold tracking-tight">
-        {step?.title || lesson?.skill || scenario.name}
-      </h3>
-      <p className="mt-1 text-sm text-muted">{scenario.name}</p>
-      <p className="mt-3 flex-1 text-base leading-relaxed text-muted">
-        {step?.focus || "練習觀察盤面、核對操作，再用復盤紀錄找出下一次的重點。"}
-      </p>
-      {step && (
-        <details className="my-3 rounded-xl border border-border bg-bg px-3">
-          <summary className="min-h-12 cursor-pointer py-3 text-base font-medium">
-            這一課怎麼練
-          </summary>
-          <ol className="list-decimal space-y-2 pb-3 pl-5 text-base leading-relaxed text-muted">
-            {step.steps.map((action) => (
-              <li key={action} className="pl-1">
-                {action}
-              </li>
-            ))}
-          </ol>
-          <p className="border-t border-border py-3 text-base leading-relaxed">
-            <span className="font-medium">復盤想一想：</span>
-            {step.reflection}
+      <div className="flex flex-1 flex-col p-4 sm:p-5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <span className="font-medium text-brand">{lesson?.no || scenario.tag}</span>
+          <span className="text-muted">{step?.stage || "自主練習"}</span>
+        </div>
+        <h3 className="mt-3 text-xl font-semibold leading-snug tracking-tight">
+          {step?.title || lesson?.skill || scenario.name}
+        </h3>
+        <p className="mt-1.5 text-sm leading-relaxed text-muted">{scenario.name}</p>
+        <p className="mt-4 flex-1 text-base leading-relaxed text-muted">
+          {step?.focus || "練習觀察盤面、核對操作，再用復盤紀錄找出下一次的重點。"}
+        </p>
+        {step && (
+          <details className="premium-course-outline my-4 rounded-xl border border-border bg-bg px-3">
+            <summary className="min-h-12 cursor-pointer py-3 text-base font-medium">
+              這一課怎麼練
+            </summary>
+            <ol className="list-decimal space-y-2 pb-3 pl-5 text-base leading-relaxed text-muted">
+              {step.steps.map((action) => (
+                <li key={action} className="pl-1">
+                  {action}
+                </li>
+              ))}
+            </ol>
+            <p className="border-t border-border py-3 text-base leading-relaxed">
+              <span className="font-medium">復盤想一想：</span>
+              {step.reflection}
+            </p>
+          </details>
+        )}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-3 text-sm leading-relaxed text-muted">
+          <span className="inline-flex items-center gap-1.5">
+            <Clock3 className="size-3.5" aria-hidden="true" />
+            {scenario.minutes} 分 · {scenario.speed}×
+          </span>
+          <span>模擬本金 {formatMoney(scenario.capital)}</span>
+          <span>
+            {scenario.leverage}× 額度 · {scenario.allowShort ? "可先賣" : "僅先買"}
+          </span>
+        </div>
+        <div className="mt-4 flex flex-col gap-3">
+          <p className="min-w-0 text-sm leading-relaxed text-muted">
+            {!progressReady
+              ? "正在讀取操作紀錄…"
+              : lastRecord
+                ? latestProgress
+                  ? latestProgress.achievedCount > 0
+                    ? `最近一次：已留下 ${latestProgress.achievedCount} 項操作足跡`
+                    : "最近一次：練習紀錄已可回看"
+                  : "最近一次：未找到完整紀錄"
+                : first
+                  ? "建議從這裡開始"
+                  : "依自己的進度練習"}
           </p>
-        </details>
-      )}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-3 text-sm leading-relaxed text-muted">
-        <span>模擬本金 {formatMoney(scenario.capital)}</span>
-        <span>
-          {scenario.leverage}× 額度 · {scenario.allowShort ? "可先賣" : "僅先買"}
-        </span>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <span className="min-w-0 text-base leading-relaxed text-muted">
-          {!progressReady
-            ? "正在讀取操作紀錄…"
-            : lastRecord
-              ? latestProgress
-                ? latestProgress.achievedCount > 0
-                  ? `最近一次：已留下 ${latestProgress.achievedCount} 項操作足跡`
-                  : "最近一次：練習紀錄已可回看"
-                : "最近一次：未找到完整紀錄"
-              : first
-                ? "建議從這裡開始"
-                : "依自己的進度練習"}
-        </span>
-        <button
-          type="button"
-          disabled={!ready}
-          onClick={onStart}
-          aria-label={`進入${lesson?.no || scenario.name}：${step?.title || lesson?.skill || scenario.name}`}
-          className={cn(
-            "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-4 py-3 text-base font-medium disabled:opacity-50",
-            first ? "academy-button-primary" : "academy-button-secondary",
-          )}
-        >
-          進入課程 <ArrowRight className="size-3.5" aria-hidden="true" />
-        </button>
+          <button
+            type="button"
+            disabled={!ready}
+            onClick={onStart}
+            aria-label={`進入${lesson?.no || scenario.name}：${step?.title || lesson?.skill || scenario.name}`}
+            className={cn(
+              "inline-flex min-h-12 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-base font-medium disabled:opacity-50",
+              first ? "academy-button-primary" : "academy-button-secondary",
+            )}
+          >
+            進入課程 <ArrowRight className="size-4" aria-hidden="true" />
+          </button>
+        </div>
       </div>
     </article>
   );
@@ -583,8 +671,11 @@ function LearningFootprints({
   missingReviews: number;
 }) {
   return (
-    <section aria-labelledby="learning-footprints-title" className="my-7 min-w-0">
-      <h2 id="learning-footprints-title" className="text-xl font-semibold">
+    <section
+      aria-labelledby="learning-footprints-title"
+      className="premium-footprints my-8 min-w-0"
+    >
+      <h2 id="learning-footprints-title" className="text-xl font-semibold tracking-tight">
         看見自己的操作足跡
       </h2>
       <p className="mt-2 text-base leading-relaxed text-muted">

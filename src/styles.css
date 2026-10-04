@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./reading-mode.css";
 @import "./responsive-terminal.css";
+@import "./academy-finish.css";
 @source "./**/*.{ts,tsx}";
 
 @theme {
@@ -316,7 +317,7 @@
 }
 
 /* Shared classroom hierarchy, separate from compact quote typography. */
-.academy-page { min-height: 100dvh; background: radial-gradient(ellipse at 85% 0%, #d9ede888, transparent 42%), var(--color-bg); color: var(--color-fg); }
+.academy-page { min-height: 100dvh; color: var(--color-fg); }
 .academy-container { width: min(100%, 1240px); margin-inline: auto; padding-inline: clamp(20px, 4vw, 48px); }
 .academy-header { border-bottom: 1px solid var(--color-border); background: #ffffffed; backdrop-filter: blur(16px); }
 .academy-card { min-width: 0; border: 1px solid var(--color-border); border-radius: 20px; background: var(--color-surface); }
