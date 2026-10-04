@@ -59,6 +59,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\hosting\host.ps1 s
 
 帶班前準備、人工入班、首次保存與回饋確認，依 [課程招生與入班準備包](docs/course-launch-kit.md) 執行。網站沒有線上結帳、自動對帳、付費席次或使用到期控制；建立帳號不等於完成報名。
 
+內部 [首期小班方案草案](docs/first-cohort-offer-draft.md) 提供實際課程節奏、交付範圍、建議試辦價與成本試算，供業主定案；不代表公開售價或已開班。
+
 ## 驗證範圍
 
 預設測試會列出實際 test files，避免 Windows shell 不展開 glob 而出現零測試。安全測試涵蓋角色、session ownership、不可覆寫、交易 rollback、cookie 驗證與 Windows 磁碟持久化。`scripts/hosting/auth-integration.test.mjs` 可在指定 `CLASSROOM_TEST_RELEASE` 下，以隔離資料庫進行真實 HTTP 登入、講師初始化與重啟測試。
