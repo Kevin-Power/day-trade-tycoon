@@ -77,6 +77,13 @@ type Ticket = {
   tif: TimeInForce;
 };
 
+type SubmitResult = {
+  code: string;
+  side: Side;
+  lots: number | null;
+  simTime: number;
+} & ({ ok: true; orderId: string } | { ok: false; reason: string });
+
 type GameStore = {
   phase: Phase;
   engine: DayMarket | null;
@@ -88,6 +95,7 @@ type GameStore = {
   ticketDraft: TicketDraft;
   tradePlan: TradePlan | null;
   firstPlannedOrder: FirstPlannedOrder | null;
+  lastSubmitResult: SubmitResult | null;
   venue: Venue;
   accountId: string;
   mobileTab: MobileTab;
@@ -169,6 +177,7 @@ export const useGame = create<GameStore>((set, get) => ({
   ticketDraft: { lots: "1", price: "" },
   tradePlan: null,
   firstPlannedOrder: null,
+  lastSubmitResult: null,
   venue: "sim",
   accountId: SIM_ACCOUNT,
   mobileTab: "watch",
@@ -244,6 +253,7 @@ export const useGame = create<GameStore>((set, get) => ({
       ticketDraft: ticketDraftFrom({ lots: 1, price: roundToTick(px) }),
       tradePlan: null,
       firstPlannedOrder: null,
+      lastSubmitResult: null,
       ...disarmedFlash,
       flashLastAttemptAt: null,
       flashLastResult: null,
@@ -285,6 +295,7 @@ export const useGame = create<GameStore>((set, get) => ({
       scenario: null,
       tradePlan: null,
       firstPlannedOrder: null,
+      lastSubmitResult: null,
       ...disarmedFlash,
       flashLastAttemptAt: null,
       flashLastResult: null,
@@ -593,19 +604,25 @@ export const useGame = create<GameStore>((set, get) => ({
 
   submit: () => {
     if (!get().ensureSessionIdentity()) return { ok: false, reason: "登入帳號已變更，請重新開始練習。" };
+    const { engine, selected, ticket, ticketDraft, venue, accountId, scenario, paused, activeBeat } = get();
+    if (!engine) return;
+    const attempt = { code: selected, side: ticket.side, lots: parseLotsDraft(ticketDraft.lots), simTime: engine.t };
+    // This feedback is separate from the broker's accepted order/fill ledger.
+    const rejected = (reason: string) => set({ lastSubmitResult: { ...attempt, ok: false, reason } });
     if (get().learnerGuideStep !== null) {
+      rejected(LEARNER_GUIDE_PAUSE_MESSAGE);
       toast(LEARNER_GUIDE_PAUSE_MESSAGE);
       return;
     }
-    const { engine, selected, ticket, ticketDraft, venue, accountId, scenario, paused, activeBeat } = get();
-    if (!engine) return;
     if (isExamScenario(scenario?.id) && (paused || activeBeat)) {
+      rejected("測驗不可在暫停中下單");
       playError();
       toast.error("測驗不可在暫停中下單");
       return;
     }
     const draft = validateTicketDraft(ticketDraft, ticket.type);
     if (!draft.ok) {
+      rejected(draft.reason);
       playError();
       toast.error(draft.reason);
       return { ok: false, reason: draft.reason };
@@ -626,10 +643,12 @@ export const useGame = create<GameStore>((set, get) => ({
       price,
     });
     if (!res.ok) {
+      rejected(res.reason);
       playError();
       toast.error(res.reason);
       return res;
     }
+    set({ lastSubmitResult: { ...attempt, ok: true, orderId: res.order.id } });
     if (get().firstPlannedOrder === null) {
       // Both regular and flash submissions pass here. Acceptance locks the
       // first intent even if it has no fills yet or no plan was written.

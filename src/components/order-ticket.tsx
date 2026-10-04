@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from "react";
+import { useId, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { TradePlanEntry } from "@/components/trade-plan";
 import { ClassroomSimMark, ProvenanceBadge, ProvenanceMicro } from "@/components/provenance";
@@ -22,7 +22,7 @@ import {
 } from "@/lib/broker";
 import { blotterMicro } from "@/lib/provenance";
 import { formatPrice, LOT_SHARES, stepTick } from "@/lib/market/ticks";
-import { cn, formatMoney } from "@/lib/utils";
+import { cn, formatLots, formatMoney, formatTime } from "@/lib/utils";
 
 const TIF: TimeInForce[] = ["ROD", "IOC", "FOK"];
 const TIF_LABELS: Record<TimeInForce, string> = {
@@ -39,6 +39,7 @@ const TIF_HELP: Record<TimeInForce, string> = {
 export function OrderTicket() {
   const lotsHelpId = useId();
   const priceHelpId = useId();
+  const resultRef = useRef<HTMLElement>(null);
   const engine = useGame((s) => s.engine);
   const selected = useGame((s) => s.selected);
   const ticket = useGame((s) => s.ticket);
@@ -46,6 +47,7 @@ export function OrderTicket() {
   const setTicket = useGame((s) => s.setTicket);
   const editTicketDraft = useGame((s) => s.editTicketDraft);
   const submit = useGame((s) => s.submit);
+  const lastSubmitResult = useGame((s) => s.lastSubmitResult);
   const flattenSelected = useGame((s) => s.flattenSelected);
   const venue = useGame((s) => s.venue);
   const setVenue = useGame((s) => s.setVenue);
@@ -70,9 +72,20 @@ export function OrderTicket() {
   const st = engine?.stats();
   const tooBig = st ? notional > st.equity * 0.3 : false;
   const buy = ticket.side === "buy";
-  const latestOrder = engine?.orders[0];
+  const latestOrder = lastSubmitResult?.ok ? engine?.orders.find((order) => order.id === lastSubmitResult.orderId) : undefined;
   const latestOutcome = latestOrder ? orderPresentation(latestOrder) : null;
   const heldLots = Math.abs(engine?.positions.get(selected)?.lots ?? 0);
+
+  function submitAndReadResult() {
+    const previousResult = useGame.getState().lastSubmitResult;
+    submit();
+    const current = useGame.getState();
+    if (current.phase !== "live" || current.learnerGuideStep !== null || current.lastSubmitResult === previousResult) return;
+    requestAnimationFrame(() => {
+      resultRef.current?.focus({ preventScroll: true });
+      resultRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
+    });
+  }
 
   return (
     <div data-order-ticket-start tabIndex={-1} className="trade-ticket flex h-full min-h-0 flex-col bg-surface outline-none">
@@ -373,7 +386,7 @@ export function OrderTicket() {
         <Button
           size="md"
           variant={buy ? "buy" : "sell"}
-          onClick={submit}
+          onClick={submitAndReadResult}
           disabled={!draft.ok || Boolean(executionReason)}
           className="ticket-submit min-w-28"
         >
@@ -381,12 +394,26 @@ export function OrderTicket() {
         </Button>
       </div>
       <p className="px-3 pb-3 text-sm leading-6 text-muted">平倉此檔會先取消此商品待單，再按可用五檔平倉。量不足時仍會留下庫存，請核對結果。</p>
-      {latestOrder && latestOutcome && (
-        <section aria-label="最近一筆委託結果" className="m-3 mt-0 rounded-xl border border-border-strong bg-bg-1 p-3 text-base leading-7 lg:text-sm">
-          <h3 className="font-semibold">最近委託 {latestOrder.id} · {latestOrder.code} {latestOrder.side === "buy" ? "買進" : "賣出"}</h3>
-          <p role="status">{latestOutcome.statusLabel}：已成交 {latestOrder.filled}／{latestOrder.lots} 張</p>
-          <p>等待 {latestOutcome.waitingLots} 張 · 已取消 {latestOutcome.cancelledLots} 張</p>
-          {latestOrder.cancelReason && <p className="text-muted">{latestOrder.cancelReason}</p>}
+      {lastSubmitResult && (
+        <section ref={resultRef} tabIndex={-1} aria-label="最近一次送出結果" className="m-3 mt-0 rounded-xl border border-border-strong bg-bg-1 p-3 text-base leading-7 lg:text-sm">
+          <h3 className="font-semibold">最近一次送出結果</h3>
+          <p>{lastSubmitResult.code} {engine?.quote(lastSubmitResult.code)?.name ?? ""} · {lastSubmitResult.side === "buy" ? "買進" : "賣出"} · {lastSubmitResult.lots === null ? "張數未完成" : `${formatLots(lastSubmitResult.lots)} 張`}</p>
+          <p className="text-muted">模擬 {formatTime(lastSubmitResult.simTime)} 按下送出</p>
+          {!lastSubmitResult.ok ? (
+            <>
+              <p role="alert" className="mt-2 font-semibold text-warn">這次未建立委託：{lastSubmitResult.reason}</p>
+              <p className="mt-2 text-muted">這次沒有新增委託或成交紀錄。先核對原因與目前委託、庫存，再決定下一步，不要因沒看到新委託而連續重送。</p>
+            </>
+          ) : latestOrder && latestOutcome ? (
+            <>
+              <p className="mt-2 font-semibold">已建立委託 {latestOrder.id}</p>
+              <p role="status">{latestOutcome.statusLabel}：已成交 {formatLots(latestOrder.filled)}／{formatLots(latestOrder.lots)} 張</p>
+              <p>等待 {formatLots(latestOutcome.waitingLots)} 張 · 已取消 {formatLots(latestOutcome.cancelledLots)} 張</p>
+              {latestOrder.cancelReason && <p className="text-muted">{latestOrder.cancelReason}</p>}
+            </>
+          ) : (
+            <p role="status" className="mt-2 text-warn">找不到委託 {lastSubmitResult.orderId} 的目前狀態，請到本盤全部委託核對。</p>
+          )}
           <button type="button" className="mt-2 min-h-12 w-full rounded-lg border border-border-strong px-3 py-2 font-medium" onClick={() => {
             setOrderScope("all");
             setRightTab("orders");

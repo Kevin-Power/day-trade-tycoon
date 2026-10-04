@@ -10,7 +10,7 @@ import { useGate } from "@/lib/gate/context";
 import { teachingOhlcNote } from "@/lib/market/universe";
 import { COURSE_PATH } from "@/lib/game/learning-path";
 
-export const MANUAL_VERSION = "2026-10-03";
+export const MANUAL_VERSION = "2026-10-04";
 const PDF_HREF = "/daytrade-tycoon-manual.pdf";
 const GITHUB = "https://github.com/Kevin-Power/day-trade-tycoon";
 
@@ -18,7 +18,7 @@ const TOC = [
   { id: "brief", n: "00", label: "先認識你的教室" },
   { id: "what", n: "01", label: "這是什麼、給誰用" },
   { id: "play", n: "02", label: "學員怎麼玩" },
-  { id: "lessons", n: "03", label: "本週課綱" },
+  { id: "lessons", n: "03", label: "教材課綱" },
   { id: "data", n: "04", label: "資料哪裡來" },
   { id: "broker", n: "05", label: "模擬盤與之後的實盤" },
   { id: "offline", n: "06", label: "地端教室" },
@@ -203,6 +203,7 @@ function Play() {
         <Step n="3" title="看盤，再下單">
           下單頁可先寫第一筆進場計畫，記下自己的進場、離場條件與模擬虧損額度。這是討論用的紀錄，不是自動停損。第一筆委託成功送出後就保留原樣，掛單或撤單也不補改。不填仍可練習，紀錄會如實留白。委託單選買進或賣出、限價或市價、張數、價格。核對後點「送出」；鍵盤可用
           Tab 移到送出按鈕再按 Enter。Space 暫停。ROD 留單等待、IOC 立即撮合後取消剩餘、FOK 全部成交或全部取消。
+          送出後查看「最近一次送出結果」。若顯示「這次未建立委託」，先讀原因；這次不會新增委託或成交。成功建立委託也不等於全部成交，仍要核對已成交、等待與已取消張數。這項送出提示只保留在目前這一盤，不會另外寫入復盤。
         </Step>
         <Step n="4" title="部位與出場">
           平倉會先取消對應待單，再依五檔量嘗試出場。請確認庫存為零；量不足時仍會有未平部位。結束練習時系統也會嘗試平倉，但不保證完全成交。
@@ -253,10 +254,9 @@ function Play() {
 
 function Lessons() {
   return (
-    <Section id="lessons" n="03" title="本週課綱">
+    <Section id="lessons" n="03" title="教材課綱">
       <p className="text-pretty leading-relaxed text-muted">
-        教材凍結在 2026/08/24–08/26 三個交易日。路徑不改，是因為暫停點綁在真實分鐘：週三 09:00:20
-        的低點、週二 11:00 的低點，不能每天被新盤蓋掉。
+        教材固定在 2026/08/24–08/26 三個交易日，方便講師對照同一段紀錄。盤中提示引導你核對當下可見資料；重練時可能記得後續走勢，因此熟悉教材不等於能判斷未知行情。
       </p>
       <p className="mt-3 text-base leading-7 text-muted">
         第 1 課是入門操作，第 2–4 課練風險紀律，第 5–6 課做自主練習。以下小任務幫助安排觀察、核對與復盤；原有課程挑戰規則不變。
@@ -408,7 +408,7 @@ function Broker() {
         />
         <Fact
           label="之後（實盤）"
-          body="需依選定券商另做帳戶授權、伺服器訂單服務、非同步委託與成交回報、風控及對帳。目前尚未指定券商，實盤按鈕不會送單。"
+          body="後續規劃串接富邦，仍須完成帳戶授權、委託回報、風控與對帳驗證。目前尚未開放實盤，實盤按鈕不會送單。"
         />
       </div>
       <ol className="mt-5 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-muted">
@@ -450,9 +450,9 @@ function Rules() {
             <Row k="顏色" v="紅漲綠跌。跟台股習慣，不跟美股。" />
             <Row k="單位" v="1 張 = 1,000 股。價格跳動依證交所檔距。" />
             <Row k="漲跌停" v="±10%。掛在停板外的單不會成交。" />
-            <Row k="時間" v="09:00–13:30。可 4x／6x／8x。教材開盤那課最慢。" />
-            <Row k="手續費" v="約 0.0855%（1.425‰ × 六折），最低 20 元。" />
-            <Row k="當沖稅" v="賣出 0.15%。" />
+            <Row k="時間" v="教材盤使用 09:00–13:30 範圍，各課起訖不同。可暫停及調整倍速，模擬時間不是實際授課時間。" />
+            <Row k="模擬手續費" v="教室設定為 0.0855%（1.425‰ × 六折），逐成交最低 20 元。實際券商費率另行核對。" />
+            <Row k="模擬交易稅" v="教室設定為賣出 0.15%；不是實際帳戶的稅額確認。" />
             <Row k="來回成本" v="教室概估約 0.321%；逐成交最低費、價差與取整會使結果不同，實際券商費用另行核對。" />
             <Row k="結束平倉" v="系統先撤待單再嘗試平倉。量不足時保留未平部位，不當成自行完成平倉。" />
           </tbody>
