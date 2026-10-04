@@ -304,7 +304,7 @@ export function NewsBar() {
   const warning = engine?.warning;
   const coach = engine?.coachLine;
   const line = news || warning || coach;
-  const label = news ? "快訊" : warning ? "風控" : "教練";
+  const label = news ? "盤中練習" : warning ? "風控" : "教練";
   if (!line && !expandedMessage) return null;
   return (
     <Dialog.Root

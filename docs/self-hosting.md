@@ -58,9 +58,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\hosting\host.ps1 s
 
 正常停機釋放 runtime 鎖後，Windows 排程可能仍在收尾。`start` 在排程為 `Running`／`Queued` 且沒有 runtime 擁有者時會於同一期限內等候，直到 `Ready` 才提交新啟動，避免 `IgnoreNew` 丟棄請求。等待期間若服務重新取得鎖，便沿用並驗證健康；出現維護鎖或排程擁有權改變則拒絕。
 
-supervisor 監控 app 和 tunnel，app 異常時撤下 tunnel，失敗後有間隔重啟；每 5 分鐘最多 5 次恢復嘗試，超過便停止並留下日誌。每種日誌最大約 10 MiB、保留 5 份歷史檔。只有本次 supervisor 建立的 child process 可被終止，沒有依 process name 或陌生 PID 強制關閉的指令。8790 被其他程序占用時拒絕啟動。秘密值與常見授權 header 會在日誌寫入前遮蔽，仍請勿公開整份日誌。
+supervisor 監控 app 和 tunnel，app 異常時撤下 tunnel，失敗後有間隔重啟；每 5 分鐘最多 5 次恢復嘗試，超過便停止並留下日誌。每種日誌最大約 10 MiB、保留 5 份歷史檔。只有本次 supervisor 建立的 child process 可被終止，沒有依 process name 或陌生 PID 強制關閉的指令。8790 被其他程序占用時拒絕啟動。健康檢查失敗會記錄 timeout、HTTP、JSON 或 payload 等分類、耗時與連續失敗次數；`state.json` 的 `lastHealthCheck` 亦保留最近摘要，不含回應正文、網址、header 或原始錯誤文字。秘密值與常見授權 header 會在日誌寫入前遮蔽，仍請勿公開整份日誌。
 
-停止順序是關閉專用 tunnel，再向 app 發送 IPC `{type:"shutdown"}`。資料庫關閉 hook 必須完成 flush 後回覆 `{type:"shutdown-complete"}`；收到確認才記錄 clean shutdown。30 秒未確認時會結束本次 app、標記 `stopped-unclean`，備份拒絕執行；需查明原因並完成一次正常啟停。不要使用工作管理員、`Stop-Process node` 或 `Stop-ScheduledTask` 代替正常停止。
+停止順序是關閉專用 tunnel，再向 app 發送 IPC `{type:"shutdown"}`。資料庫關閉 hook 必須完成 flush 後回覆 `{type:"shutdown-complete"}`；只有收到確認且程序實際退出，才記錄 clean shutdown。30 秒未確認時會要求結束本次 app；沒有成功關閉確認的退出標記為 `stopped-unclean`，備份拒絕執行，需查明原因並完成一次正常啟停。
+
+`kill` 請求成功不代表程序已退出。退出確認逾時時，supervisor 會保留原 child handle 與 runtime ownership、記錄 `stop-failed` 並持續重試；不另開 app、不釋放資料庫給第二個服務。若 `host.ps1 stop` 的 45 秒等待先結束，命令會報錯，但原 supervisor 可能仍在停止中；先用 `status` 確認活的 ownership 和日誌，不能刪锁檔或跳過備份守衛。所有 owned children 退出並寫入最終狀態後才釋放 ownership；程序持續不退出或狀態檔持續無法寫入時，會保持持有狀態，需要診斷主機。不要使用工作管理員、`Stop-Process node` 或 `Stop-ScheduledTask` 代替正常停止。
 
 ## 使用者登入自動啟動
 

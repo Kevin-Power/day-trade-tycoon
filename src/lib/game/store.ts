@@ -110,6 +110,7 @@ type GameStore = {
   flashLastResult: FlashLastResult | null;
   flashNotice: string;
   activeBeat: LessonBeat | null;
+  lessonCardHidden: boolean;
   dismissedBeats: string[];
   learnerGuideStep: number | null;
   learnerGuideReady: boolean;
@@ -149,6 +150,8 @@ type GameStore = {
   disarmFlash: (reason?: string) => void;
   submitLightning: (input: FlashSubmitInput) => BrokerAck;
   dismissBeat: () => void;
+  hideLessonCard: () => void;
+  reopenLessonCard: () => void;
   checkBeats: () => void;
   bump: () => void;
   submit: () => BrokerAck | undefined;
@@ -192,6 +195,7 @@ export const useGame = create<GameStore>((set, get) => ({
   flashLastResult: null,
   flashNotice: "尚未啟用；點價後先核對委託。",
   activeBeat: null,
+  lessonCardHidden: false,
   dismissedBeats: [],
   learnerGuideStep: null,
   learnerGuideReady: false,
@@ -268,6 +272,7 @@ export const useGame = create<GameStore>((set, get) => ({
       localReviewSaved: false,
       frame: 0,
       activeBeat: beat,
+      lessonCardHidden: false,
       dismissedBeats: [],
       learnerGuideStep: guide ? 0 : null,
       learnerGuideReady: false,
@@ -276,7 +281,7 @@ export const useGame = create<GameStore>((set, get) => ({
 
   openLearnerGuide: () => {
     if (get().phase !== "live" || get().scenario?.id !== "wed-open") return;
-    set({ ...learnerGuideStepState(0), ...disarmedFlash, flashNotice: "操作導覽中，閃電下單已解除。" });
+    set({ ...learnerGuideStepState(0), lessonCardHidden: false, ...disarmedFlash, flashNotice: "操作導覽中，閃電下單已解除。" });
   },
   setLearnerGuideStep: (step) => {
     if (get().learnerGuideStep === null) return;
@@ -285,7 +290,7 @@ export const useGame = create<GameStore>((set, get) => ({
   finishLearnerGuide: () => {
     if (get().learnerGuideStep === null) return;
     rememberLearnerGuide(getProfileIdentity());
-    set(finishedLearnerGuideState());
+    set({ ...finishedLearnerGuideState(), lessonCardHidden: false });
   },
 
   leave: () => {
@@ -309,6 +314,7 @@ export const useGame = create<GameStore>((set, get) => ({
       ticket: { side: "buy", type: "limit", lots: 1, price: 0, tif: "ROD" },
       ticketDraft: { lots: "1", price: "" },
       activeBeat: null,
+      lessonCardHidden: false,
       dismissedBeats: [],
       learnerGuideStep: null,
       learnerGuideReady: false,
@@ -353,7 +359,7 @@ export const useGame = create<GameStore>((set, get) => ({
       openPositionsAtEnd: engine.openPositions().map(({ code, lots, last }) => ({ code, lots, last })),
       firstTradePlan: snapshotFirstTradePlan(get().tradePlan, get().firstPlannedOrder) };
     const localReviewSaved = saveReview(bundle);
-    set({ phase: "result", ...disarmedFlash, lastResult: rec, lastVerdicts: pass.verdicts, profile: next, paused: true, syncStatus: "local", localReviewSaved, learnerGuideReady: false });
+    set({ phase: "result", ...disarmedFlash, lastResult: rec, lastVerdicts: pass.verdicts, profile: next, paused: true, syncStatus: "local", localReviewSaved, learnerGuideReady: false, lessonCardHidden: false });
     const ownerId = get().sessionIdentity;
     if (ownerId) {
       if (bundle.fills.length > SERVER_REVIEW_FILL_LIMIT) {
@@ -387,7 +393,7 @@ export const useGame = create<GameStore>((set, get) => ({
       get().dismissBeat();
       return;
     }
-    set({ paused: !get().paused });
+    set({ paused: !get().paused, lessonCardHidden: false });
   },
   setSpeed: (n) => set({ speed: n }),
 
@@ -501,7 +507,7 @@ export const useGame = create<GameStore>((set, get) => ({
   setChartStyle: (s) => set({ chartStyle: s }),
   setTeachMode: (on) => {
     saveTeachMode(on);
-    if (!on) set({ teachMode: false, activeBeat: null, paused: get().learnerGuideStep !== null || get().learnerGuideReady });
+    if (!on) set({ teachMode: false, activeBeat: null, lessonCardHidden: false });
     else set({ teachMode: true });
   },
   setFlashOrder: (on, expected) => {
@@ -572,6 +578,16 @@ export const useGame = create<GameStore>((set, get) => ({
     set({ flashLastResult: { ok: result.ok, code: input.code, side: input.side, lots, price: input.price, tif: state.ticket.tif, at: now, message, ...(result.ok ? { orderId: result.order.id } : {}) }, flashNotice: "" });
     return result;
   },
+  hideLessonCard: () => {
+    const { phase, learnerGuideStep, activeBeat, learnerGuideReady } = get();
+    if (phase !== "live" || learnerGuideStep !== null || (!activeBeat && !learnerGuideReady)) return;
+    set({ lessonCardHidden: true, paused: true, ...disarmedFlash, flashNotice: "閱讀教學提示，閃電下單已解除。" });
+  },
+  reopenLessonCard: () => {
+    const { phase, learnerGuideStep, activeBeat, learnerGuideReady } = get();
+    if (phase !== "live" || learnerGuideStep !== null || (!activeBeat && !learnerGuideReady)) return;
+    set({ lessonCardHidden: false, paused: true, ...disarmedFlash, flashNotice: "閱讀教學提示，閃電下單已解除。" });
+  },
   dismissBeat: () => {
     if (get().learnerGuideStep !== null) {
       toast(LEARNER_GUIDE_PAUSE_MESSAGE);
@@ -579,11 +595,12 @@ export const useGame = create<GameStore>((set, get) => ({
     }
     const { scenario, activeBeat, dismissedBeats } = get();
     if (!activeBeat || !scenario) {
-      set({ activeBeat: null, paused: false, learnerGuideReady: false });
+      set({ activeBeat: null, lessonCardHidden: false, paused: false, learnerGuideReady: false });
       return;
     }
     set({
       activeBeat: null,
+      lessonCardHidden: false,
       paused: false,
       dismissedBeats: [...dismissedBeats, beatKey(scenario.id, activeBeat.atMinute)],
       learnerGuideReady: false,
@@ -598,7 +615,7 @@ export const useGame = create<GameStore>((set, get) => ({
     const hit = lesson.beats.find(
       (b) => minute + 0.02 >= b.atMinute && !dismissedBeats.includes(beatKey(scenario.id, b.atMinute)),
     );
-    if (hit) set({ activeBeat: hit, paused: true });
+    if (hit) set({ activeBeat: hit, lessonCardHidden: false, paused: true });
   },
   bump: () => set({ frame: get().frame + 1 }),
 

@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { createServer, createConnection } from 'node:net';
 import { resolveHostingRuntime } from './runtime-path.mjs';
+import { trackOwnedProcess, createOwnedShutdown } from './owned-process.mjs';
+import { probeHealth } from './health-check.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const workspace = resolve(here, '../..');
@@ -49,9 +51,18 @@ async function acquireLock(kind) {
   try { atomicJson(lockFile, owner); } catch (error) { server.close(); leases.delete(token); throw error; }
   return token;
 }
-function releaseLock(token) {
+function releaseLock(token, { retainOnCleanupFailure = true } = {}) {
+  // If record cleanup fails (for example a Windows sharing violation), retain
+  // the pipe lease. A shutdown retry must not overwrite a newer owner's state.
+  let cleanupError;
   try { if (readJson(lockFile)?.token === token) unlinkSync(lockFile); }
-  finally { leases.get(token)?.close(); leases.delete(token); }
+  catch (error) {
+    if (retainOnCleanupFailure) throw error;
+    cleanupError = error;
+  }
+  leases.get(token)?.close();
+  leases.delete(token);
+  if (cleanupError) throw cleanupError;
 }
 function inside(root, path) { const rel = relative(root, path); return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel)); }
 function loadConfig() {
@@ -79,11 +90,7 @@ function appEnvironment(config) {
   return { ...inherited, ...saved, NODE_ENV: 'production', HOST: '127.0.0.1', NITRO_HOST: '127.0.0.1', PORT: String(config.port), NITRO_PORT: String(config.port), PGLITE_DATA_DIR: join(runtime, 'data', 'pglite'), CLASSROOM_DOWNLOADS_DIR: resolve(dirname(config.entry), '../downloads') };
 }
 async function health(config) {
-  try {
-    const response = await fetch(config.healthUrl, { signal: AbortSignal.timeout(4000), cache: 'no-store', redirect: 'error' });
-    const value = await response.json();
-    return response.ok && (value.ok === true || value.status === 'ok' || value.status === 'healthy');
-  } catch { return false; }
+  return (await probeHealth(config.healthUrl)).ok;
 }
 async function portFree(port) {
   return new Promise((done) => {
@@ -123,59 +130,57 @@ async function run() {
   if (!config.cloudflaredPath || !existsSync(config.cloudflaredPath) || !config.tunnelConfig || !existsSync(config.tunnelConfig)) throw new Error('Dedicated cloudflared executable/config is not configured.');
   runStage = 'acquiring runtime ownership';
   const lockToken = await acquireLock('service');
-  const log = runLog;
+  // Logging failure must not abort an exit handler and abandon owned children.
+  const log = (name, message) => { try { runLog(name, message); } catch { /* State remains the other diagnostic channel. */ } };
   runStage = 'supervising application and tunnel';
   let app, tunnel, stopping = false, stopped = false, fatal = false, lastCleanShutdown = false;
-  let restartCount = 0, healthFailures = 0, lastHealthyAt = null;
+  let restartCount = 0, healthFailures = 0, lastHealthyAt = null, lastHealthCheck = null;
   const instanceId = randomUUID();
   const recentRestarts = [];
   function state(status, extra = {}) {
-    atomicJson(stateFile, { status, instanceId, supervisorPid: process.pid, appPid: app?.pid ?? null, tunnelPid: tunnel?.pid ?? null, port: config.port, updatedAt: new Date().toISOString(), lastHealthyAt, restartCount, lastCleanShutdown, ...extra });
+    atomicJson(stateFile, { status, instanceId, supervisorPid: process.pid, appPid: app?.pid ?? null, tunnelPid: tunnel?.pid ?? null, port: config.port, updatedAt: new Date().toISOString(), lastHealthyAt, lastHealthCheck, healthFailures, restartCount, lastCleanShutdown, ...extra });
   }
   function watch(child, name) {
     child.stdout?.on('data', (value) => log(name, value));
     child.stderr?.on('data', (value) => log(name, value));
     child.on('error', (error) => log('supervisor', `${name} process error: ${error.code ?? error.name}`));
     child.on('exit', (code, signal) => log('supervisor', `${name} exited (${code ?? signal}).`));
-    return child;
+    return trackOwnedProcess(child);
   }
-  const running = (child) => child && child.exitCode === null && child.signalCode === null;
+  const running = (child) => child?.running() ?? false;
   async function endTunnel() {
-    const owned = tunnel; tunnel = null;
-    if (!running(owned)) return;
-    const exited = new Promise((resolve) => owned.once('exit', resolve));
-    owned.kill(); await Promise.race([exited, sleep(5000)]);
-    if (running(owned)) throw new Error('Owned tunnel did not stop.');
+    const owned = tunnel;
+    if (!owned) return;
+    const result = await owned.stop();
+    if (!result.exited) throw new Error('Owned tunnel did not stop.');
+    if (tunnel === owned) tunnel = null;
   }
   async function endApp() {
     const owned = app;
-    if (!running(owned)) { app = null; return false; }
-    let completed = false;
-    const ack = new Promise((resolve) => {
-      owned.on('message', (message) => { if (message?.type === 'shutdown-complete') { completed = true; resolve(); } if (message?.type === 'shutdown-error') resolve(); });
-      owned.once('exit', resolve);
-    });
-    if (owned.connected) owned.send({ type: 'shutdown' }, () => {});
-    await Promise.race([ack, sleep(30000)]);
-    if (running(owned)) {
-      const exited = new Promise((resolve) => owned.once('exit', resolve));
-      owned.kill(); await Promise.race([exited, sleep(5000)]);
-    }
-    if (running(owned)) throw new Error('Owned application did not stop.');
-    app = null; return completed;
+    if (!owned) return lastCleanShutdown;
+    const result = await owned.stop(true);
+    if (!result.exited) throw new Error('Owned application did not stop.');
+    if (app === owned) { app = null; lastCleanShutdown = result.clean; }
+    return result.clean;
   }
-  async function stop(reason) {
-    if (stopping) return;
-    stopping = true; state('stopping', { reason }); log('supervisor', `Stopping: ${reason}`);
-    try {
-      await endTunnel();
-      // Remove incoming traffic before flushing the database through its IPC hook.
-      await sleep(1000);
-      lastCleanShutdown = await endApp();
+  const stopOwned = createOwnedShutdown({
+    endTunnel, endApp,
+    childrenRunning: () => running(tunnel) || running(app),
+    onStopping(reason) { state('stopping', { reason }); log('supervisor', `Stopping: ${reason}`); },
+    onRetry(error, reason, attempt) {
+      log('supervisor', `${error.message} Retaining runtime ownership; stop attempt=${attempt}; retrying.`);
+      state('stop-failed', { reason, stopAttempt: attempt });
+    },
+    onStopped(clean, reason) {
+      lastCleanShutdown = clean;
       state(lastCleanShutdown ? 'stopped' : 'stopped-unclean', { reason });
       log('supervisor', `Stopped. Database close acknowledged: ${lastCleanShutdown}`);
-    } catch (error) { state('stop-failed'); log('supervisor', error.message); fatal = true; }
-    finally { stopped = true; releaseLock(lockToken); }
+    },
+    releaseOwnership() { releaseLock(lockToken); stopped = true; },
+  });
+  function stop(reason) {
+    stopping = true;
+    return stopOwned(reason);
   }
   function startApp() {
     lastCleanShutdown = false;
@@ -189,7 +194,7 @@ async function run() {
   process.on('SIGTERM', () => { void stop('SIGTERM'); });
   try {
     if (!(await portFree(config.port))) throw new Error('Local port is occupied; refusing to stop or replace its owner.');
-    startApp();
+    if (!stopping) startApp();
     let readyDeadline = Date.now() + 90000;
     let nextHealth = 0;
     while (!stopping) {
@@ -197,17 +202,23 @@ async function run() {
       if (request?.instanceId === instanceId) { await stop('operator'); break; }
       if (!running(app)) {
         await endTunnel();
+        if (stopping) break;
         recentRestarts.push(Date.now());
         while (recentRestarts[0] < Date.now() - 300000) recentRestarts.shift();
         if (recentRestarts.length > 5) throw new Error('Application restart budget exhausted (5 per 5 minutes).');
         restartCount++; state('recovering'); await sleep(Math.min(1000 * 2 ** recentRestarts.length, 15000));
         if (stopping) break;
         if (!(await portFree(config.port))) throw new Error('Port occupied after application exit; failing closed.');
+        if (stopping) break;
         startApp(); readyDeadline = Date.now() + 90000; healthFailures = 0;
       }
       if (Date.now() >= nextHealth) {
         nextHealth = Date.now() + 10000;
-        if (await health(config)) {
+        const checked = await probeHealth(config.healthUrl);
+        if (stopping) break;
+        lastHealthCheck = { ...checked, checkedAt: new Date().toISOString() };
+        if (checked.ok) {
+          if (healthFailures) log('supervisor', `Health recovered: durationMs=${checked.durationMs}; previousFailures=${healthFailures}.`);
           healthFailures = 0; lastHealthyAt = new Date().toISOString();
           if (!running(tunnel)) {
             const now = Date.now();
@@ -218,8 +229,11 @@ async function run() {
           }
           state('running');
         } else {
-          healthFailures++; state('unhealthy');
+          healthFailures++;
+          log('supervisor', `Health failed: kind=${checked.kind}; durationMs=${checked.durationMs}; consecutiveFailures=${healthFailures}${checked.status == null ? '' : `; status=${checked.status}`}.`);
+          state('unhealthy');
           if (tunnel) await endTunnel();
+          if (stopping) break;
           if (Date.now() > readyDeadline && healthFailures >= 3) {
             log('supervisor', 'Health check failed; flushing and restarting owned application.');
             await endApp();
@@ -244,7 +258,7 @@ async function stopCommand() {
   atomicJson(requestFile, { instanceId: state.instanceId, requestedAt: new Date().toISOString() });
   const deadline = Date.now() + 45000;
   while (Date.now() < deadline && await activeLock()) await sleep(500);
-  if (await activeLock()) throw new Error('Graceful stop timed out; inspect logs. No unrelated process was killed.');
+  if (await activeLock()) throw new Error('Graceful stop timed out; supervisor retains ownership and continues stopping. Inspect logs. No unrelated process was killed.');
   console.log(JSON.stringify(readJson(stateFile), null, 2));
 }
 async function startCommand() {
@@ -294,7 +308,11 @@ async function backupCommand() {
     atomicJson(join(staging, 'manifest.json'), { format: 1, createdAt: new Date().toISOString(), consistency: 'application-stopped-database-close-acknowledged', sourceRuntime: runtime, files });
     renameSync(staging, destination);
     console.log(JSON.stringify({ backup: destination, files: files.length, verified: true }, null, 2));
-  } finally { releaseLock(token); }
+  } finally {
+    // Maintenance has no owned children or further service-state writes. It can
+    // release its lease and report cleanup failure instead of staying alive.
+    releaseLock(token, { retainOnCleanupFailure: false });
+  }
 }
 try {
   if (command === 'run') await run();

@@ -73,20 +73,34 @@ export function LearnerGuide() {
 
 export function LearnerGuideReady() {
   const start = useGame((state) => state.dismissBeat);
+  const hide = useGame((state) => state.hideLessonCard);
   const reopen = useGame((state) => state.openLearnerGuide);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { titleRef.current?.focus({ preventScroll: true }); }, []);
   return (
     <section
-      aria-label="準備開始練習"
+      role="dialog"
+      aria-labelledby="learner-ready-title"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          hide();
+        }
+      }}
       className="term-scroll fixed inset-x-3 top-4 z-30 mx-auto max-h-[calc(100dvh-2rem)] max-w-lg overflow-auto overscroll-contain rounded-2xl border border-border bg-surface p-5 shadow-xl"
     >
-      <h2 className="text-xl font-semibold">盤勢仍暫停，準備好再開始</h2>
+      <h2 ref={titleRef} tabIndex={-1} id="learner-ready-title" className="text-xl font-semibold outline-none">盤勢仍暫停，準備好再開始</h2>
       <p className="mt-3 text-base leading-7 text-muted">
-        導覽沒有送出任何委託。按下方按鈕後，模擬時間才會繼續；也可隨時用上方「暫停」停下來查看。
+        導覽沒有送出任何委託。可以先收起卡片查看盤面，按「開始練習」或上方「繼續練習」才會讓模擬時間繼續。
       </p>
+      <button type="button" onClick={hide} className="mt-4 min-h-12 w-full rounded-xl bg-brand px-4 py-3 text-base font-semibold text-brand-fg">
+        先看盤面，保持暫停
+      </button>
       <button
         type="button"
         onClick={start}
-        className="mt-4 min-h-12 w-full rounded-xl bg-brand px-4 py-3 text-base font-semibold text-brand-fg"
+        className="mt-2 min-h-12 w-full rounded-xl border border-border px-4 py-3 text-base font-semibold"
       >
         開始練習
       </button>

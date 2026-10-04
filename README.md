@@ -4,7 +4,7 @@
 
 本專案由 Windows 主機獨立執行，正式入口為 [當沖大富翁](https://rich.yilutek.com/)。登入、學員資料與課程操作不依賴 Grok。
 
-2026-10-05 更新下單頁的最近一次送出結果與六課教學提示，正式 release 為 `20261004T155956074Z`，已完成外網 HTTP 與資產核對。最新驗收範圍、服務恢復與回復資訊見 `docs/instruction-feedback-2026-10-05.md`；手機結算、逐筆成交與免費體驗重練流程見 `docs/mobile-teaching-2026-10-04.md`；視覺與學習功能的前輪紀錄分別見 `docs/interface-quality-2026-10-04.md`、`docs/product-release-2026-10-04.md`。業主目前尚無公開招生聯絡管道；課程費用、日期與付款方式亦未確認，不代表已開放收費招生。
+2026-10-05 更新教學卡的收起／重看、盤中練習提示及服務停止保護，正式 release 為 `20261004T162056718Z`，已完成外網 HTTP、資產核對與新版維運程式的正常啟停／備份驗證。最新範圍與限制見 `docs/reading-pace-2026-10-05.md`；前輪下單結果與教材改善見 `docs/instruction-feedback-2026-10-05.md`；手機結算、逐筆成交與免費體驗重練流程見 `docs/mobile-teaching-2026-10-04.md`；視覺與學習功能的前輪紀錄分別見 `docs/interface-quality-2026-10-04.md`、`docs/product-release-2026-10-04.md`。業主目前尚無公開招生聯絡管道；課程費用、日期與付款方式亦未確認，不代表已開放收費招生。
 
 ## 功能與資料
 

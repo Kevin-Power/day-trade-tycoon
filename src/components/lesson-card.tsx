@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { lessonById } from "@/lib/game/curriculum";
 import { useGame } from "@/lib/game/store";
@@ -9,13 +10,20 @@ export function LessonCard() {
   const beat = useGame((s) => s.activeBeat);
   const scenario = useGame((s) => s.scenario);
   const dismissBeat = useGame((s) => s.dismissBeat);
-  const setTeachMode = useGame((s) => s.setTeachMode);
+  const hidden = useGame((s) => s.lessonCardHidden);
+  const hideCard = useGame((s) => s.hideLessonCard);
   const guideStep = useGame((s) => s.learnerGuideStep);
   const guideReady = useGame((s) => s.learnerGuideReady);
   const reopenGuide = useGame((s) => s.openLearnerGuide);
   const lesson = scenario ? lessonById(scenario.id) : undefined;
   const course = scenario ? courseStepFor(scenario.id) : undefined;
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const visible = guideStep === null && !hidden && Boolean(beat && lesson);
+  useEffect(() => {
+    if (visible) titleRef.current?.focus({ preventScroll: true });
+  }, [visible, beat]);
   if (guideStep !== null) return <LearnerGuide />;
+  if (hidden) return null;
   if (guideReady && !beat) return <LearnerGuideReady />;
   if (!beat || !lesson) return null;
 
@@ -24,6 +32,14 @@ export function LessonCard() {
       <div
         role="dialog"
         aria-labelledby="lesson-title"
+        aria-describedby="lesson-body"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            hideCard();
+          }
+        }}
         className="pointer-events-auto w-full max-w-md overflow-auto rounded-xl border border-border-strong bg-surface shadow-[var(--shadow-panel)]"
       >
         <div className="pane-title flex min-h-12 flex-wrap items-center justify-between gap-2 px-3 py-2">
@@ -56,36 +72,36 @@ export function LessonCard() {
               </details>
             </aside>
           )}
-          <h3 id="lesson-title" className="text-lg font-semibold">
+          <h3 ref={titleRef} tabIndex={-1} id="lesson-title" className="text-lg font-semibold outline-none">
             {beat.title}
           </h3>
-          <p className="mt-3 text-base leading-7 text-muted">{beat.body}</p>
+          <p id="lesson-body" className="mt-3 text-base leading-7 text-muted">{beat.body}</p>
           <p className="mt-3 rounded-lg bg-brand/5 p-3 text-base leading-7 text-fg">
             這一步：{beat.hint}
           </p>
           {guideReady ? (
             <p className="mt-3 text-base leading-7 text-brand">
-              操作導覽已結束，盤勢仍暫停。準備好再按「開始練習」。
+              操作導覽已結束，盤勢仍暫停。可以先收起卡片查看盤面，準備好再繼續。
             </p>
           ) : null}
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="mt-3 grid grid-cols-1 gap-2">
             <Button
               className="h-auto min-h-12 min-w-0 whitespace-normal py-3 text-base leading-6"
               size="sm"
+              onClick={hideCard}
+            >
+              先看盤面，保持暫停
+            </Button>
+            <Button
+              className="h-auto min-h-12 min-w-0 whitespace-normal py-3 text-base leading-6"
+              size="sm"
+              variant="outline"
               onClick={dismissBeat}
             >
-              {guideReady ? "開始練習" : "繼續盤勢"}
-            </Button>
-            <Button
-              className="h-auto min-h-12 min-w-0 whitespace-normal py-3 text-base leading-6"
-              size="sm"
-              variant="ghost"
-              onClick={() => setTeachMode(false)}
-            >
-              關閉教學
+              {guideReady ? "開始練習" : "繼續練習"}
             </Button>
           </div>
-          <p className="mt-2 text-base leading-7 text-subtle">Space 繼續 · 盤面仍可看</p>
+          <p className="mt-2 text-base leading-7 text-subtle">收起後可再看這一步。準備好再按「開始練習」或「繼續練習」。</p>
           {scenario?.id === "wed-open" ? (
             <button
               type="button"

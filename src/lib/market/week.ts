@@ -57,10 +57,22 @@ export const WEEK_SESSIONS: Record<string, IndexSession> = {
       { m: 270, px: 44762.32 },
     ],
     headlines: [
-      { atMinute: 12, text: "權值電子開平偏弱，台積電開在平盤附近後往下，半導體供應鏈跟跌。" },
-      { atMinute: 43, text: "加權盤中高 45,362 出現在 09:43，隨後翻黑，開高走低格局成形。" },
-      { atMinute: 60, text: "加權失守 45,000（約 09:59），外資轉賣，量能沒有跟上反攻。" },
-      { atMinute: 200, text: "午後無反攻量能，指數貼近全日低點，成交約 6,563 億。" },
+      {
+        atMinute: 12,
+        text: "先核對目前選的商品，再看價格相對昨收與均價的位置。其他商品的漲跌，不能代替自己的操作條件。",
+      },
+      {
+        atMinute: 43,
+        text: "目前的價格位置不代表接下來的方向。先說出眼前觀察，再對照原計畫；條件未到可以繼續等待。",
+      },
+      {
+        atMinute: 60,
+        text: "有送出委託時，先查已成交與待成交張數，再核對庫存。五檔變動不代表自己的委託已成交。",
+      },
+      {
+        atMinute: 200,
+        text: "查看目前模擬時間、待成交委託與庫存。需要處理部位時，送出後仍要核對成交與剩餘張數。",
+      },
     ],
     stockPrev: stockField("mon", "prev"),
     stockClose: stockField("mon", "close"),
@@ -90,11 +102,26 @@ export const WEEK_SESSIONS: Record<string, IndexSession> = {
       { m: 270, px: 45169.46 },
     ],
     headlines: [
-      { atMinute: 1, text: "低開後 20 秒內急殺，加權由 44,728 落到 44,422。這不是找底的時間。" },
-      { atMinute: 8, text: "早盤已到 44,273 一帶。全日低點 44,210 要到 11:00 才印出，不要把反彈當 V 轉。" },
-      { atMinute: 120, text: "11:00 附近印出全日低點 44,210。金融先穩，電子午後才接棒。" },
-      { atMinute: 160, text: "指數自低點回升，台積電由黑翻紅，電子與科技服務走穩。" },
-      { atMinute: 250, text: "尾盤權值回補，加權收 45,169，漲 407 點、+0.91%，收在最高。成交約 7,243 億。" },
+      {
+        atMinute: 1,
+        text: "先確認商品、模擬時間與庫存。已有部位時核對原定出場條件；沒有部位時，也可以先觀察並記下理由。",
+      },
+      {
+        atMinute: 8,
+        text: "把目前價格與昨收、均價分開比較。眼前的價格變動不能確認後面走勢，先回看自己寫下的條件。",
+      },
+      {
+        atMinute: 120,
+        text: "再次核對原計畫與目前持倉。有操作時查看成交與剩餘張數；沒有符合條件時，可以繼續等待。",
+      },
+      {
+        atMinute: 160,
+        text: "有成交時，查看成交時間與費稅，再對照目前庫存。是否操作仍依原計畫核對，不以單次損益認定自己已熟練。",
+      },
+      {
+        atMinute: 250,
+        text: "接近本次練習收尾，先查待成交委託與庫存。處理部位後，用成交紀錄與剩餘張數確認結果。",
+      },
     ],
     stockPrev: stockField("tue", "prev"),
     stockClose: stockField("tue", "close"),
@@ -124,27 +151,29 @@ export const WEEK_SESSIONS: Record<string, IndexSession> = {
       { m: 270, px: 45832.62 },
     ],
     headlines: [
-      { atMinute: 0, text: "開盤 45,158，09:00:20 急殺至全日低 44,926。不要追第一下，也不要因為急殺手癢。" },
-      { atMinute: 70, text: "台積電翻紅帶動供應鏈，金融續強，加權站上 45,500。" },
-      { atMinute: 200, text: "午後攻高，盤中最高 45,878，漲點超過 600。" },
-      { atMinute: 248, text: "尾盤前見高 45,878，終場收 45,832.62，漲 663.16 點、+1.47%，成交約 8,431 億。" },
+      {
+        atMinute: 0,
+        text: "先找到商品代號、昨收與目前模擬時間。依眼前資料核對自己的條件，不急著送單；需要慢慢看時，可以暫停。",
+      },
+      {
+        atMinute: 70,
+        text: "一檔商品的漲跌不能代替另一檔的條件。先選一檔，核對它自己的價格、庫存與原計畫。",
+      },
+      {
+        atMinute: 200,
+        text: "收尾時依序查看待成交委託、庫存與成交。按過出場按鈕不代表已全部成交，仍要核對剩餘張數。",
+      },
+      {
+        atMinute: 248,
+        text: "先核對模擬時間與剩餘庫存，再準備查看復盤。結束練習不代表已全部平倉，也不代表操作能力已通過認證。",
+      },
     ],
     stockPrev: stockField("wed", "prev"),
     stockClose: stockField("wed", "close"),
   },
 };
 
-function clock(minute: number): string {
-  const total = Math.max(0, Math.round(minute * 60));
-  const h = 9 + Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
-
 export function sessionFromTape(day: TapeDay): IndexSession {
-  const chg = day.close - day.prevClose;
-  const pct = (chg / day.prevClose) * 100;
   const stockPrev: Record<string, number> = {};
   const stockClose: Record<string, number> = {};
   for (const [code, s] of Object.entries(day.stocks)) {
@@ -154,26 +183,26 @@ export function sessionFromTape(day: TapeDay): IndexSession {
   const headlines: SessionHeadline[] = [
     {
       atMinute: 0,
-      text: `開 ${formatIndex(day.open)}，昨收 ${formatIndex(day.prevClose)}。${day.open >= day.prevClose ? "高開" : "低開"}。`,
+      text: `本段開盤 ${formatIndex(day.open)}，昨收 ${formatIndex(day.prevClose)}。先核對目前商品與時間，再對照自己的操作條件。`,
     },
   ];
   if (day.lowMinute >= 2) {
     headlines.push({
       atMinute: Math.round(day.lowMinute),
-      text: `盤中最低 ${formatIndex(day.low)} 出現在 ${clock(day.lowMinute)}。`,
+      text: "查看目前價格相對昨收與均價的位置，再核對原計畫。當下的一個價位，不能確認後續走勢。",
     });
   } else {
-    headlines[0]!.text += ` 開盤附近見低 ${formatIndex(day.low)}。`;
+    headlines[0]!.text += " 條件未到，可以先觀察。";
   }
   if (Math.abs(day.highMinute - day.lowMinute) > 8) {
     headlines.push({
       atMinute: Math.max(1, Math.round(day.highMinute)),
-      text: `盤中最高 ${formatIndex(day.high)} 出現在 ${clock(day.highMinute)}。`,
+      text: "若已送出委託，先看原委託的成交狀態，再核對庫存與剩餘張數。不要只憑盤面顏色判斷操作結果。",
     });
   }
   headlines.push({
     atMinute: 250,
-    text: `收 ${formatIndex(day.close)}，${chg >= 0 ? "漲" : "跌"} ${formatIndex(Math.abs(chg))} 點（${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%）${day.turnoverYi ? `，成交約 ${Math.round(day.turnoverYi)} 億` : ""}。`,
+    text: "接近本次練習收尾，先核對待成交委託與庫存。處理部位後，再用成交紀錄確認；之後把費稅一併列入復盤。",
   });
   return {
     id: day.id,

@@ -41,7 +41,11 @@ export function Terminal() {
   const speed = useGame((s) => s.speed);
   const bump = useGame((s) => s.bump);
   const togglePause = useGame((s) => s.togglePause);
-  const dismissBeat = useGame((s) => s.dismissBeat);
+  const lessonCardHidden = useGame((s) => s.lessonCardHidden);
+  const reopenLessonCard = useGame((s) => s.reopenLessonCard);
+  const learnerGuideStep = useGame((s) => s.learnerGuideStep);
+  const activeBeat = useGame((s) => s.activeBeat);
+  const learnerGuideReady = useGame((s) => s.learnerGuideReady);
   const phase = useGame((s) => s.phase);
   const mobileTab = useGame((s) => s.mobileTab);
   const setMobileTab = useGame((s) => s.setMobileTab);
@@ -59,17 +63,42 @@ export function Terminal() {
   const activeView = !singlePane && mobileTab === "watch" ? "chart" : mobileTab;
   const shellRef = useRef<HTMLDivElement>(null);
   const previousView = useRef(activeView);
+  const pausePanelRef = useRef<HTMLElement>(null);
+  const hadLessonCard = useRef(false);
+  const hasLessonCard = Boolean(activeBeat || learnerGuideReady);
 
   useEffect(() => {
     if (previousView.current === activeView) return;
     previousView.current = activeView;
+    if (learnerGuideStep !== null || (!lessonCardHidden && (activeBeat || learnerGuideReady))) return;
     const frameId = requestAnimationFrame(() => {
+      const current = useGame.getState();
+      if (current.learnerGuideStep !== null || (!current.lessonCardHidden && (current.activeBeat || current.learnerGuideReady))) return;
       const pane = shellRef.current?.querySelector<HTMLElement>(`[data-terminal-pane="${activeView}"]`);
       pane?.focus({ preventScroll: true });
       pane?.scrollIntoView({ block: layout === "desktop" ? "nearest" : "start", behavior: "auto" });
     });
     return () => cancelAnimationFrame(frameId);
-  }, [activeView, layout]);
+  }, [activeView, layout, learnerGuideStep, lessonCardHidden, activeBeat, learnerGuideReady]);
+
+  useEffect(() => {
+    if (!lessonCardHidden || !paused || phase !== "live") return;
+    const frameId = requestAnimationFrame(() => {
+      pausePanelRef.current?.focus({ preventScroll: true });
+      pausePanelRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [lessonCardHidden, paused, phase]);
+
+  useEffect(() => {
+    const resumed = hadLessonCard.current && !hasLessonCard && !paused && phase === "live";
+    hadLessonCard.current = hasLessonCard;
+    if (!resumed) return;
+    const frameId = requestAnimationFrame(() => {
+      shellRef.current?.querySelector<HTMLButtonElement>("[data-practice-clock-toggle]")?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [hasLessonCard, paused, phase]);
 
   useEffect(() => {
     try {
@@ -123,19 +152,18 @@ export function Terminal() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented) return;
+      if (e.defaultPrevented || e.repeat || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || useGame.getState().phase !== "live") return;
       const target = e.target as HTMLElement | null;
       if (target?.closest("input,textarea,select,button,a,summary,canvas,[contenteditable=true],[role=dialog]"))
         return;
       if (e.code === "Space") {
         e.preventDefault();
-        if (useGame.getState().activeBeat) dismissBeat();
-        else togglePause();
+        togglePause();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [togglePause, dismissBeat]);
+  }, [togglePause]);
 
   if (!engine || !scenario) return null;
   const q = engine.quote(selected);
@@ -150,7 +178,7 @@ export function Terminal() {
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 py-2">
             <span className="text-base font-medium">當沖大富翁 · 模擬看盤</span>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <button type="button" onClick={togglePause} className="min-h-12 rounded-lg bg-brand px-3 py-2 text-base font-semibold text-brand-fg">
+              <button data-practice-clock-toggle type="button" onClick={togglePause} className="min-h-12 rounded-lg bg-brand px-3 py-2 text-base font-semibold text-brand-fg">
                 {paused ? "繼續練習" : "暫停"}
               </button>
               <EndPracticeButton className="h-auto min-h-12 rounded-lg px-3 py-2 text-base font-semibold" />
@@ -179,6 +207,16 @@ export function Terminal() {
         <AccountBar />
         <NewsBar />
       </details>
+      {phase === "live" && lessonCardHidden && paused && learnerGuideStep === null && (
+        <section ref={pausePanelRef} tabIndex={-1} aria-label="盤勢已暫停" className="border-b border-brand/25 bg-brand/5 px-3 py-3 text-base leading-7 outline-none">
+          <p className="font-semibold">盤勢已暫停 · {formatTime(engine.t)}</p>
+          <p className="text-muted">先核對商品、價格與目前紀錄，準備好再繼續。</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" onClick={reopenLessonCard} className="min-h-12 rounded-lg border border-border-strong bg-surface px-4 py-2 font-medium">再看這一步</button>
+            <button type="button" onClick={togglePause} className="min-h-12 rounded-lg bg-brand px-4 py-2 font-semibold text-brand-fg">繼續練習</button>
+          </div>
+        </section>
+      )}
       {engine.warning ? <p role="status" className="px-3 py-2 text-base leading-relaxed text-warn">{engine.warning}</p> : null}
 
       {!singlePane && <TerminalNavigation active={activeView} onSelect={setMobileTab} singlePane={false} />}
@@ -241,7 +279,7 @@ export function Terminal() {
       {singlePane && <TerminalNavigation active={activeView} onSelect={setMobileTab} singlePane />}
 
       {phase === "result" && <ResultScreen />}
-      <LessonCard />
+      {phase === "live" && <LessonCard />}
     </div>
   );
 }
@@ -302,7 +340,7 @@ function TopMenu({
       <MarkTiny />
       <span className="shrink-0 font-medium tracking-wide">當沖大富翁</span>
       <SimChip label={venue} />
-      <button type="button" onClick={onTogglePause} className="min-h-12 rounded-lg bg-brand px-3 py-2 text-base font-semibold text-brand-fg">{paused ? "繼續練習" : "暫停"}</button>
+      <button data-practice-clock-toggle type="button" onClick={onTogglePause} className="min-h-12 rounded-lg bg-brand px-3 py-2 text-base font-semibold text-brand-fg">{paused ? "繼續練習" : "暫停"}</button>
       <ThemeButton theme={theme} onToggle={onToggleTheme} />
       <DisplayControls compact />
       <span className="hidden rounded-xs border border-border-strong/60 px-1.5 py-0.5 text-2xs text-fg/85 sm:inline">
