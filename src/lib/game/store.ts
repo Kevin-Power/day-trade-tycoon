@@ -23,10 +23,12 @@ import {
 import {
   firstPlannedOrderSchema,
   snapshotFirstTradePlan,
+  tradePlanDraftFrom,
   tradePlanSchema,
   type FirstPlannedOrder,
   type TradePlan,
   type TradePlanInput,
+  type TradePlanDraft,
 } from "@/lib/game/trade-plan";
 import { reviewSaveMessage, type ReviewSyncStatus } from "@/lib/game/review-storage-status";
 import { orderPresentation } from "@/lib/game/order-presentation";
@@ -94,6 +96,7 @@ type GameStore = {
   ticket: Ticket;
   ticketDraft: TicketDraft;
   tradePlan: TradePlan | null;
+  tradePlanDraft: TradePlanDraft | null;
   firstPlannedOrder: FirstPlannedOrder | null;
   lastSubmitResult: SubmitResult | null;
   venue: Venue;
@@ -138,6 +141,7 @@ type GameStore = {
   setTicket: (patch: Partial<Ticket>) => void;
   editTicketDraft: (field: keyof TicketDraft, value: string) => void;
   saveTradePlan: (input: TradePlanInput) => { ok: boolean; reason?: string };
+  editTradePlanDraft: (field: "entryCondition" | "exitCondition" | "maxLoss", value: string) => void;
   removeTradePlan: () => void;
   setVenue: (v: Venue) => void;
   setMobileTab: (t: MobileTab) => void;
@@ -179,6 +183,7 @@ export const useGame = create<GameStore>((set, get) => ({
   ticket: { side: "buy", type: "limit", lots: 1, price: 0, tif: "ROD" },
   ticketDraft: { lots: "1", price: "" },
   tradePlan: null,
+  tradePlanDraft: null,
   firstPlannedOrder: null,
   lastSubmitResult: null,
   venue: "sim",
@@ -256,6 +261,7 @@ export const useGame = create<GameStore>((set, get) => ({
       ticket: { side: "buy", type: "limit", lots: 1, price: roundToTick(px), tif: "ROD" },
       ticketDraft: ticketDraftFrom({ lots: 1, price: roundToTick(px) }),
       tradePlan: null,
+      tradePlanDraft: null,
       firstPlannedOrder: null,
       lastSubmitResult: null,
       ...disarmedFlash,
@@ -299,6 +305,7 @@ export const useGame = create<GameStore>((set, get) => ({
       engine: null,
       scenario: null,
       tradePlan: null,
+      tradePlanDraft: null,
       firstPlannedOrder: null,
       lastSubmitResult: null,
       ...disarmedFlash,
@@ -359,7 +366,7 @@ export const useGame = create<GameStore>((set, get) => ({
       openPositionsAtEnd: engine.openPositions().map(({ code, lots, last }) => ({ code, lots, last })),
       firstTradePlan: snapshotFirstTradePlan(get().tradePlan, get().firstPlannedOrder) };
     const localReviewSaved = saveReview(bundle);
-    set({ phase: "result", ...disarmedFlash, lastResult: rec, lastVerdicts: pass.verdicts, profile: next, paused: true, syncStatus: "local", localReviewSaved, learnerGuideReady: false, lessonCardHidden: false });
+    set({ phase: "result", ...disarmedFlash, tradePlanDraft: null, lastResult: rec, lastVerdicts: pass.verdicts, profile: next, paused: true, syncStatus: "local", localReviewSaved, learnerGuideReady: false, lessonCardHidden: false });
     const ownerId = get().sessionIdentity;
     if (ownerId) {
       if (bundle.fills.length > SERVER_REVIEW_FILL_LIMIT) {
@@ -459,7 +466,18 @@ export const useGame = create<GameStore>((set, get) => ({
     });
   },
 
+  editTradePlanDraft: (field, value) => {
+    if (!get().ensureSessionIdentity()) return;
+    const { phase, engine, firstPlannedOrder, tradePlanDraft, tradePlan, selected, ticket, ticketDraft } = get();
+    if (phase !== "live" || !engine || firstPlannedOrder) return;
+    const draft = tradePlanDraft ?? tradePlanDraftFrom(tradePlan, {
+      code: selected, side: ticket.side, lots: parseLotsDraft(ticketDraft.lots),
+    });
+    set({ tradePlanDraft: { ...draft, [field]: value } });
+  },
+
   saveTradePlan: (input) => {
+    if (!get().ensureSessionIdentity()) return { ok: false, reason: "登入帳號已變更，請重新開始練習。" };
     const { phase, engine, selected, ticket, ticketDraft, firstPlannedOrder } = get();
     if (phase !== "live" || !engine) {
       return { ok: false, reason: "請先進入一堂模擬練習，再寫第一筆進場計畫。" };
@@ -480,13 +498,14 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!parsed.success) {
       return { ok: false, reason: "請填寫進場與離場條件（各 1–200 字）、大於 0 的討論虧損額度，並確認張數為 1–200 的整數。" };
     }
-    set({ tradePlan: parsed.data });
+    set({ tradePlan: parsed.data, tradePlanDraft: null });
     return { ok: true };
   },
 
   removeTradePlan: () => {
+    if (!get().ensureSessionIdentity()) return;
     if (get().phase === "live" && get().firstPlannedOrder === null) {
-      set({ tradePlan: null });
+      set({ tradePlan: null, tradePlanDraft: null });
     }
   },
 
@@ -669,7 +688,7 @@ export const useGame = create<GameStore>((set, get) => ({
     if (get().firstPlannedOrder === null) {
       // Both regular and flash submissions pass here. Acceptance locks the
       // first intent even if it has no fills yet or no plan was written.
-      set({ firstPlannedOrder: firstPlannedOrderSchema.parse(res.order) });
+      set({ firstPlannedOrder: firstPlannedOrderSchema.parse(res.order), tradePlanDraft: null });
     }
     for (const f of res.fills) {
       if (paused) f.filledWhilePaused = true;

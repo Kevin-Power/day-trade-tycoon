@@ -6,6 +6,7 @@ import { useGame } from "@/lib/game/store";
 import type { ReviewBundle } from "@/lib/game/persist";
 import {
   tradePlanInputSchema,
+  tradePlanDraftFrom,
   type TradePlan,
   type FirstPlannedOrder,
 } from "@/lib/game/trade-plan";
@@ -23,15 +24,17 @@ const fieldMessages: Record<PlanField, string> = {
 
 export function TradePlanEntry() {
   const plan = useGame((s) => s.tradePlan);
+  const pendingDraft = useGame((s) => s.tradePlanDraft);
   const order = useGame((s) => s.firstPlannedOrder);
   const selected = useGame((s) => s.selected);
   const ticket = useGame((s) => s.ticket);
   const lotsDraft = useGame((s) => s.ticketDraft.lots);
   const lots = parseLotsDraft(lotsDraft);
   const savePlan = useGame((s) => s.saveTradePlan);
+  const editPlanDraft = useGame((s) => s.editTradePlanDraft);
   const removePlan = useGame((s) => s.removeTradePlan);
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState({ entryCondition: "", exitCondition: "", maxLoss: "" });
+  const draft = pendingDraft ?? tradePlanDraftFrom(plan, { code: selected, side: ticket.side, lots });
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<PlanField, string>>>({});
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -41,24 +44,23 @@ export function TradePlanEntry() {
   const errorRef = useRef<HTMLParagraphElement>(null);
   const fieldId = useId();
   function editField(field: PlanField, value: string) {
-    setDraft((previous) => ({ ...previous, [field]: value }));
+    editPlanDraft(field, value);
     setFieldErrors((previous) => ({ ...previous, [field]: undefined }));
     setError("");
   }
   const changed =
     !!plan && (plan.code !== selected || plan.side !== ticket.side || plan.lots !== lots);
+  const draftContextChanged = !!pendingDraft && (
+    pendingDraft.code !== selected || pendingDraft.side !== ticket.side || pendingDraft.lots !== lots
+  );
   return (
     <Dialog.Root
       open={open}
       onOpenChange={(next) => {
         if (next) {
           const state = useGame.getState();
+          if (!state.ensureSessionIdentity() || state.phase !== "live") return;
           if (state.phase === "live" && !state.paused) state.togglePause();
-          setDraft({
-            entryCondition: plan?.entryCondition ?? "",
-            exitCondition: plan?.exitCondition ?? "",
-            maxLoss: plan ? String(plan.maxLoss) : "",
-          });
           setError("");
           setFieldErrors({});
         }
@@ -69,7 +71,7 @@ export function TradePlanEntry() {
         <Dialog.Trigger asChild>
           <Button variant="outline" className={`${actionClass} w-full justify-start`}>
             <ClipboardList aria-hidden />
-            {order ? "查看第一筆計畫" : plan ? "已記下計畫 · 可修改" : "第一筆下單前，先寫計畫"}
+            {order ? "查看第一筆計畫" : pendingDraft ? "草稿尚未保存 · 繼續填寫" : plan ? "已記下計畫 · 可修改" : "第一筆下單前，先寫計畫"}
           </Button>
         </Dialog.Trigger>
         <p className="mt-2 text-sm leading-6 text-muted">
@@ -81,6 +83,11 @@ export function TradePlanEntry() {
               ? `${plan.code} · ${plan.side === "buy" ? "買進" : "賣出"} ${formatLots(plan.lots)} 張。結算後隨復盤保存。`
               : "先寫進場、離場條件與模擬虧損額度，再核對委託。"}
         </p>
+        {!order && pendingDraft ? (
+          <p role="status" className="mt-2 text-base text-warn">
+            {plan ? "有尚未保存的修改；復盤仍使用原先已保存的計畫。" : "草稿尚未保存，尚未成為本盤計畫。"}
+          </p>
+        ) : null}
         {!order && changed ? (
           <p role="status" className="mt-2 text-base text-warn">
             現在的商品、方向或張數與計畫不同，送出前請再核對。
@@ -130,6 +137,18 @@ export function TradePlanEntry() {
                     {lots === null ? "張數待完成" : `${formatLots(lots)} 張`}
                   </strong>
                 </p>
+                {pendingDraft ? (
+                  <p role="status" className="mb-4 rounded-xl border border-warn/30 bg-warn/5 p-3">
+                    尚未保存。關閉計畫或切換分頁會保留這份草稿；請確認後按「保存計畫，回到委託」。
+                  </p>
+                ) : null}
+                {pendingDraft && draftContextChanged ? (
+                  <p className="mb-4 rounded-xl border border-warn/30 p-3 text-warn">
+                    草稿開始填寫時是 {pendingDraft.code} · {pendingDraft.side === "buy" ? "買進" : "賣出"}{" "}
+                    {pendingDraft.lots === null ? "張數未完成" : `${formatLots(pendingDraft.lots)} 張`}。
+                    現在的商品、方向或張數已變更，請重新核對條件，再決定是否保存。
+                  </p>
+                ) : null}
                 <label className="block font-medium" htmlFor={`${fieldId}-entry`}>
                   1. 看到什麼條件，才會進場？
                 </label>
@@ -199,7 +218,7 @@ export function TradePlanEntry() {
                   這是你和講師討論用的額度，不是停損委託；系統不會依這個數字自動平倉，也不保證虧損不超過額度。
                 </p>
                 <p className="mt-3 text-sm leading-6 text-muted">
-                  計畫目前暫存在本盤，結算後才隨復盤保存。未結算就重新整理會遺失；第一筆委託成功送出後不能補改。不填計畫仍可練習，紀錄會如實留白。
+                  只有已保存的計畫會在結算後隨復盤保存。草稿只保留在本次練習，重新整理、結束練習或第一筆委託成功送出後就會清除。第一筆委託成功送出後不能補改；不填計畫仍可練習，紀錄會如實留白。
                 </p>
               </>
             )}
@@ -245,7 +264,7 @@ export function TradePlanEntry() {
                   if (!result.ok) {
                     setError(
                       lots === null
-                        ? "尚未保存。請關閉計畫，回到委託欄位完成張數後，再保存計畫。"
+                        ? "尚未保存，草稿已保留。請關閉計畫，回到委託欄位完成張數後，再打開並保存計畫。"
                         : (result.reason ?? "請確認三個欄位後再保存。"),
                     );
                     requestAnimationFrame(() => errorRef.current?.focus());
@@ -263,7 +282,7 @@ export function TradePlanEntry() {
                   關閉，保持暫停
                 </Button>
               </Dialog.Close>
-              {!order && plan ? (
+              {!order && (plan || pendingDraft) ? (
                 <Button
                   variant="ghost"
                   className={actionClass}
@@ -272,7 +291,7 @@ export function TradePlanEntry() {
                     setOpen(false);
                   }}
                 >
-                  清除計畫
+                  {plan ? "清除計畫與草稿" : "清除草稿"}
                 </Button>
               ) : null}
             </div>

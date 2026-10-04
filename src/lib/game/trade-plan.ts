@@ -42,6 +42,28 @@ export const firstTradePlanSnapshotSchema = z.object({
 
 export type TradePlanInput = z.infer<typeof tradePlanInputSchema>;
 export type TradePlan = z.infer<typeof tradePlanSchema>;
+/** Unsaved, in-memory text for the current practice only; never a review record. */
+export type TradePlanDraft = {
+  entryCondition: string;
+  exitCondition: string;
+  maxLoss: string;
+  code: string;
+  side: TradePlan["side"];
+  lots: number | null;
+};
+
+export function tradePlanDraftFrom(
+  plan: TradePlan | null,
+  context: Pick<TradePlanDraft, "code" | "side" | "lots">,
+): TradePlanDraft {
+  return {
+    entryCondition: plan?.entryCondition ?? "",
+    exitCondition: plan?.exitCondition ?? "",
+    maxLoss: plan ? String(plan.maxLoss) : "",
+    ...context,
+  };
+}
+
 export type FirstPlannedOrder = z.infer<typeof firstPlannedOrderSchema>;
 export type FirstTradePlanSnapshot = z.infer<typeof firstTradePlanSnapshotSchema>;
 

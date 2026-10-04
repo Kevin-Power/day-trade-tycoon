@@ -186,3 +186,154 @@ test("settlement honestly records a missing plan and never invents one for old s
   const reloaded = gameStoreFixture({ values }).persistence.loadReview(id);
   assert.equal("firstTradePlan" in reloaded, false);
 });
+
+function enterDraft(store, input = notes) {
+  const edit = store.getState().editTradePlanDraft;
+  edit("entryCondition", input.entryCondition);
+  edit("exitCondition", input.exitCondition);
+  edit("maxLoss", String(input.maxLoss));
+}
+function saveDraft(store) {
+  const draft = store.getState().tradePlanDraft;
+  return store.getState().saveTradePlan({
+    entryCondition: draft.entryCondition,
+    exitCondition: draft.exitCondition,
+    maxLoss: Number(draft.maxLoss),
+  });
+}
+
+test("an unfinished quantity rejects saving without losing plan text across pane changes; correcting it permits explicit save", () => {
+  const { store } = gameStoreFixture();
+  store.getState().editTicketDraft("lots", "");
+  enterDraft(store);
+  const draft = store.getState().tradePlanDraft;
+  assert.equal(draft.lots, null, "draft context must not silently reuse the previous valid quantity");
+  assert.equal(saveDraft(store).ok, false);
+  assert.equal(store.getState().tradePlan, null);
+  assert.equal(store.getState().tradePlanDraft, draft);
+  store.getState().setMobileTab("chart");
+  store.getState().setMobileTab("trade");
+  assert.equal(store.getState().tradePlanDraft, draft, "pane remounts read the same central draft");
+  store.getState().editTicketDraft("lots", "1");
+  assert.equal(store.getState().tradePlanDraft, draft);
+  assert.equal(saveDraft(store).ok, true);
+  assert.equal(store.getState().tradePlanDraft, null);
+  assert.equal(store.getState().tradePlan.entryCondition, notes.entryCondition.trim());
+  assert.equal(store.getState().tradePlan.exitCondition, notes.exitCondition.trim());
+  assert.equal(store.getState().tradePlan.maxLoss, notes.maxLoss);
+  assert.equal(store.getState().tradePlan.lots, 1);
+  assert.equal(store.getState().engine.orders.length, 0);
+});
+
+test("draft editing keeps the saved plan unchanged, preserves its original draft context, and clears only after a valid save", () => {
+  const { store } = gameStoreFixture();
+  store.getState().saveTradePlan(notes);
+  const saved = store.getState().tradePlan;
+  store.getState().editTradePlanDraft("maxLoss", "");
+  assert.equal(store.getState().tradePlanDraft.entryCondition, saved.entryCondition);
+  assert.equal(store.getState().tradePlanDraft.exitCondition, saved.exitCondition);
+  const draft = store.getState().tradePlanDraft;
+  assert.equal(saveDraft(store).ok, false);
+  assert.equal(store.getState().tradePlan, saved);
+  assert.equal(store.getState().tradePlanDraft, draft);
+  store.getState().select("2882");
+  store.getState().setTicket({ side: "sell", lots: 2 });
+  assert.equal(store.getState().tradePlanDraft.code, "2317");
+  assert.equal(store.getState().tradePlanDraft.side, "buy");
+  assert.equal(store.getState().tradePlanDraft.lots, 1);
+  assert.equal(store.getState().tradePlan, saved);
+  store.getState().editTradePlanDraft("maxLoss", "2000");
+  assert.equal(saveDraft(store).ok, true);
+  assert.equal(store.getState().tradePlanDraft, null);
+  assert.equal(store.getState().tradePlan.code, "2882");
+  assert.equal(store.getState().tradePlan.side, "sell");
+  assert.equal(store.getState().tradePlan.lots, 2);
+});
+
+test("clearing, a new practice and leaving discard unsaved draft text", () => {
+  const { store } = gameStoreFixture();
+  for (const action of [
+    () => store.getState().removeTradePlan(),
+    () => store.getState().start("wed-open"),
+    () => store.getState().leave(),
+  ]) {
+    enterDraft(store);
+    assert.ok(store.getState().tradePlanDraft);
+    action();
+    assert.equal(store.getState().tradePlanDraft, null);
+    assert.equal(store.getState().tradePlan, null);
+  }
+  store.getState().editTradePlanDraft("entryCondition", "cannot edit in lobby");
+  assert.equal(store.getState().tradePlanDraft, null);
+});
+
+test("a rejected order retains draft text; the first accepted waiting order clears it and forbids later edits", () => {
+  const { store, load } = gameStoreFixture();
+  enterDraft(store);
+  const draft = store.getState().tradePlanDraft;
+  store.getState().setTicket({ lots: 200, type: "market" });
+  assert.equal(store.getState().submit().ok, false);
+  assert.equal(store.getState().tradePlanDraft, draft);
+  assert.equal(store.getState().firstPlannedOrder, null);
+  const price = load("@/lib/market/ticks").limitDown(store.getState().engine.quote("2317").prevClose);
+  store.getState().setTicket({ lots: 1, type: "limit", price });
+  assert.equal(store.getState().submit().ok, true);
+  assert.equal(store.getState().engine.fills.length, 0);
+  assert.equal(store.getState().tradePlanDraft, null);
+  assert.equal(store.getState().tradePlan, null, "unsaved text cannot become the locked plan");
+  store.getState().cancelOrder(store.getState().firstPlannedOrder.id);
+  store.getState().editTradePlanDraft("entryCondition", "cannot backfill after cancellation");
+  assert.equal(store.getState().tradePlanDraft, null);
+});
+
+test("the first accepted flash order clears unsaved draft text through the same first-order lock", () => {
+  const { store } = gameStoreFixture();
+  enterDraft(store);
+  store.getState().setFlashOrder(true);
+  const quote = store.getState().engine.quote("2317");
+  store.getState().clickPrice(quote.ask, "buy");
+  assert.ok(store.getState().firstPlannedOrder);
+  assert.equal(store.getState().tradePlanDraft, null);
+  assert.equal(store.getState().tradePlan, null);
+});
+
+test("settlement clears unsaved text without including it in local reviews, profile storage or server payloads", async () => {
+  for (const withSavedPlan of [false, true]) {
+    const { store, persistence, requests, values } = gameStoreFixture({ userId: "student-a" });
+    if (withSavedPlan) store.getState().saveTradePlan(notes);
+    const saved = store.getState().tradePlan;
+    const unsaved = "UNSAVED_PLAN_DRAFT_MUST_NOT_BE_PERSISTED";
+    enterDraft(store, { ...notes, entryCondition: unsaved });
+    assert.equal([...values.values()].some((value) => value.includes(unsaved)), false);
+    store.getState().settle();
+    await flushStorePromises();
+    assert.equal(store.getState().tradePlanDraft, null);
+    const review = persistence.loadReview(store.getState().lastResult.id);
+    assert.deepEqual(plain(review.firstTradePlan.plan), plain(saved));
+    assert.equal(JSON.stringify(review).includes(unsaved), false);
+    assert.equal(JSON.stringify(requests).includes(unsaved), false);
+    assert.equal([...values.values()].some((value) => value.includes(unsaved)), false);
+    store.getState().editTradePlanDraft("entryCondition", unsaved);
+    assert.equal(store.getState().tradePlanDraft, null);
+  }
+});
+
+test("identity changes clear drafts before edit, save or clear can act, and do not carry them into the new account", () => {
+  for (const action of [
+    (store) => store.getState().editTradePlanDraft("entryCondition", "stale edit"),
+    (store) => store.getState().saveTradePlan(notes),
+    (store) => store.getState().removeTradePlan(),
+  ]) {
+    const { store, persistence } = gameStoreFixture({ userId: "student-a" });
+    store.getState().saveTradePlan(notes);
+    enterDraft(store, { ...notes, maxLoss: 3210 });
+    persistence.setProfileIdentity("student-b");
+    action(store);
+    assert.equal(store.getState().phase, "lobby");
+    assert.equal(store.getState().tradePlanDraft, null);
+    assert.equal(store.getState().tradePlan, null);
+    store.getState().start("wed-open");
+    assert.equal(store.getState().sessionIdentity, "student-b");
+    assert.equal(store.getState().tradePlanDraft, null);
+  }
+});
