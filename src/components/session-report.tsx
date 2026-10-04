@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   CartesianGrid,
@@ -22,6 +22,7 @@ import { TradePlanReview } from "@/components/trade-plan";
 import { formatPrice } from "@/lib/market/ticks";
 import { LearningProgressCard } from "@/components/learning-progress-card";
 import { DisplayControls } from "@/components/display-controls";
+import "./session-report.css";
 
 const FILLS_PER_PAGE = 100;
 
@@ -45,6 +46,12 @@ export function SessionReport({
   const fills = bundle.fills.filter((fill) => fill.code === selected);
   const [chartPage, setChartPage] = useState(0);
   const [tablePage, setTablePage] = useState(0);
+  const tradesRef = useRef<HTMLElement>(null);
+  function changeTablePage(next: number) {
+    setTablePage(next);
+    tradesRef.current?.focus({ preventScroll: true });
+    tradesRef.current?.scrollIntoView({ block: "start", behavior: "auto" });
+  }
   const chartFills = fills.slice(chartPage * FILLS_PER_PAGE, (chartPage + 1) * FILLS_PER_PAGE);
   const tableFills = bundle.fills.slice(
     tablePage * FILLS_PER_PAGE,
@@ -84,14 +91,24 @@ export function SessionReport({
         </p>
         <h1 className="academy-title mt-2">{rec.scenarioName} · 完整復盤</h1>
         <p className="academy-description mt-3">把每一次模擬操作，整理成下一次能實踐的改進。</p>
-        {feedback && (
-          <a
-            href="#instructor-feedback"
-            className="academy-button-secondary mt-4 min-h-12 text-base"
-          >
-            查看講師回饋
+        <nav aria-label="復盤快速前往" className="review-shortcuts mt-5">
+          <a href="#review-plan" className="academy-button-secondary min-h-12 text-base">
+            核對計畫
           </a>
-        )}
+          <a href="#review-trades" className="academy-button-secondary min-h-12 text-base">
+            查看成交
+          </a>
+          {feedback && (
+            <a href="#instructor-feedback" className="academy-button-secondary min-h-12 text-base">
+              查看講師回饋
+            </a>
+          )}
+          {!teacherView && (
+            <a href="#practice-goal" className="academy-button-primary min-h-12 text-base">
+              選下次重點
+            </a>
+          )}
+        </nav>
         {teacherView && (
           <aside
             className="mt-5 rounded-xl border border-brand/20 bg-brand/5 p-4 text-base leading-7"
@@ -182,7 +199,9 @@ export function SessionReport({
             <p className="mt-3 text-muted">結束時零庫存，沒有未平倉部位。</p>
           )}
         </section>
-        <TradePlanReview bundle={bundle} />
+        <div id="review-plan" tabIndex={-1} className="review-anchor">
+          <TradePlanReview bundle={bundle} />
+        </div>
         <section className="academy-card mt-7 p-5 sm:p-6" aria-labelledby="review-discipline-title">
           <div className="mb-5">
             <p className="academy-eyebrow">01 · 本盤條件檢核</p>
@@ -294,7 +313,10 @@ export function SessionReport({
           </section>
         )}
         <section
-          className="academy-card mt-6 overflow-hidden"
+          ref={tradesRef}
+          id="review-trades"
+          tabIndex={-1}
+          className="review-anchor academy-card mt-6 overflow-hidden"
           aria-labelledby="review-trades-title"
         >
           <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border px-5 py-5 sm:px-6">
@@ -308,66 +330,79 @@ export function SessionReport({
               </h2>
             </div>
             {bundle.fills.length > 0 && (
-              <span className="text-xs text-muted sm:hidden">表格可左右滑動</span>
+              <span className="review-fill-cards-note text-base text-muted">
+                依成交紀錄由新到舊，逐筆核對
+              </span>
             )}
           </div>
           <div className="px-5 sm:px-6">
             <FillPages
               total={bundle.fills.length}
               page={tablePage}
-              onChange={setTablePage}
+              onChange={changeTablePage}
               label="完整成交紀錄分頁"
             />
           </div>
           {bundle.fills.length > 0 ? (
-            <div className="term-scroll max-h-[30rem] overflow-auto">
-              <table className="w-full min-w-[44rem] whitespace-nowrap text-left text-sm">
-                <caption className="sr-only">
-                  本盤每一筆模擬成交的時間、商品、方向、張數、價格、費稅與暫停狀態
-                </caption>
-                <thead className="sticky top-0 bg-bg text-xs text-muted">
-                  <tr>
-                    {["時間", "代號", "買賣", "張數", "價格", "手續費", "稅", "暫停中成交"].map(
-                      (label) => (
-                        <th key={label} scope="col" className="px-4 py-3.5 font-medium">
-                          {label}
-                        </th>
-                      ),
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {tableFills.map((fill) => (
-                    <tr
-                      key={fill.id}
-                      className="border-t border-border transition-colors hover:bg-bg/60"
-                    >
-                      <td className="px-4 py-3.5 font-mono tabular text-muted">
-                        {formatTime(fill.time)}
-                      </td>
-                      <td className="px-4 py-3.5 font-mono font-medium">{fill.code}</td>
-                      <td className="px-4 py-3.5">
-                        <span
-                          className={cn(
-                            "rounded-md px-2 py-1 text-xs font-medium",
-                            fill.side === "buy" ? "bg-up/10 text-up" : "bg-down/10 text-down",
-                          )}
-                        >
-                          {fill.side === "buy" ? "買進" : "賣出"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 font-mono tabular">{fill.lots}</td>
-                      <td className="px-4 py-3.5 font-mono tabular">{fill.price}</td>
-                      <td className="px-4 py-3.5 font-mono tabular text-muted">{fill.fee}</td>
-                      <td className="px-4 py-3.5 font-mono tabular text-muted">{fill.tax}</td>
-                      <td className="px-4 py-3.5 text-muted">
-                        {fill.filledWhilePaused ? "是" : "否"}
-                      </td>
+            <>
+              <FillCards fills={tableFills} />
+              <div className="review-fill-cards-pagination px-5 sm:px-6">
+                <FillPages
+                  total={bundle.fills.length}
+                  page={tablePage}
+                  onChange={changeTablePage}
+                  label="完整成交紀錄底部分頁"
+                />
+              </div>
+              <div className="review-fill-table term-scroll max-h-[30rem] overflow-auto">
+                <table className="w-full min-w-[44rem] whitespace-nowrap text-left text-sm">
+                  <caption className="sr-only">
+                    本盤每一筆模擬成交的時間、商品、方向、張數、價格、費稅與暫停狀態
+                  </caption>
+                  <thead className="sticky top-0 bg-bg text-xs text-muted">
+                    <tr>
+                      {["時間", "代號", "買賣", "張數", "價格", "手續費", "稅", "暫停中成交"].map(
+                        (label) => (
+                          <th key={label} scope="col" className="px-4 py-3.5 font-medium">
+                            {label}
+                          </th>
+                        ),
+                      )}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {tableFills.map((fill) => (
+                      <tr
+                        key={fill.id}
+                        className="border-t border-border transition-colors hover:bg-bg/60"
+                      >
+                        <td className="px-4 py-3.5 font-mono tabular text-muted">
+                          {formatTime(fill.time)}
+                        </td>
+                        <td className="px-4 py-3.5 font-mono font-medium">{fill.code}</td>
+                        <td className="px-4 py-3.5">
+                          <span
+                            className={cn(
+                              "rounded-md px-2 py-1 text-xs font-medium",
+                              fill.side === "buy" ? "bg-up/10 text-up" : "bg-down/10 text-down",
+                            )}
+                          >
+                            {fill.side === "buy" ? "買進" : "賣出"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 font-mono tabular">{fill.lots}</td>
+                        <td className="px-4 py-3.5 font-mono tabular">{fill.price}</td>
+                        <td className="px-4 py-3.5 font-mono tabular text-muted">{fill.fee}</td>
+                        <td className="px-4 py-3.5 font-mono tabular text-muted">{fill.tax}</td>
+                        <td className="px-4 py-3.5 text-muted">
+                          {fill.filledWhilePaused ? "是" : "否"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           ) : (
             <div className="px-5 py-10 text-center">
               <ReceiptText aria-hidden="true" className="mx-auto mb-3 size-8 text-subtle" />
@@ -412,6 +447,45 @@ export function SessionReport({
         />
       </div>
     </main>
+  );
+}
+
+function FillCards({ fills }: { fills: ReviewBundle["fills"] }) {
+  return (
+    <ul className="review-fill-cards" aria-label="逐筆模擬成交紀錄">
+      {fills.map((fill) => (
+        <li key={fill.id} className="min-w-0 rounded-xl border border-border bg-bg/50 p-4">
+          <h3 className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-lg font-semibold">
+            <span className="font-mono">{fill.code}</span>
+            <span
+              className={cn(
+                "rounded-lg px-3 py-1 text-base font-medium",
+                fill.side === "buy" ? "bg-up/10 text-up" : "bg-down/10 text-down",
+              )}
+            >
+              {fill.side === "buy" ? "買進" : "賣出"}
+            </span>
+          </h3>
+          <dl className="review-fill-details mt-4">
+            {[
+              ["成交時間", formatTime(fill.time)],
+              ["成交張數", `${fill.lots} 張`],
+              ["成交價格", fill.price],
+              ["手續費", fill.fee],
+              ["交易稅", fill.tax],
+              ["暫停中成交", fill.filledWhilePaused ? "是" : "否"],
+            ].map(([label, value]) => (
+              <div key={label} className="min-w-0">
+                <dt className="text-sm leading-6 text-muted">{label}</dt>
+                <dd className="mt-1 break-words font-mono text-base leading-7 text-fg [overflow-wrap:anywhere]">
+                  {value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </li>
+      ))}
+    </ul>
   );
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChartNoAxesCombined, ListFilter, Moon, Package, PanelTop, Sun, Zap } from "lucide-react";
-import { AccountBar, NewsBar } from "@/components/account-bar";
+import { AccountBar, EndPracticeButton, NewsBar } from "@/components/account-bar";
 import { TapeChart } from "@/components/charts";
 import { LessonCard } from "@/components/lesson-card";
 import { OrderTicket } from "@/components/order-ticket";
@@ -153,6 +153,7 @@ export function Terminal() {
               <button type="button" onClick={togglePause} className="min-h-12 rounded-lg bg-brand px-3 py-2 text-base font-semibold text-brand-fg">
                 {paused ? "繼續練習" : "暫停"}
               </button>
+              <EndPracticeButton className="h-auto min-h-12 rounded-lg px-3 py-2 text-base font-semibold" />
               <ThemeButton theme={marketTheme} onToggle={toggleTheme} />
               <DisplayControls compact />
             </div>

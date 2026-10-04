@@ -19,6 +19,99 @@ function pauseForReading() {
   if (state.phase === "live" && !state.paused) state.togglePause();
 }
 
+export function EndPracticeButton({ className }: { className?: string }) {
+  const engine = useGame((s) => s.engine);
+  const phase = useGame((s) => s.phase);
+  const guideStep = useGame((s) => s.learnerGuideStep);
+  const [requestedEngine, setRequestedEngine] = useState<typeof engine>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const confirmedRef = useRef(false);
+  const risk = leaveDeskRisk(engine);
+  const canFinish = engine !== null && phase === "live" && guideStep === null;
+  const open = canFinish && requestedEngine === engine;
+
+  function confirmFinish() {
+    const state = useGame.getState();
+    if (
+      !state.ensureSessionIdentity() ||
+      state.engine !== requestedEngine ||
+      state.phase !== "live" ||
+      state.learnerGuideStep !== null
+    ) {
+      setRequestedEngine(null);
+      return;
+    }
+    confirmedRef.current = true;
+    setRequestedEngine(null);
+    state.settle();
+  }
+
+  return (
+    <Dialog.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          setRequestedEngine(null);
+          return;
+        }
+        const state = useGame.getState();
+        if (!state.ensureSessionIdentity() || state.phase !== "live" || state.learnerGuideStep !== null || !state.engine) return;
+        confirmedRef.current = false;
+        pauseForReading();
+        setRequestedEngine(state.engine);
+      }}
+    >
+      <Dialog.Trigger asChild>
+        <Button
+          type="button"
+          size="md"
+          variant="outline"
+          disabled={!canFinish}
+          title="結束這次練習，查看練習成果"
+          className={className}
+        >
+          <Square aria-hidden />
+          結束練習
+        </Button>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-fg/25 backdrop-blur-sm" />
+        <Dialog.Content
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            cancelRef.current?.focus({ preventScroll: true });
+          }}
+          onCloseAutoFocus={(event) => {
+            if (confirmedRef.current) event.preventDefault();
+          }}
+          className="term-scroll fixed left-1/2 top-1/2 z-[60] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-2xl border border-border bg-surface p-5 text-fg shadow-xl outline-none"
+        >
+          <Dialog.Title className="text-xl font-semibold">結束本次練習？</Dialog.Title>
+          <Dialog.Description className="mt-3 text-base leading-7 text-muted">
+            結算後不能回到這一盤繼續。現在已暫停，你可以先返回盤面，核對庫存與委託。
+          </Dialog.Description>
+          <p className="mt-4 rounded-xl border border-border bg-bg p-3 text-base leading-7">
+            目前庫存 {risk.openPositions} 檔 · 待成交委託 {risk.openOrders} 筆
+          </p>
+          <p className="mt-3 text-base leading-7 text-muted">
+            結算會取消待成交委託，並按目前模擬五檔嘗試平倉；量不足時仍可能保留庫存。請到結算結果確認庫存和保存狀態。
+          </p>
+          <div className="mt-5 grid gap-2">
+            <Dialog.Close asChild>
+              <Button ref={cancelRef} variant="outline" className={DIALOG_ACTION_CLASS}>
+                返回盤面，保持暫停
+              </Button>
+            </Dialog.Close>
+            <Button type="button" onClick={confirmFinish} className={DIALOG_ACTION_CLASS}>
+              確認結束，查看復盤
+            </Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
 export function AccountBar() {
   const engine = useGame((s) => s.engine);
   const scenario = useGame((s) => s.scenario);
@@ -26,7 +119,6 @@ export function AccountBar() {
   const speed = useGame((s) => s.speed);
   const togglePause = useGame((s) => s.togglePause);
   const setSpeed = useGame((s) => s.setSpeed);
-  const settle = useGame((s) => s.settle);
   const leave = useGame((s) => s.leave);
   const phase = useGame((s) => s.phase);
   const teachMode = useGame((s) => s.teachMode);
@@ -89,10 +181,7 @@ export function AccountBar() {
             <BookOpen aria-hidden />
             教學提示
           </Button>
-          <Button size="md" variant="outline" onClick={settle} title="結束這次練習，查看練習成果">
-            <Square aria-hidden />
-            結束練習
-          </Button>
+          <EndPracticeButton />
         <Dialog.Root
           open={settingsOpen}
           onOpenChange={(open) => {

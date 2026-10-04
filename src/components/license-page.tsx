@@ -415,6 +415,20 @@ function Enrollment() {
           </p>
         </li>
       </ol>
+      <div className="mt-5 rounded-2xl border border-border bg-surface p-5">
+        <h3 className="text-lg font-semibold">讓講師先了解你的練習需要</h3>
+        <p className="mt-3 text-base leading-7 text-muted">
+          與提供課程資訊的講師聯繫時，可以先說這三件事，方便安排合適的操作協助：
+        </p>
+        <ul className="mt-3 list-disc space-y-2 pl-6 text-base leading-7">
+          <li>平常用手機、iPad 還是電腦。</li>
+          <li>是否需要大字、慢速示範或一步一步陪同操作。</li>
+          <li>體驗時想再練哪一步：確認張數、查看成交，或計入交易成本。</li>
+        </ul>
+        <p className="mt-4 border-t border-border pt-4 text-base leading-7 text-muted">
+          公開招生聯絡方式與本期安排尚未公告。現在可以免費體驗；正式報名前，請先取得教室確認的課程方案。
+        </p>
+      </div>
       <div className="mt-5 rounded-2xl border border-border bg-surface-2 p-5">
         <h3 className="text-base font-semibold">報名前，一起確認這些內容</h3>
         <ul className="mt-3 grid gap-3 text-base leading-7 text-muted sm:grid-cols-2">

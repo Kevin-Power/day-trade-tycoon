@@ -80,7 +80,7 @@ export function GateScreen({ onOpen, submit }: Props) {
           不用帳號，跟著步驟練習確認委託、查看成交與理解成本。
         </p>
         <Link to="/try" className="academy-button-primary mt-4 !min-h-14 w-full !text-base">
-          先體驗 3 分鐘
+          先體驗模擬操作
           <ArrowRight className="size-5" aria-hidden="true" />
         </Link>
       </div>

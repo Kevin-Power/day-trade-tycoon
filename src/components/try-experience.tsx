@@ -1,14 +1,27 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, ClipboardList, RotateCcw } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
+import { DisplayControls } from "@/components/display-controls";
+import {
+  evaluateTrialAnswer,
+  initialTrialPractice,
+  trialPracticeReducer,
+  type TrialQuestionStage,
+  type TrialStage,
+} from "@/lib/trial-practice";
 
-type Stage = "review" | "waiting" | "filled" | "closed" | "complete";
 const STEPS = ["確認委託", "查看成交", "看懂成本"];
+const TOPICS: Record<TrialQuestionStage, { label: string; reminder: string }> = {
+  review: { label: "確認張數", reminder: "1 張與 1 股不同，送出前先核對數量。" },
+  waiting: { label: "查看成交", reminder: "已送出不等於已成交，先查原委託與手上張數。" },
+  closed: { label: "計入成本", reminder: "先算買賣價差，再扣掉交易成本。" },
+};
 const PRIMARY =
   "flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 text-lg font-semibold text-brand-fg hover:brightness-95";
 const SECONDARY =
   "flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface px-5 py-3 text-base font-medium text-fg hover:bg-elevated";
-const TITLES: Record<Stage, string> = {
+const TITLES: Record<TrialStage, string> = {
   review: "送出前，先看清楚這一張單",
   waiting: "已送出，還不代表已買到",
   filled: "看到成交，再確認手上張數",
@@ -18,7 +31,8 @@ const TITLES: Record<Stage, string> = {
 
 /** A fixed, memory-only example. It does not use the trading engine or learner records. */
 export function TryExperience() {
-  const [stage, setStage] = useState<Stage>("review");
+  const [practice, dispatch] = useReducer(trialPracticeReducer, undefined, initialTrialPractice);
+  const { stage, hintedTopics, restartedFrom } = practice;
   const heading = useRef<HTMLHeadingElement>(null);
   const previousStage = useRef(stage);
   const currentStep = stage === "review" ? 0 : stage === "waiting" || stage === "filled" ? 1 : 2;
@@ -30,15 +44,19 @@ export function TryExperience() {
   }, [stage]);
 
   return (
-    <div className="min-h-dvh bg-bg text-fg">
+    <div className="academy-page min-h-dvh bg-bg text-fg [overflow-wrap:anywhere]">
       <header className="border-b border-border bg-surface">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 px-5 py-2">
-          <span className="text-lg font-semibold">當沖大富翁</span>
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-5 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <BrandMark className="size-10" />
+            <span className="text-lg font-semibold">當沖大富翁</span>
+          </div>
+          <DisplayControls />
           <Link
             to="/"
-            className="flex min-h-14 items-center gap-2 text-base text-brand underline-offset-4 hover:underline"
+            className="flex min-h-12 items-center gap-2 text-base text-brand underline-offset-4 hover:underline"
           >
-            <ArrowLeft className="size-5" aria-hidden="true" />
+            <ArrowLeft className="size-5 shrink-0" aria-hidden="true" />
             教室入口
           </Link>
         </div>
@@ -46,7 +64,7 @@ export function TryExperience() {
       <main className="mx-auto max-w-3xl px-5 pb-12 pt-8 sm:px-8">
         <p className="text-base font-semibold text-brand">免費體驗 · 不用帳號</p>
         <h1 className="mt-3 text-3xl font-semibold leading-snug tracking-tight">
-          先用 3 分鐘，
+          照自己的步調，
           <br className="sm:hidden" />
           走完一次模擬操作
         </h1>
@@ -74,10 +92,7 @@ export function TryExperience() {
             </li>
           ))}
         </ol>
-        <section
-          aria-labelledby="try-step-title"
-          className="rounded-2xl border border-border bg-surface p-5 shadow-sm sm:p-8"
-        >
+        <section aria-labelledby="try-step-title" className="academy-card p-5 sm:p-8">
           <p className="mb-2 text-base font-medium text-brand">
             {stage === "complete" ? "體驗完成" : `第 ${currentStep + 1} 步 / 共 3 步`}
           </p>
@@ -89,6 +104,12 @@ export function TryExperience() {
           >
             {TITLES[stage]}
           </h2>
+          {restartedFrom && stage !== "complete" ? (
+            <p className="mt-4 rounded-xl bg-bg p-4 text-base leading-7 text-muted">
+              從「{TOPICS[restartedFrom].label}
+              」再練，接著走完後面的步驟。本輪之前出現過的提示仍會保留，方便回看。
+            </p>
+          ) : null}
           {stage === "review" ? (
             <>
               <p className="mt-4 text-lg leading-8 text-muted">
@@ -97,15 +118,15 @@ export function TryExperience() {
               <OrderCard status="尚未送出" />
               <Question
                 key="review"
+                topic="review"
                 prompt="這張範例委託的數量是多少？"
                 options={[
                   { value: "share", label: "1 股" },
                   { value: "lot", label: "1 張，也就是 1,000 股" },
                 ]}
-                correct="lot"
                 feedback="看一下上方的「數量」。這個範例的 1 張是 1,000 股；張數與股數不同，送出前要先確認。"
                 action="確認並送出範例委託"
-                onCorrect={() => setStage("waiting")}
+                onAnswer={(choice) => dispatch({ type: "answer", stage: "review", choice })}
               />
             </>
           ) : null}
@@ -118,15 +139,15 @@ export function TryExperience() {
               <OrderCard status="等待成交" />
               <Question
                 key="waiting"
+                topic="waiting"
                 prompt="接下來先做哪件事？"
                 options={[
                   { value: "repeat", label: "再按一次買進" },
                   { value: "check", label: "查看這筆委託的成交狀態" },
                 ]}
-                correct="check"
                 feedback="先查看原來那筆委託。重複按買進會多送一張單；「已送出」和「已成交」是不同狀態。"
                 action="查看這筆範例成交"
-                onCorrect={() => setStage("filled")}
+                onAnswer={(choice) => dispatch({ type: "answer", stage: "waiting", choice })}
               />
             </>
           ) : null}
@@ -151,7 +172,7 @@ export function TryExperience() {
               <button
                 type="button"
                 className={`${PRIMARY} mt-6`}
-                onClick={() => setStage("closed")}
+                onClick={() => dispatch({ type: "close-position" })}
               >
                 範例平倉：賣出手上 1 張<ArrowRight className="size-5 shrink-0" aria-hidden="true" />
               </button>
@@ -175,16 +196,16 @@ export function TryExperience() {
               </p>
               <Question
                 key="closed"
+                topic="closed"
                 prompt="扣除這筆範例成本後，結果是多少？"
                 options={[
                   { value: "zero", label: "0 元，沒有賺也沒有賠" },
                   { value: "loss", label: "−100 元，少了交易成本" },
                   { value: "gain", label: "+100 元，多了交易成本" },
                 ]}
-                correct="loss"
                 feedback="再看一次：買賣價差 0 元 − 來回總成本 100 元 = −100 元。成本會減少最後拿回的金額。"
                 action="確認結果，完成體驗"
-                onCorrect={() => setStage("complete")}
+                onAnswer={(choice) => dispatch({ type: "answer", stage: "closed", choice })}
               />
             </>
           ) : null}
@@ -208,17 +229,54 @@ export function TryExperience() {
                   完成體驗代表你走過一次操作流程。接著可以在講師帶領下，練習觀察、風險控管與復盤；這個範例不代表實際交易能力或獲利。
                 </p>
               </div>
-              <Link to="/license" className={`${PRIMARY} mt-6`}>
-                了解講師帶班課程
+              <section
+                aria-labelledby="trial-review-title"
+                className="mt-6 rounded-xl border border-border p-4 sm:p-5"
+              >
+                <h3 id="trial-review-title" className="text-xl font-semibold leading-8">
+                  回看這次的練習
+                </h3>
+                {hintedTopics.length > 0 ? (
+                  <>
+                    <p className="mt-3 text-base leading-7 text-muted">
+                      這一輪曾顯示下面的說明提示。選一項再練，慢慢把步驟看清楚；這不是能力評分。
+                    </p>
+                    <ul className="mt-4 space-y-4">
+                      {hintedTopics.map((topic) => (
+                        <li key={topic} className="rounded-xl bg-bg p-4">
+                          <p className="text-lg font-semibold">{TOPICS[topic].label}</p>
+                          <p className="mt-2 text-base leading-7 text-muted">
+                            {TOPICS[topic].reminder}
+                          </p>
+                          <button
+                            type="button"
+                            className={`${SECONDARY} mt-3`}
+                            onClick={() => dispatch({ type: "retry-topic", stage: topic })}
+                          >
+                            <RotateCcw className="size-5 shrink-0" aria-hidden="true" />從
+                            {TOPICS[topic].label}再練
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="mt-3 text-base leading-7 text-muted">
+                    這一輪沒有顯示答題提示。可以試著說出：送出前核對什麼、送出後查看什麼、平倉後怎麼算成本。
+                  </p>
+                )}
+              </section>
+              <Link to="/license" hash="enrollment" className={`${PRIMARY} mt-6`}>
+                了解如何加入講師班
                 <ArrowRight className="size-5" aria-hidden="true" />
               </Link>
               <button
                 type="button"
                 className={`${SECONDARY} mt-3`}
-                onClick={() => setStage("review")}
+                onClick={() => dispatch({ type: "restart" })}
               >
                 <RotateCcw className="size-5" aria-hidden="true" />
-                再練習一次
+                從頭開始新一輪
               </button>
               <Link to="/" className={`${SECONDARY} mt-3`}>
                 已有入場碼，前往教室
@@ -227,7 +285,7 @@ export function TryExperience() {
           ) : null}
         </section>
         <p className="mt-6 text-base leading-7 text-muted">
-          這段體驗不計入正式成績，也不儲存個人資料。重新整理頁面會回到第一步。
+          這段體驗不計入正式成績，也不儲存個人資料。提示紀錄只保留在這次開啟的頁面；重新整理或從頭開始新一輪，就會清空。
         </p>
       </main>
     </div>
@@ -260,19 +318,19 @@ function MoneyRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 function Question({
+  topic,
   prompt,
   options,
-  correct,
   feedback,
   action,
-  onCorrect,
+  onAnswer,
 }: {
+  topic: TrialQuestionStage;
   prompt: string;
   options: readonly { value: string; label: string }[];
-  correct: string;
   feedback: string;
   action: string;
-  onCorrect: () => void;
+  onAnswer: (choice: string) => void;
 }) {
   const [choice, setChoice] = useState("");
   const [message, setMessage] = useState("");
@@ -281,15 +339,16 @@ function Question({
       className="mt-6"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!choice) {
+        const result = evaluateTrialAnswer(topic, choice);
+        onAnswer(choice);
+        if (result === "unanswered") {
           setMessage("先選一個答案，再按下面的按鈕。");
           return;
         }
-        if (choice !== correct) {
+        if (result === "hint") {
           setMessage(feedback);
           return;
         }
-        onCorrect();
       }}
     >
       <fieldset>

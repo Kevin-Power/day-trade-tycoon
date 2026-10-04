@@ -4,6 +4,6 @@ import { TryExperience } from "@/components/try-experience";
 export const Route = createFileRoute("/try")({
   component: TryExperience,
   head: () => ({
-    meta: [{ title: "三分鐘操作體驗 · 當沖大富翁" }],
+    meta: [{ title: "免費操作體驗 · 當沖大富翁" }],
   }),
 });

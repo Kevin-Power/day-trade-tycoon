@@ -1,0 +1,55 @@
+.review-shortcuts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.65rem;
+}
+
+.review-shortcuts > a {
+  min-width: 0;
+  white-space: normal;
+  text-align: center;
+}
+
+.review-anchor {
+  scroll-margin-top: 1rem;
+}
+
+.review-fill-table {
+  display: none;
+}
+.review-fill-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  margin: 0;
+  padding: 1rem;
+  list-style: none;
+}
+.review-fill-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (min-width: 40rem) {
+  .review-shortcuts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .review-fill-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 64rem) {
+  .review-shortcuts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  html:not([data-reading-mode="senior"]) .review-fill-table {
+    display: block;
+  }
+  html:not([data-reading-mode="senior"]) .review-fill-cards,
+  html:not([data-reading-mode="senior"]) .review-fill-cards-pagination,
+  html:not([data-reading-mode="senior"]) .review-fill-cards-note {
+    display: none;
+  }
+}
