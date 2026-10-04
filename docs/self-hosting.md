@@ -40,6 +40,21 @@ ADMIN_SETUP_TOKEN=<一次性隨機初始化token>
 
 PowerShell `-RuntimeRoot` 與 Node 維運腳本 `--runtime` 均可明確覆蓋預設；stage 及公開驗收也使用同一選擇方式。不得只修改排程路徑而讓驗收或備份繼續讀舊 runtime。
 
+## 更新版本的建置順序
+
+先產生離線包，再建置正式應用；正式 build 的 `copy-runtime-assets.mjs` 會把當時的離線包複製到 `.output/downloads`。若之後又重建離線包，必須重新執行該複製腳本，再建立新的 release，不能直接修改已發布的 release。
+
+```powershell
+npm run build:offline
+if ($LASTEXITCODE -ne 0) { throw 'Offline build failed.' }
+npm run build
+if ($LASTEXITCODE -ne 0) { throw 'Formal build failed.' }
+if ((Get-FileHash downloads/daytrade-tycoon-offline.zip).Hash -ne (Get-FileHash .output/downloads/daytrade-tycoon-offline.zip).Hash) { throw 'Staged offline package differs.' }
+node scripts/hosting/stage-release.mjs
+```
+
+stage 不會啟用候選版本。先通過型別、相關測試、候選真實 HTTP 與必要的外部 Chrome 驗收，再正常停機、確認關閉、完成一致備份、切換 `appEntry` 並啟動。最後執行 `node --experimental-strip-types scripts/hosting/verify-public.mjs`，核對外網及下載雜湊；前一份 release 保留供回退。
+
 ## 啟動與檢查
 
 在專案 PowerShell 中執行：

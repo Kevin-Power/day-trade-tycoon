@@ -4,11 +4,13 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { addSessionFeedback, loadSessionFeedback } from "@/lib/classroom-db";
 import {
   addSessionFeedbackSchema,
+  type SessionFeedbackCursor,
   type SessionFeedbackPage,
   type AddSessionFeedbackInput,
 } from "@/lib/classroom-feedback";
 
 type Props = { userId: string; sessionId: string; canWrite?: boolean };
+type LoadFailure = { message: string; before: SessionFeedbackCursor | null };
 
 // Remount the entire panel when identity changes; drafts and requests belong to one account.
 export function SessionFeedbackPanel(props: Props) {
@@ -21,7 +23,7 @@ function FeedbackContents({ sessionId, canWrite = false }: Props) {
   const uid = useId();
   const [page, setPage] = useState<SessionFeedbackPage | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  const [loadFailure, setLoadFailure] = useState<LoadFailure | null>(null);
   const [reload, setReload] = useState(0);
   const [observation, setObservation] = useState("");
   const [nextStep, setNextStep] = useState("");
@@ -52,13 +54,18 @@ function FeedbackContents({ sessionId, canWrite = false }: Props) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setLoadError("");
     void loadSessionFeedback({ data: { sessionId } })
       .then((result) => {
-        if (!cancelled) setPage(result);
+        if (!cancelled) {
+          setPage(result);
+          setLoadFailure(null);
+        }
       })
       .catch(() => {
-        if (!cancelled) setLoadError("暫時無法讀取回饋，請確認登入狀態後重試。");
+        if (!cancelled) setLoadFailure({
+          message: "暫時無法讀取回饋，請確認登入狀態後重試。",
+          before: null,
+        });
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -68,12 +75,11 @@ function FeedbackContents({ sessionId, canWrite = false }: Props) {
     };
   }, [sessionId, reload]);
 
-  async function loadMore() {
-    if (!page?.nextCursor || loading || busy.current) return;
+  async function loadMore(before = page?.nextCursor) {
+    if (!before || loading || busy.current) return;
     setLoading(true);
-    setLoadError("");
     try {
-      const result = await loadSessionFeedback({ data: { sessionId, before: page.nextCursor } });
+      const result = await loadSessionFeedback({ data: { sessionId, before } });
       if (!mounted.current) return;
       setPage((current) =>
         current
@@ -86,8 +92,12 @@ function FeedbackContents({ sessionId, canWrite = false }: Props) {
             }
           : result,
       );
+      setLoadFailure(null);
     } catch {
-      if (mounted.current) setLoadError("較早的回饋讀取失敗，已顯示的內容仍保留。請重試。");
+      if (mounted.current) setLoadFailure({
+        message: "較早的回饋讀取失敗，已顯示的內容仍保留。請重試。",
+        before,
+      });
     } finally {
       if (mounted.current) setLoading(false);
     }
@@ -172,20 +182,20 @@ function FeedbackContents({ sessionId, canWrite = false }: Props) {
             讀取回饋中…
           </p>
         )}
-        {loadError && (
+        {loadFailure && (
           <div className="mt-4 text-base leading-7">
-            <p role="alert">{loadError}</p>
+            <p role="alert">{loadFailure.message}</p>
             <button
               type="button"
               className="academy-button-secondary mt-3 min-h-12 text-base"
               disabled={loading || saving}
-              onClick={() => (page?.nextCursor ? void loadMore() : setReload((value) => value + 1))}
+              onClick={() => (loadFailure.before ? void loadMore(loadFailure.before) : setReload((value) => value + 1))}
             >
               重試讀取回饋
             </button>
           </div>
         )}
-        {page && !page.items.length && !loading && !loadError && !saving && !retryPending && (
+        {page && !page.items.length && !loading && !loadFailure && !saving && !retryPending && (
           <p className="mt-4 rounded-xl bg-bg p-4 text-base leading-7">這份復盤還沒有講師回饋。</p>
         )}
         {!!page?.items.length && (
@@ -221,7 +231,7 @@ function FeedbackContents({ sessionId, canWrite = false }: Props) {
             ))}
           </ol>
         )}
-        {page?.nextCursor && !loadError && (
+        {page?.nextCursor && !loadFailure && (
           <button
             type="button"
             className="academy-button-secondary mt-4 min-h-12 text-base"
