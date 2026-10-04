@@ -266,8 +266,8 @@ export function TryExperience() {
                   </p>
                 )}
               </section>
-              <Link to="/license" hash="enrollment" className={`${PRIMARY} mt-6`}>
-                了解如何加入講師班
+              <Link to="/license" hash="course-inquiry" className={`${PRIMARY} mt-6`}>
+                詢問課程與操作協助
                 <ArrowRight className="size-5" aria-hidden="true" />
               </Link>
               <button

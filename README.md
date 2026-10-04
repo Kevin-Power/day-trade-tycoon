@@ -4,7 +4,9 @@
 
 本專案由 Windows 主機獨立執行，正式入口為 [當沖大富翁](https://rich.yilutek.com/)。登入、學員資料與課程操作不依賴 Grok。
 
-2026-10-05 學員手冊更新為 10 頁，同步手機／長輩模式、暫停閱讀、送單結果與復盤保存；正式 release 為 `20261004T164619591Z`。已完成逐頁排版、外部 Chrome 實際下載及正式外網檔案核對，範圍與限制見 `docs/pdf-source.md`。前輪教學卡與服務停止保護見 `docs/reading-pace-2026-10-05.md`；下單結果與教材改善見 `docs/instruction-feedback-2026-10-05.md`；手機結算、逐筆成交與免費體驗重練流程見 `docs/mobile-teaching-2026-10-04.md`；視覺與學習功能的前輪紀錄分別見 `docs/interface-quality-2026-10-04.md`、`docs/product-release-2026-10-04.md`。業主目前尚無公開招生聯絡管道；課程費用、日期與付款方式亦未確認，不代表已開放收費招生。
+2026-10-05 已增加公開課程詢問表單與僅管理講師可見的收件區，正式 release 為 `20261004T203203228Z`，詳見 [詢問功能與驗證紀錄](docs/course-inquiries-2026-10-05.md)。業主目前尚無公開 LINE／電話／招生 Email，可先由網站收件；課程費用、日期與付款方式仍未確認，不代表已開放收費招生。
+
+學員手冊為 10 頁，最新修訂 `2026-10-05-r2` 已同步網站詢問入口。排版、外部 Chrome 實際下載及外網檔案核對見 `docs/pdf-source.md`。前輪教學卡與服務停止保護見 `docs/reading-pace-2026-10-05.md`；下單結果與教材改善見 `docs/instruction-feedback-2026-10-05.md`；手機結算、逐筆成交與免費體驗重練流程見 `docs/mobile-teaching-2026-10-04.md`；視覺與學習功能的前輪紀錄分別見 `docs/interface-quality-2026-10-04.md`、`docs/product-release-2026-10-04.md`。
 
 ## 功能與資料
 

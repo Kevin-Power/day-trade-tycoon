@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { DisplayControls } from "@/components/display-controls";
 import { BrandMark } from "@/components/brand-mark";
+import { CourseInquiryInbox } from "@/components/course-inquiry-inbox";
 import { LESSONS } from "@/lib/game/curriculum";
 import { courseStepFor } from "@/lib/game/learning-path";
 import { csvCell } from "@/lib/classroom-policy";
@@ -153,6 +154,8 @@ export function TeacherWorkspaceView({
             ? ` 另有 ${model.unknownFeedback} 份回饋狀態未取得，未計入「尚無講師回饋」。`
             : ""}
         </p>
+
+        <CourseInquiryInbox />
 
         <section className="academy-card mt-8 p-5 sm:p-6" aria-labelledby="teacher-find-title">
           <h2 id="teacher-find-title" className="flex items-center gap-2 text-lg font-semibold">

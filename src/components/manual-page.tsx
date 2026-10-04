@@ -10,7 +10,7 @@ import { useGate } from "@/lib/gate/context";
 import { teachingOhlcNote } from "@/lib/market/universe";
 import { COURSE_PATH } from "@/lib/game/learning-path";
 
-export const MANUAL_VERSION = "2026-10-05";
+export const MANUAL_VERSION = "2026-10-05-r2";
 const PDF_HREF = `/daytrade-tycoon-manual.pdf?v=${MANUAL_VERSION}`;
 const GITHUB = "https://github.com/Kevin-Power/day-trade-tycoon";
 

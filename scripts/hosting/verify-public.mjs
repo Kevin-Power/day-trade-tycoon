@@ -37,6 +37,14 @@ assert.equal((await request('/api/tape')).status, 403);
 assert.equal((await request('/_serverFn/public-trial-probe')).status, 403);
 assert.equal((await request('/api/admin/setup')).status, 403);
 assert.equal((await request('/api/download/offline')).status, 403);
+assert.equal((await request('/api/course-inquiries')).status, 403);
+// Invalid content proves the public intake reaches validation without creating a lead.
+const inquiryValidation = await request('/api/course-inquiries', {
+  method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: '{}',
+});
+assert.equal(inquiryValidation.status, 400);
+assert.equal(inquiryValidation.headers.getSetCookie().length, 0);
+assert.match(inquiryValidation.headers.get('cache-control'), /no-store/);
 const cookie = issueGateCookie().split(';')[0];
 const setup = await request('/api/admin/setup', { headers: { cookie } });
 assert.equal(setup.status, 200);
@@ -64,4 +72,4 @@ assert.match(pdf.headers.get('content-type') ?? '', /application\/pdf/);
 const pdfBytes = Buffer.from(await pdf.arrayBuffer());
 const expectedPdf = readFileSync(new URL('../../public/daytrade-tycoon-manual.pdf', import.meta.url));
 assert.equal(digest(pdfBytes), digest(expectedPdf), 'Learner PDF download must match the current manual');
-console.log(JSON.stringify({ verified: true, origin, health: 200, assets: assets.length, publicTrial: 200, trialAssets: trialAssets.length, trialIssuesCookie: false, ownerSetup: setupState.available ? 'ready-uninitialized' : 'initialized', unsignedDownload: 403, signedDownload: 200, zipBytes: bytes.length, zipSha256: digest(bytes), pdfHref, pdfBytes: pdfBytes.length, pdfSha256: digest(pdfBytes) }));
+console.log(JSON.stringify({ verified: true, origin, health: 200, assets: assets.length, publicTrial: 200, trialAssets: trialAssets.length, trialIssuesCookie: false, publicInquiryValidation: 400, privateInquiryList: 403, ownerSetup: setupState.available ? 'ready-uninitialized' : 'initialized', unsignedDownload: 403, signedDownload: 200, zipBytes: bytes.length, zipSha256: digest(bytes), pdfHref, pdfBytes: pdfBytes.length, pdfSha256: digest(pdfBytes) }));

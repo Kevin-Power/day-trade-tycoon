@@ -47,6 +47,11 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
     ADMIN_SETUP_EMAIL: ownerEmail, ADMIN_SETUP_TOKEN: token,
     GROK_PROJECT_ID: "", GROK_AUTH_CLIENT_ID: "", GROK_AUTH_CLIENT_SECRET: "",
   };
+  const inquiryInput = {
+    requestId: randomUUID(), name: "模擬詢問測試者", contactType: "email",
+    contact: "qa-inquiry@example.invalid", device: "phone", support: "step-by-step",
+    question: "隔離測試：想了解手機操作教學安排。", consent: true, website: "",
+  };
   let app;
   let stage = "startup";
   let childLog = "";
@@ -143,6 +148,9 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
       assert.equal((await request(path)).status, 403, path + " must remain gated after public trial access");
     assert.equal((await request("/api/gate")).body.ok, false);
     assert.equal((await request("/api/auth/get-session")).body, null);
+    assert.equal((await request("/api/course-inquiries", { method: "POST", data: inquiryInput,
+      headers: { "cf-connecting-ip": "192.0.2.30" } })).status, 503,
+      "Uninitialized classrooms must not collect inquiries without an owner");
     t.diagnostic("HTTP public trial: readable without admission; classroom APIs and downloads remain gated");
     stage = "gate origin, forgery and password";
     assert.equal((await request("/api/gate")).body.ok, false);
@@ -212,6 +220,89 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
     await assert.rejects(serverFn("loadTeacherSessionDetail", "GET", { id: fixtureReview.rec.id }, gateOnly));
     assert.equal(await serverFn("loadTeacherSessionDetail", "GET", { id: "unknown-record" }, owner), null);
     t.diagnostic("HTTP teacher review: first-trade plan, TIF and unclosed-position snapshot survive student save and same-class teacher read; unverified student and gate-only visitor denied");
+    stage = "course inquiry public submission and owner-only inbox";
+    const inquiryHeaders = { "cf-connecting-ip": "192.0.2.31" };
+    for (const path of ["/api/course-inquiries", "/api/course-inquiries/other"])
+      assert.equal((await request(path)).status, 403, "Public submission must not expose an inbox");
+    for (const jar of [new Map(), gateOnly, student]) {
+      assert.ok([401, 403].includes((await request("/api/course-inquiries", { jar })).status));
+      assert.ok([401, 403].includes((await request("/api/course-inquiries", {
+        method: "PATCH", jar, data: { id: inquiryInput.requestId, status: "handled" },
+      })).status));
+    }
+    for (const origin of ["", "https://attacker.invalid"]) {
+      assert.equal((await request("/api/course-inquiries", { method: "POST", data: inquiryInput,
+        headers: { ...inquiryHeaders, origin } })).status, 403);
+    }
+    const wrongType = await fetch(base + "/api/course-inquiries", {
+      method: "POST", headers: { origin: canonicalOrigin, "content-type": "text/plain", "cf-connecting-ip": "192.0.2.32" },
+      body: JSON.stringify(inquiryInput), signal: AbortSignal.timeout(10000),
+    });
+    assert.equal(wrongType.status, 415);
+    const oversized = await fetch(base + "/api/course-inquiries", {
+      method: "POST", headers: { origin: canonicalOrigin, "content-type": "application/json", "cf-connecting-ip": "192.0.2.33" },
+      body: JSON.stringify({ ...inquiryInput, question: "a".repeat(9000) }), signal: AbortSignal.timeout(10000),
+    });
+    assert.equal(oversized.status, 413);
+    let badAddress = 40;
+    for (const invalid of [{ consent: false }, { website: "bot.invalid" }, { question: " " },
+      { contact: "not-an-email" }, { device: "invalid" }, { status: "handled" }]) {
+      const rejected = await request("/api/course-inquiries", { method: "POST", data: { ...inquiryInput, ...invalid },
+        headers: { "cf-connecting-ip": `192.0.2.${badAddress++}` } });
+      assert.equal(rejected.status, 400);
+      assert.equal(JSON.stringify(rejected.body).includes(inquiryInput.contact), false);
+    }
+    assert.equal((await request("/api/course-inquiries", { jar: owner })).body.total, 0);
+    const createdInquiry = await request("/api/course-inquiries", { method: "POST", data: inquiryInput, headers: inquiryHeaders });
+    assert.ok([200, 201].includes(createdInquiry.status));
+    assert.equal(createdInquiry.body.ok, true);
+    assert.deepEqual(Object.keys(createdInquiry.body).sort(), ["id", "ok"]);
+    assert.equal(createdInquiry.headers.getSetCookie().length, 0, "Inquiry submission does not grant classroom admission");
+    assert.match(createdInquiry.headers.get("cache-control"), /no-store/);
+    const inquiryId = createdInquiry.body.id;
+    for (const retry of await Promise.all([1, 2].map(() => request("/api/course-inquiries", {
+      method: "POST", data: inquiryInput, headers: inquiryHeaders,
+    })))) assert.deepEqual(retry.body, createdInquiry.body);
+    const conflict = await request("/api/course-inquiries", { method: "POST", headers: inquiryHeaders,
+      data: { ...inquiryInput, question: "改寫已送出內容" } });
+    assert.equal(conflict.status, 409);
+    assert.equal(JSON.stringify(conflict.body).includes(inquiryInput.question), false);
+    assert.equal((await request("/api/gate")).body.ok, false);
+    assert.equal((await request("/api/course-inquiries", { jar: owner })).body.total, 1);
+    for (let i = 0; i < 20; i++) {
+      const saved = await request("/api/course-inquiries", { method: "POST", headers: { "cf-connecting-ip": `198.51.100.${i + 1}` },
+        data: { ...inquiryInput, requestId: randomUUID(), name: `隔離分頁測試 ${i + 1}` } });
+      assert.ok([200, 201].includes(saved.status));
+    }
+    const inquiryPage = await request("/api/course-inquiries?status=all&offset=0", { jar: owner });
+    assert.equal(inquiryPage.body.items.length, 20);
+    assert.equal(inquiryPage.body.total, 21);
+    assert.equal(inquiryPage.body.hasMore, true);
+    assert.match(inquiryPage.headers.get("cache-control"), /no-store/);
+    assert.deepEqual(Object.keys(inquiryPage.body.items[0]).sort(),
+      ["id", "name", "contactType", "contact", "device", "support", "question", "status", "createdAt"].sort());
+    const lastInquiryPage = (await request("/api/course-inquiries?status=all&offset=20", { jar: owner })).body;
+    assert.equal(lastInquiryPage.items.length, 1);
+    assert.equal(lastInquiryPage.hasMore, false);
+    assert.equal(new Set([...inquiryPage.body.items, ...lastInquiryPage.items].map(item => item.id)).size, 21);
+    for (const query of ["status=unknown", "offset=-1", "offset=1.2"])
+      assert.equal((await request("/api/course-inquiries?" + query, { jar: owner })).status, 400);
+    const inquiryUpdate = { id: inquiryId, status: "handled" };
+    assert.equal((await request("/api/course-inquiries", { method: "PATCH", jar: owner, data: inquiryUpdate,
+      headers: { origin: "https://attacker.invalid" } })).status, 403);
+    assert.equal((await request("/api/course-inquiries", { method: "PATCH", jar: owner, data: inquiryUpdate })).status, 200);
+    const handledInquiry = (await request("/api/course-inquiries?status=handled", { jar: owner })).body;
+    assert.equal(handledInquiry.total, 1);
+    assert.equal(handledInquiry.items[0].id, inquiryId);
+    assert.equal(handledInquiry.items[0].question, inquiryInput.question);
+    assert.equal((await request("/api/course-inquiries?status=new", { jar: owner })).body.total, 20);
+    for (let i = 0; i < 5; i++) assert.equal((await request("/api/course-inquiries", { method: "POST", data: inquiryInput,
+      headers: { "cf-connecting-ip": "203.0.113.70" } })).status, 200);
+    const throttled = await request("/api/course-inquiries", { method: "POST", data: inquiryInput,
+      headers: { "cf-connecting-ip": "203.0.113.70" } });
+    assert.equal(throttled.status, 429);
+    assert.ok(Number(throttled.headers.get("retry-after")) > 0);
+    t.diagnostic("HTTP inquiries: anonymous same-origin submit; validation and spam rejection; retry without duplicates; owner-only inbox, pagination and handling status; no admission or messages granted");
     stage = "teacher feedback access, identity and request idempotence";
     const feedbackInput = {
       sessionId: fixtureReview.rec.id,
@@ -307,6 +398,14 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
     assert.equal((await serverFn("loadMyCareer", "GET", undefined, student)).sessions[0].feedback_count, 1);
     assert.equal((await serverFn("loadTeacherRoster", "GET", undefined, newLogin)).sessions[0].feedback_count, 1);
     t.diagnostic("HTTP feedback restart: teacher/student reads, feedback indexes and same-request retry recover the exact original note; review remains unchanged");
+    const persistedInquiries = (await request("/api/course-inquiries?status=handled", { jar: newLogin })).body;
+    assert.deepEqual(persistedInquiries, handledInquiry, "Inquiry content and handled status must survive restart");
+    assert.deepEqual((await request("/api/course-inquiries", { method: "POST", data: inquiryInput,
+      headers: { "cf-connecting-ip": "192.0.2.31" } })).body, createdInquiry.body);
+    assert.equal((await request("/api/course-inquiries?status=all", { jar: newLogin })).body.total, 21);
+    for (const privateValue of [inquiryInput.contact, inquiryInput.question])
+      assert.equal(childLog.includes(privateValue), false, "Inquiry personal data must not appear in app logs");
+    t.diagnostic("HTTP inquiry restart: original submission and handling status persist; public retry returns only receipt id");
     for (const secret of [password, entryCode, token, env.BETTER_AUTH_SECRET, ...owner.values()])
       assert.equal(childLog.includes(secret), false, "Child logs must not contain generated credentials");
   } catch (error) {
