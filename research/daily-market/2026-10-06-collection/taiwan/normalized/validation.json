@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "rawHashCount": 10,
+  "cashBuyMinusSellChecks": 6,
+  "futuresNetArithmeticPassed": true,
+  "nightPriorSettlementComparisonPassed": true,
+  "nightSessionDatePassed": true,
+  "dailyContextRowSelection": "Only 2026-10-05 selected; raw month report also contains 2026-10-06 and is not served to learners",
+  "indexChecks": [
+    {
+      "date": "2026-10-05",
+      "rawRows": 3241,
+      "selectedPoints": 721,
+      "gridSeconds": 5,
+      "passed": true
+    },
+    {
+      "date": "2026-10-06",
+      "rawRows": 3241,
+      "selectedPoints": 721,
+      "gridSeconds": 5,
+      "passed": true
+    }
+  ],
+  "meaning": "Structural and arithmetic checks; not source accuracy, rights, or historical point-in-time certification."
+}

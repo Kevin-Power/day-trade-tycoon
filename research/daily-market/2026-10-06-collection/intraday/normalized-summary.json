@@ -1,0 +1,82 @@
+[
+  {
+    "date": "2026-10-06",
+    "primary": true,
+    "totalBars": 300,
+    "passed": true,
+    "manifest": "normalized/2026-10-06/manifest.json",
+    "manifestSha256": "b48980fce9edf0edd159bbc9c28df3aa2e7dc7e7019b586ad59316d6878055a6",
+    "zeroVolumes": [
+      {
+        "symbol": "2330",
+        "timestamps": [
+          "2026-10-06T09:00:00.000+08:00"
+        ]
+      },
+      {
+        "symbol": "2317",
+        "timestamps": [
+          "2026-10-06T09:00:00.000+08:00"
+        ]
+      },
+      {
+        "symbol": "2454",
+        "timestamps": [
+          "2026-10-06T09:00:00.000+08:00"
+        ]
+      },
+      {
+        "symbol": "2382",
+        "timestamps": [
+          "2026-10-06T09:00:00.000+08:00"
+        ]
+      },
+      {
+        "symbol": "2308",
+        "timestamps": [
+          "2026-10-06T09:00:00.000+08:00"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-05",
+    "primary": false,
+    "totalBars": 300,
+    "passed": true,
+    "manifest": "normalized/2026-10-05/manifest.json",
+    "manifestSha256": "e8bb671dc526e82ba8c60bac7f7a85b200632c60c25518e5801266046a94c9ed",
+    "zeroVolumes": [
+      {
+        "symbol": "2330",
+        "timestamps": [
+          "2026-10-05T09:00:00.000+08:00"
+        ]
+      },
+      {
+        "symbol": "2317",
+        "timestamps": [
+          "2026-10-05T09:00:00.000+08:00"
+        ]
+      },
+      {
+        "symbol": "2454",
+        "timestamps": [
+          "2026-10-05T09:00:00.000+08:00"
+        ]
+      },
+      {
+        "symbol": "2382",
+        "timestamps": [
+          "2026-10-05T09:00:00.000+08:00"
+        ]
+      },
+      {
+        "symbol": "2308",
+        "timestamps": [
+          "2026-10-05T09:00:00.000+08:00"
+        ]
+      }
+    ]
+  }
+]

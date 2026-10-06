@@ -1,0 +1,49 @@
+{
+  "attempts": [
+    {
+      "id": "taifex-market-latest",
+      "url": "https://openapi.taifex.com.tw/v1/DailyMarketReportFut",
+      "finalUrl": "https://openapi.taifex.com.tw/v1/DailyMarketReportFut",
+      "fetchedAt": "2026-10-06T09:16:13.245Z",
+      "status": 200,
+      "contentType": "application/octet-stream",
+      "filename": "raw/taifex-market-latest.json",
+      "bytes": 838967,
+      "sha256": "556a33f9a90d8f967345b7c3d7bb094da817fc8d85b25229fc711a3ae13254a4",
+      "stat": null,
+      "date": null,
+      "title": null,
+      "rowCount": 2220
+    },
+    {
+      "id": "taifex-contracts-20261002",
+      "url": "https://www.taifex.com.tw/cht/3/futContractsDate?queryDate=2026%2F10%2F02",
+      "finalUrl": "https://www.taifex.com.tw/cht/3/futContractsDate?queryDate=2026%2F10%2F02",
+      "fetchedAt": "2026-10-06T09:16:13.276Z",
+      "status": 200,
+      "contentType": "text/html;charset=UTF-8",
+      "filename": "raw/taifex-contracts-20261002.html",
+      "bytes": 503936,
+      "sha256": "58c38f39e20134526c17a4ab6d7c5c1e081a891f54be5e453a0e4dbd27044423",
+      "stat": null,
+      "date": null,
+      "title": null,
+      "rowCount": null
+    },
+    {
+      "id": "twse-index5s-20261006",
+      "url": "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_INDEX?response=json&date=20261006",
+      "finalUrl": "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_INDEX?response=json&date=20261006",
+      "fetchedAt": "2026-10-06T09:16:13.277Z",
+      "status": 200,
+      "contentType": "application/json;charset=UTF-8",
+      "filename": "raw/twse-index5s-20261006.json",
+      "bytes": 1206919,
+      "sha256": "6863c329125b815a5265a3fc21ad89eab2661af3b5930e6d47b9d7dcf000e988",
+      "stat": "OK",
+      "date": "20261006",
+      "title": "115年10月06日 每5秒指數統計",
+      "rowCount": 3241
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+[
+  {
+    "id": "fubon-historical-candles",
+    "url": "https://www.fbs.com.tw/TradeAPI/docs/market-data/http-api/historical/candles/",
+    "startedAt": "2026-10-06T09:16:41.958Z",
+    "purpose": "documentation evidence, not market data",
+    "completedAt": "2026-10-06T09:16:42.196Z",
+    "status": 200,
+    "responseUrl": "https://www.fbs.com.tw/TradeAPI/docs/market-data/http-api/historical/candles/",
+    "file": "sources/fubon-historical-candles.html",
+    "bytes": 118679,
+    "sha256": "bf414375b378f2d391140dec3c41bfe8303f337e29218911c9b3555695fad6a0"
+  },
+  {
+    "id": "fubon-intraday-candles",
+    "url": "https://www.fbs.com.tw/TradeAPI/docs/market-data/http-api/intraday/candles/",
+    "startedAt": "2026-10-06T09:16:42.196Z",
+    "purpose": "documentation evidence, not market data",
+    "completedAt": "2026-10-06T09:16:42.224Z",
+    "status": 200,
+    "responseUrl": "https://www.fbs.com.tw/TradeAPI/docs/market-data/http-api/intraday/candles/",
+    "file": "sources/fubon-intraday-candles.html",
+    "bytes": 63238,
+    "sha256": "a4d42f7f9c0927806681cfed7cb7f571fe96f66cd185eb502741a87354579c0e"
+  },
+  {
+    "id": "fubon-intraday-trades",
+    "url": "https://www.fbs.com.tw/TradeAPI/docs/market-data/http-api/intraday/trades/",
+    "startedAt": "2026-10-06T09:16:42.224Z",
+    "purpose": "documentation evidence, not market data",
+    "completedAt": "2026-10-06T09:16:42.254Z",
+    "status": 200,
+    "responseUrl": "https://www.fbs.com.tw/TradeAPI/docs/market-data/http-api/intraday/trades/",
+    "file": "sources/fubon-intraday-trades.html",
+    "bytes": 61843,
+    "sha256": "f567e91fad3d28b3d9c1205b4ff206ca8adc4e6c939b18f3de3bb4bfa5ad0955"
+  },
+  {
+    "id": "fubon-prepare",
+    "url": "https://www.fbs.com.tw/TradeAPI/docs/trading/prepare/",
+    "startedAt": "2026-10-06T09:16:42.254Z",
+    "purpose": "documentation evidence, not market data",
+    "completedAt": "2026-10-06T09:16:42.286Z",
+    "status": 200,
+    "responseUrl": "https://www.fbs.com.tw/TradeAPI/docs/trading/prepare/",
+    "file": "sources/fubon-prepare.html",
+    "bytes": 90552,
+    "sha256": "08e99a00cd4aca493630efb2f43b48a25f5725ab7b644f7b0199d39899b089fd"
+  },
+  {
+    "id": "finmind-technical",
+    "url": "https://finmind.github.io/tutor/TaiwanMarket/Technical/",
+    "startedAt": "2026-10-06T09:16:42.286Z",
+    "purpose": "documentation evidence, not market data",
+    "completedAt": "2026-10-06T09:16:42.840Z",
+    "status": 200,
+    "responseUrl": "https://finmind.github.io/tutor/TaiwanMarket/Technical/",
+    "file": "sources/finmind-technical.html",
+    "bytes": 542919,
+    "sha256": "6f8747b5fbaa9ba13708bf1a546f7368e460fc59ccd86bd5c78690c10aa52ea5"
+  },
+  {
+    "id": "yahoo-chart-intervals",
+    "url": "https://help.yahoo.com/kb/period-scale-screen-charts-yahoo-finance-sln29029.html",
+    "startedAt": "2026-10-06T09:16:42.840Z",
+    "purpose": "documentation evidence, not market data",
+    "completedAt": "2026-10-06T09:16:49.385Z",
+    "status": 200,
+    "responseUrl": "https://help.yahoo.com/kb/period-scale-screen-charts-yahoo-finance-sln29029.html",
+    "file": "sources/yahoo-chart-intervals.html",
+    "bytes": 118152,
+    "sha256": "c9e36a4515e6f1d670573f99320b503ed604c0a1b12ba6f22d204f1a428815a3"
+  },
+  {
+    "id": "yahoo-historical-download",
+    "url": "https://help.yahoo.com/kb/finance/certain-amounts-sln2311.html",
+    "startedAt": "2026-10-06T09:16:49.385Z",
+    "purpose": "documentation evidence, not market data",
+    "completedAt": "2026-10-06T09:16:59.660Z",
+    "status": 503,
+    "responseUrl": "https://help.yahoo.com/kb/finance/certain-amounts-sln2311.html",
+    "file": "sources/yahoo-historical-download.html",
+    "bytes": 2067,
+    "sha256": "f88567b9186398fcf2cdabf3e3ca010fce0b23524c531a332a779e8d6e3eda75"
+  }
+]

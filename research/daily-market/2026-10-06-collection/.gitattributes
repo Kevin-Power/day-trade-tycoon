@@ -1,0 +1,5 @@
+# Preserve captured response bytes and checksum reproducibility on Windows.
+* -text whitespace=cr-at-eol
+# Raw source snapshots retain upstream whitespace and are reviewed by checksum.
+**/raw/** -diff
+intraday/sources/** -diff

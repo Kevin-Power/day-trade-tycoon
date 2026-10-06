@@ -1,0 +1,63 @@
+{
+  "validatedAt": "2026-10-06T09:24:15.366Z",
+  "passed": true,
+  "sha256Checks": 12,
+  "records": 275,
+  "validNumericRecords": 268,
+  "missingRecords": 7,
+  "zeroValueRecords": 0,
+  "commonObservedDates": 67,
+  "latestSoxOfficialPublisherValueMatchesFred": true,
+  "series": [
+    {
+      "symbol": "DJIA",
+      "rawRows": 69,
+      "validObservations": 67,
+      "rawBlankRows": 2,
+      "firstDate": "2026-07-01",
+      "lastDate": "2026-10-05",
+      "sourcePageLatestValueMatchesCsv": true,
+      "sourceUpdatedAt": "2026-10-05T17:02:00-05:00",
+      "sourceUpdatedAtTaipei": "2026-10-06T06:02:00.000+08:00",
+      "strictLessonCutoffEligibility": "not-verified"
+    },
+    {
+      "symbol": "NASDAQCOM",
+      "rawRows": 68,
+      "validObservations": 67,
+      "rawBlankRows": 1,
+      "firstDate": "2026-07-01",
+      "lastDate": "2026-10-05",
+      "sourcePageLatestValueMatchesCsv": true,
+      "sourceUpdatedAt": "2026-10-05T22:38:00-05:00",
+      "sourceUpdatedAtTaipei": "2026-10-06T11:38:00.000+08:00",
+      "strictLessonCutoffEligibility": "not-verified"
+    },
+    {
+      "symbol": "SP500",
+      "rawRows": 69,
+      "validObservations": 67,
+      "rawBlankRows": 2,
+      "firstDate": "2026-07-01",
+      "lastDate": "2026-10-05",
+      "sourcePageLatestValueMatchesCsv": true,
+      "sourceUpdatedAt": "2026-10-05T19:01:00-05:00",
+      "sourceUpdatedAtTaipei": "2026-10-06T08:01:00.000+08:00",
+      "strictLessonCutoffEligibility": "not-verified"
+    },
+    {
+      "symbol": "NASDAQSOX",
+      "rawRows": 69,
+      "validObservations": 67,
+      "rawBlankRows": 2,
+      "firstDate": "2026-07-01",
+      "lastDate": "2026-10-05",
+      "sourcePageLatestValueMatchesCsv": true,
+      "sourceUpdatedAt": "2026-10-05T22:44:00-05:00",
+      "sourceUpdatedAtTaipei": "2026-10-06T11:44:00.000+08:00",
+      "strictLessonCutoffEligibility": "not-verified"
+    }
+  ],
+  "strictPremarketApproval": false,
+  "emaOrXiaomaCalculationPerformed": false
+}

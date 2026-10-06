@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "builtAt": "2026-10-06T09:26:08.851020+00:00",
+  "collectionDate": "2026-10-06",
+  "primaryPracticeDate": "2026-10-06",
+  "backgroundDate": "2026-10-05",
+  "timezone": "Asia/Taipei",
+  "status": "research-data-collected-not-a-published-course",
+  "dataCollectionReadyForInspection": true,
+  "readyForLearnerDistribution": false,
+  "websiteIntegrated": false,
+  "strictPremarketAvailabilityVerified": false,
+  "locallySynthesizedPrices": false,
+  "tickDataCollected": false,
+  "window": {
+    "startInclusive": "2026-10-06T09:00:00+08:00",
+    "endExclusive": "2026-10-06T10:00:00+08:00",
+    "minuteBars": 300
+  },
+  "stocks": [
+    {
+      "code": "2330",
+      "name": "台積電",
+      "selection": "technical-data-validation-candidate-not-teacher-recommendation"
+    },
+    {
+      "code": "2317",
+      "name": "鴻海",
+      "selection": "technical-data-validation-candidate-not-teacher-recommendation"
+    },
+    {
+      "code": "2454",
+      "name": "聯發科",
+      "selection": "technical-data-validation-candidate-not-teacher-recommendation"
+    },
+    {
+      "code": "2382",
+      "name": "廣達",
+      "selection": "technical-data-validation-candidate-not-teacher-recommendation"
+    },
+    {
+      "code": "2308",
+      "name": "台達電",
+      "selection": "technical-data-validation-candidate-not-teacher-recommendation"
+    }
+  ],
+  "emaReference": {
+    "indicator": "EMA",
+    "periods": 11,
+    "timeframe": null,
+    "priceBasis": null,
+    "calculated": false
+  },
+  "targetLessonVideo": null,
+  "teacherIdentityCandidate": {
+    "speakerName": "陳波",
+    "organization": "股文觀指-理財私塾",
+    "channelHandle": "@gwgz",
+    "channelUrl": "https://www.youtube.com/@gwgz",
+    "confidence": "strong_candidate_not_fully_confirmed",
+    "reason": "官方介紹列陳波為創辦人；同頻道短片標題與使用者所述享受交易、享受生活結語相符；官方網誌亦使用小馬之上術語。尚未對到使用者所述每日盤前原集、EMA11 或左右手原片段。",
+    "verifiedSignals": [
+      "named_teacher_and_organization",
+      "channel_closing_phrase_title",
+      "official_article_uses_xiaoma"
+    ],
+    "unverifiedSignals": [
+      "xiaoma_equals_ema11_from_public_primary_source",
+      "left_hand_chips_right_hand_price_original_segment",
+      "exact_daily_premarket_program_identity"
+    ]
+  },
+  "components": {
+    "primaryStockMinuteBars": {
+      "path": "intraday/normalized/2026-10-06/bars.json",
+      "sha256": "1a1f49c948dc9329b14493d990a93960bd1a87f408572f25ac02bd7ea651962b"
+    },
+    "primaryStockManifest": {
+      "path": "intraday/normalized/2026-10-06/manifest.json",
+      "sha256": "b48980fce9edf0edd159bbc9c28df3aa2e7dc7e7019b586ad59316d6878055a6"
+    },
+    "backupStockMinuteBars": {
+      "path": "intraday/normalized/2026-10-05/bars.json",
+      "sha256": "0bc8d2811a363e9b80d61dd960ef5a182b6f5d0e6592a6481d94d1a40c2c4f52"
+    },
+    "officialDailyPriceCrossCheck": {
+      "path": "intraday/cross-check/twse-2026-10-06-report.json",
+      "sha256": "56a7263ff62f3e8e9eb5632e53cecfd8b1c6bebe0ec55a7385021f26493b23d9"
+    },
+    "usDailyObservations": {
+      "path": "us-indices/observations.json",
+      "sha256": "77f32160db774f485b92dcd71981c7df4840feec46d190e42d2a07c32ee8a893"
+    },
+    "usSourceManifest": {
+      "path": "us-indices/manifest.json",
+      "sha256": "2816ca295e94321e6e8ad892a835b54495ff047a100e2b9b80d3a9ca534efe9c"
+    },
+    "taiwanHistoricalBackground": {
+      "path": "taiwan/normalized/preopen-reference-2026-10-06.json",
+      "sha256": "839e0e9f21a44337dd71b7877df2759116fb74503d08b61eb06b0c17004f0bb2"
+    },
+    "officialTaiexFiveSecondSeries": {
+      "path": "taiwan/normalized/taiex-5s-2026-10-06-0900-1000.json",
+      "sha256": "5f6ecbb487a75aa3948a1d3e8187f840ddcbc9fae82a480dfcdcc3c9fd5688a5"
+    },
+    "videoSourceIndex": {
+      "path": "video/sources.json",
+      "sha256": "99cc1b38d84475d26dcc3686f4f2960c1bf9a8c2859e3f1146b49730ced844e5"
+    }
+  },
+  "unresolved": [
+    "No verified same-day Boge premarket episode, transcript, or teacher-selected stock list.",
+    "Minute OHLC does not reveal tick order; 09:00 volume is zero in the source for all five stocks and remains unverified.",
+    "Background publication vintages were not captured; two FRED source updates occur after the 09:00 lesson cutoff.",
+    "Margin maintenance ratio has no verified matching source in this collection.",
+    "EMA11 timeframe/price basis and complete N-pattern teaching rules remain undefined.",
+    "Public classroom display and redistribution scope has not been confirmed.",
+    "Minute replay integration and server-side progressive disclosure have not been implemented."
+  ]
+}

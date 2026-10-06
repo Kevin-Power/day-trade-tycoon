@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "collectedAt": "2026-10-06T09:18:25Z",
+  "collectionTimezone": "Asia/Taipei",
+  "targetLessonDate": "2026-10-06",
+  "status": "candidate_identity_correlated_no_matching_premarket_episode",
+  "identityCandidate": {
+    "speakerName": "陳波",
+    "organization": "股文觀指-理財私塾",
+    "channelHandle": "@gwgz",
+    "channelUrl": "https://www.youtube.com/@gwgz",
+    "confidence": "strong_candidate_not_fully_confirmed",
+    "reason": "官方介紹列陳波為創辦人；同頻道短片標題與使用者所述享受交易、享受生活結語相符；官方網誌亦使用小馬之上術語。尚未對到使用者所述每日盤前原集、EMA11 或左右手原片段。",
+    "verifiedSignals": ["named_teacher_and_organization", "channel_closing_phrase_title", "official_article_uses_xiaoma"],
+    "unverifiedSignals": ["xiaoma_equals_ema11_from_public_primary_source", "left_hand_chips_right_hand_price_original_segment", "exact_daily_premarket_program_identity"]
+  },
+  "sources": [
+    {
+      "id": "official_teacher",
+      "url": "https://gwgz.xyz/about/",
+      "label": "官方學院介紹",
+      "publicDate": null,
+      "retrievedAt": "2026-10-06T09:18:25Z",
+      "verification": "primary_page_text_verified",
+      "facts": ["團隊介紹列出陳波，身分為股文觀指理財私塾創辦人。"],
+      "limits": ["頁面未提供可確認的發布時間；不採用其績效或獲利宣稱作為證據。"]
+    },
+    {
+      "id": "closing_phrase_short",
+      "url": "https://www.youtube.com/shorts/62aGZhWWBEo",
+      "label": "交易心態短片",
+      "publicDate": null,
+      "retrievedAt": "2026-10-06T09:18:25Z",
+      "verification": "external_chrome_public_page_title_and_channel_verified",
+      "facts": ["標題含享受交易享受生活及股文觀指標籤；播放頁頻道連至 @gwgz。"],
+      "limits": ["僅核對標題與頻道；未核對完整口述結語、發布日期或片段時間；頁面顯示未提供字幕。"]
+    },
+    {
+      "id": "named_teacher_public_video",
+      "url": "https://www.youtube.com/watch?v=vkbjOezeyl8",
+      "label": "陳波老師談專職交易人的生活",
+      "publicDate": "2024-05-25",
+      "publicDateEvidence": "web_search_video_metadata",
+      "retrievedAt": "2026-10-06T09:18:25Z",
+      "verification": "indexed_video_metadata_only",
+      "facts": ["搜尋結果影片標題指名陳波老師，頻道為股文觀指-理財私塾。"],
+      "limits": ["日期來自搜尋索引，未在播放頁重新核對；不是近期盤前影片。"]
+    },
+    {
+      "id": "official_xiaoma_article",
+      "url": "https://gwgz.xyz/%E6%9C%88%E8%90%BD%E7%A7%8B%E5%8D%87%EF%BC%8C%E6%BC%B2%E5%8B%A2%E6%82%84%E8%B5%B7/",
+      "label": "月落秋升，漲勢悄起",
+      "publicDate": "2026-09-26",
+      "publicDateEvidence": "date_shown_on_article",
+      "retrievedAt": "2026-10-06T09:18:25Z",
+      "verification": "primary_page_text_and_date_verified",
+      "facts": ["文章使用小馬之上描述前十大權值股位置。"],
+      "limits": ["沒有定義小馬為 EMA11、K 線週期、價格基準或左右手規則；文章觀點不等於經核對的市場事實。"]
+    },
+    {
+      "id": "recent_public_evening_episode",
+      "url": "https://www.youtube.com/watch?v=na76oojM3Fo",
+      "channelUrl": "https://www.youtube.com/@gwgz",
+      "label": "2026/9/30 20:00 說股論金",
+      "publicDate": "2026-09-30",
+      "publicDateEvidence": "external_chrome_watch_page_expanded_description_stream_date",
+      "titleEventLocalTime": "2026-09-30T20:00:00+08:00",
+      "actualPublicationTimestamp": null,
+      "durationSeconds": 3585,
+      "retrievedAt": "2026-10-06T09:18:25Z",
+      "verification": "external_chrome_public_watch_page_verified",
+      "facts": ["播放頁顯示串流直播日期為 2026 年 9 月 30 日，片長 59:45。", "頻道為股文觀指-理財私塾；說明含陳波及說股論金標籤，並描述每週三晚間 20 點解析本週盤勢。"],
+      "summaryScope": "metadata_only_not_content_transcript",
+      "eligibleForTargetPremarketLesson": false,
+      "limits": ["此集為晚間每週節目，不能作為 2026-10-06 盤前原集。", "未完整收聽；沒有原片段時間碼、經核對行情數字或完整內容摘要；播放頁顯示未提供字幕。", "標題的 20:00 是節目標示時間，未驗證平台的精確公開時刻。"]
+    },
+    {
+      "id": "official_daily_class_description",
+      "url": "https://gwgz.xyz/product/%E6%AF%8F%E6%97%A5%E5%AD%B8%E7%BF%92%E7%8F%AD/",
+      "label": "陳波-每日學習班公開商品說明",
+      "publicDate": null,
+      "retrievedAt": "2026-10-06T09:18:25Z",
+      "verification": "primary_public_product_description_verified",
+      "facts": ["商品說明將盤前短影片列為每日學習班方案包含工具。"],
+      "limits": ["只讀公開商品說明，沒有登入、購買或開啟會員內容。", "不能據此斷言所有盤前影片都不公開；本輪未找到能核對的 2026-10-06 公開原集。", "不以公開商品頁推定影音再使用或課程轉售授權。"]
+    },
+    {
+      "id": "official_public_program_description",
+      "url": "https://gwgz.xyz/product/%E8%AA%AA%E8%82%A1%E8%AB%96%E9%87%91/",
+      "label": "陳波-說股論金公開節目說明",
+      "publicDate": null,
+      "retrievedAt": "2026-10-06T09:18:25Z",
+      "verification": "primary_page_text_verified",
+      "facts": ["官方將說股論金列為陳波的免費體驗直播節目。"],
+      "limits": ["官網舊排程文字與近期 YouTube 說明不同；不拿舊排程推定本次日期。"]
+    }
+  ],
+  "excludedSameNameHits": [
+    {"label": "波哥说币", "url": "https://www.gate.com/zh-tw/profile/%E6%B3%A2%E5%93%A5%E8%AF%B4%E5%B8%81", "reason": "內容為加密資產，未符合台股盤前節目識別線索。"},
+    {"label": "陳健波.波哥", "url": "https://www.youtube.com/@chan_kinpor", "reason": "搜尋顯示香港基金及強積金主題，沒有符合所述節目線索。"},
+    {"label": "波哥定投场", "url": "https://www.youtube.com/@paulchan-f1u", "reason": "同名定投主題，未通過交叉核對。"}
+  ],
+  "collectionMethods": ["public_web_search", "public_primary_pages", "external_chrome_public_youtube_search_and_watch_pages"],
+  "retainedContent": "source_metadata_and_original_summary_only",
+  "fullVideoDownloaded": false,
+  "fullTranscriptRetained": false,
+  "loggedIntoNewService": false,
+  "contactedAnyone": false,
+  "targetLessonVideo": null,
+  "remainingEvidenceNeeded": ["對應 2026-10-06 的正確每日盤前原集及其公開/錄製時間", "公開原片段對 EMA11、左右手及完整結語的交叉確認", "教材引用或嵌入適用方式的確認"]
+}

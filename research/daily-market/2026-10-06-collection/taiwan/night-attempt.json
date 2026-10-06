@@ -1,0 +1,10 @@
+{
+  "id": "taifex-night-20261006",
+  "url": "https://www.taifex.com.tw/cht/3/futDailyMarketReport?queryDate=2026%2F10%2F06&commodity_id=TX&marketCode=1",
+  "finalUrl": "https://www.taifex.com.tw/cht/3/futDailyMarketReport?queryDate=2026%2F10%2F06&commodity_id=TX&marketCode=1",
+  "status": 200,
+  "fetchedAt": "2026-10-06T09:17:23.809Z",
+  "filename": "raw/taifex-night-20261006.html",
+  "bytes": 329210,
+  "sha256": "d4ec1c71408f5b24305cc1eed97f0a6f86dafc9f9857ac0158205e0710fe0c36"
+}
