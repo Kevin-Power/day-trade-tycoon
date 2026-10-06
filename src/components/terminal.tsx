@@ -16,7 +16,7 @@ import { Arrow, toneClass } from "@/components/signed";
 import { formatPrice } from "@/lib/market/ticks";
 import { formatIndex } from "@/lib/market/week";
 import { ProvenanceBadge, ProvenanceMicro, SimChip } from "@/components/provenance";
-import { classroomPathMicro, officialIndexPaneMicro } from "@/lib/provenance";
+import { officialIndexPaneMicro } from "@/lib/provenance";
 import { MobileMarket } from "@/components/mobile-market";
 import { DisplayControls } from "@/components/display-controls";
 import { LightningOrder } from "@/components/lightning-order";
@@ -24,6 +24,7 @@ import { useDisplayPreferences } from "@/lib/display-preferences";
 import { useTerminalLayout } from "@/lib/use-terminal-layout";
 import { deriveSwingHighs } from "@/lib/market/swing-highs";
 import { SwingHighSummary } from "@/components/swing-high-summary";
+import { SyntheticChartNotice } from "@/components/real-candles-entry";
 
 const MOBILE_TABS = [
   { id: "watch", label: "自選行情", icon: ListFilter },
@@ -453,7 +454,7 @@ function SelectedChart() {
     <div className="flex h-full min-h-88 flex-col bg-bg lg:min-h-0">
       <div className="pane-title flex shrink-0 flex-wrap items-center gap-2 px-3 py-2 lg:h-7 lg:flex-nowrap lg:px-2 lg:py-0">
         <span className="min-w-0 basis-full break-words text-base lg:shrink-0 lg:basis-auto lg:text-xs">
-          {candles ? "K 線" : wave ? "江波圖" : "分時"} {q.code} {q.name}
+          {candles ? "合成 K" : wave ? "江波圖" : "分時"} {q.code} {q.name}
         </span>
         <div className="flex items-center gap-2 lg:gap-0.5" role="group" aria-label="走勢圖類型">
           <button
@@ -480,7 +481,7 @@ function SelectedChart() {
           </button>
           <button type="button" onClick={() => setChartStyle("candles")} aria-pressed={candles}
             className={cn("min-h-12 min-w-16 rounded-md border border-border px-3 text-base lg:h-5 lg:min-h-0 lg:min-w-0 lg:rounded-xs lg:border-0 lg:px-1.5 lg:text-micro", candles ? "bg-header-2 text-fg" : "text-fg/70 hover:text-fg")}>
-            K 線
+            合成 K
           </button>
         </div>
         <span
@@ -495,7 +496,7 @@ function SelectedChart() {
         </span>
         <ProvenanceBadge kind="classroom" className="text-sm lg:text-2xs" />
       </div>
-      <ProvenanceMicro text={classroomPathMicro()} className="shrink-0 text-sm lg:text-2xs" />
+      <SyntheticChartNotice />
       <div className="pane-sunken min-h-52 flex-1 bg-bg lg:min-h-40">
         <TapeChart
           bars={bars}

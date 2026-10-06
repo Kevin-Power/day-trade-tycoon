@@ -48,6 +48,16 @@ export function inChartWindow<T extends { t: number }>(
   );
 }
 
+/** Keep completed source intervals intact; never expose a not-yet-closed bar. */
+export function completedBarsInWindow(
+  bars: readonly Bar[],
+  window: { start: number; dataEnd: number },
+  seconds: number,
+): Bar[] {
+  if (!Number.isFinite(seconds) || seconds <= 0) return [];
+  return inChartWindow(bars, window).filter((bar) => bar.t + seconds <= window.dataEnd);
+}
+
 export function timeAxisTicks(
   start: number,
   end: number,
@@ -82,13 +92,22 @@ export function chartLinePoints(input: {
   ticks: readonly TickPt[];
   variant?: "stock" | "index" | "jiangbo" | "candles";
   current?: TickPt;
+  /** Completed source bars: the close belongs to the END of its interval. */
+  completedBarSeconds?: number;
 }): TickPt[] {
   if (input.variant === "jiangbo" && input.ticks.length)
     return input.ticks.map((tick) => ({ ...tick }));
-  const points = input.bars.map((bar) => ({ t: bar.t, p: bar.c }));
+  const points = input.bars.map((bar) => ({
+    t: bar.t + (input.completedBarSeconds ?? 0),
+    p: bar.c,
+  }));
   // An observed current quote can differ from the forming minute's close after a fill.
   // Add only this supplied observation, never intermediate or future values.
-  if ((input.variant === undefined || input.variant === "stock") && input.current) {
+  if (
+    !input.completedBarSeconds &&
+    (input.variant === undefined || input.variant === "stock") &&
+    input.current
+  ) {
     const last = points.at(-1);
     if (!last || last.t < input.current.t) points.push({ ...input.current });
     else if (last.t === input.current.t) points[points.length - 1] = { ...input.current };
@@ -103,6 +122,7 @@ export function minuteColumnWidth(plotWidth: number, timeSpan: number): number {
 export function splitPriceLine(
   points: readonly TickPt[],
   previous: number,
+  maxGap = Infinity,
 ): { above: boolean; points: TickPt[] }[] {
   const runs: { above: boolean; points: TickPt[] }[] = [];
   if (!points.length) return runs;
@@ -112,6 +132,11 @@ export function splitPriceLine(
     const a = points[i - 1]!;
     const b = points[i]!;
     const above = b.p >= previous;
+    if (b.t - a.t > maxGap) {
+      run = { above, points: [b] };
+      runs.push(run);
+      continue;
+    }
     if (above !== run.above) {
       const fraction = (previous - a.p) / (b.p - a.p);
       const crossing = { t: a.t + (b.t - a.t) * fraction, p: previous };

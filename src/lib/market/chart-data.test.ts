@@ -4,6 +4,7 @@ import {
   canvasResolution,
   chartLinePoints,
   chartWindow,
+  completedBarsInWindow,
   inChartWindow,
   minuteColumnWidth,
   nearestTimePoint,
@@ -117,4 +118,43 @@ test("volume columns follow the displayed minute interval and cannot overlap adj
       assert.ok(column < (width * 60) / span);
     }
   assert.ok(minuteColumnWidth(130, 16200) < 1);
+});
+
+test("historical OHLC is revealed only when its source minute has completed", () => {
+  const source = [0, 60, 120].map((t) => ({ t, o: 100, h: 105, l: 98, c: 102, v: 0 }));
+  const before = JSON.stringify(source);
+  assert.deepEqual(completedBarsInWindow(source, { start: 0, dataEnd: 59 }, 60), []);
+  assert.deepEqual(completedBarsInWindow(source, { start: 0, dataEnd: 60 }, 60), [source[0]]);
+  assert.deepEqual(completedBarsInWindow(source, { start: 60, dataEnd: 120 }, 60), [source[1]]);
+  assert.deepEqual(completedBarsInWindow(source, { start: 0, dataEnd: 120 }, 0), []);
+  assert.equal(JSON.stringify(source), before);
+});
+
+test("historical minute close is plotted at completion with no invented current tail", () => {
+  const bars = [0, 60].map((t) => ({ t, o: 100, h: 105, l: 98, c: 102 + t / 60, v: 0 }));
+  assert.deepEqual(
+    chartLinePoints({
+      bars,
+      ticks: [],
+      variant: "stock",
+      completedBarSeconds: 60,
+      current: { t: 180, p: 999 },
+    }),
+    [
+      { t: 60, p: 102 },
+      { t: 120, p: 103 },
+    ],
+  );
+});
+
+test("missing source minutes remain gaps instead of interpolated paths", () => {
+  const points = [
+    { t: 60, p: 99 },
+    { t: 120, p: 98 },
+    { t: 240, p: 102 },
+  ];
+  assert.deepEqual(splitPriceLine(points, 100, 60), [
+    { above: false, points: points.slice(0, 2) },
+    { above: true, points: [points[2]] },
+  ]);
 });

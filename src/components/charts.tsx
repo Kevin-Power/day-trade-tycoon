@@ -4,6 +4,7 @@ import {
   canvasResolution,
   chartLinePoints,
   chartWindow,
+  completedBarsInWindow,
   inChartWindow,
   minuteColumnWidth,
   nearestTimePoint,
@@ -35,6 +36,8 @@ export type TapeChartProps = {
   showVolumeReadout?: boolean;
   /** Historical completed bars must not be extended with a synthetic current quote. */
   appendCurrentQuote?: boolean;
+  /** Source-complete bars only. Centers candles in their interval and dates closes at its end. */
+  completedBarSeconds?: number;
   startT: number;
   endT: number;
   now: number;
@@ -154,7 +157,8 @@ export function TapeChart(props: TapeChartProps) {
     redraw.current();
   };
   const interact = props.interactive !== false;
-  const label = props.ariaLabel ??
+  const label =
+    props.ariaLabel ??
     `${props.variant === "candles" ? "K 線" : "價格走勢"}與${props.showVolume ? "成交量，" : ""}最新報價 ${props.variant === "index" ? formatIndex(props.last) : formatPrice(props.last)}`;
   return (
     <div className="relative h-full w-full">
@@ -165,23 +169,27 @@ export function TapeChart(props: TapeChartProps) {
         role="img"
         aria-describedby={interact ? readoutId : undefined}
         tabIndex={interact ? 0 : undefined}
-        aria-label={
-          `${label}。${interact ? "點按或移動游標查看資料，方向鍵移動，Escape 關閉。" : ""}`
-        }
+        aria-label={`${label}。${interact ? "點按或移動游標查看資料，方向鍵移動，Escape 關閉。" : ""}`}
         onPointerDown={(event) => {
           if (interact) {
             event.currentTarget.focus({ preventScroll: true });
-            cursor.current = { x: event.clientX - event.currentTarget.getBoundingClientRect().left };
+            cursor.current = {
+              x: event.clientX - event.currentTarget.getBoundingClientRect().left,
+            };
             redraw.current();
           }
         }}
         onPointerMove={(event) => {
           if (interact && (event.pointerType === "mouse" || event.buttons > 0)) {
-            cursor.current = { x: event.clientX - event.currentTarget.getBoundingClientRect().left };
+            cursor.current = {
+              x: event.clientX - event.currentTarget.getBoundingClientRect().left,
+            };
             redraw.current();
           }
         }}
-        onPointerLeave={(event) => { if (event.pointerType === "mouse") clear(); }}
+        onPointerLeave={(event) => {
+          if (event.pointerType === "mouse") clear();
+        }}
         onPointerCancel={clear}
         onBlur={clear}
         onKeyDown={(event) => {
@@ -203,7 +211,11 @@ export function TapeChart(props: TapeChartProps) {
           redraw.current();
         }}
       />
-      {interact && <output id={readoutId} className="sr-only" aria-live="polite" aria-atomic="true">{readout || "點按圖表或按左右方向鍵，查看所選時間的行情。"}</output>}
+      {interact && (
+        <output id={readoutId} className="sr-only" aria-live="polite" aria-atomic="true">
+          {readout || "點按圖表或按左右方向鍵，查看所選時間的行情。"}
+        </output>
+      )}
     </div>
   );
 }
@@ -222,14 +234,16 @@ function paint(
   const isIndex = opt.variant === "index";
   const isCandles = opt.variant === "candles";
   const window = chartWindow({ ...opt, wave: opt.variant === "jiangbo" });
-  const bars = inChartWindow(opt.bars, window).filter((bar) =>
-    [bar.o, bar.h, bar.l, bar.c, bar.v].every(Number.isFinite),
-  );
+  const interval = opt.completedBarSeconds;
+  const bars = (
+    interval ? completedBarsInWindow(opt.bars, window, interval) : inChartWindow(opt.bars, window)
+  ).filter((bar) => [bar.o, bar.h, bar.l, bar.c, bar.v].every(Number.isFinite));
   const ticks = inChartWindow(opt.ticks, window).filter((point) => Number.isFinite(point.p));
   const points = chartLinePoints({
     bars,
     ticks,
     variant: opt.variant,
+    completedBarSeconds: interval,
     current:
       opt.appendCurrentQuote !== false && window.dataEnd >= opt.now && opt.now >= window.start
         ? { t: opt.now, p: opt.last }
@@ -271,6 +285,7 @@ function paint(
   const yOf = (price: number) => padT + ((max - price) / span) * plotH;
   const timeSpan = Math.max(window.end - window.start, 1);
   const xOf = (time: number) => padL + ((time - window.start) / timeSpan) * plotW;
+  const candleTime = (bar: Bar) => bar.t + (interval ? interval / 2 : 0);
   const plotBottom = padT + plotH;
   ctx.font = font;
   ctx.lineWidth = 0.75;
@@ -333,12 +348,13 @@ function paint(
     ctx.strokeStyle = c.vwap;
     ctx.lineWidth = 1.25;
     for (const bar of opt.bars) {
-      if (bar.t > window.dataEnd || ![bar.t, bar.c, bar.v].every(Number.isFinite)) continue;
+      if (bar.t + (interval ?? 0) > window.dataEnd || ![bar.t, bar.c, bar.v].every(Number.isFinite))
+        continue;
       weighted += bar.c * bar.v;
       volume += bar.v;
       vwapNow = volume > 0 ? weighted / volume : bar.c;
       if (bar.t < window.start) continue;
-      const x = xOf(bar.t);
+      const x = xOf(bar.t + (interval ?? 0));
       const y = yOf(vwapNow);
       if (!begun) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
@@ -362,7 +378,7 @@ function paint(
   const barWidth = minuteColumnWidth(plotW, timeSpan);
   if (isCandles) {
     for (const bar of bars) {
-      const x = xOf(bar.t);
+      const x = xOf(candleTime(bar));
       ctx.strokeStyle = ctx.fillStyle = bar.c >= bar.o ? c.up : c.down;
       ctx.lineWidth = 1.25;
       ctx.beginPath();
@@ -370,15 +386,22 @@ function paint(
       ctx.lineTo(x, yOf(bar.l));
       ctx.stroke();
       const top = Math.min(yOf(bar.o), yOf(bar.c));
-      ctx.fillRect(
-        x - barWidth / 2,
-        top,
-        barWidth,
-        Math.max(1.5, Math.abs(yOf(bar.o) - yOf(bar.c))),
-      );
+      if (bar.o === bar.c) {
+        ctx.beginPath();
+        ctx.moveTo(x - barWidth / 2, top);
+        ctx.lineTo(x + barWidth / 2, top);
+        ctx.stroke();
+      } else {
+        ctx.fillRect(
+          x - barWidth / 2,
+          top,
+          barWidth,
+          Math.max(1, Math.abs(yOf(bar.o) - yOf(bar.c))),
+        );
+      }
     }
   } else {
-    const runs = isIndex ? [{ above: true, points }] : splitPriceLine(points, opt.prev);
+    const runs = isIndex ? [{ above: true, points }] : splitPriceLine(points, opt.prev, interval);
     ctx.lineWidth = 2;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
@@ -414,7 +437,12 @@ function paint(
   }
   // These are minute-high intervals; the exact trade second is not in a Bar.
   for (const [index, highPoint] of (opt.swingHighs ?? []).entries()) {
-    if (highPoint.confirmedAt > window.dataEnd || highPoint.t < window.start || highPoint.t > window.dataEnd) continue;
+    if (
+      highPoint.confirmedAt > window.dataEnd ||
+      highPoint.t < window.start ||
+      highPoint.t > window.dataEnd
+    )
+      continue;
     const x = xOf(highPoint.t);
     const y = yOf(highPoint.p);
     const endX = xOf(Math.min(highPoint.t + 60, window.dataEnd));
@@ -469,7 +497,7 @@ function paint(
           ? c.up
           : c.down;
       ctx.globalAlpha = 0.8;
-      ctx.fillRect(xOf(bar.t) - barWidth / 2, base - height, barWidth, height);
+      ctx.fillRect(xOf(candleTime(bar)) - barWidth / 2, base - height, barWidth, height);
     }
     ctx.restore();
   }
@@ -485,7 +513,8 @@ function paint(
   const marks = [{ text: "昨", price: opt.prev, color: c.tape }];
   if (!isIndex) {
     if (opt.open) marks.push({ text: "開", price: opt.open, color: c.muted });
-    if (bars.length && opt.showAverage !== false) marks.push({ text: "均", price: vwapNow, color: c.vwap });
+    if (bars.length && opt.showAverage !== false)
+      marks.push({ text: "均", price: vwapNow, color: c.vwap });
     if (opt.cost) marks.push({ text: "成", price: opt.cost, color: c.warn });
     if (opt.poc) marks.push({ text: "堆", price: opt.poc, color: c.vol });
     if (opt.variant === "jiangbo" && !opt.range && opt.high > opt.low) {
@@ -516,11 +545,13 @@ function paint(
 
   if (cursor && (cursor.keyboard || (cursor.x >= padL && cursor.x <= w - padR))) {
     const time = window.start + Math.min(1, Math.max(0, (cursor.x - padL) / plotW)) * timeSpan;
-    const point = isCandles ? nearestTimePoint(bars, time) : nearestTimePoint(points, time);
+    const point = isCandles
+      ? nearestTimePoint(bars, time - (interval ? interval / 2 : 0))
+      : nearestTimePoint(points, time);
     if (!point) return;
     const candle = "c" in point ? point : undefined;
     const price = candle ? candle.c : (point as TickPt).p;
-    const x = xOf(point.t);
+    const x = xOf(candle ? candleTime(candle) : point.t);
     const y = yOf(price);
     ctx.save();
     ctx.strokeStyle = c.fg;
@@ -533,9 +564,19 @@ function paint(
     ctx.lineTo(w - padR, y);
     ctx.stroke();
     ctx.restore();
+    const intervalLabel = interval
+      ? `${formatTime(candle ? point.t : point.t - interval).slice(0, 5)}–${formatTime(candle ? point.t + interval : point.t).slice(0, 5)}`
+      : undefined;
     const fields = candle
-      ? [formatTime(point.t).slice(0, 5), `開 ${label(candle.o)}`, `收 ${label(candle.c)}`, `高 ${label(candle.h)}`, `低 ${label(candle.l)}`, ...(opt.showVolumeReadout !== false ? [`量 ${candle.v} 張`] : [])]
-      : [formatTime(point.t), `價格 ${label(price)}`];
+      ? [
+          intervalLabel ?? formatTime(point.t).slice(0, 5),
+          `開 ${label(candle.o)}`,
+          `高 ${label(candle.h)}`,
+          `低 ${label(candle.l)}`,
+          `收 ${label(candle.c)}`,
+          ...(opt.showVolumeReadout !== false ? [`量 ${candle.v} 張`] : []),
+        ]
+      : [intervalLabel ?? formatTime(point.t), `${interval ? "收價" : "價格"} ${label(price)}`];
     ctx.font = font;
     const lines: string[] = [];
     let line = "";

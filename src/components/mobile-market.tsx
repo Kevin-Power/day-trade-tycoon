@@ -9,6 +9,7 @@ import { classroomBookMicro, classroomPathMicro, officialIndexPaneMicro } from "
 import { cn, formatLots, formatPct, formatTime } from "@/lib/utils";
 import { deriveSwingHighs } from "@/lib/market/swing-highs";
 import { SwingHighSummary } from "@/components/swing-high-summary";
+import { SyntheticChartNotice } from "@/components/real-candles-entry";
 
 const RANGES = [
   { minutes: 0, label: "全程" },
@@ -95,6 +96,8 @@ export function MobileMarket() {
         </div>
       </header>
 
+      <SyntheticChartNotice />
+
       <div role="group" aria-label="行情檢視方式" className="grid grid-cols-4 border-y border-border">
         <button type="button" aria-pressed={!bookOpen && !candles && !wave}
           onClick={() => { setBookOpen(false); setChartStyle("tape"); }}
@@ -109,7 +112,7 @@ export function MobileMarket() {
         <button type="button" aria-pressed={!bookOpen && candles}
           onClick={() => { setBookOpen(false); setChartStyle("candles"); }}
           className={cn("min-h-12 min-w-0 border-b-2 px-2 py-2 text-base font-semibold", !bookOpen && candles ? "border-brand bg-elevated text-fg" : "border-transparent text-muted")}>
-          K 線
+          合成 K
         </button>
         <button type="button" aria-pressed={bookOpen} onClick={() => setBookOpen(true)}
           className={cn("min-h-12 min-w-0 border-b-2 px-2 py-2 text-base font-semibold", bookOpen ? "border-brand bg-elevated text-fg" : "border-transparent text-muted")}>
@@ -120,7 +123,7 @@ export function MobileMarket() {
       {bookOpen ? <ReadOnlyBook quote={q} /> : (
         <div>
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-3 pt-2">
-            <span className="text-base font-medium">{candles ? "1 分鐘 K 線" : wave ? "江波圖 · 前後高" : "分時走勢"}</span>
+            <span className="text-base font-medium">{candles ? "1 分鐘合成 K" : wave ? "江波圖 · 前後高" : "分時走勢"}</span>
             <span className="font-mono text-sm text-muted">模擬 {clock}</span>
           </div>
           <div role="group" aria-label="走勢時間範圍" className="grid grid-cols-3 gap-1 px-3 py-2">
@@ -152,7 +155,7 @@ export function MobileMarket() {
               swingHighs={swingHighs?.confirmed}
               range={range}
               interactive
-              ariaLabel={`${q.code} ${q.name} 模擬${candles ? "1 分鐘 K 線" : wave ? "江波圖" : "分時走勢"}與成交量，${minutes ? `近 ${minutes} 分鐘` : "本盤全程"}`}
+              ariaLabel={`${q.code} ${q.name} 模擬${candles ? "1 分鐘合成 K" : wave ? "江波圖" : "分時走勢"}與成交量，${minutes ? `近 ${minutes} 分鐘` : "本盤全程"}`}
             />
           </div>
           {swingHighs && <SwingHighSummary data={swingHighs} visibleStart={range.start} />}

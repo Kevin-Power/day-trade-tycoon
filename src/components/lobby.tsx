@@ -44,6 +44,7 @@ import { useGate } from "@/lib/gate/context";
 import { ClassroomAccount } from "@/components/classroom-account";
 import { DisplayControls } from "@/components/display-controls";
 import { BrandMark } from "@/components/brand-mark";
+import { RealCandlesLink } from "@/components/real-candles-entry";
 import { PracticeGoalReminder } from "@/components/practice-goal";
 import { classroomSampleMicro, officialIndexMicro, officialTurnoverMicro } from "@/lib/provenance";
 
@@ -208,7 +209,11 @@ export function Lobby() {
               先選一個目標，完成模擬練習，再用紀錄回看操作。從看懂委託與成交，到說清楚進場與離場條件，讓每一次練習都有方向。
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              {recentReview ? (
+              {!CLASSROOM_OFFLINE ? (
+                <RealCandlesLink className="academy-button-primary px-5">
+                  開始真實 K 線練習
+                </RealCandlesLink>
+              ) : recentReview ? (
                 <Link
                   to="/session/$id/review"
                   params={{ id: recentReview.sessionId }}
@@ -234,11 +239,16 @@ export function Lobby() {
                   </button>
                 )
               )}
+              {!CLASSROOM_OFFLINE && recentReview && (
+                <Link to="/session/$id/review" params={{ id: recentReview.sessionId }} className="academy-nav-link inline-flex min-h-12 items-center gap-2 rounded-lg px-3 text-base">
+                  <FileText className="size-5 shrink-0" aria-hidden />接續上次復盤
+                </Link>
+              )}
               <a
                 href="#courses"
                 className="academy-nav-link inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3 text-base"
               >
-                選擇課程 <ArrowDown className="size-4" aria-hidden="true" />
+                選擇原有模擬課程 <ArrowDown className="size-4" aria-hidden="true" />
               </a>
               {firstLesson ? (
                 <button
@@ -254,6 +264,11 @@ export function Lobby() {
                 </button>
               ) : null}
             </div>
+            {!CLASSROOM_OFFLINE && (
+              <p className="mt-3 text-base leading-relaxed text-muted">
+                真實 K 教材：2026/10/06、5 檔股票的歷史 1 分鐘開高低收，搭配紙上委託；原有合成行情課程仍可從下方選擇。
+              </p>
+            )}
             {recentReview && (
               <p className="mt-3 text-base leading-relaxed text-muted">
                 {recentReview.achievedCount > 0
@@ -318,9 +333,7 @@ export function Lobby() {
               <p className="mt-3 max-w-3xl text-base leading-relaxed text-muted">讀歷史背景、寫自己的計畫，再看 5 檔股票的分鐘行情。紙上委託與復盤分步完成，切換商品共用同一個時鐘。</p>
               <p className="mt-2 text-sm leading-relaxed text-muted">歷史分鐘資料 · 非即時行情 · 只提供紙上模擬，登入後保存紀錄</p>
             </div>
-            <Link to="/morning" className="inline-flex min-h-14 min-w-0 items-center justify-center gap-2 whitespace-normal rounded-xl bg-brand px-5 py-3 text-base font-semibold text-brand-fg hover:brightness-95">
-              進入真實早盤練習 <ArrowRight className="size-5 shrink-0" aria-hidden />
-            </Link>
+            <RealCandlesLink className="min-h-14 px-5">進入真實早盤練習</RealCandlesLink>
           </section>
         )}
 

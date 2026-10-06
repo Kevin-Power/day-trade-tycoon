@@ -158,9 +158,9 @@ function useMorningData() {
             ? "教室回應超過 20 秒，已停止等待。請核對進度，或重試同一筆操作。"
             : failure instanceof TypeError
               ? "暫時連不上教室，請重試同一筆操作或重新載入進度。"
-            : failure instanceof Error
-              ? failure.message
-              : "暫時連不上教室，請重試。",
+              : failure instanceof Error
+                ? failure.message
+                : "暫時連不上教室，請重試。",
         );
       return null;
     } finally {
@@ -542,7 +542,10 @@ function MorningLesson() {
                           disabled={
                             Boolean(busy) || atCheckpoint || atEnd || Boolean(error || notice)
                           }
-                          onClick={() => { setFeedback(""); setAuto((value) => !value); }}
+                          onClick={() => {
+                            setFeedback("");
+                            setAuto((value) => !value);
+                          }}
                           className={PRIMARY}
                         >
                           {auto ? (
@@ -1008,7 +1011,7 @@ function MorningChart({
     >
       <header className="flex flex-wrap items-start justify-between gap-4 px-4 py-5 sm:px-6">
         <div className="min-w-0">
-          <p className="text-sm text-slate-300">歷史分鐘行情 · 已完成 K 線</p>
+          <p className="text-sm text-slate-300">真實 1 分鐘 K · {catalog.date} · 台北時間</p>
           <h3 className="mt-2 flex flex-wrap items-baseline gap-2 text-2xl font-semibold">
             {symbol.name}
             <span className="font-mono text-base font-normal text-slate-300">{code}</span>
@@ -1022,7 +1025,9 @@ function MorningChart({
             {last ? formatPrice(lastPrice) : "—"}
           </p>
           {last && (
-            <p className="mt-1 text-sm text-slate-300">{formatTime(last.t).slice(0, 5)} 分鐘</p>
+            <p className="mt-1 text-sm text-slate-300">
+              {formatTime(last.t).slice(0, 5)}–{formatTime(last.t + 60).slice(0, 5)} 已完成
+            </p>
           )}
         </div>
       </header>
@@ -1075,6 +1080,7 @@ function MorningChart({
             showAverage={false}
             showVolumeReadout={false}
             appendCurrentQuote={false}
+            completedBarSeconds={60}
             interactive
             ariaLabel={`${catalog.date} ${code} ${symbol.name}歷史${candles ? "一分鐘K線" : "分鐘收價連線"}，只包含目前已完成分鐘，不顯示成交量或均價。`}
           />
@@ -1086,6 +1092,79 @@ function MorningChart({
           </div>
         )}
       </div>
+      {last && (
+        <div className="border-t border-slate-700 px-4 py-4 sm:px-6">
+          <p className="text-sm text-slate-300">
+            最新完整 K 棒 · {formatTime(last.t).slice(0, 5)}–{formatTime(last.t + 60).slice(0, 5)}
+          </p>
+          <dl
+            className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4"
+            aria-label="最新真實 K 棒開高低收"
+          >
+            {(
+              [
+                ["開盤", last.o],
+                ["最高", last.h],
+                ["最低", last.l],
+                ["收盤", last.c],
+              ] as const
+            ).map(([label, price]) => (
+              <div key={label} className="min-w-0">
+                <dt className="text-sm text-slate-300">{label}</dt>
+                <dd className="mt-1 break-all font-mono text-lg">{formatPrice(price)}</dd>
+              </div>
+            ))}
+          </dl>
+          <details className="mt-4 rounded-xl border border-slate-600">
+            <summary className="min-h-12 cursor-pointer px-3 py-3 text-base font-medium">
+              核對已揭露的 {bars.length} 根 K 棒
+            </summary>
+            <div
+              className="max-h-80 overflow-auto px-3 pb-3"
+              tabIndex={0}
+              role="region"
+              aria-label="已完成分鐘 K 線明細，可捲動查看"
+            >
+              <table className="w-full min-w-[28rem] text-left text-sm tabular-nums">
+                <caption className="pb-3 text-left text-sm text-slate-300">
+                  {catalog.date} · {symbol.name} {code} · Yahoo Finance 原始
+                  OHLC。時間為該分鐘的起點，整根於下一分鐘才揭露。
+                </caption>
+                <thead>
+                  <tr>
+                    {["分鐘", "開盤", "最高", "最低", "收盤"].map((label) => (
+                      <th
+                        key={label}
+                        scope="col"
+                        className="border-b border-slate-600 px-2 py-2 font-medium"
+                      >
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {bars.map((bar) => (
+                    <tr key={bar.t}>
+                      <th
+                        scope="row"
+                        className="whitespace-nowrap border-b border-slate-700 px-2 py-3 font-mono font-normal"
+                      >
+                        {formatTime(bar.t).slice(0, 5)}
+                      </th>
+                      {[bar.o, bar.h, bar.l, bar.c].map((price, index) => (
+                        <td key={index} className="border-b border-slate-700 px-2 py-3 font-mono">
+                          {formatPrice(price)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+      )}
       <div className="grid gap-3 border-t border-slate-700 px-4 py-4 text-base sm:grid-cols-2 sm:px-6">
         <dl>
           <dt className="text-sm text-slate-300">前一交易日收盤</dt>
@@ -1105,9 +1184,12 @@ function MorningChart({
         <p>以上均值不含本日，僅供歷史參考；當日 SMA5 的計算定義尚未確認。</p>
         <p>
           {candles
-            ? "每根 K 線是該分鐘完成後才可見的開高低收。"
-            : "連線只連接各分鐘收價，不代表分鐘內逐筆路徑；跨缺漏區間的連線也不是補回的行情。"}
+            ? "每根 K 線直接使用來源開高低收，沒有用大盤走勢推算。該分鐘完成後才揭露整根。"
+            : "連線只連接各分鐘收價，點位標在分鐘結束時間，不代表分鐘內逐筆路徑；缺漏區間保留斷線。"}
           點按圖表或用左右方向鍵查看資料。
+        </p>
+        <p>
+          來源：Yahoo Finance 歷史 1 分鐘 OHLC。這是真實歷史分鐘 K，尚非富邦即時或逐筆江波行情。
         </p>
         <p>
           分鐘量尚未核對，不顯示量柱、均價或量能訊號；沒有真實五檔。資料缺漏不會以生成價格補齊。
