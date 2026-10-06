@@ -1,0 +1,244 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-06T11:35:05.299Z",
+  "status": "official-daily-prices-collected-sma-definition-pending",
+  "cutoffDateInclusive": "2026-10-05",
+  "timezone": "Asia/Taipei",
+  "symbols": [
+    "2330",
+    "2317",
+    "2454",
+    "2382",
+    "2308"
+  ],
+  "selectedDates": [
+    "2026-09-29",
+    "2026-09-30",
+    "2026-10-01",
+    "2026-10-02",
+    "2026-10-05"
+  ],
+  "totalRows": 25,
+  "sameFiveDatesForAllSymbols": true,
+  "originalOctoberSnapshotsUnchanged": true,
+  "smaCalculated": false,
+  "teacherSmaDefinitionConfirmed": false,
+  "scope": "Official completed daily OHLCV input only. No claim about whether the teacher SMA5 includes an incomplete current daily candle, uses adjusted prices, or uses a specific vendor calculation.",
+  "excludedAfterCutoff": "2026-10-06 rows can remain in copied October raw snapshots as source evidence, but are excluded from every normalized output.",
+  "combinedFile": "daily-prices-through-2026-10-05.json",
+  "combinedSha256": "7917bf280925d12a268f098e4ee8c4840c284e61e0b4c681f19d7ab480f8881a",
+  "requests": [
+    {
+      "symbol": "2330",
+      "month": "2026-10",
+      "operation": "copy-existing-snapshot",
+      "url": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2330",
+      "originalRetrievedAt": "2026-10-06T09:19:30.654Z",
+      "originalHttpStatus": 200,
+      "originalFile": "../../2026-10-06-collection/intraday/cross-check/raw/twse-STOCK_DAY-202610-2330.response",
+      "rawFile": "raw/twse-STOCK_DAY-202610-2330.response",
+      "rawBytes": 1296,
+      "rawSha256": "59351ceb66fe42e12009fed787f9498b2fc838e11e494c50f660ccb05b7dcb26",
+      "copiedAt": "2026-10-06T11:35:04.844Z"
+    },
+    {
+      "symbol": "2330",
+      "month": "2026-09",
+      "operation": "GET",
+      "url": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2330",
+      "authentication": "none",
+      "startedAt": "2026-10-06T11:35:04.844Z",
+      "completedAt": "2026-10-06T11:35:04.924Z",
+      "httpStatus": 200,
+      "responseUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2330",
+      "rawFile": "raw/twse-STOCK_DAY-202609-2330.response",
+      "rawBytes": 3048,
+      "rawSha256": "c556fb917676d81615b5c8e133c5f36dae52fba2efcfc8b9ab196c86ef1506ec"
+    },
+    {
+      "symbol": "2317",
+      "month": "2026-10",
+      "operation": "copy-existing-snapshot",
+      "url": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2317",
+      "originalRetrievedAt": "2026-10-06T09:19:30.671Z",
+      "originalHttpStatus": 200,
+      "originalFile": "../../2026-10-06-collection/intraday/cross-check/raw/twse-STOCK_DAY-202610-2317.response",
+      "rawFile": "raw/twse-STOCK_DAY-202610-2317.response",
+      "rawBytes": 1256,
+      "rawSha256": "ce4e5319f1a637b95bebf2c98463e0da08f6cecba95cd6ce526049c7a1cef13b",
+      "copiedAt": "2026-10-06T11:35:04.935Z"
+    },
+    {
+      "symbol": "2317",
+      "month": "2026-09",
+      "operation": "GET",
+      "url": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2317",
+      "authentication": "none",
+      "startedAt": "2026-10-06T11:35:04.935Z",
+      "completedAt": "2026-10-06T11:35:04.949Z",
+      "httpStatus": 200,
+      "responseUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2317",
+      "rawFile": "raw/twse-STOCK_DAY-202609-2317.response",
+      "rawBytes": 2849,
+      "rawSha256": "ac4ef2ac4395462d02cabac81c5ca7c23b1902c732e5873dd3eeb4d5708d2800"
+    },
+    {
+      "symbol": "2454",
+      "month": "2026-10",
+      "operation": "copy-existing-snapshot",
+      "url": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2454",
+      "originalRetrievedAt": "2026-10-06T09:19:30.690Z",
+      "originalHttpStatus": 200,
+      "originalFile": "../../2026-10-06-collection/intraday/cross-check/raw/twse-STOCK_DAY-202610-2454.response",
+      "rawFile": "raw/twse-STOCK_DAY-202610-2454.response",
+      "rawBytes": 1294,
+      "rawSha256": "81cb02f8d85a53e35ad6dcdb2b645cbca52957b7a6c077370c30cd550fc6a275",
+      "copiedAt": "2026-10-06T11:35:04.951Z"
+    },
+    {
+      "symbol": "2454",
+      "month": "2026-09",
+      "operation": "GET",
+      "url": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2454",
+      "authentication": "none",
+      "startedAt": "2026-10-06T11:35:04.951Z",
+      "completedAt": "2026-10-06T11:35:04.966Z",
+      "httpStatus": 200,
+      "responseUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2454",
+      "rawFile": "raw/twse-STOCK_DAY-202609-2454.response",
+      "rawBytes": 3046,
+      "rawSha256": "6db1f54ca5f269340af8af6b1f911ad7ca358800abe233d0a70afc8461ea6e70"
+    },
+    {
+      "symbol": "2382",
+      "month": "2026-10",
+      "operation": "copy-existing-snapshot",
+      "url": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2382",
+      "originalRetrievedAt": "2026-10-06T09:19:30.713Z",
+      "originalHttpStatus": 200,
+      "originalFile": "../../2026-10-06-collection/intraday/cross-check/raw/twse-STOCK_DAY-202610-2382.response",
+      "rawFile": "raw/twse-STOCK_DAY-202610-2382.response",
+      "rawBytes": 1258,
+      "rawSha256": "122ea5e99a06b905a0aa1e2a8e56977c28433654b12b4c18ec9dc21d267643d6",
+      "copiedAt": "2026-10-06T11:35:04.968Z"
+    },
+    {
+      "symbol": "2382",
+      "month": "2026-09",
+      "operation": "GET",
+      "url": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2382",
+      "authentication": "none",
+      "startedAt": "2026-10-06T11:35:04.968Z",
+      "completedAt": "2026-10-06T11:35:05.035Z",
+      "httpStatus": 200,
+      "responseUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2382",
+      "rawFile": "raw/twse-STOCK_DAY-202609-2382.response",
+      "rawBytes": 2839,
+      "rawSha256": "61924d4e86d9f022bb65acca5c836ffdc717e437b95fe5d70f67ee5614b0145d"
+    },
+    {
+      "symbol": "2308",
+      "month": "2026-10",
+      "operation": "copy-existing-snapshot",
+      "url": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2308",
+      "originalRetrievedAt": "2026-10-06T09:19:30.728Z",
+      "originalHttpStatus": 200,
+      "originalFile": "../../2026-10-06-collection/intraday/cross-check/raw/twse-STOCK_DAY-202610-2308.response",
+      "rawFile": "raw/twse-STOCK_DAY-202610-2308.response",
+      "rawBytes": 1294,
+      "rawSha256": "2aef110f21b0beeb7b8c34139e1f036661db2717eb21747ab9ed068ddefee0fb",
+      "copiedAt": "2026-10-06T11:35:05.037Z"
+    },
+    {
+      "symbol": "2308",
+      "month": "2026-09",
+      "operation": "GET",
+      "url": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2308",
+      "authentication": "none",
+      "startedAt": "2026-10-06T11:35:05.037Z",
+      "completedAt": "2026-10-06T11:35:05.297Z",
+      "httpStatus": 200,
+      "responseUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2308",
+      "rawFile": "raw/twse-STOCK_DAY-202609-2308.response",
+      "rawBytes": 3042,
+      "rawSha256": "f3dbc6507524ff9fc56f4ad081795402875fbf4cdc41f25ca758e4b2df190c0f"
+    }
+  ],
+  "results": [
+    {
+      "symbol": "2330",
+      "availableCompleteDatesThroughCutoff": 23,
+      "selectedDates": [
+        "2026-09-29",
+        "2026-09-30",
+        "2026-10-01",
+        "2026-10-02",
+        "2026-10-05"
+      ],
+      "selectedRows": 5,
+      "outputFile": "2330-daily-prices-through-2026-10-05.json",
+      "outputSha256": "5f63214bba2a8d3b3d969fda549db9644a1d501696da238c5862be50d99e6b62",
+      "priceEnvelopeValid": true
+    },
+    {
+      "symbol": "2317",
+      "availableCompleteDatesThroughCutoff": 23,
+      "selectedDates": [
+        "2026-09-29",
+        "2026-09-30",
+        "2026-10-01",
+        "2026-10-02",
+        "2026-10-05"
+      ],
+      "selectedRows": 5,
+      "outputFile": "2317-daily-prices-through-2026-10-05.json",
+      "outputSha256": "caa8dd1794b92c7eeac728ca9f297692976c75ebb23c11f2dee9ae4dc30c4dcd",
+      "priceEnvelopeValid": true
+    },
+    {
+      "symbol": "2454",
+      "availableCompleteDatesThroughCutoff": 23,
+      "selectedDates": [
+        "2026-09-29",
+        "2026-09-30",
+        "2026-10-01",
+        "2026-10-02",
+        "2026-10-05"
+      ],
+      "selectedRows": 5,
+      "outputFile": "2454-daily-prices-through-2026-10-05.json",
+      "outputSha256": "b185d0a2df4201f83c3ca25df63edb590a4ee2004b173d0058d26674b219a3f5",
+      "priceEnvelopeValid": true
+    },
+    {
+      "symbol": "2382",
+      "availableCompleteDatesThroughCutoff": 23,
+      "selectedDates": [
+        "2026-09-29",
+        "2026-09-30",
+        "2026-10-01",
+        "2026-10-02",
+        "2026-10-05"
+      ],
+      "selectedRows": 5,
+      "outputFile": "2382-daily-prices-through-2026-10-05.json",
+      "outputSha256": "eb18db8d05fcce0035676cce28e14620177ad1e35c723f95cfebc7b37148e78b",
+      "priceEnvelopeValid": true
+    },
+    {
+      "symbol": "2308",
+      "availableCompleteDatesThroughCutoff": 23,
+      "selectedDates": [
+        "2026-09-29",
+        "2026-09-30",
+        "2026-10-01",
+        "2026-10-02",
+        "2026-10-05"
+      ],
+      "selectedRows": 5,
+      "outputFile": "2308-daily-prices-through-2026-10-05.json",
+      "outputSha256": "bdca018cb892b4295a500ad85e2125a2e29aab25a886040b0be645e9034810d0",
+      "priceEnvelopeValid": true
+    }
+  ]
+}

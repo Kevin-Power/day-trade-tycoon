@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-06T11:35:18.065Z",
+  "status": "research-supplement-not-integrated",
+  "date": "2026-10-06",
+  "timezone": "Asia/Taipei",
+  "window": {
+    "startInclusive": "2026-10-06T09:00:00+08:00",
+    "endExclusive": "2026-10-06T10:30:00+08:00"
+  },
+  "totalBars": 450,
+  "file": "bars-2026-10-06-0900-1030.json",
+  "sha256": "ce4a95ce69f11b6a583c7bd021f47768ac59194074c82adc3f57e8d21bc3451d",
+  "volumeComplete": false,
+  "volumeUnitIndependentlyVerified": false,
+  "interpolation": false,
+  "actualTickOrderKnown": false,
+  "allStructuralChecksPassed": true,
+  "revealRule": "Full minute OHLC only after source timestamp + 60 seconds. This is not verified publication latency.",
+  "timeRuleMeaning": "10:30 is data coverage only; no entry lock, forced liquidation, or course scoring rule has been inferred.",
+  "rights": "Classroom display and redistribution scope remains unconfirmed.",
+  "officialDailyCheckUse": "After-session research only. Do not reveal full-day range during replay.",
+  "reports": [
+    {
+      "symbol": "2330",
+      "count": 90,
+      "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2330.TW?range=7d&interval=1m&includePrePost=false",
+      "sourceFetchedAt": "2026-10-06T09:13:23.033Z",
+      "rawFile": "../2026-10-06-collection/intraday/raw/yahoo-2330-7d-1m.response",
+      "rawSha256": "781fe9ee0fed37739e786771d79e14d7584cd6a96baba703f53d2fc85850e9e0",
+      "officialDailyCheckFile": "../2026-10-06-collection/intraday/cross-check/raw/twse-STOCK_DAY-202610-2330.response",
+      "officialDailyCheckSha256": "59351ceb66fe42e12009fed787f9498b2fc838e11e494c50f660ccb05b7dcb26",
+      "minuteGridPassed": true,
+      "originalFirst60BarsUnchanged": true,
+      "pricesInsideOfficialDailyRange": true,
+      "zeroVolumeTimestamps": [
+        "2026-10-06T09:00:00.000+08:00"
+      ]
+    },
+    {
+      "symbol": "2317",
+      "count": 90,
+      "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2317.TW?range=7d&interval=1m&includePrePost=false",
+      "sourceFetchedAt": "2026-10-06T09:13:23.125Z",
+      "rawFile": "../2026-10-06-collection/intraday/raw/yahoo-2317-7d-1m.response",
+      "rawSha256": "665aa83943d0bd63a2b8d643ecb1a393ab63af6a30c0b66f91b0306ea5c8a9f9",
+      "officialDailyCheckFile": "../2026-10-06-collection/intraday/cross-check/raw/twse-STOCK_DAY-202610-2317.response",
+      "officialDailyCheckSha256": "ce4e5319f1a637b95bebf2c98463e0da08f6cecba95cd6ce526049c7a1cef13b",
+      "minuteGridPassed": true,
+      "originalFirst60BarsUnchanged": true,
+      "pricesInsideOfficialDailyRange": true,
+      "zeroVolumeTimestamps": [
+        "2026-10-06T09:00:00.000+08:00"
+      ]
+    },
+    {
+      "symbol": "2454",
+      "count": 90,
+      "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2454.TW?range=7d&interval=1m&includePrePost=false",
+      "sourceFetchedAt": "2026-10-06T09:13:23.267Z",
+      "rawFile": "../2026-10-06-collection/intraday/raw/yahoo-2454-7d-1m.response",
+      "rawSha256": "011dea54039f329ea50823bbb4e59bf15b2452ca96640f4ffb1b55910b7fae57",
+      "officialDailyCheckFile": "../2026-10-06-collection/intraday/cross-check/raw/twse-STOCK_DAY-202610-2454.response",
+      "officialDailyCheckSha256": "81cb02f8d85a53e35ad6dcdb2b645cbca52957b7a6c077370c30cd550fc6a275",
+      "minuteGridPassed": true,
+      "originalFirst60BarsUnchanged": true,
+      "pricesInsideOfficialDailyRange": true,
+      "zeroVolumeTimestamps": [
+        "2026-10-06T09:00:00.000+08:00"
+      ]
+    },
+    {
+      "symbol": "2382",
+      "count": 90,
+      "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2382.TW?range=7d&interval=1m&includePrePost=false",
+      "sourceFetchedAt": "2026-10-06T09:13:23.363Z",
+      "rawFile": "../2026-10-06-collection/intraday/raw/yahoo-2382-7d-1m.response",
+      "rawSha256": "fe38af417141512fd5a780b76888c53aa2af479969d633fb2a9457a75c91466a",
+      "officialDailyCheckFile": "../2026-10-06-collection/intraday/cross-check/raw/twse-STOCK_DAY-202610-2382.response",
+      "officialDailyCheckSha256": "122ea5e99a06b905a0aa1e2a8e56977c28433654b12b4c18ec9dc21d267643d6",
+      "minuteGridPassed": true,
+      "originalFirst60BarsUnchanged": true,
+      "pricesInsideOfficialDailyRange": true,
+      "zeroVolumeTimestamps": [
+        "2026-10-06T09:00:00.000+08:00"
+      ]
+    },
+    {
+      "symbol": "2308",
+      "count": 90,
+      "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2308.TW?range=7d&interval=1m&includePrePost=false",
+      "sourceFetchedAt": "2026-10-06T09:13:23.456Z",
+      "rawFile": "../2026-10-06-collection/intraday/raw/yahoo-2308-7d-1m.response",
+      "rawSha256": "25220d722ef450bef0f7562cfa69aca9721540a648f13ea269fc8aacfe05d99c",
+      "officialDailyCheckFile": "../2026-10-06-collection/intraday/cross-check/raw/twse-STOCK_DAY-202610-2308.response",
+      "officialDailyCheckSha256": "2aef110f21b0beeb7b8c34139e1f036661db2717eb21747ab9ed068ddefee0fb",
+      "minuteGridPassed": true,
+      "originalFirst60BarsUnchanged": true,
+      "pricesInsideOfficialDailyRange": true,
+      "zeroVolumeTimestamps": [
+        "2026-10-06T09:00:00.000+08:00"
+      ]
+    }
+  ]
+}

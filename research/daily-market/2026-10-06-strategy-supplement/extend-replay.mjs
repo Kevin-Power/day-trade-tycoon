@@ -1,0 +1,54 @@
+import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict';
+
+const root = path.dirname(fileURLToPath(import.meta.url));
+const prior = path.resolve(root, '../2026-10-06-collection/intraday');
+const requests = JSON.parse(await fs.readFile(path.join(prior, 'requests.json'), 'utf8'));
+const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+const iso = t => new Date(t * 1000).toISOString();
+const taipei = t => new Date((t + 28800) * 1000).toISOString().replace('Z', '+08:00');
+const start = Date.parse('2026-10-06T09:00:00+08:00') / 1000;
+const end = Date.parse('2026-10-06T10:30:00+08:00') / 1000;
+const bars = [], reports = [];
+for (const symbol of ['2330', '2317', '2454', '2382', '2308']) {
+  const request = requests.attempts.find(row => row.id === `yahoo-${symbol}-7d-1m`);
+  assert.equal(request.httpStatus, 200);
+  const raw = await fs.readFile(path.join(prior, request.rawFile));
+  assert.equal(hash(raw), request.sha256);
+  const data = JSON.parse(raw).chart.result[0], quote = data.indicators.quote[0];
+  assert.equal(data.meta.exchangeTimezoneName, 'Asia/Taipei');
+  assert.equal(data.meta.dataGranularity, '1m');
+  assert.equal(data.meta.gmtoffset, 28800);
+  const fields = ['open', 'high', 'low', 'close', 'volume'];
+  fields.forEach(field => assert.equal(quote[field].length, data.timestamp.length));
+  const selected = data.timestamp.flatMap((t, i) => t >= start && t < end ? [{symbol, date: '2026-10-06', source: 'Yahoo Finance', intervalSeconds: 60, timestampUnixSeconds: t, timestampUtc: iso(t), timestampTaipei: taipei(t), replayAvailableAt: iso(t + 60), replayAvailableAtTaipei: taipei(t + 60), ...Object.fromEntries(fields.map(field => [field, quote[field][i]])), sourceRowIndex: i}] : []);
+  assert.equal(selected.length, 90);
+  const officialFile = `cross-check/raw/twse-STOCK_DAY-202610-${symbol}.response`;
+  const officialRaw = await fs.readFile(path.join(prior, officialFile));
+  const official = JSON.parse(officialRaw);
+  assert.equal(official.stat, 'OK');
+  const daily = official.data.find(row => row[0] === '115/10/06');
+  assert(daily);
+  const numeric = value => Number(value.replaceAll(',', ''));
+  const low = numeric(daily[official.fields.indexOf('最低價')]), high = numeric(daily[official.fields.indexOf('最高價')]);
+  assert(Number.isFinite(low) && Number.isFinite(high));
+  selected.forEach((bar, i) => {
+    assert.equal(bar.timestampUnixSeconds, start + i * 60);
+    fields.forEach(field => assert(Number.isFinite(bar[field])));
+    assert(bar.volume >= 0 && bar.low > 0);
+    assert(bar.low <= Math.min(bar.open, bar.close) && bar.high >= Math.max(bar.open, bar.close));
+    for (const field of fields.slice(0, 4)) assert(bar[field] >= low && bar[field] <= high);
+  });
+  const previous = JSON.parse(await fs.readFile(path.join(prior, 'normalized/2026-10-06/bars.json'), 'utf8')).filter(bar => bar.symbol === symbol);
+  previous.forEach((bar, i) => {fields.forEach(field => assert.equal(selected[i][field], bar[field])); assert.equal(selected[i].timestampUnixSeconds, bar.timestampUnixSeconds);});
+  bars.push(...selected);
+  reports.push({symbol, count: 90, sourceUrl: request.url, sourceFetchedAt: request.completedAt, rawFile: `../2026-10-06-collection/intraday/${request.rawFile}`, rawSha256: hash(raw), officialDailyCheckFile: `../2026-10-06-collection/intraday/${officialFile}`, officialDailyCheckSha256: hash(officialRaw), minuteGridPassed: true, originalFirst60BarsUnchanged: true, pricesInsideOfficialDailyRange: true, zeroVolumeTimestamps: selected.filter(bar => bar.volume === 0).map(bar => bar.timestampTaipei)});
+}
+const bytes = Buffer.from(JSON.stringify(bars, null, 2) + '\n');
+await fs.writeFile(path.join(root, 'bars-2026-10-06-0900-1030.json'), bytes);
+const manifest = {schemaVersion: 1, generatedAt: new Date().toISOString(), status: 'research-supplement-not-integrated', date: '2026-10-06', timezone: 'Asia/Taipei', window: {startInclusive: '2026-10-06T09:00:00+08:00', endExclusive: '2026-10-06T10:30:00+08:00'}, totalBars: bars.length, file: 'bars-2026-10-06-0900-1030.json', sha256: hash(bytes), volumeComplete: false, volumeUnitIndependentlyVerified: false, interpolation: false, actualTickOrderKnown: false, allStructuralChecksPassed: true, revealRule: 'Full minute OHLC only after source timestamp + 60 seconds. This is not verified publication latency.', timeRuleMeaning: '10:30 is data coverage only; no entry lock, forced liquidation, or course scoring rule has been inferred.', rights: 'Classroom display and redistribution scope remains unconfirmed.', officialDailyCheckUse: 'After-session research only. Do not reveal full-day range during replay.', reports};
+await fs.writeFile(path.join(root, 'replay-manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+console.log(JSON.stringify({passed: true, totalBars: bars.length, symbols: reports.length, newMinutesPerSymbol: 30, sourceRequestsMade: 0, originalPacketChanged: false}));

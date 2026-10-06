@@ -1,0 +1,24 @@
+{
+  "receivedDate": "2026-10-06",
+  "images": [
+    {
+      "file": "references/image-1.jpg",
+      "source": "user-supplied attachment",
+      "originalFilename": "1-照片-1.jpg",
+      "bytes": 258237,
+      "sha256": "477b12669bee41f9252ea6c43487e25d71b9665d13ffa8276dee84d8981406b9",
+      "lectureDate": null,
+      "publicVideoUrl": null
+    },
+    {
+      "file": "references/image-2.jpg",
+      "source": "user-supplied attachment",
+      "originalFilename": "2-照片-2.jpg",
+      "bytes": 506042,
+      "sha256": "1bfda3b92039108d58a820d8410dd59d78fcb7d57c75a4e3194a995c8e270022",
+      "lectureDate": null,
+      "publicVideoUrl": null
+    }
+  ],
+  "identityCaution": "No person identified from facial appearance; visible text is the teaching source."
+}
