@@ -29,6 +29,12 @@ export type TapeChartProps = {
   fills?: { t: number; p: number; side: "buy" | "sell" }[];
   newsAt?: number[];
   showVolume?: boolean;
+  /** Disable when the source does not support a session weighted average. */
+  showAverage?: boolean;
+  /** Independent of volume bars so unsupported volume is absent from all readouts. */
+  showVolumeReadout?: boolean;
+  /** Historical completed bars must not be extended with a synthetic current quote. */
+  appendCurrentQuote?: boolean;
   startT: number;
   endT: number;
   now: number;
@@ -225,7 +231,7 @@ function paint(
     ticks,
     variant: opt.variant,
     current:
-      window.dataEnd >= opt.now && opt.now >= window.start
+      opt.appendCurrentQuote !== false && window.dataEnd >= opt.now && opt.now >= window.start
         ? { t: opt.now, p: opt.last }
         : undefined,
   });
@@ -317,6 +323,8 @@ function paint(
     reference(opt.open, c.muted, [2, 4]);
     reference(opt.cost, c.warn, [6, 3]);
     reference(opt.poc, c.vol, [1, 4]);
+  }
+  if (!isIndex && opt.showAverage !== false) {
     // Accumulate existing session bars before the window to retain the same VWAP definition.
     let weighted = 0;
     let volume = 0;
@@ -477,7 +485,7 @@ function paint(
   const marks = [{ text: "昨", price: opt.prev, color: c.tape }];
   if (!isIndex) {
     if (opt.open) marks.push({ text: "開", price: opt.open, color: c.muted });
-    if (bars.length) marks.push({ text: "均", price: vwapNow, color: c.vwap });
+    if (bars.length && opt.showAverage !== false) marks.push({ text: "均", price: vwapNow, color: c.vwap });
     if (opt.cost) marks.push({ text: "成", price: opt.cost, color: c.warn });
     if (opt.poc) marks.push({ text: "堆", price: opt.poc, color: c.vol });
     if (opt.variant === "jiangbo" && !opt.range && opt.high > opt.low) {
@@ -526,7 +534,7 @@ function paint(
     ctx.stroke();
     ctx.restore();
     const fields = candle
-      ? [formatTime(point.t).slice(0, 5), `開 ${label(candle.o)}`, `收 ${label(candle.c)}`, `高 ${label(candle.h)}`, `低 ${label(candle.l)}`, `量 ${candle.v} 張`]
+      ? [formatTime(point.t).slice(0, 5), `開 ${label(candle.o)}`, `收 ${label(candle.c)}`, `高 ${label(candle.h)}`, `低 ${label(candle.l)}`, ...(opt.showVolumeReadout !== false ? [`量 ${candle.v} 張`] : [])]
       : [formatTime(point.t), `價格 ${label(price)}`];
     ctx.font = font;
     const lines: string[] = [];

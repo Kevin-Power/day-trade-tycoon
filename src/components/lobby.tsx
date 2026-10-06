@@ -310,6 +310,20 @@ export function Lobby() {
 
         <LearningFootprints summary={summary} missingReviews={missingReviews} />
 
+        {!CLASSROOM_OFFLINE && (
+          <section aria-labelledby="morning-entry-title" className="my-7 grid min-w-0 gap-5 rounded-3xl border border-brand/25 bg-surface p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-brand">新教材 · 單日資料試行</p>
+              <h2 id="morning-entry-title" className="mt-2 text-2xl font-semibold">真實早盤練習</h2>
+              <p className="mt-3 max-w-3xl text-base leading-relaxed text-muted">讀歷史背景、寫自己的計畫，再看 5 檔股票的分鐘行情。紙上委託與復盤分步完成，切換商品共用同一個時鐘。</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted">歷史分鐘資料 · 非即時行情 · 只提供紙上模擬，登入後保存紀錄</p>
+            </div>
+            <Link to="/morning" className="inline-flex min-h-14 min-w-0 items-center justify-center gap-2 whitespace-normal rounded-xl bg-brand px-5 py-3 text-base font-semibold text-brand-fg hover:brightness-95">
+              進入真實早盤練習 <ArrowRight className="size-5 shrink-0" aria-hidden />
+            </Link>
+          </section>
+        )}
+
         <section id="courses" aria-labelledby="courses-title" className="scroll-mt-6">
           <div className="premium-section-heading mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>

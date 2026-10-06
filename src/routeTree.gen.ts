@@ -13,12 +13,14 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as LicenseRouteImport } from './routes/license'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ManualRouteImport } from './routes/manual'
+import { Route as MorningRouteImport } from './routes/morning'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as TeacherRouteImport } from './routes/teacher'
 import { Route as TryRouteImport } from './routes/try'
 import { Route as ApiCourseInquiriesRouteImport } from './routes/api/course-inquiries'
 import { Route as ApiGateRouteImport } from './routes/api/gate'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiMorningRouteImport } from './routes/api/morning'
 import { Route as ApiTapeRouteImport } from './routes/api/tape'
 import { Route as TeacherReviewIdRouteImport } from './routes/teacher-review.$id'
 import { Route as ApiAdminSetupRouteImport } from './routes/api/admin/setup'
@@ -45,6 +47,11 @@ const LoginRoute = LoginRouteImport.update({
 const ManualRoute = ManualRouteImport.update({
   id: '/manual',
   path: '/manual',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MorningRoute = MorningRouteImport.update({
+  id: '/morning',
+  path: '/morning',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SetupRoute = SetupRouteImport.update({
@@ -75,6 +82,11 @@ const ApiGateRoute = ApiGateRouteImport.update({
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMorningRoute = ApiMorningRouteImport.update({
+  id: '/api/morning',
+  path: '/api/morning',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTapeRoute = ApiTapeRouteImport.update({
@@ -118,12 +130,14 @@ export interface FileRoutesByFullPath {
   '/license': typeof LicenseRoute
   '/login': typeof LoginRoute
   '/manual': typeof ManualRoute
+  '/morning': typeof MorningRoute
   '/setup': typeof SetupRoute
   '/teacher': typeof TeacherRoute
   '/try': typeof TryRoute
   '/api/course-inquiries': typeof ApiCourseInquiriesRoute
   '/api/gate': typeof ApiGateRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/morning': typeof ApiMorningRoute
   '/api/tape': typeof ApiTapeRoute
   '/teacher-review/$id': typeof TeacherReviewIdRoute
   '/api/admin/setup': typeof ApiAdminSetupRoute
@@ -137,12 +151,14 @@ export interface FileRoutesByTo {
   '/license': typeof LicenseRoute
   '/login': typeof LoginRoute
   '/manual': typeof ManualRoute
+  '/morning': typeof MorningRoute
   '/setup': typeof SetupRoute
   '/teacher': typeof TeacherRoute
   '/try': typeof TryRoute
   '/api/course-inquiries': typeof ApiCourseInquiriesRoute
   '/api/gate': typeof ApiGateRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/morning': typeof ApiMorningRoute
   '/api/tape': typeof ApiTapeRoute
   '/teacher-review/$id': typeof TeacherReviewIdRoute
   '/api/admin/setup': typeof ApiAdminSetupRoute
@@ -157,12 +173,14 @@ export interface FileRoutesById {
   '/license': typeof LicenseRoute
   '/login': typeof LoginRoute
   '/manual': typeof ManualRoute
+  '/morning': typeof MorningRoute
   '/setup': typeof SetupRoute
   '/teacher': typeof TeacherRoute
   '/try': typeof TryRoute
   '/api/course-inquiries': typeof ApiCourseInquiriesRoute
   '/api/gate': typeof ApiGateRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/morning': typeof ApiMorningRoute
   '/api/tape': typeof ApiTapeRoute
   '/teacher-review/$id': typeof TeacherReviewIdRoute
   '/api/admin/setup': typeof ApiAdminSetupRoute
@@ -178,12 +196,14 @@ export interface FileRouteTypes {
     | '/license'
     | '/login'
     | '/manual'
+    | '/morning'
     | '/setup'
     | '/teacher'
     | '/try'
     | '/api/course-inquiries'
     | '/api/gate'
     | '/api/health'
+    | '/api/morning'
     | '/api/tape'
     | '/teacher-review/$id'
     | '/api/admin/setup'
@@ -197,12 +217,14 @@ export interface FileRouteTypes {
     | '/license'
     | '/login'
     | '/manual'
+    | '/morning'
     | '/setup'
     | '/teacher'
     | '/try'
     | '/api/course-inquiries'
     | '/api/gate'
     | '/api/health'
+    | '/api/morning'
     | '/api/tape'
     | '/teacher-review/$id'
     | '/api/admin/setup'
@@ -216,12 +238,14 @@ export interface FileRouteTypes {
     | '/license'
     | '/login'
     | '/manual'
+    | '/morning'
     | '/setup'
     | '/teacher'
     | '/try'
     | '/api/course-inquiries'
     | '/api/gate'
     | '/api/health'
+    | '/api/morning'
     | '/api/tape'
     | '/teacher-review/$id'
     | '/api/admin/setup'
@@ -236,12 +260,14 @@ export interface RootRouteChildren {
   LicenseRoute: typeof LicenseRoute
   LoginRoute: typeof LoginRoute
   ManualRoute: typeof ManualRoute
+  MorningRoute: typeof MorningRoute
   SetupRoute: typeof SetupRoute
   TeacherRoute: typeof TeacherRoute
   TryRoute: typeof TryRoute
   ApiCourseInquiriesRoute: typeof ApiCourseInquiriesRoute
   ApiGateRoute: typeof ApiGateRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiMorningRoute: typeof ApiMorningRoute
   ApiTapeRoute: typeof ApiTapeRoute
   TeacherReviewIdRoute: typeof TeacherReviewIdRoute
   ApiAdminSetupRoute: typeof ApiAdminSetupRoute
@@ -279,6 +305,13 @@ declare module '@tanstack/react-router' {
       path: '/manual'
       fullPath: '/manual'
       preLoaderRoute: typeof ManualRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/morning': {
+      id: '/morning'
+      path: '/morning'
+      fullPath: '/morning'
+      preLoaderRoute: typeof MorningRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/setup': {
@@ -321,6 +354,13 @@ declare module '@tanstack/react-router' {
       path: '/api/health'
       fullPath: '/api/health'
       preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/morning': {
+      id: '/api/morning'
+      path: '/api/morning'
+      fullPath: '/api/morning'
+      preLoaderRoute: typeof ApiMorningRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/tape': {
@@ -380,12 +420,14 @@ const rootRouteChildren: RootRouteChildren = {
   LicenseRoute: LicenseRoute,
   LoginRoute: LoginRoute,
   ManualRoute: ManualRoute,
+  MorningRoute: MorningRoute,
   SetupRoute: SetupRoute,
   TeacherRoute: TeacherRoute,
   TryRoute: TryRoute,
   ApiCourseInquiriesRoute: ApiCourseInquiriesRoute,
   ApiGateRoute: ApiGateRoute,
   ApiHealthRoute: ApiHealthRoute,
+  ApiMorningRoute: ApiMorningRoute,
   ApiTapeRoute: ApiTapeRoute,
   TeacherReviewIdRoute: TeacherReviewIdRoute,
   ApiAdminSetupRoute: ApiAdminSetupRoute,

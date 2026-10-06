@@ -1,0 +1,47 @@
+import type { Bar } from "./game/types";
+
+export type MorningPlan = {
+  bias: "observe" | "bullish" | "bearish";
+  focusCode: string;
+  reason: string;
+  entry: string;
+  stop: string;
+};
+export type MorningCatalog = {
+  lessonId: string;
+  title: string;
+  date: string;
+  start: string;
+  end: string;
+  maxCursor: number;
+  symbols: { code: string; name: string; previousClose: number; previous5CloseMean: number }[];
+  context: { label: string; value: string; asOf: string }[];
+  strategy: string[];
+  notices: string[];
+  videoUrl: string | null;
+};
+export type MorningOrder = {
+  id: string; code: string; side: "buy" | "sell"; shares: number;
+  status: "pending" | "filled" | "cancelled" | "rejected";
+  submittedCursor: number; price?: number; reason?: string;
+};
+export type MorningFill = {
+  id: string; code: string; side: "buy" | "sell"; shares: number;
+  price: number; fee: number; tax: number; t: number;
+};
+export type MorningState = {
+  id: string; lessonId: string; cursor: number; revision: number;
+  plan: MorningPlan; bars: Record<string, Bar[]>;
+  startingCash: number; cash: number; equity: number;
+  positions: { code: string; shares: number; averageCost: number }[];
+  orders: MorningOrder[]; fills: MorningFill[];
+  completed: boolean; reflection: string;
+  nextAdvanceAt: number;
+};
+export type MorningResponse = { catalog: MorningCatalog; state: MorningState | null };
+export type MorningAction =
+  | { action: "start"; requestId: string; plan: MorningPlan }
+  | { action: "advance"; requestId: string; id: string; expectedRevision: number }
+  | { action: "order"; requestId: string; id: string; expectedRevision: number; code: string; side: "buy" | "sell"; lots: number }
+  | { action: "cancel"; requestId: string; id: string; expectedRevision: number; orderId: string }
+  | { action: "finish"; requestId: string; id: string; expectedRevision: number; reflection: string };
