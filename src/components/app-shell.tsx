@@ -1,13 +1,11 @@
 import { useEffect } from "react";
 import { Toaster } from "sonner";
 import { Lobby } from "@/components/lobby";
-import { Terminal } from "@/components/terminal";
 import { persistOnHide, useGame } from "@/lib/game/store";
 import { setProfileIdentity } from "@/lib/game/persist";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export function AppShell() {
-  const phase = useGame((s) => s.phase);
   const hydrate = useGame((s) => s.hydrate);
   const profileIdentity = useGame((s) => s.profileIdentity);
   const { user, isPending } = useCurrentUserState();
@@ -34,10 +32,8 @@ export function AppShell() {
         <main className="min-h-dvh bg-bg p-8 text-fg" role="status">
           正在確認帳號與學習紀錄…
         </main>
-      ) : phase === "lobby" ? (
-        <Lobby />
       ) : (
-        <Terminal />
+        <Lobby />
       )}
       <Toaster
         theme="light"

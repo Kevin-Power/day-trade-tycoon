@@ -186,7 +186,7 @@ def main():
         if len(pdf.pages) != len(source['pages']):
             raise RuntimeError('Page count does not match source.')
         text = '\n'.join(page.extract_text() or '' for page in pdf.pages)
-        for term in ('30 分鐘', '130 分鐘', '本人復盤', 'CLASSROOM-SIM', '註冊帳號不等於完成繳費'):
+        for term in ('09:00', '10:30', '下一分鐘開盤價', '1,000 萬元', '保存復盤', '註冊帳號不等於完成繳費'):
             if term not in text:
                 raise RuntimeError(f'Missing PDF text: {term}')
         os.replace(temporary, args.output)

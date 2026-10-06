@@ -25,19 +25,20 @@ test("obsolete network/browser arguments cannot trigger a web request", () => {
   assert.ok(parsePdfArgs(["--output"], {}).error);
   assert.equal(parsePdfArgs([], {}).python, "");
 });
-test("manual source has ten learner-facing pages and current lesson lengths", () => {
-  assert.equal(source.pages.length, 10);
+test("manual source explains the real-minute replay and its current limits", () => {
+  assert.equal(source.pages.length, 8);
   const text = JSON.stringify(source);
   for (const term of [
-    "30 分鐘",
-    "130 分鐘",
-    "本人復盤",
-    "CLASSROOM-SIM",
+    "09:00",
+    "10:30",
+    "下一分鐘開盤價",
+    "1,000 萬元",
+    "保存復盤",
     "註冊帳號不等於完成繳費",
     "沒有線上刷卡",
   ])
     assert.ok(text.includes(term), term);
-  assert.doesNotMatch(text, /Grok|45 分鐘|註冊時班級代碼填 TEACHER/);
+  assert.doesNotMatch(text, /Grok|45 分鐘|註冊時班級代碼填 TEACHER|個股分時.*套用大盤節奏/);
 });
 test("static PDF exists for the learner manual download", () => {
   assert.equal(existsSync(pdf), true);

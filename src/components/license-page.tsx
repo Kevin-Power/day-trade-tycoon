@@ -174,7 +174,7 @@ function Cover({ unlocked }: { unlocked: boolean }) {
             </dd>
           </div>
           <div className="flex items-baseline gap-2">
-            <dt className="order-2 text-sm text-muted">課程任務</dt>
+            <dt className="order-2 text-sm text-muted">規劃課程任務</dt>
             <dd className="font-mono text-3xl font-medium text-brand">
               {String(COURSE_PATH.length).padStart(2, "0")}
             </dd>
@@ -214,7 +214,7 @@ function EntryActions({ unlocked }: { unlocked: boolean }) {
   return (
     <div className="no-print mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
       <Link to="/try" className="academy-button-primary !min-h-14 !text-base">
-        免費體驗模擬操作
+        體驗固定委託示例
         <ArrowRight className="size-5 shrink-0" aria-hidden="true" />
       </Link>
       <Link
@@ -252,7 +252,7 @@ function Courses() {
   return (
     <Section id="courses" eyebrow="三階段 · 六組課程任務" title="從跟著做，到自己完成復盤">
       <p className="max-w-3xl text-base leading-8 text-muted">
-        每課先知道要練什麼，再進入教材情境。六組任務可以反覆練習；實際堂數、上課節奏與講師回饋安排，由開課班級確認。
+        以下是課綱規劃。六組舊情境正等待真實行情補齊，暫停啟動。目前可練習 2026/10/06、5 檔股票的真實早盤 K 線；實際堂數、上課節奏與講師回饋安排，由開課班級確認。
       </p>
       <div className="mt-8 space-y-8">
         {STAGES.map((stage) => {
@@ -289,7 +289,7 @@ function Courses() {
                         >
                           {String(index + 1).padStart(2, "0")}
                         </span>
-                        <span>練習 {String(index + 1).padStart(2, "0")}</span>
+                        <span>任務 {String(index + 1).padStart(2, "0")} · 待補真實行情</span>
                       </div>
                       <h4 className="mt-4 text-xl font-semibold leading-snug">{course.title}</h4>
                       <p className="mt-3 text-base leading-7 text-muted">{course.focus}</p>
@@ -330,15 +330,15 @@ function Practice() {
           },
           {
             title: "自己操作，逐步核對",
-            body: "在模擬盤面觀察與下單，查看委託、成交及庫存。條件沒出現時，也可以選擇等待。",
+            body: "逐分鐘觀看真實歷史 K 線。紙上委託以下一分鐘開盤價處理；條件沒出現時，也可以選擇等待。",
           },
           {
             title: "打開復盤，看見足跡",
-            body: "查看有紀錄的計畫、成交與結束時庫存，再對照交易成本與操作理由。已登入學員可提交復盤供講師查看。",
+            body: "查看自己的計畫、成交與結束時庫存，對照交易成本並保存觀察。真實早盤紀錄目前在該練習頁查看；舊課程講師回饋另外保留。",
           },
           {
             title: "帶著一個重點再練",
-            body: "選出下次只想改善的一件事，保存在目前裝置。回到教室首頁，就能接續自己的練習方向。",
+            body: "把下一次只想改善的一件事寫進本次復盤，保存後可回真實早盤頁查看。重練已看過的行情，不等於首次未知行情的表現。",
           },
         ].map((step, index) => (
           <li
@@ -386,7 +386,7 @@ function Devices() {
         />
       </div>
       <p className="mt-4 text-base leading-7 text-muted">
-        教室也提供模擬閃電下單。先熟悉商品、方向與張數，再練習快速操作。
+        真實 K 線版使用逐分鐘紙上委託。五檔與閃電下單待有對應真實資料及完成串接後再開放。
       </p>
     </Section>
   );

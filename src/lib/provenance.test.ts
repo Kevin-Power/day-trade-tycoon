@@ -37,18 +37,17 @@ describe("provenance copy", () => {
     assert.deepEqual([...kinds].sort(), [BADGE_CLASSROOM, BADGE_OFFICIAL].sort());
   });
 
-  it("does not claim every quote is merely historical or delayed", () => {
-    assert.equal(
-      DISCLAIMER,
-      "本站為模擬教學環境。加權指數等標「官方」的欄位來自證交所／櫃買公開資料（可能延遲或教材凍結）。標「教室生成」的個股分時、五檔、明細是教學投影，不是逐筆行情。模擬績效不代表實盤，不構成投資建議或勸誘。",
-    );
-    assert.equal(DISCLAIMER.includes("所有行情為歷史或延遲"), false);
-    assert.equal(CONSENT.includes("官方與教室生成"), true);
+  it("distinguishes real historical candles from simulated execution and archived generated records", () => {
+    assert.match(DISCLAIMER, /真實歷史分鐘 K 線/);
+    assert.match(DISCLAIMER, /缺資料不以生成行情補齊/);
+    assert.match(DISCLAIMER, /紙上模擬/);
+    assert.match(DISCLAIMER, /舊版合成行情紀錄僅供歷史復盤/);
+    assert.match(CONSENT, /真實歷史 K 線與紙上模擬成交/);
   });
 
   it("keeps the coach corner line and sim-chip note", () => {
     assert.equal(COACH_CORNER, "這是證交所 5 秒指數。個股盤中用大盤節奏投影，沒有官方 1 分 K。");
-    assert.equal(SIM_CHIP_NOTE, "指數可為官方；個股盤中多為教室生成");
+    assert.match(SIM_CHIP_NOTE, /真實歷史 K 線.*紙上模擬.*非即時行情/);
     assert.equal(CLASSROOM_SHORT, "教室生成 · 非逐筆 · 僅教學");
     assert.equal(BLOTTER_NOTE, "模擬通路 · 券商 API 未接線");
     assert.equal(AUX_FROZEN, "教材凍結");

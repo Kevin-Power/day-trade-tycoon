@@ -13,7 +13,6 @@ import {
   HardDrive,
   Layers3,
   LogOut,
-  Play,
   ShieldCheck,
   Target,
   Timer,
@@ -32,7 +31,6 @@ import {
 import { getProfileIdentity, loadReview } from "@/lib/game/persist";
 import { useGame } from "@/lib/game/store";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { playOpen, unlockAudio } from "@/lib/game/audio";
 import type { Profile, SessionRecord } from "@/lib/game/types";
 import { cn, formatMoney, formatPct, formatSigned } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
@@ -81,8 +79,6 @@ const COURSE_ART = [
 
 export function Lobby() {
   const profile = useGame((state) => state.profile);
-  const start = useGame((state) => state.start);
-  const openLearnerGuide = useGame((state) => state.openLearnerGuide);
   const hydrated = useGame((state) => state.hydrated);
   const { user, isPending } = useCurrentUserState();
   const userId = user && !user.isDevFallback ? user.id : null;
@@ -93,7 +89,6 @@ export function Lobby() {
     summary: LearningProgressSummary;
   } | null>(null);
   const { lock } = useGate();
-  const firstLesson = SCENARIOS[0];
 
   useEffect(() => {
     if (!profileReady || getProfileIdentity() !== userId || useGame.getState().profile !== profile)
@@ -119,12 +114,6 @@ export function Lobby() {
         .filter((record) => !summary.recent.some((progress) => progress.sessionId === record.id))
         .length
     : 0;
-
-  function beginLesson(id: string) {
-    unlockAudio();
-    playOpen();
-    start(id);
-  }
 
   return (
     <div className="academy-page min-h-dvh bg-bg text-fg">
@@ -194,7 +183,7 @@ export function Lobby() {
               <SimChip />
               {CLASSROOM_OFFLINE && (
                 <span className="rounded-md border border-border px-2 py-0.5 text-[11px] text-muted">
-                  離線練習
+                  離線教材閱讀
                 </span>
               )}
             </div>
@@ -223,50 +212,34 @@ export function Lobby() {
                   接續上次復盤
                   <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
                 </Link>
-              ) : (
-                firstLesson && (
-                  <button
-                    type="button"
-                    disabled={!summary}
-                    onClick={() => beginLesson(firstLesson.id)}
-                    className="academy-button-primary inline-flex min-h-12 flex-wrap items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold disabled:opacity-50"
-                  >
-                    <Play className="size-4" aria-hidden="true" />
-                    {!summary ? "載入教室…" : "開始第一課"}
-                    <span className="border-l border-current/20 pl-2 text-sm font-normal">
-                      {firstLesson.minutes} 分鐘教材
-                    </span>
-                  </button>
-                )
-              )}
+              ) : null}
               {!CLASSROOM_OFFLINE && recentReview && (
-                <Link to="/session/$id/review" params={{ id: recentReview.sessionId }} className="academy-nav-link inline-flex min-h-12 items-center gap-2 rounded-lg px-3 text-base">
-                  <FileText className="size-5 shrink-0" aria-hidden />接續上次復盤
+                <Link
+                  to="/session/$id/review"
+                  params={{ id: recentReview.sessionId }}
+                  className="academy-nav-link inline-flex min-h-12 items-center gap-2 rounded-lg px-3 text-base"
+                >
+                  <FileText className="size-5 shrink-0" aria-hidden />
+                  接續上次復盤
                 </Link>
               )}
               <a
                 href="#courses"
                 className="academy-nav-link inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3 text-base"
               >
-                選擇原有模擬課程 <ArrowDown className="size-4" aria-hidden="true" />
+                查看保留課綱 <ArrowDown className="size-4" aria-hidden="true" />
               </a>
-              {firstLesson ? (
-                <button
-                  type="button"
-                  disabled={!profileReady}
-                  onClick={() => {
-                    beginLesson(firstLesson.id);
-                    openLearnerGuide();
-                  }}
-                  className="min-h-12 rounded-lg px-3 text-base text-brand disabled:opacity-50"
-                >
-                  先看操作導覽
-                </button>
-              ) : null}
+              <Link
+                to="/try"
+                className="inline-flex min-h-12 items-center rounded-lg px-3 text-base text-brand"
+              >
+                固定委託操作範例
+              </Link>
             </div>
             {!CLASSROOM_OFFLINE && (
               <p className="mt-3 text-base leading-relaxed text-muted">
-                真實 K 教材：2026/10/06、5 檔股票的歷史 1 分鐘開高低收，搭配紙上委託；原有合成行情課程仍可從下方選擇。
+                真實 K 教材：2026/10/06、5 檔股票、09:00–10:30 的歷史 1
+                分鐘開高低收，搭配紙上委託。其他課程待補真實分鐘行情，已停止生成行情練習。
               </p>
             )}
             {recentReview && (
@@ -326,12 +299,22 @@ export function Lobby() {
         <LearningFootprints summary={summary} missingReviews={missingReviews} />
 
         {!CLASSROOM_OFFLINE && (
-          <section aria-labelledby="morning-entry-title" className="my-7 grid min-w-0 gap-5 rounded-3xl border border-brand/25 bg-surface p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <section
+            aria-labelledby="morning-entry-title"
+            className="my-7 grid min-w-0 gap-5 rounded-3xl border border-brand/25 bg-surface p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
+          >
             <div className="min-w-0">
               <p className="text-sm font-semibold text-brand">新教材 · 單日資料試行</p>
-              <h2 id="morning-entry-title" className="mt-2 text-2xl font-semibold">真實早盤練習</h2>
-              <p className="mt-3 max-w-3xl text-base leading-relaxed text-muted">讀歷史背景、寫自己的計畫，再看 5 檔股票的分鐘行情。紙上委託與復盤分步完成，切換商品共用同一個時鐘。</p>
-              <p className="mt-2 text-sm leading-relaxed text-muted">歷史分鐘資料 · 非即時行情 · 只提供紙上模擬，登入後保存紀錄</p>
+              <h2 id="morning-entry-title" className="mt-2 text-2xl font-semibold">
+                真實早盤練習
+              </h2>
+              <p className="mt-3 max-w-3xl text-base leading-relaxed text-muted">
+                讀歷史背景、寫自己的計畫，再看 5
+                檔股票的分鐘行情。紙上委託與復盤分步完成，切換商品共用同一個時鐘。
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                歷史分鐘資料 · 非即時行情 · 只提供紙上模擬，登入後保存紀錄
+              </p>
             </div>
             <RealCandlesLink className="min-h-14 px-5">進入真實早盤練習</RealCandlesLink>
           </section>
@@ -347,10 +330,11 @@ export function Lobby() {
                 我的課程路線
               </h2>
               <p className="mt-1 text-base leading-relaxed text-muted">
-                五堂實作與綜合練習。可以照順序，也可以回到想再練一次的課。
+                原有課綱與歷史紀錄保留。以下課程待補對應日期的真實分鐘行情，目前不能啟動；真實 K
+                練習僅提供上方單日教材。
               </p>
             </div>
-            <span className="text-xs leading-5 text-muted">分鐘數為模擬盤時間，可加速與暫停</span>
+            <span className="text-sm leading-6 text-muted">原課綱參考 · 非目前開放的行情教材</span>
           </div>
           <ol
             aria-label="課程學習階段"
@@ -385,8 +369,6 @@ export function Lobby() {
                     profile.history.find((record) => record.scenarioId === scenario.id)?.id,
                 )}
                 progressReady={Boolean(summary)}
-                ready={profileReady}
-                onStart={() => beginLesson(scenario.id)}
               />
             ))}
           </div>
@@ -403,7 +385,7 @@ export function Lobby() {
                 留下紀錄 · 練習回看
               </p>
               <h2 id="progress-title" className="text-2xl font-semibold tracking-tight">
-                這台裝置的練習紀錄
+                這台裝置的歷史練習紀錄
               </h2>
             </div>
             <span className="text-xs text-muted">
@@ -411,14 +393,10 @@ export function Lobby() {
             </span>
           </div>
           <p className="mb-4 text-base leading-relaxed text-muted">
-            本機只保留最近最多 30 份練習紀錄，以下先列出最近 8
-            份。切換裝置或清除瀏覽器資料，顯示的紀錄可能不同。
+            這裡保留舊版練習紀錄；真實 K 練習的進度與復盤請在真實早盤頁查看。本機只保留最近最多 30
+            份練習紀錄，以下先列出最近 8 份。切換裝置或清除瀏覽器資料，顯示的紀錄可能不同。
           </p>
-          <RecentPractice
-            history={profile.history}
-            summary={summary}
-            onStart={() => firstLesson && beginLesson(firstLesson.id)}
-          />
+          <RecentPractice history={profile.history} summary={summary} />
           <details className="academy-card mt-4 rounded-2xl border border-border bg-surface">
             <summary className="min-h-12 cursor-pointer px-4 py-4 text-base font-medium sm:px-5">
               模擬損益紀錄
@@ -472,7 +450,7 @@ export function Lobby() {
                   <FileText className="size-4" aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium">教材行情與自由練習</span>
+                  <span className="block text-sm font-medium">歷史教材資料參考</span>
                   <span className="mt-1 block text-xs leading-5 text-muted">
                     教材週 2026/08/24–08/26 · 展開查看資料來源
                   </span>
@@ -484,7 +462,8 @@ export function Lobby() {
               </summary>
               <div className="min-w-0 border-t border-border px-4 pb-2 pt-4 sm:px-5">
                 <p className="mb-4 text-xs leading-6 text-muted">
-                  加權指數依指定日期的官方資料重播；個股盤中路徑與五檔由教室生成，並非即時逐筆行情。
+                  以下是舊教材週的加權指數摘要，僅供閱讀。原生成個股行情與五檔練習已停止；這些日期尚未提供真實個股分鐘
+                  K。
                   {teachingUniverseLine()}。
                 </p>
                 <div className="mb-6 grid gap-3 md:grid-cols-3">
@@ -543,9 +522,10 @@ export function Lobby() {
             <div className="academy-card flex min-w-0 items-start gap-3 rounded-2xl border border-border bg-surface p-4 sm:p-5">
               <HardDrive className="mt-0.5 size-5 shrink-0 text-muted" aria-hidden="true" />
               <div className="min-w-0">
-                <h3 className="text-sm font-medium">把教材帶到離線教室</h3>
+                <h3 className="text-sm font-medium">離線閱讀教材</h3>
                 <p className="mt-1 text-xs leading-6 text-muted">
-                  使用固定教材週練習，紀錄保存在這台電腦的瀏覽器；離線紀錄不會自動同步到學員帳號。
+                  離線包只保留教材、固定委託範例與既有紀錄；已停止生成行情練習。真實 K
+                  回放需要連線與個人帳號，離線不提供。
                 </p>
                 {CLASSROOM_OFFLINE ? (
                   <span className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted">
@@ -584,21 +564,16 @@ function CourseCard({
   lastRecord,
   progress,
   progressReady,
-  ready,
-  onStart,
 }: {
   scenario: Scenario;
   index: number;
   lastRecord?: SessionRecord;
   progress?: LearningProgress;
   progressReady: boolean;
-  ready: boolean;
-  onStart: () => void;
 }) {
   const lesson = lessonById(scenario.id);
   const step = courseStepFor(scenario.id);
   const latestProgress = progress?.sessionId === lastRecord?.id ? progress : undefined;
-  const first = index === 0;
   const art = COURSE_ART[index % COURSE_ART.length];
   const CourseIcon = art.icon;
   return (
@@ -633,7 +608,7 @@ function CourseCard({
         {step && (
           <details className="premium-course-outline my-4 rounded-xl border border-border bg-bg px-3">
             <summary className="min-h-12 cursor-pointer py-3 text-base font-medium">
-              這一課怎麼練
+              查看原有課綱
             </summary>
             <ol className="list-decimal space-y-2 pb-3 pl-5 text-base leading-relaxed text-muted">
               {step.steps.map((action) => (
@@ -668,22 +643,25 @@ function CourseCard({
                     ? `最近一次：已留下 ${latestProgress.achievedCount} 項操作足跡`
                     : "最近一次：練習紀錄已可回看"
                   : "最近一次：未找到完整紀錄"
-                : first
-                  ? "建議從這裡開始"
-                  : "依自己的進度練習"}
+                : "這台裝置尚無本課紀錄"}
           </p>
           <button
             type="button"
-            disabled={!ready}
-            onClick={onStart}
-            aria-label={`進入${lesson?.no || scenario.name}：${step?.title || lesson?.skill || scenario.name}`}
-            className={cn(
-              "inline-flex min-h-12 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-base font-medium disabled:opacity-50",
-              first ? "academy-button-primary" : "academy-button-secondary",
-            )}
+            disabled
+            aria-label={`${lesson?.no || scenario.name}：待補真實行情，尚未開放`}
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-border bg-bg px-4 py-3 text-base font-medium text-muted"
           >
-            進入課程 <ArrowRight className="size-4" aria-hidden="true" />
+            待補真實行情
           </button>
+          {lastRecord && (
+            <Link
+              to="/session/$id/review"
+              params={{ id: lastRecord.id }}
+              className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 text-base text-brand"
+            >
+              查看本課歷史復盤
+            </Link>
+          )}
         </div>
       </div>
     </article>
@@ -703,7 +681,7 @@ function LearningFootprints({
       className="premium-footprints my-8 min-w-0"
     >
       <h2 id="learning-footprints-title" className="text-xl font-semibold tracking-tight">
-        看見自己的操作足跡
+        回看歷史操作足跡
       </h2>
       <p className="mt-2 text-base leading-relaxed text-muted">
         把做過的動作看清楚，再決定下次練什麼。每次練習不必集滿四項；等待條件出現，也可以是這次的選擇。
@@ -716,7 +694,8 @@ function LearningFootprints({
         <div className="academy-card mt-4 rounded-2xl border border-border bg-surface p-5">
           <p className="text-lg font-medium">從一份能回看的練習開始</p>
           <p className="mt-2 text-base leading-relaxed text-muted">
-            選一課，寫下想練的動作。結算後，這裡會依保存的計畫、成交與庫存紀錄呈現操作足跡。
+            這裡整理舊版課程的本機紀錄。新的真實 K
+            練習會在真實早盤頁保存計畫、委託與復盤，請從上方入口開始。
           </p>
         </div>
       ) : (
@@ -814,11 +793,9 @@ function PracticeMetric({
 function RecentPractice({
   history,
   summary,
-  onStart,
 }: {
   history: SessionRecord[];
   summary?: LearningProgressSummary;
-  onStart: () => void;
 }) {
   return (
     <div className="academy-card overflow-hidden rounded-2xl border border-border bg-surface">
@@ -835,16 +812,10 @@ function RecentPractice({
           <div>
             <p className="text-base font-medium">這台裝置尚無本機復盤</p>
             <p className="mt-1 text-base leading-relaxed text-muted">
-              在這台裝置完成練習與結算後，這裡會留下紀錄。已存到主機的復盤，可在「我的學習」查看。
+              舊版已存到主機的復盤，可在「我的學習」查看。新的真實 K 練習紀錄請在真實早盤頁查看。
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onStart}
-            className="academy-button-secondary inline-flex min-h-12 items-center gap-2 rounded-xl px-4 py-3 text-base"
-          >
-            開始練習 <ArrowRight className="size-4" aria-hidden="true" />
-          </button>
+          <RealCandlesLink>開始真實 K 練習</RealCandlesLink>
         </div>
       ) : (
         <ul className="divide-y divide-border">

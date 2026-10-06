@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Teaching-universe SSOT check.
- * Source of truth: symbols.json (24 names recovered from the owner's live site).
+ * Check preserved archive symbols and the current verified-minute lesson.
+ * Archived daily OHLC names must never imply active intraday availability.
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -10,8 +10,9 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const pack = JSON.parse(readFileSync(join(root, "src/lib/market/symbols.json"), "utf8"));
 const paths = JSON.parse(readFileSync(join(root, "src/lib/market/real-paths.json"), "utf8"));
-const lobby = readFileSync(join(root, "src/components/lobby.tsx"), "utf8");
+const catalogue = JSON.parse(readFileSync(join(root, "src/lib/market/catalogue.json"), "utf8"));
 const manual = readFileSync(join(root, "src/components/manual-page.tsx"), "utf8");
+const morning = JSON.parse(readFileSync(join(root, "server/data/morning-2026-10-06.json"), "utf8"));
 
 const errors = [];
 const symbols = pack.symbols ?? [];
@@ -33,12 +34,13 @@ if (otc.map(s => s.code).sort().join(',') !== '6223,6488') {
   errors.push("教學上櫃名單應包含 6223 旺矽與 6488 環球晶");
 }
 
-if (!lobby.includes("teachingUniverseLine")) {
-  errors.push("lobby.tsx 必須用 teachingUniverseLine()，不要寫死檔數");
-}
-if (!manual.includes("teachingOhlcNote")) {
-  errors.push("manual-page.tsx 必須用 teachingOhlcNote()，不要寫死「17 檔」");
-}
+const activeCodes = morning.catalog.symbols.map(symbol => symbol.code);
+if (new Set(activeCodes).size !== activeCodes.length || !activeCodes.length)
+  errors.push("真實分鐘教材代號為空或重複");
+if (morning.catalog.symbols.some(symbol => !catalogue.symbols.some(item => item.code === symbol.code && item.name === symbol.name)))
+  errors.push("真實分鐘教材含尚未核對名稱的代號");
+if (Object.keys(morning.bars).sort().join(',') !== [...activeCodes].sort().join(','))
+  errors.push("真實分鐘教材目錄與行情股票不一致");
 if (manual.includes("17 檔權值與觀察股")) {
   errors.push("manual-page.tsx 仍寫死 17 檔，應改讀 SSOT");
 }
@@ -49,4 +51,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(`標的 SSOT 通過：${codes.length} 檔，大廳／說明書／real-paths 同一組代號`);
+console.log(`標的 SSOT 通過：歷史封存 ${codes.length} 檔；可用真實分鐘教材 ${activeCodes.length} 檔，目錄與行情一致`);

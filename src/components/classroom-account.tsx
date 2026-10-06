@@ -13,6 +13,7 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { authEnabled, signOut } from "@/lib/auth/client";
 import { loadMyProfile, loadMyCareer } from "@/lib/classroom-db";
 import { COURSE_PATH } from "@/lib/game/learning-path";
+import { RealCandlesLink } from "@/components/real-candles-entry";
 import { formatSigned } from "@/lib/utils";
 
 type Career = Awaited<ReturnType<typeof loadMyCareer>>;
@@ -97,8 +98,8 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
           </h2>
           <p className="mt-2 max-w-2xl text-base leading-7 text-muted">
             {userId
-              ? "查看已存到主機的復盤、讀取講師回饋，再選一個動作繼續練習。"
-              : "正式練習前先登入，結算後可儲存到教室主機，並跨裝置查看復盤與講師回饋。訪客紀錄只留在原瀏覽器，不會自動加入帳號。"}
+              ? "這裡保留已存到主機的舊版課程復盤與講師回饋。新的真實 K 練習進度與復盤，請在真實早盤頁查看。"
+              : "真實 K 練習需登入個人帳號，進度與復盤保存在教室主機。這裡另保留舊版課程紀錄；舊訪客紀錄只在原瀏覽器，不會自動加入帳號。"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -162,26 +163,29 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
         <>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <div className="premium-learning-stat rounded-xl p-4">
-              <p className="text-sm text-muted">已儲存的練習</p>
+              <p className="text-sm text-muted">已儲存的舊版練習</p>
               <p className="mt-2 text-2xl font-semibold">
                 {career.count} <span className="text-base font-normal text-muted">盤</span>
               </p>
             </div>
             <div className="premium-learning-stat rounded-xl p-4">
-              <p className="text-sm text-muted">最近 40 盤練過的課程</p>
+              <p className="text-sm text-muted">最近 40 盤涵蓋的舊課</p>
               <p className="mt-2 text-2xl font-semibold">
                 {practiced}{" "}
                 <span className="text-base font-normal text-muted">/ {COURSE_PATH.length} 課</span>
               </p>
             </div>
             <div className="premium-learning-stat rounded-xl p-4">
-              <p className="text-sm text-muted">最近 40 盤中已有回饋</p>
+              <p className="text-sm text-muted">最近 40 盤舊紀錄中已有回饋</p>
               <p className="mt-2 text-2xl font-semibold">
                 {feedbackSessions.length}{" "}
                 <span className="text-base font-normal text-muted">份復盤</span>
               </p>
             </div>
           </div>
+          <p className="mt-3 text-base leading-7 text-muted">
+            以上只計舊版課程紀錄，不包含真實 K 練習，也不是目前的課程完成進度。舊課待補真實行情，暫不開放重練。
+          </p>
           {latest && (
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <Link
@@ -190,7 +194,7 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
                 className="academy-button-primary"
               >
                 <BookOpen className="size-4" aria-hidden="true" />
-                回看最近一次練習
+                回看最近一次舊版練習
                 <ArrowRight className="size-4" aria-hidden="true" />
               </Link>
               {latestFeedback && (
@@ -209,7 +213,7 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
           {career.sessions.length ? (
             <>
               <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
-                <h3 className="text-base font-semibold">我的復盤</h3>
+                <h3 className="text-base font-semibold">我的舊版課程復盤</h3>
                 <div className="flex flex-wrap gap-2" aria-label="篩選我的復盤">
                   {(
                     [
@@ -233,7 +237,7 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
                 </div>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted">
-                主機最近 40 盤 ·
+                主機最近 40 盤舊版紀錄 ·
                 時間以台北時間顯示。練過課程表示有儲存紀錄，熟練程度請與講師一起確認。
               </p>
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -284,7 +288,7 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
                 </button>
               )}
               <details className="mt-5 border-t border-border pt-4 text-sm text-muted">
-                <summary className="min-h-11 cursor-pointer py-2">查看模擬累計損益</summary>
+                <summary className="min-h-11 cursor-pointer py-2">查看舊版模擬累計損益</summary>
                 <p className="py-3 text-base">
                   {formatSigned(career.careerPnl, 0)} 元 ·
                   練習損益供復盤參考，不代表未來實際交易成果。
@@ -293,14 +297,11 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
             </>
           ) : (
             <div className="mt-5 rounded-xl border border-dashed border-border p-5">
-              <h3 className="text-lg font-semibold">從第一份復盤開始</h3>
+              <h3 className="text-lg font-semibold">目前沒有舊版課程復盤</h3>
               <p className="mt-2 text-base leading-7 text-muted">
-                在下方選擇「第一筆有計畫的操作」。先寫計畫，再觀察與操作；結束後核對保存狀態，這裡就能回看自己的練習。
+                請從真實 K 線練習開始：先寫計畫，再逐分鐘觀察與操作，最後保存復盤。新進度與紀錄會在真實早盤頁查看，不計入這裡的舊課統計。
               </p>
-              <a href="#courses" className="academy-button-secondary mt-4">
-                選擇練習課程
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </a>
+              <RealCandlesLink className="mt-4">開始真實 K 線練習</RealCandlesLink>
             </div>
           )}
         </>

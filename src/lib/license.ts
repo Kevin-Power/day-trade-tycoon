@@ -1,6 +1,6 @@
 /** Buyer-facing classroom package copy. No invented NT$ prices. */
 
-export const LICENSE_VERSION = "2026-10-04";
+export const LICENSE_VERSION = "2026-10-06";
 export const LICENSE_QUOTE = "洽教室／講師報價";
 export const LICENSE_TITLE = "從第一筆有計畫的操作開始";
 
@@ -8,17 +8,17 @@ export const LICENSE_INCLUDED = [
   {
     id: "sim",
     title: "模擬教室",
-    body: "熟悉行情、江波圖、五檔與委託畫面，練習核對成交、庫存及交易成本。所有操作均在模擬環境中進行。",
+    body: "以已核對來源的歷史 1 分鐘 K 線逐步練習，核對紙上委託、庫存及交易成本。目前提供 2026/10/06 的 5 檔早盤教材；沒有真實五檔或逐筆資料。",
   },
   {
     id: "curriculum",
     title: "課綱",
-    body: "六組課程任務分成入門操作、風險紀律與自主練習。每課都有練習目標、三個步驟與復盤提問，可搭配講師帶班反覆練習。",
+    body: "課綱分為入門操作、風險紀律與自主練習。原六組情境正在補齊真實行情，尚未開放重練；目前由真實早盤教材練習計畫、等待與復盤。",
   },
   {
     id: "offline",
     title: "地端包",
-    body: "提供 Windows 電腦使用的離線教材包，大廳可下載。解壓後執行 START.bat，即可練習內建教材情境；離線包不更新最新行情。",
+    body: "提供離線使用說明、固定委託示例及這台裝置已保存的舊版復盤。離線包不啟動合成行情；真實 K 線交易練習需要連線登入教室。",
   },
   {
     id: "manual",
@@ -49,31 +49,31 @@ export const LICENSE_SKUS = [
   {
     id: "online",
     name: "線上班級授權",
-    includes: "模擬教室、課綱、說明書、線上自由練習",
+    includes: "真實歷史 K 線紙上練習、課綱與使用說明；可用日期與股票以教室教材為準",
     quote: LICENSE_QUOTE,
   },
   {
     id: "offline",
     name: "地端教室包",
-    includes: "模擬教室、課綱、說明書、離線教材週",
+    includes: "離線使用說明、固定委託示例與本機舊版復盤，不含離線交易練習",
     quote: LICENSE_QUOTE,
   },
   {
     id: "bundle",
     name: "線上＋地端",
-    includes: "包含線上教室與地端教材包，使用相同模擬規則。",
+    includes: "線上真實 K 線練習，加上離線閱讀與歷史復盤。",
     quote: LICENSE_QUOTE,
   },
 ] as const;
 
 export const SEAT_TODAY =
-  "全班同一組入場密碼由講師提供。學員可建立自己的帳號，儲存已提交的模擬復盤；訪客練習只保存在該機瀏覽器。報名資格由教室核對，註冊帳號不代表完成繳費。";
+  "全班同一組入場密碼由講師提供。真實 K 線練習需登入個人帳號，進度與復盤保存在教室主機；舊訪客紀錄仍在原瀏覽器。報名資格由教室核對，註冊帳號不代表完成繳費。";
 
 export const SEAT_ROADMAP =
   "每人一個帳號與講師班級檢視已納入教室。授權人數、課程日期與費用由教室確認；線上付款與自動發放繳費權限尚未提供。";
 
 export const LICENSE_LEAD =
-  "講師帶著看，自己動手練，做完再一起復盤。用六組課程任務，循序練習進場計畫、委託核對、風險控制與收尾。每次先做好一個動作，再決定下一步。";
+  "講師帶著看，自己動手練，做完再一起復盤。從真實歷史 K 線出發，循序練習進場計畫、委託核對與收尾。每次先做好一個動作，再決定下一步。";
 
 export const LICENSE_ONE_LINER = "先在模擬教室練清楚每一筆交易的理由、風險與成本。";
 

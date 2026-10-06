@@ -57,7 +57,7 @@ export function PracticeGoalReminder() {
   );
 }
 
-type EditorProps = { scenarioId: string; scenarioName: string; onPractice: () => void };
+type EditorProps = { scenarioId: string; scenarioName: string; onPractice?: () => void };
 export function PracticeGoalEditor(props: EditorProps) {
   const { user } = useCurrentUserState();
   return <GoalEditor key={`${user?.id ?? "guest"}:${props.scenarioId}`} {...props} />;
@@ -120,9 +120,7 @@ function GoalEditor({ scenarioId, scenarioName, onPractice }: EditorProps) {
       /* Storage itself may be unavailable. */
     }
     if (!stored) {
-      setMessage(
-        "這台裝置目前無法確認保存，還沒有開始新的一盤。你的選擇留在本頁，請重試，或先記下後選擇不保存重練。",
-      );
+      setMessage("這台裝置目前無法確認保存。你的選擇留在本頁，請重試，或先自行記下練習重點。");
       requestAnimationFrame(() => statusRef.current?.focus());
       return;
     }
@@ -135,7 +133,7 @@ function GoalEditor({ scenarioId, scenarioName, onPractice }: EditorProps) {
   function beginPractice() {
     mayLeave.current = true;
     setPreparation(null);
-    onPractice();
+    onPractice?.();
   }
 
   return (
@@ -149,7 +147,7 @@ function GoalEditor({ scenarioId, scenarioName, onPractice }: EditorProps) {
           下次只練一件事
         </h2>
         <p className="mt-2 text-base leading-7 text-muted">
-          選一個可做到的動作，再重練「{scenarioName}」。練習重點不以單次賺賠評分。
+          回看「{scenarioName}」，選一個下次想做到的動作。練習重點不以單次賺賠評分。
         </p>
         {goal && !savedForLesson && (
           <p className="mt-3 rounded-xl bg-bg p-4 text-base leading-7 text-muted">
@@ -220,32 +218,37 @@ function GoalEditor({ scenarioId, scenarioName, onPractice }: EditorProps) {
           {message}
         </p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          {onPractice && (
+            <button
+              ref={saveButton}
+              type="button"
+              className="academy-button-primary min-h-12 whitespace-normal text-base"
+              disabled={!ready}
+              onClick={() => save(true)}
+            >
+              保存重點並重練本課
+            </button>
+          )}
           <button
-            ref={saveButton}
-            type="button"
-            className="academy-button-primary min-h-12 whitespace-normal text-base"
-            disabled={!ready}
-            onClick={() => save(true)}
-          >
-            保存重點並重練本課
-          </button>
-          <button
+            ref={!onPractice ? saveButton : undefined}
             type="button"
             className="academy-button-secondary min-h-12 whitespace-normal text-base"
             disabled={!ready}
             onClick={() => save(false)}
           >
-            只保存重點
+            保存練習重點
           </button>
         </div>
-        <button
-          type="button"
-          className="mt-3 min-h-12 w-full rounded-lg px-3 py-3 text-base leading-7 text-muted underline underline-offset-4 sm:w-auto"
-          disabled={!ready}
-          onClick={() => setPreparation({ kind: "skip" })}
-        >
-          不保存這次重點，先重練
-        </button>
+        {onPractice && (
+          <button
+            type="button"
+            className="mt-3 min-h-12 w-full rounded-lg px-3 py-3 text-base leading-7 text-muted underline underline-offset-4 sm:w-auto"
+            disabled={!ready}
+            onClick={() => setPreparation({ kind: "skip" })}
+          >
+            不保存這次重點，先重練
+          </button>
+        )}
       </section>
       <Dialog.Root
         open={preparation !== null}

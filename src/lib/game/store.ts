@@ -44,6 +44,7 @@ import {
 } from "@/lib/game/learner-guide";
 import { playError, playFill, unlockAudio } from "@/lib/game/audio";
 import { DayMarket, describeFill } from "@/lib/market/engine";
+import { REAL_REPLAY_REQUIRED, SYNTHETIC_REPLAY_ENABLED } from "@/lib/market/replay-policy";
 import { STOCK_BY_CODE } from "@/lib/market/universe";
 import { EMPTY_PROFILE, type Fill, type Profile, type SessionRecord, type Side } from "@/lib/game/types";
 import { roundToTick } from "@/lib/market/ticks";
@@ -217,6 +218,7 @@ export const useGame = create<GameStore>((set, get) => ({
 
   hydrate: () => {
     const identity = getProfileIdentity();
+    if (!SYNTHETIC_REPLAY_ENABLED && (get().engine || get().phase !== "lobby")) get().leave();
     if (get().phase !== "lobby" && get().sessionIdentity !== identity) {
       const unfinished = get().phase === "live";
       get().leave();
@@ -238,6 +240,11 @@ export const useGame = create<GameStore>((set, get) => ({
   },
 
   start: (scenarioId) => {
+    if (!SYNTHETIC_REPLAY_ENABLED) {
+      get().leave();
+      toast.error(REAL_REPLAY_REQUIRED);
+      return;
+    }
     const sc = scenarioById(scenarioId);
     if (!sc) return;
     if (get().profileIdentity !== getProfileIdentity()) get().hydrate();

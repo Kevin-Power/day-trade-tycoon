@@ -17,6 +17,7 @@ import type { ReviewBundle } from "@/lib/game/persist";
 import { cn, formatMoney, formatSigned, formatTime } from "@/lib/utils";
 import { toneClass } from "@/components/signed";
 import { PracticeGoalEditor } from "@/components/practice-goal";
+import { RealCandlesLink } from "@/components/real-candles-entry";
 import { ReviewConditions } from "@/components/review-conditions";
 import { TradePlanReview } from "@/components/trade-plan";
 import { formatPrice } from "@/lib/market/ticks";
@@ -432,14 +433,16 @@ export function SessionReport({
         )}
         {feedback}
         {!teacherView && (
-          <PracticeGoalEditor
-            scenarioId={rec.scenarioId}
-            scenarioName={rec.scenarioName}
-            onPractice={() => {
-              useGame.getState().start(rec.scenarioId);
-              void navigate({ to: "/" });
-            }}
-          />
+          <>
+            <PracticeGoalEditor scenarioId={rec.scenarioId} scenarioName={rec.scenarioName} />
+            <aside className="mt-4 rounded-xl border border-border bg-surface p-4">
+              <p className="mb-3 text-base leading-relaxed text-muted">
+                這是舊版課程的歷史復盤。原課待補真實分鐘行情，暫不開放重練；新的真實 K
+                練習使用獨立的單日教材，不是本課原日期或原行情。
+              </p>
+              <RealCandlesLink>前往真實 K 線練習</RealCandlesLink>
+            </aside>
+          </>
         )}
         <ProvenanceMicro
           className="mt-5"

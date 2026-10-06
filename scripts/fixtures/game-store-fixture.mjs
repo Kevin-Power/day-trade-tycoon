@@ -12,7 +12,7 @@ const require = createRequire(import.meta.url);
 
 // Use the real store, broker, engine, pass rules, schemas and persistence. Only
 // browser effects, the Zustand binding and the network boundary are replaced.
-export function gameStoreFixture({ userId = null, failWrites = false, rejectRemote = false, remoteGate = null, values = new Map() } = {}) {
+export function gameStoreFixture({ userId = null, failWrites = false, rejectRemote = false, remoteGate = null, values = new Map(), archivedScenario = true } = {}) {
   const storage = {
     failWrites,
     getItem: (key) => values.get(key) ?? null,
@@ -45,6 +45,9 @@ export function gameStoreFixture({ userId = null, failWrites = false, rejectRemo
     sonner: { toast: Object.assign((text) => messages.push(text), { error: (text) => messages.push(text), success: () => {} }) },
   };
   const modules = new Map();
+  // Keep regression coverage of archived ledger/execution behavior without
+  // adding a production switch that could re-enable generated market data.
+  if (archivedScenario) dependencies["@/lib/market/replay-policy"] = { SYNTHETIC_REPLAY_ENABLED: true };
   function load(id, from = root) {
     if (id in dependencies) return dependencies[id];
     assert.ok(id.startsWith("@/") || id.startsWith("."), `Unexpected dependency: ${id}`);
@@ -77,9 +80,11 @@ export function gameStoreFixture({ userId = null, failWrites = false, rejectRemo
   store.getState().hydrate();
   // A completed session keeps these fixtures outside the first-time tour.
   store.getState().profile.sessions = 1;
-  store.getState().start("wed-open");
-  store.getState().dismissBeat();
-  assert.equal(store.getState().paused, false);
+  if (archivedScenario) {
+    store.getState().start("wed-open");
+    store.getState().dismissBeat();
+    assert.equal(store.getState().paused, false);
+  }
   return { store, load, persistence, storage, values, requests, messages };
 }
 

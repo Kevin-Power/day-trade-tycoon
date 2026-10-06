@@ -1,14 +1,13 @@
 import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { AppShell } from "@/components/app-shell";
-import { DisplayPreferencesEffect } from "@/components/display-controls";
+import { DisplayControls, DisplayPreferencesEffect } from "@/components/display-controls";
 import { GateProvider } from "@/lib/gate/context";
 import { createHashHistory, createRootRoute, createRoute, createRouter, Link, Outlet, RouterProvider } from "@tanstack/react-router";
 import { ManualPage } from "@/components/manual-page";
 import { LicensePage } from "@/components/license-page";
 import { TryExperience } from "@/components/try-experience";
 import { SessionReport } from "@/components/session-report";
-import { loadReviewState, saveReview } from "@/lib/game/persist";
+import { loadProfile, loadReviewState, saveReview } from "@/lib/game/persist";
 import { reviewSaveMessage } from "@/lib/game/review-storage-status";
 import "@/styles.css";
 
@@ -24,11 +23,38 @@ document.addEventListener("click", (event) => {
 });
 
 const rootRoute = createRootRoute({ component: () => <><DisplayPreferencesEffect /><GateProvider><Outlet /></GateProvider></> });
-const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: AppShell });
+const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: OfflineHome });
 const manualRoute = createRoute({ getParentRoute: () => rootRoute, path: "/manual", component: ManualPage });
 const licenseRoute = createRoute({ getParentRoute: () => rootRoute, path: "/license", component: LicensePage });
 const tryRoute = createRoute({ getParentRoute: () => rootRoute, path: "/try", component: TryExperience });
 const reviewRoute = createRoute({ getParentRoute: () => rootRoute, path: "/session/$id/review", component: OfflineReview });
+function OfflineHome() {
+  const [profile] = useState(loadProfile);
+  return (
+    <main className="min-h-dvh bg-bg px-4 py-8 text-fg sm:px-8">
+      <div className="mx-auto max-w-3xl space-y-6">
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold">當沖大富翁 · 離線閱讀</h1>
+          <DisplayControls />
+        </header>
+        <section className="rounded-2xl border border-border bg-surface p-5 sm:p-7">
+          <h2 className="text-xl font-semibold">交易練習全面使用真實 K 線</h2>
+          <p className="mt-3 text-base leading-8 text-muted">真實行情由線上教室逐分鐘揭露，避免提前看到後續走勢。請連上網路，登入教室開始練習。離線包不再啟動合成行情，也不包含尚未揭露的完整分鐘資料。</p>
+          <a href="https://rich.yilutek.com/morning" className="mt-5 inline-flex min-h-12 items-center rounded-xl bg-brand px-4 py-3 text-base font-semibold text-brand-fg">開啟線上真實 K 線練習</a>
+        </section>
+        <nav aria-label="離線閱讀" className="flex flex-wrap gap-3">
+          <Link to="/manual" className="inline-flex min-h-12 items-center rounded-xl border border-border px-4 py-3">閱讀使用說明</Link>
+          <Link to="/try" className="inline-flex min-h-12 items-center rounded-xl border border-border px-4 py-3">固定委託示例（非行情）</Link>
+        </nav>
+        <section className="rounded-2xl border border-border bg-surface p-5">
+          <h2 className="text-xl font-semibold">這台裝置的舊版復盤</h2>
+          <p className="mt-2 text-base leading-7 text-muted">已保存的紀錄仍可閱讀；舊情境使用合成行情，不能視為真實市場驗證或重新啟動。紀錄不會自動同步到線上帳號。</p>
+          {profile.history.length ? <ul className="mt-4 space-y-2">{profile.history.map(record => <li key={record.id}><Link to="/session/$id/review" params={{ id: record.id }} className="inline-flex min-h-12 items-center break-all py-2 text-brand underline underline-offset-4">查看復盤 · {record.scenarioId}</Link></li>)}</ul> : <p className="mt-4 text-base text-muted">目前沒有本機歷史紀錄。</p>}
+        </section>
+      </div>
+    </main>
+  );
+}
 function OfflineReview() {
   const { id } = reviewRoute.useParams();
   const [, refreshStorage] = useState(0);

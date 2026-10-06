@@ -412,7 +412,7 @@ function ProfileCompletion({ account }: { account: VerifiedAccount }) {
             className="mt-1 size-5 shrink-0 accent-[var(--color-brand)]"
           />
           <span>
-            我了解此為模擬教學，行情包含歷史及教室生成資料，模擬結果不代表實際獲利。我的學習紀錄供本班講師查看，顯示名稱與練習成績可出現在本班排行。
+            我了解真實早盤使用歷史 K 線，委託與成交仍為紙上模擬，結果不代表實際獲利。舊版合成行情紀錄僅供歷史復盤；舊課程提交的紀錄可供本班講師查看，顯示名稱與成績可出現在本班排行。真實早盤的進度與復盤目前在該練習頁查看。
           </span>
         </label>
         {error && (

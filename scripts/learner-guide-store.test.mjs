@@ -15,6 +15,8 @@ function storeFixture(completedSessions = 0) {
     throw new Error("Guide reached a trading or clock operation");
   };
   const dependencies = {
+    // Archived guide regression only; production policy has no enable switch.
+    "@/lib/market/replay-policy": { SYNTHETIC_REPLAY_ENABLED: true },
     zustand: {
       create: (initialize) => {
         let state;
