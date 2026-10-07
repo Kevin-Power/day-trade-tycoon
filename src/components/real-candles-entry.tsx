@@ -49,8 +49,8 @@ export function SyntheticChartNotice() {
         <div className="mt-2 flex min-w-0 flex-wrap items-center gap-3">
           <RealCandlesLink />
           <p className="min-w-0 flex-1 basis-52 text-sm leading-relaxed text-muted">
-            目前開放獨立單日教材：2026/10/06、5
-            檔股票、09:00–10:30。原有歷史紀錄保留，不將舊課行情視為真實分鐘 K。
+            真實教室可選 2026/10/05、10/06，每日 5
+            檔股票、09:00–10:30，搭配六個練習主題。原有歷史紀錄保留，不將舊課行情視為真實分鐘 K。
           </p>
         </div>
       )}

@@ -6,6 +6,7 @@ import { applyMorningAction, createMorningState, visibleMorningState,
   type MorningSource, type MorningStoredState } from "./morning-engine.ts";
 import type { MorningAction, MorningPlan } from "./morning.ts";
 import { chartLinePoints, chartWindow, completedBarsInWindow } from "./market/chart-data.ts";
+import { morningSources } from "./morning-data.server.ts";
 
 // Use the actual private lesson, not a replacement price generator. Its retained
 // vendor-byte provenance is independently checked by verify-morning-source.mjs.
@@ -25,30 +26,31 @@ function pendingState(source: MorningSource): MorningStoredState {
   }, source, 1100);
 }
 
-test("all 450 retained source bars reach completed-minute chart inputs unchanged and without synthetic ticks", () => {
-  const source = sourceFixture();
-  const original = structuredClone(source);
-  let state = createMorningState(randomUUID(), plan, source, 0);
+test("every approved lesson's retained source bars reach completed-minute charts unchanged without synthetic ticks", () => {
   let compared = 0;
-  for (let cursor = 1; cursor <= 90; cursor++) {
-    state = applyMorningAction(state, advance(state), source, cursor * 1000);
-    const visible = visibleMorningState(state, source);
-    const window = chartWindow({ startT: 0, endT: 5400, now: cursor * 60, range: { start: 0, end: cursor * 60 } });
-    for (const symbol of source.catalog.symbols) {
-      const expected = source.bars[symbol.code].slice(0, cursor);
-      assert.deepEqual(visible.bars[symbol.code], expected);
-      const chartBars = completedBarsInWindow(visible.bars[symbol.code], window, 60);
-      assert.deepEqual(chartBars, expected, `${symbol.code}: chart must preserve original OHLC and timestamp`);
-      const points = chartLinePoints({ bars: chartBars, ticks: [], variant: "stock", completedBarSeconds: 60,
-        current: { t: cursor * 60, p: -999 } });
-      assert.deepEqual(points, expected.map(bar => ({ t: bar.t + 60, p: bar.c })), "only original minute closes, no current-quote substitute");
-      assert.ok(points.every(point => point.t <= cursor * 60));
-      compared++;
+  for (const source of morningSources) {
+    const original = structuredClone(source);
+    let state = createMorningState(randomUUID(), plan, source, 0);
+    for (let cursor = 1; cursor <= source.catalog.maxCursor; cursor++) {
+      state = applyMorningAction(state, advance(state), source, cursor * 1000);
+      const visible = visibleMorningState(state, source);
+      const window = chartWindow({ startT: 0, endT: 5400, now: cursor * 60, range: { start: 0, end: cursor * 60 } });
+      for (const symbol of source.catalog.symbols) {
+        const expected = source.bars[symbol.code].slice(0, cursor);
+        assert.deepEqual(visible.bars[symbol.code], expected);
+        const chartBars = completedBarsInWindow(visible.bars[symbol.code], window, 60);
+        assert.deepEqual(chartBars, expected, `${source.catalog.date} ${symbol.code}: chart must preserve original OHLC and timestamp`);
+        const points = chartLinePoints({ bars: chartBars, ticks: [], variant: "stock", completedBarSeconds: 60,
+          current: { t: cursor * 60, p: -999 } });
+        assert.deepEqual(points, expected.map(bar => ({ t: bar.t + 60, p: bar.c })), "only original minute closes, no current-quote substitute");
+        assert.ok(points.every(point => point.t <= cursor * 60));
+        compared++;
+      }
+      assert.equal(Object.hasOwn(state, "bars"), false, "persisted state must not contain future source data");
     }
-    assert.equal(Object.hasOwn(state, "bars"), false, "persisted state must not contain future source data");
+    assert.deepEqual(source, original, "neither the engine nor chart preparation may rewrite source values");
   }
-  assert.equal(compared, 450);
-  assert.deepEqual(source, original, "neither the engine nor chart preparation may rewrite source values");
+  assert.equal(compared, morningSources.reduce((count, source) => count + source.catalog.maxCursor * source.catalog.symbols.length, 0));
 });
 
 test("missing or invalid next-minute source stops the whole replay before any fill, cash or cursor mutation", () => {

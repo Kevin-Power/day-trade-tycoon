@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { applyMorningAction, createMorningState, MorningError, parseMorningAction, visibleMorningState,
   type MorningSource, type MorningStoredState } from "./morning-engine.ts";
 import type { Sql } from "./db.ts";
-import type { MorningResponse } from "./morning.ts";
+import { summarizeMorningLesson, type MorningLessonSummary, type MorningResponse } from "./morning.ts";
 
 type SessionRow = { id: string; state_json: MorningStoredState | string };
 function stored(row: SessionRow): MorningStoredState {
@@ -14,19 +14,20 @@ async function requireProfile(sql: Sql, userId: string): Promise<void> {
     SELECT tos_accepted_at FROM classroom_profiles WHERE user_id = ${userId} FOR UPDATE`;
   if (!profile[0]?.tos_accepted_at) throw new MorningError(403, "請先完成學員資料與教學聲明");
 }
-function response(state: MorningStoredState | null, source: MorningSource): MorningResponse {
-  return { catalog: source.catalog, state: state ? visibleMorningState(state, source) : null };
+function response(state: MorningStoredState | null, source: MorningSource, lessons?: readonly MorningLessonSummary[]): MorningResponse {
+  return { catalog: source.catalog, state: state ? visibleMorningState(state, source) : null,
+    lessons: lessons ? structuredClone([...lessons]) : [summarizeMorningLesson(source.catalog)] };
 }
 /** Always use a transaction-bound SQL handle and the user ID from the verified cookie session. */
-export async function loadMorningSession(sql: Sql, userId: string, source: MorningSource): Promise<MorningResponse> {
+export async function loadMorningSession(sql: Sql, userId: string, source: MorningSource, lessons?: readonly MorningLessonSummary[]): Promise<MorningResponse> {
   await requireProfile(sql, userId);
   const rows = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions
     WHERE user_id = ${userId} AND lesson_id = ${source.catalog.lessonId}
     ORDER BY created_at DESC, id DESC LIMIT 1`;
-  return response(rows[0] ? stored(rows[0]) : null, source);
+  return response(rows[0] ? stored(rows[0]) : null, source, lessons);
 }
 /** Durable exactly-once mutation; retries return this run's current, already revealed state. */
-export async function mutateMorningSession(sql: Sql, userId: string, input: unknown, source: MorningSource, clock: number | (() => number) = Date.now): Promise<MorningResponse> {
+export async function mutateMorningSession(sql: Sql, userId: string, input: unknown, source: MorningSource, clock: number | (() => number) = Date.now, lessons?: readonly MorningLessonSummary[]): Promise<MorningResponse> {
   const action = parseMorningAction(input);
   await requireProfile(sql, userId);
   // Read the clock after acquiring the owner lock: queued requests cannot reuse stale elapsed time.
@@ -36,9 +37,10 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
     SELECT action_hash, session_id FROM morning_requests WHERE user_id = ${userId} AND request_id = ${action.requestId}::uuid`;
   if (previous[0]) {
     if (previous[0].action_hash !== hash) throw new MorningError(409, "這個操作編號已用於不同內容，請重新讀取練習");
-    const rows = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions WHERE id = ${previous[0].session_id}::uuid AND user_id = ${userId} FOR UPDATE`;
+    const rows = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions WHERE id = ${previous[0].session_id}::uuid
+      AND user_id = ${userId} AND lesson_id = ${source.catalog.lessonId} FOR UPDATE`;
     if (!rows[0]) throw new MorningError(404, "找不到這份練習");
-    return response(stored(rows[0]), source);
+    return response(stored(rows[0]), source, lessons);
   }
   let state: MorningStoredState;
   if (action.action === "start") {
@@ -62,5 +64,5 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
   if (counts[0].count >= 1_000) throw new MorningError(429, "本次練習操作次數已達上限，請聯絡講師");
   await sql`INSERT INTO morning_requests (user_id, request_id, session_id, action_hash)
     VALUES (${userId}, ${action.requestId}::uuid, ${state.id}::uuid, ${hash})`;
-  return response(state, source);
+  return response(state, source, lessons);
 }

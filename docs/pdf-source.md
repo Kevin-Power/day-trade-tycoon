@@ -1,6 +1,6 @@
 # 學員 PDF 維護
 
-`docs/pdf-source.json` 是學員手冊的編輯來源。目前為八頁真實分鐘 K 線版 `2026-10-06-realk`。`scripts/build-manual-pdf.py` 負責 A4 排版，`scripts/build-manual-pdf.mjs` 在 Windows 選用本機 Python 並驗證輸出。
+`docs/pdf-source.json` 是學員手冊的編輯來源。目前為八頁真實分鐘 K 線版 `2026-10-07-realk2`。`scripts/build-manual-pdf.py` 負責 A4 排版，`scripts/build-manual-pdf.mjs` 在 Windows 選用本機 Python 並驗證輸出。
 
 ```powershell
 npm run build:manual-pdf
@@ -15,7 +15,21 @@ node --test scripts/build-manual-pdf.test.mjs
 
 線上下載使用 `?v=${MANUAL_VERSION}`，避開固定網址的 CDN 舊快取。每次修改 PDF 都需同步更新線上手冊的 `MANUAL_VERSION` 與 PDF 來源版本，同日再修改需加修訂碼，不能重用已發佈的版本值。HTTP 驗收按來源版本核對正式 PDF 的 SHA-256；另在外部 Chrome 由 `/manual` 實際按鈕下載，核對網址與檔案。該頁的入場狀態由瀏覽器解析，初始 HTML 不含下載連結，不能把 HTTP 原始 HTML 當作已渲染畫面。
 
-## 2026-10-06-realk 本地產物與驗證
+## 2026-10-07-realk2 本地產物與驗證
+
+沿用八頁排版，依 `src/lib/morning-exercises.ts` 與真實早盤頁更新：
+
+- 目前可選 2026/10/05、2026/10/06；每日 5 檔各 90 根，兩日共 900 根原始分鐘 OHLC。各日涵蓋 09:00 至 10:29 開始的分鐘，最後一根在 10:30 完成。
+- 大廳六個新主題為第一筆有計畫的委託、核對部位與風險、按條件處理出場、觀察 N 字與突破、練習等待與不交易、用紀錄完成復盤。六主題共用這兩日行情，不代表六種預定走勢。
+- 入場後選交易日與主題；主題識別 `exerciseId` 隨本輪計畫保存。各交易日分開保留進度，換日不會刪除原練習；恢復原日會保留原主題，完成復盤後才能用新計畫練另一主題。
+- 課程只依當下已揭露的 K 線及昨收練習，不保證 N 字出現，條件未成立可以整輪不交易。未增加成交量、均價、真實五檔或未來行情的宣稱。
+- 原 2026/08/24–08/26 劇本情境仍停用，歷史紀錄保留；新主題不代表原日行情已補齊。離線主題卡會前往正式線上教室，離線包不播放或生成行情。
+
+線上手冊與 PDF 版本同為 `2026-10-07-realk2`。本機 builder 完成 8 頁，既有 4 項 PDF 測試及修改元件 ESLint 通過；另有 3 項主題查找、線上／離線卡片實際渲染連結測試通過。Poppler 100 dpi 重新渲染並逐頁檢視全部 8 頁，內容變更頁為第 1、2、3、4、7、8 頁，其餘頁更新版本頁腳；未見文字、表格或頁眉頁腳截斷或重疊。pypdf／pdfplumber 核對 8 頁頁碼、版本、兩日日期、六主題文字與所有字元邊界通過，沒有使用瀏覽器。
+
+PDF 為 390745 bytes，SHA-256 `f7641d111468336f5eb4c5fb91ccd755c1d70b5169ad00525be3875dd81ce83c`。本節只記錄本機產物；離線 ZIP 重包、完整建置、候選及正式 HTTP 下載驗收由主線處理，不能把本機完成當成已上線。
+
+## 2026-10-06-realk 歷史本地產物與驗證
 
 本版完整取代舊十頁下單手冊，八頁內容依 `src/components/morning-practice.tsx`、`src/lib/morning-engine.ts` 及離線入口實際行為整理：
 

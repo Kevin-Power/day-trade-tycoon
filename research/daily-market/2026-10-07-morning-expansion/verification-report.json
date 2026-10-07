@@ -1,0 +1,1019 @@
+{
+  "version": 1,
+  "availableDates": [
+    "2026-10-05"
+  ],
+  "unavailableDates": [
+    "2026-10-02",
+    "2026-10-07"
+  ],
+  "lessons": [
+    {
+      "date": "2026-10-02",
+      "status": "unavailable",
+      "serverPath": null,
+      "reason": "Incomplete original five-stock minute source; no server dataset generated",
+      "completeSymbols": [
+        "2330",
+        "2317",
+        "2382",
+        "2308"
+      ],
+      "failedSymbols": [
+        {
+          "code": "2454",
+          "date": "2026-10-02",
+          "sourcePath": "research/daily-market/2026-10-06-collection/intraday/raw/yahoo-2454-7d-1m.response",
+          "sourceSha256": "011dea54039f329ea50823bbb4e59bf15b2452ca96640f4ffb1b55910b7fae57",
+          "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2454.TW?range=7d&interval=1m&includePrePost=false",
+          "fetchedAt": "2026-10-06T09:13:23.267Z",
+          "issues": [
+            {
+              "reason": "missing_or_invalid_raw_value",
+              "time": "09:45:00",
+              "sourceIndex": 1125,
+              "fields": [
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume"
+              ]
+            },
+            {
+              "reason": "missing_or_invalid_raw_value",
+              "time": "09:51:00",
+              "sourceIndex": 1131,
+              "fields": [
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume"
+              ]
+            },
+            {
+              "reason": "missing_or_invalid_raw_value",
+              "time": "10:01:00",
+              "sourceIndex": 1141,
+              "fields": [
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume"
+              ]
+            }
+          ]
+        }
+      ],
+      "priorDailyReferences": [
+        {
+          "code": "2330",
+          "date": "2026-09-23",
+          "close": 2500,
+          "sourceRow": 16,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2330.response",
+          "sourceSha256": "c556fb917676d81615b5c8e133c5f36dae52fba2efcfc8b9ab196c86ef1506ec",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2330",
+          "fetchedAt": "2026-10-06T11:35:04.924Z"
+        },
+        {
+          "code": "2330",
+          "date": "2026-09-24",
+          "close": 2475,
+          "sourceRow": 17,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2330.response",
+          "sourceSha256": "c556fb917676d81615b5c8e133c5f36dae52fba2efcfc8b9ab196c86ef1506ec",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2330",
+          "fetchedAt": "2026-10-06T11:35:04.924Z"
+        },
+        {
+          "code": "2330",
+          "date": "2026-09-29",
+          "close": 2475,
+          "sourceRow": 18,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2330.response",
+          "sourceSha256": "c556fb917676d81615b5c8e133c5f36dae52fba2efcfc8b9ab196c86ef1506ec",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2330",
+          "fetchedAt": "2026-10-06T11:35:04.924Z"
+        },
+        {
+          "code": "2330",
+          "date": "2026-09-30",
+          "close": 2480,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2330.response",
+          "sourceSha256": "c556fb917676d81615b5c8e133c5f36dae52fba2efcfc8b9ab196c86ef1506ec",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2330",
+          "fetchedAt": "2026-10-06T11:35:04.924Z"
+        },
+        {
+          "code": "2330",
+          "date": "2026-10-01",
+          "close": 2510,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2330.response",
+          "sourceSha256": "59351ceb66fe42e12009fed787f9498b2fc838e11e494c50f660ccb05b7dcb26",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2330",
+          "fetchedAt": "2026-10-06T09:19:30.654Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-09-23",
+          "close": 256,
+          "sourceRow": 16,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2317.response",
+          "sourceSha256": "ac4ef2ac4395462d02cabac81c5ca7c23b1902c732e5873dd3eeb4d5708d2800",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2317",
+          "fetchedAt": "2026-10-06T11:35:04.949Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-09-24",
+          "close": 250.5,
+          "sourceRow": 17,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2317.response",
+          "sourceSha256": "ac4ef2ac4395462d02cabac81c5ca7c23b1902c732e5873dd3eeb4d5708d2800",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2317",
+          "fetchedAt": "2026-10-06T11:35:04.949Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-09-29",
+          "close": 250.5,
+          "sourceRow": 18,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2317.response",
+          "sourceSha256": "ac4ef2ac4395462d02cabac81c5ca7c23b1902c732e5873dd3eeb4d5708d2800",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2317",
+          "fetchedAt": "2026-10-06T11:35:04.949Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-09-30",
+          "close": 251.5,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2317.response",
+          "sourceSha256": "ac4ef2ac4395462d02cabac81c5ca7c23b1902c732e5873dd3eeb4d5708d2800",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2317",
+          "fetchedAt": "2026-10-06T11:35:04.949Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-10-01",
+          "close": 254,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2317.response",
+          "sourceSha256": "ce4e5319f1a637b95bebf2c98463e0da08f6cecba95cd6ce526049c7a1cef13b",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2317",
+          "fetchedAt": "2026-10-06T09:19:30.671Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-09-23",
+          "close": 5185,
+          "sourceRow": 16,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2454.response",
+          "sourceSha256": "6db1f54ca5f269340af8af6b1f911ad7ca358800abe233d0a70afc8461ea6e70",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2454",
+          "fetchedAt": "2026-10-06T11:35:04.966Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-09-24",
+          "close": 5285,
+          "sourceRow": 17,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2454.response",
+          "sourceSha256": "6db1f54ca5f269340af8af6b1f911ad7ca358800abe233d0a70afc8461ea6e70",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2454",
+          "fetchedAt": "2026-10-06T11:35:04.966Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-09-29",
+          "close": 4910,
+          "sourceRow": 18,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2454.response",
+          "sourceSha256": "6db1f54ca5f269340af8af6b1f911ad7ca358800abe233d0a70afc8461ea6e70",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2454",
+          "fetchedAt": "2026-10-06T11:35:04.966Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-09-30",
+          "close": 4920,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2454.response",
+          "sourceSha256": "6db1f54ca5f269340af8af6b1f911ad7ca358800abe233d0a70afc8461ea6e70",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2454",
+          "fetchedAt": "2026-10-06T11:35:04.966Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-10-01",
+          "close": 4980,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2454.response",
+          "sourceSha256": "81cb02f8d85a53e35ad6dcdb2b645cbca52957b7a6c077370c30cd550fc6a275",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2454",
+          "fetchedAt": "2026-10-06T09:19:30.690Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-09-23",
+          "close": 341.5,
+          "sourceRow": 16,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2382.response",
+          "sourceSha256": "61924d4e86d9f022bb65acca5c836ffdc717e437b95fe5d70f67ee5614b0145d",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2382",
+          "fetchedAt": "2026-10-06T11:35:05.035Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-09-24",
+          "close": 338.5,
+          "sourceRow": 17,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2382.response",
+          "sourceSha256": "61924d4e86d9f022bb65acca5c836ffdc717e437b95fe5d70f67ee5614b0145d",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2382",
+          "fetchedAt": "2026-10-06T11:35:05.035Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-09-29",
+          "close": 336.5,
+          "sourceRow": 18,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2382.response",
+          "sourceSha256": "61924d4e86d9f022bb65acca5c836ffdc717e437b95fe5d70f67ee5614b0145d",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2382",
+          "fetchedAt": "2026-10-06T11:35:05.035Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-09-30",
+          "close": 333.5,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2382.response",
+          "sourceSha256": "61924d4e86d9f022bb65acca5c836ffdc717e437b95fe5d70f67ee5614b0145d",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2382",
+          "fetchedAt": "2026-10-06T11:35:05.035Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-10-01",
+          "close": 334,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2382.response",
+          "sourceSha256": "122ea5e99a06b905a0aa1e2a8e56977c28433654b12b4c18ec9dc21d267643d6",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2382",
+          "fetchedAt": "2026-10-06T09:19:30.713Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-09-23",
+          "close": 1900,
+          "sourceRow": 16,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2308.response",
+          "sourceSha256": "f3dbc6507524ff9fc56f4ad081795402875fbf4cdc41f25ca758e4b2df190c0f",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2308",
+          "fetchedAt": "2026-10-06T11:35:05.297Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-09-24",
+          "close": 1910,
+          "sourceRow": 17,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2308.response",
+          "sourceSha256": "f3dbc6507524ff9fc56f4ad081795402875fbf4cdc41f25ca758e4b2df190c0f",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2308",
+          "fetchedAt": "2026-10-06T11:35:05.297Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-09-29",
+          "close": 1835,
+          "sourceRow": 18,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2308.response",
+          "sourceSha256": "f3dbc6507524ff9fc56f4ad081795402875fbf4cdc41f25ca758e4b2df190c0f",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2308",
+          "fetchedAt": "2026-10-06T11:35:05.297Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-09-30",
+          "close": 1890,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2308.response",
+          "sourceSha256": "f3dbc6507524ff9fc56f4ad081795402875fbf4cdc41f25ca758e4b2df190c0f",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2308",
+          "fetchedAt": "2026-10-06T11:35:05.297Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-10-01",
+          "close": 1905,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2308.response",
+          "sourceSha256": "2aef110f21b0beeb7b8c34139e1f036661db2717eb21747ab9ed068ddefee0fb",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2308",
+          "fetchedAt": "2026-10-06T09:19:30.728Z"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-05",
+      "status": "ready",
+      "serverPath": "server/data/morning-2026-10-05.json",
+      "lessonId": "morning-20261005-v1-bd566804b809",
+      "minuteSourceSha256": "e1d92fffb8ab130048772d8728da9ef3d4a3eda0ce9b4990bc6af3cd3d96b396",
+      "dailySourceSha256": "3f92650270b19a873c60ad004e33852a9afe6c57c5d650dacd5285013125f23d",
+      "sourceSha256": "bd566804b8098eb5fbce18a2a70f0830dc425be99add9fe78510a6408095b1ed",
+      "bars": 450,
+      "symbols": [
+        {
+          "code": "2330",
+          "name": "台積電",
+          "previousClose": 2500,
+          "previous5CloseMean": 2488
+        },
+        {
+          "code": "2317",
+          "name": "鴻海",
+          "previousClose": 251,
+          "previous5CloseMean": 251.5
+        },
+        {
+          "code": "2454",
+          "name": "聯發科",
+          "previousClose": 4950,
+          "previous5CloseMean": 5009
+        },
+        {
+          "code": "2382",
+          "name": "廣達",
+          "previousClose": 332,
+          "previous5CloseMean": 334.9
+        },
+        {
+          "code": "2308",
+          "name": "台達電",
+          "previousClose": 1885,
+          "previous5CloseMean": 1885
+        }
+      ],
+      "minuteSources": [
+        {
+          "code": "2330",
+          "date": "2026-10-05",
+          "bars": 90,
+          "firstMinute": "09:00",
+          "lastMinute": "10:29",
+          "revealedThrough": "10:30",
+          "sourceFirstRow": 1350,
+          "sourceLastRow": 1439,
+          "ignoredOutsideWindow": 1801,
+          "zeroVolumeBars": 1,
+          "sourceSha256": "781fe9ee0fed37739e786771d79e14d7584cd6a96baba703f53d2fc85850e9e0",
+          "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2330.TW?range=7d&interval=1m&includePrePost=false",
+          "sourcePath": "research/daily-market/2026-10-06-collection/intraday/raw/yahoo-2330-7d-1m.response",
+          "fetchedAt": "2026-10-06T09:13:23.033Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-10-05",
+          "bars": 90,
+          "firstMinute": "09:00",
+          "lastMinute": "10:29",
+          "revealedThrough": "10:30",
+          "sourceFirstRow": 1350,
+          "sourceLastRow": 1439,
+          "ignoredOutsideWindow": 1801,
+          "zeroVolumeBars": 1,
+          "sourceSha256": "665aa83943d0bd63a2b8d643ecb1a393ab63af6a30c0b66f91b0306ea5c8a9f9",
+          "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2317.TW?range=7d&interval=1m&includePrePost=false",
+          "sourcePath": "research/daily-market/2026-10-06-collection/intraday/raw/yahoo-2317-7d-1m.response",
+          "fetchedAt": "2026-10-06T09:13:23.125Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-10-05",
+          "bars": 90,
+          "firstMinute": "09:00",
+          "lastMinute": "10:29",
+          "revealedThrough": "10:30",
+          "sourceFirstRow": 1350,
+          "sourceLastRow": 1439,
+          "ignoredOutsideWindow": 1801,
+          "zeroVolumeBars": 1,
+          "sourceSha256": "011dea54039f329ea50823bbb4e59bf15b2452ca96640f4ffb1b55910b7fae57",
+          "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2454.TW?range=7d&interval=1m&includePrePost=false",
+          "sourcePath": "research/daily-market/2026-10-06-collection/intraday/raw/yahoo-2454-7d-1m.response",
+          "fetchedAt": "2026-10-06T09:13:23.267Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-10-05",
+          "bars": 90,
+          "firstMinute": "09:00",
+          "lastMinute": "10:29",
+          "revealedThrough": "10:30",
+          "sourceFirstRow": 1350,
+          "sourceLastRow": 1439,
+          "ignoredOutsideWindow": 1801,
+          "zeroVolumeBars": 1,
+          "sourceSha256": "fe38af417141512fd5a780b76888c53aa2af479969d633fb2a9457a75c91466a",
+          "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2382.TW?range=7d&interval=1m&includePrePost=false",
+          "sourcePath": "research/daily-market/2026-10-06-collection/intraday/raw/yahoo-2382-7d-1m.response",
+          "fetchedAt": "2026-10-06T09:13:23.363Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-10-05",
+          "bars": 90,
+          "firstMinute": "09:00",
+          "lastMinute": "10:29",
+          "revealedThrough": "10:30",
+          "sourceFirstRow": 1350,
+          "sourceLastRow": 1439,
+          "ignoredOutsideWindow": 1801,
+          "zeroVolumeBars": 1,
+          "sourceSha256": "25220d722ef450bef0f7562cfa69aca9721540a648f13ea269fc8aacfe05d99c",
+          "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2308.TW?range=7d&interval=1m&includePrePost=false",
+          "sourcePath": "research/daily-market/2026-10-06-collection/intraday/raw/yahoo-2308-7d-1m.response",
+          "fetchedAt": "2026-10-06T09:13:23.456Z"
+        }
+      ],
+      "priorDailyReferences": [
+        {
+          "code": "2330",
+          "date": "2026-09-24",
+          "close": 2475,
+          "sourceRow": 17,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2330.response",
+          "sourceSha256": "c556fb917676d81615b5c8e133c5f36dae52fba2efcfc8b9ab196c86ef1506ec",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2330",
+          "fetchedAt": "2026-10-06T11:35:04.924Z"
+        },
+        {
+          "code": "2330",
+          "date": "2026-09-29",
+          "close": 2475,
+          "sourceRow": 18,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2330.response",
+          "sourceSha256": "c556fb917676d81615b5c8e133c5f36dae52fba2efcfc8b9ab196c86ef1506ec",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2330",
+          "fetchedAt": "2026-10-06T11:35:04.924Z"
+        },
+        {
+          "code": "2330",
+          "date": "2026-09-30",
+          "close": 2480,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2330.response",
+          "sourceSha256": "c556fb917676d81615b5c8e133c5f36dae52fba2efcfc8b9ab196c86ef1506ec",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2330",
+          "fetchedAt": "2026-10-06T11:35:04.924Z"
+        },
+        {
+          "code": "2330",
+          "date": "2026-10-01",
+          "close": 2510,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2330.response",
+          "sourceSha256": "59351ceb66fe42e12009fed787f9498b2fc838e11e494c50f660ccb05b7dcb26",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2330",
+          "fetchedAt": "2026-10-06T09:19:30.654Z"
+        },
+        {
+          "code": "2330",
+          "date": "2026-10-02",
+          "close": 2500,
+          "sourceRow": 1,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2330.response",
+          "sourceSha256": "59351ceb66fe42e12009fed787f9498b2fc838e11e494c50f660ccb05b7dcb26",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2330",
+          "fetchedAt": "2026-10-06T09:19:30.654Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-09-24",
+          "close": 250.5,
+          "sourceRow": 17,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2317.response",
+          "sourceSha256": "ac4ef2ac4395462d02cabac81c5ca7c23b1902c732e5873dd3eeb4d5708d2800",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2317",
+          "fetchedAt": "2026-10-06T11:35:04.949Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-09-29",
+          "close": 250.5,
+          "sourceRow": 18,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2317.response",
+          "sourceSha256": "ac4ef2ac4395462d02cabac81c5ca7c23b1902c732e5873dd3eeb4d5708d2800",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2317",
+          "fetchedAt": "2026-10-06T11:35:04.949Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-09-30",
+          "close": 251.5,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2317.response",
+          "sourceSha256": "ac4ef2ac4395462d02cabac81c5ca7c23b1902c732e5873dd3eeb4d5708d2800",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2317",
+          "fetchedAt": "2026-10-06T11:35:04.949Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-10-01",
+          "close": 254,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2317.response",
+          "sourceSha256": "ce4e5319f1a637b95bebf2c98463e0da08f6cecba95cd6ce526049c7a1cef13b",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2317",
+          "fetchedAt": "2026-10-06T09:19:30.671Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-10-02",
+          "close": 251,
+          "sourceRow": 1,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2317.response",
+          "sourceSha256": "ce4e5319f1a637b95bebf2c98463e0da08f6cecba95cd6ce526049c7a1cef13b",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2317",
+          "fetchedAt": "2026-10-06T09:19:30.671Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-09-24",
+          "close": 5285,
+          "sourceRow": 17,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2454.response",
+          "sourceSha256": "6db1f54ca5f269340af8af6b1f911ad7ca358800abe233d0a70afc8461ea6e70",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2454",
+          "fetchedAt": "2026-10-06T11:35:04.966Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-09-29",
+          "close": 4910,
+          "sourceRow": 18,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2454.response",
+          "sourceSha256": "6db1f54ca5f269340af8af6b1f911ad7ca358800abe233d0a70afc8461ea6e70",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2454",
+          "fetchedAt": "2026-10-06T11:35:04.966Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-09-30",
+          "close": 4920,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2454.response",
+          "sourceSha256": "6db1f54ca5f269340af8af6b1f911ad7ca358800abe233d0a70afc8461ea6e70",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2454",
+          "fetchedAt": "2026-10-06T11:35:04.966Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-10-01",
+          "close": 4980,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2454.response",
+          "sourceSha256": "81cb02f8d85a53e35ad6dcdb2b645cbca52957b7a6c077370c30cd550fc6a275",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2454",
+          "fetchedAt": "2026-10-06T09:19:30.690Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-10-02",
+          "close": 4950,
+          "sourceRow": 1,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2454.response",
+          "sourceSha256": "81cb02f8d85a53e35ad6dcdb2b645cbca52957b7a6c077370c30cd550fc6a275",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2454",
+          "fetchedAt": "2026-10-06T09:19:30.690Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-09-24",
+          "close": 338.5,
+          "sourceRow": 17,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2382.response",
+          "sourceSha256": "61924d4e86d9f022bb65acca5c836ffdc717e437b95fe5d70f67ee5614b0145d",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2382",
+          "fetchedAt": "2026-10-06T11:35:05.035Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-09-29",
+          "close": 336.5,
+          "sourceRow": 18,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2382.response",
+          "sourceSha256": "61924d4e86d9f022bb65acca5c836ffdc717e437b95fe5d70f67ee5614b0145d",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2382",
+          "fetchedAt": "2026-10-06T11:35:05.035Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-09-30",
+          "close": 333.5,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2382.response",
+          "sourceSha256": "61924d4e86d9f022bb65acca5c836ffdc717e437b95fe5d70f67ee5614b0145d",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2382",
+          "fetchedAt": "2026-10-06T11:35:05.035Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-10-01",
+          "close": 334,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2382.response",
+          "sourceSha256": "122ea5e99a06b905a0aa1e2a8e56977c28433654b12b4c18ec9dc21d267643d6",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2382",
+          "fetchedAt": "2026-10-06T09:19:30.713Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-10-02",
+          "close": 332,
+          "sourceRow": 1,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2382.response",
+          "sourceSha256": "122ea5e99a06b905a0aa1e2a8e56977c28433654b12b4c18ec9dc21d267643d6",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2382",
+          "fetchedAt": "2026-10-06T09:19:30.713Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-09-24",
+          "close": 1910,
+          "sourceRow": 17,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2308.response",
+          "sourceSha256": "f3dbc6507524ff9fc56f4ad081795402875fbf4cdc41f25ca758e4b2df190c0f",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2308",
+          "fetchedAt": "2026-10-06T11:35:05.297Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-09-29",
+          "close": 1835,
+          "sourceRow": 18,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2308.response",
+          "sourceSha256": "f3dbc6507524ff9fc56f4ad081795402875fbf4cdc41f25ca758e4b2df190c0f",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2308",
+          "fetchedAt": "2026-10-06T11:35:05.297Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-09-30",
+          "close": 1890,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2308.response",
+          "sourceSha256": "f3dbc6507524ff9fc56f4ad081795402875fbf4cdc41f25ca758e4b2df190c0f",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2308",
+          "fetchedAt": "2026-10-06T11:35:05.297Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-10-01",
+          "close": 1905,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2308.response",
+          "sourceSha256": "2aef110f21b0beeb7b8c34139e1f036661db2717eb21747ab9ed068ddefee0fb",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2308",
+          "fetchedAt": "2026-10-06T09:19:30.728Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-10-02",
+          "close": 1885,
+          "sourceRow": 1,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2308.response",
+          "sourceSha256": "2aef110f21b0beeb7b8c34139e1f036661db2717eb21747ab9ed068ddefee0fb",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2308",
+          "fetchedAt": "2026-10-06T09:19:30.728Z"
+        }
+      ],
+      "datasetSha256": "8b2f03a01c6212e2fbf9849863c3df19967b0c17b41064874ba85c84f924251c"
+    },
+    {
+      "date": "2026-10-07",
+      "status": "unavailable",
+      "serverPath": null,
+      "reason": "Incomplete original five-stock minute source; no server dataset generated",
+      "completeSymbols": [
+        "2317",
+        "2382",
+        "2308"
+      ],
+      "failedSymbols": [
+        {
+          "code": "2330",
+          "date": "2026-10-07",
+          "sourcePath": "research/daily-market/2026-10-07-morning-expansion/raw/yahoo-2330-2026-10-07-1m.response",
+          "sourceSha256": "0d33f03c3391789c4e66f3c7254a84b99a6845398e6a6140214f3a9d68de176d",
+          "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2330.TW?period1=1791334800&period2=1791340200&interval=1m&includePrePost=false",
+          "fetchedAt": "2026-10-07T08:39:42.317Z",
+          "issues": [
+            {
+              "reason": "missing_or_invalid_raw_value",
+              "time": "10:07:00",
+              "sourceIndex": 67,
+              "fields": [
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume"
+              ]
+            }
+          ]
+        },
+        {
+          "code": "2454",
+          "date": "2026-10-07",
+          "sourcePath": "research/daily-market/2026-10-07-morning-expansion/raw/yahoo-2454-2026-10-07-1m.response",
+          "sourceSha256": "69cf2b9d4ad5f36a2a9715aa5e0f78a7cc3d0749253c67fb8898b5d92d0015ec",
+          "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2454.TW?period1=1791334800&period2=1791340200&interval=1m&includePrePost=false",
+          "fetchedAt": "2026-10-07T08:39:42.461Z",
+          "issues": [
+            {
+              "reason": "missing_or_invalid_raw_value",
+              "time": "09:42:00",
+              "sourceIndex": 42,
+              "fields": [
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume"
+              ]
+            }
+          ]
+        }
+      ],
+      "priorDailyReferences": [
+        {
+          "code": "2330",
+          "date": "2026-09-30",
+          "close": 2480,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2330.response",
+          "sourceSha256": "c556fb917676d81615b5c8e133c5f36dae52fba2efcfc8b9ab196c86ef1506ec",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2330",
+          "fetchedAt": "2026-10-06T11:35:04.924Z"
+        },
+        {
+          "code": "2330",
+          "date": "2026-10-01",
+          "close": 2510,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2330.response",
+          "sourceSha256": "59351ceb66fe42e12009fed787f9498b2fc838e11e494c50f660ccb05b7dcb26",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2330",
+          "fetchedAt": "2026-10-06T09:19:30.654Z"
+        },
+        {
+          "code": "2330",
+          "date": "2026-10-02",
+          "close": 2500,
+          "sourceRow": 1,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2330.response",
+          "sourceSha256": "59351ceb66fe42e12009fed787f9498b2fc838e11e494c50f660ccb05b7dcb26",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2330",
+          "fetchedAt": "2026-10-06T09:19:30.654Z"
+        },
+        {
+          "code": "2330",
+          "date": "2026-10-05",
+          "close": 2575,
+          "sourceRow": 2,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2330.response",
+          "sourceSha256": "59351ceb66fe42e12009fed787f9498b2fc838e11e494c50f660ccb05b7dcb26",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2330",
+          "fetchedAt": "2026-10-06T09:19:30.654Z"
+        },
+        {
+          "code": "2330",
+          "date": "2026-10-06",
+          "close": 2585,
+          "sourceRow": 3,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2330.response",
+          "sourceSha256": "59351ceb66fe42e12009fed787f9498b2fc838e11e494c50f660ccb05b7dcb26",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2330",
+          "fetchedAt": "2026-10-06T09:19:30.654Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-09-30",
+          "close": 251.5,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2317.response",
+          "sourceSha256": "ac4ef2ac4395462d02cabac81c5ca7c23b1902c732e5873dd3eeb4d5708d2800",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2317",
+          "fetchedAt": "2026-10-06T11:35:04.949Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-10-01",
+          "close": 254,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2317.response",
+          "sourceSha256": "ce4e5319f1a637b95bebf2c98463e0da08f6cecba95cd6ce526049c7a1cef13b",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2317",
+          "fetchedAt": "2026-10-06T09:19:30.671Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-10-02",
+          "close": 251,
+          "sourceRow": 1,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2317.response",
+          "sourceSha256": "ce4e5319f1a637b95bebf2c98463e0da08f6cecba95cd6ce526049c7a1cef13b",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2317",
+          "fetchedAt": "2026-10-06T09:19:30.671Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-10-05",
+          "close": 254,
+          "sourceRow": 2,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2317.response",
+          "sourceSha256": "ce4e5319f1a637b95bebf2c98463e0da08f6cecba95cd6ce526049c7a1cef13b",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2317",
+          "fetchedAt": "2026-10-06T09:19:30.671Z"
+        },
+        {
+          "code": "2317",
+          "date": "2026-10-06",
+          "close": 256,
+          "sourceRow": 3,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2317.response",
+          "sourceSha256": "ce4e5319f1a637b95bebf2c98463e0da08f6cecba95cd6ce526049c7a1cef13b",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2317",
+          "fetchedAt": "2026-10-06T09:19:30.671Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-09-30",
+          "close": 4920,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2454.response",
+          "sourceSha256": "6db1f54ca5f269340af8af6b1f911ad7ca358800abe233d0a70afc8461ea6e70",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2454",
+          "fetchedAt": "2026-10-06T11:35:04.966Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-10-01",
+          "close": 4980,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2454.response",
+          "sourceSha256": "81cb02f8d85a53e35ad6dcdb2b645cbca52957b7a6c077370c30cd550fc6a275",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2454",
+          "fetchedAt": "2026-10-06T09:19:30.690Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-10-02",
+          "close": 4950,
+          "sourceRow": 1,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2454.response",
+          "sourceSha256": "81cb02f8d85a53e35ad6dcdb2b645cbca52957b7a6c077370c30cd550fc6a275",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2454",
+          "fetchedAt": "2026-10-06T09:19:30.690Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-10-05",
+          "close": 5165,
+          "sourceRow": 2,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2454.response",
+          "sourceSha256": "81cb02f8d85a53e35ad6dcdb2b645cbca52957b7a6c077370c30cd550fc6a275",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2454",
+          "fetchedAt": "2026-10-06T09:19:30.690Z"
+        },
+        {
+          "code": "2454",
+          "date": "2026-10-06",
+          "close": 4920,
+          "sourceRow": 3,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2454.response",
+          "sourceSha256": "81cb02f8d85a53e35ad6dcdb2b645cbca52957b7a6c077370c30cd550fc6a275",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2454",
+          "fetchedAt": "2026-10-06T09:19:30.690Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-09-30",
+          "close": 333.5,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2382.response",
+          "sourceSha256": "61924d4e86d9f022bb65acca5c836ffdc717e437b95fe5d70f67ee5614b0145d",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2382",
+          "fetchedAt": "2026-10-06T11:35:05.035Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-10-01",
+          "close": 334,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2382.response",
+          "sourceSha256": "122ea5e99a06b905a0aa1e2a8e56977c28433654b12b4c18ec9dc21d267643d6",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2382",
+          "fetchedAt": "2026-10-06T09:19:30.713Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-10-02",
+          "close": 332,
+          "sourceRow": 1,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2382.response",
+          "sourceSha256": "122ea5e99a06b905a0aa1e2a8e56977c28433654b12b4c18ec9dc21d267643d6",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2382",
+          "fetchedAt": "2026-10-06T09:19:30.713Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-10-05",
+          "close": 331,
+          "sourceRow": 2,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2382.response",
+          "sourceSha256": "122ea5e99a06b905a0aa1e2a8e56977c28433654b12b4c18ec9dc21d267643d6",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2382",
+          "fetchedAt": "2026-10-06T09:19:30.713Z"
+        },
+        {
+          "code": "2382",
+          "date": "2026-10-06",
+          "close": 333.5,
+          "sourceRow": 3,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2382.response",
+          "sourceSha256": "122ea5e99a06b905a0aa1e2a8e56977c28433654b12b4c18ec9dc21d267643d6",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2382",
+          "fetchedAt": "2026-10-06T09:19:30.713Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-09-30",
+          "close": 1890,
+          "sourceRow": 19,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202609-2308.response",
+          "sourceSha256": "f3dbc6507524ff9fc56f4ad081795402875fbf4cdc41f25ca758e4b2df190c0f",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2308",
+          "fetchedAt": "2026-10-06T11:35:05.297Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-10-01",
+          "close": 1905,
+          "sourceRow": 0,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2308.response",
+          "sourceSha256": "2aef110f21b0beeb7b8c34139e1f036661db2717eb21747ab9ed068ddefee0fb",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2308",
+          "fetchedAt": "2026-10-06T09:19:30.728Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-10-02",
+          "close": 1885,
+          "sourceRow": 1,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2308.response",
+          "sourceSha256": "2aef110f21b0beeb7b8c34139e1f036661db2717eb21747ab9ed068ddefee0fb",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2308",
+          "fetchedAt": "2026-10-06T09:19:30.728Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-10-05",
+          "close": 2005,
+          "sourceRow": 2,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2308.response",
+          "sourceSha256": "2aef110f21b0beeb7b8c34139e1f036661db2717eb21747ab9ed068ddefee0fb",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2308",
+          "fetchedAt": "2026-10-06T09:19:30.728Z"
+        },
+        {
+          "code": "2308",
+          "date": "2026-10-06",
+          "close": 2050,
+          "sourceRow": 3,
+          "sourcePath": "research/daily-market/2026-10-06-strategy-supplement/daily-prices/raw/twse-STOCK_DAY-202610-2308.response",
+          "sourceSha256": "2aef110f21b0beeb7b8c34139e1f036661db2717eb21747ab9ed068ddefee0fb",
+          "sourceUrl": "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2308",
+          "fetchedAt": "2026-10-06T09:19:30.728Z"
+        }
+      ]
+    }
+  ],
+  "preservedExisting": {
+    "path": "server/data/morning-2026-10-06.json",
+    "sha256": "71b5294b2f484708e7506506688195eeb0e07c346d68c2feb9fe22797df4490a"
+  },
+  "limitations": [
+    "Source gaps reject the whole five-stock lesson; no interpolation, rounding, substituted OHLC or replacement symbols.",
+    "Unverified minute volume stays hidden; daily prices do not authenticate each historical minute.",
+    "Full private replay sources must not be copied into public assets or offline packages."
+  ]
+}

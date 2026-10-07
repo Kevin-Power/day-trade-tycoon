@@ -33,6 +33,11 @@ import type {
 } from "@/lib/morning";
 import { cn, formatMoney, formatTime } from "@/lib/utils";
 import { formatPrice } from "@/lib/market/ticks";
+import {
+  MORNING_EXERCISES,
+  getMorningExercise,
+  type MorningExercise,
+} from "@/lib/morning-exercises";
 
 const ACTION =
   "inline-flex min-h-12 min-w-0 items-center justify-center gap-2 whitespace-normal rounded-xl px-4 py-3 text-base font-semibold leading-relaxed disabled:cursor-not-allowed disabled:opacity-45";
@@ -68,7 +73,7 @@ async function readJsonResponse(response: Response): Promise<unknown> {
   }
 }
 
-function useMorningData() {
+function useMorningData(lessonId: string) {
   const [data, setData] = useState<MorningResponse | null>(null);
   const [busy, setBusy] = useState<MorningAction["action"] | "load" | null>("load");
   const [error, setError] = useState("");
@@ -78,99 +83,105 @@ function useMorningData() {
   const serial = useRef(0);
   const controller = useRef<AbortController | null>(null);
   const retryAction = useRef<MorningAction | undefined>(undefined);
+  const endpoint = lessonId
+    ? `/api/morning?lesson=${encodeURIComponent(lessonId)}`
+    : "/api/morning";
 
-  const request = useCallback(async (action?: MorningAction): Promise<MorningResponse | null> => {
-    if (locked.current) return null;
-    locked.current = true;
-    const requestSerial = ++serial.current;
-    const abort = new AbortController();
-    controller.current = abort;
-    const current = () => requestSerial === serial.current;
-    let timedOut = false;
-    const deadline = window.setTimeout(() => {
-      timedOut = true;
-      abort.abort();
-    }, 20_000);
-    setBusy(action?.action ?? "load");
-    setError("");
-    setNotice("");
-    retryAction.current = action;
-    try {
-      const response = await fetch("/api/morning", {
-        method: action ? "POST" : "GET",
-        credentials: "same-origin",
-        cache: "no-store",
-        signal: abort.signal,
-        ...(action
-          ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(action) }
-          : {}),
-      });
-      if (!current()) return null;
-      if (response.status === 401 || response.status === 403) {
-        setNeedsLogin(true);
-        setData(null);
-        retryAction.current = undefined;
-        return null;
-      }
-      if (response.status === 409) {
-        retryAction.current = undefined;
-        const latest = await fetch("/api/morning", {
+  const request = useCallback(
+    async (action?: MorningAction): Promise<MorningResponse | null> => {
+      if (locked.current) return null;
+      locked.current = true;
+      const requestSerial = ++serial.current;
+      const abort = new AbortController();
+      controller.current = abort;
+      const current = () => requestSerial === serial.current;
+      let timedOut = false;
+      const deadline = window.setTimeout(() => {
+        timedOut = true;
+        abort.abort();
+      }, 20_000);
+      setBusy(action?.action ?? "load");
+      setError("");
+      setNotice("");
+      retryAction.current = action;
+      try {
+        const response = await fetch(endpoint, {
+          method: action ? "POST" : "GET",
           credentials: "same-origin",
           cache: "no-store",
           signal: abort.signal,
+          ...(action
+            ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(action) }
+            : {}),
         });
         if (!current()) return null;
-        if (latest.status === 401 || latest.status === 403) {
+        if (response.status === 401 || response.status === 403) {
           setNeedsLogin(true);
           setData(null);
+          retryAction.current = undefined;
           return null;
         }
-        if (!latest.ok) throw new Error("進度已在另一個分頁更新，請重新載入最新進度。");
-        const fresh = readResponse(await readJsonResponse(latest));
+        if (response.status === 409) {
+          retryAction.current = undefined;
+          const latest = await fetch(endpoint, {
+            credentials: "same-origin",
+            cache: "no-store",
+            signal: abort.signal,
+          });
+          if (!current()) return null;
+          if (latest.status === 401 || latest.status === 403) {
+            setNeedsLogin(true);
+            setData(null);
+            return null;
+          }
+          if (!latest.ok) throw new Error("進度已在另一個分頁更新，請重新載入最新進度。");
+          const fresh = readResponse(await readJsonResponse(latest));
+          if (!current()) return null;
+          setData(fresh);
+          setNotice(
+            "進度已更新，可能有另一個分頁正在操作。已同步最新紀錄並停止自動播放；請核對後再繼續。",
+          );
+          return null;
+        }
+        const payload = await readJsonResponse(response);
         if (!current()) return null;
-        setData(fresh);
-        setNotice(
-          "進度已更新，可能有另一個分頁正在操作。已同步最新紀錄並停止自動播放；請核對後再繼續。",
-        );
+        if (!response.ok) {
+          const message =
+            payload &&
+            typeof payload === "object" &&
+            "message" in payload &&
+            typeof payload.message === "string"
+              ? payload.message
+              : "這次操作尚未完成，請重試或重新載入進度。";
+          throw new Error(message);
+        }
+        const next = readResponse(payload);
+        setData(next);
+        setNeedsLogin(false);
+        retryAction.current = undefined;
+        return next;
+      } catch (failure) {
+        if (current())
+          setError(
+            timedOut
+              ? "教室回應超過 20 秒，已停止等待。請核對進度，或重試同一筆操作。"
+              : failure instanceof TypeError
+                ? "暫時連不上教室，請重試同一筆操作或重新載入進度。"
+                : failure instanceof Error
+                  ? failure.message
+                  : "暫時連不上教室，請重試。",
+          );
         return null;
+      } finally {
+        window.clearTimeout(deadline);
+        if (current()) {
+          locked.current = false;
+          setBusy(null);
+        }
       }
-      const payload = await readJsonResponse(response);
-      if (!current()) return null;
-      if (!response.ok) {
-        const message =
-          payload &&
-          typeof payload === "object" &&
-          "message" in payload &&
-          typeof payload.message === "string"
-            ? payload.message
-            : "這次操作尚未完成，請重試或重新載入進度。";
-        throw new Error(message);
-      }
-      const next = readResponse(payload);
-      setData(next);
-      setNeedsLogin(false);
-      retryAction.current = undefined;
-      return next;
-    } catch (failure) {
-      if (current())
-        setError(
-          timedOut
-            ? "教室回應超過 20 秒，已停止等待。請核對進度，或重試同一筆操作。"
-            : failure instanceof TypeError
-              ? "暫時連不上教室，請重試同一筆操作或重新載入進度。"
-              : failure instanceof Error
-                ? failure.message
-                : "暫時連不上教室，請重試。",
-        );
-      return null;
-    } finally {
-      window.clearTimeout(deadline);
-      if (current()) {
-        locked.current = false;
-        setBusy(null);
-      }
-    }
-  }, []);
+    },
+    [endpoint],
+  );
 
   useEffect(() => {
     void request();
@@ -192,8 +203,19 @@ function useMorningData() {
   };
 }
 
-export function MorningPractice() {
+export function MorningPractice({
+  exerciseId,
+  lessonId,
+  onLessonChange,
+}: {
+  exerciseId?: string;
+  lessonId: string;
+  onLessonChange: (lessonId: string) => void;
+}) {
   const { user, isPending } = useCurrentUserState();
+  const [selectedExercise, setSelectedExercise] = useState(
+    () => getMorningExercise(exerciseId)?.id ?? MORNING_EXERCISES[0].id,
+  );
   if (isPending)
     return (
       <PageFrame>
@@ -202,11 +224,30 @@ export function MorningPractice() {
         </p>
       </PageFrame>
     );
-  return <MorningLesson key={user?.id ?? "guest"} />;
+  return (
+    <MorningLesson
+      key={`${user?.id ?? "guest"}:${lessonId}`}
+      lessonId={lessonId}
+      exerciseId={selectedExercise}
+      onLessonChange={onLessonChange}
+      onExerciseChange={setSelectedExercise}
+    />
+  );
 }
 
-function MorningLesson() {
-  const { data, busy, error, notice, needsLogin, request, retry } = useMorningData();
+function MorningLesson({
+  lessonId,
+  exerciseId,
+  onLessonChange,
+  onExerciseChange,
+}: {
+  lessonId: string;
+  exerciseId: string;
+  onLessonChange: (lessonId: string) => void;
+  onExerciseChange: (exerciseId: string) => void;
+}) {
+  const { data, busy, error, notice, needsLogin, request, retry } = useMorningData(lessonId);
+  const selectedExercise = exerciseId;
   const mode = useDisplayPreferences((value) => value.mode);
   const layout = useTerminalLayout(mode === "senior");
   const [selected, setSelected] = useState("");
@@ -223,6 +264,9 @@ function MorningLesson() {
   const sessionId = session?.id;
   const cursor = session?.cursor ?? 0;
   const completed = session?.completed ?? false;
+  const exercise = getMorningExercise(
+    session && !newPlan ? session.plan.exerciseId : selectedExercise,
+  );
   const atCheckpoint = cursor === 60 && !extended && !completed;
   const atEnd = Boolean(catalog && cursor >= catalog.maxCursor);
   const nextAdvanceAt = session?.nextAdvanceAt ?? 0;
@@ -379,7 +423,9 @@ function MorningLesson() {
     <PageFrame>
       <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 max-w-3xl">
-          <p className="text-base font-semibold text-brand">真實早盤練習 · 單日資料試行</p>
+          <p className="text-base font-semibold text-brand">
+            真實 K 線教室 · 選交易日，練自己的判斷
+          </p>
           <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
             先有自己的計畫，
             <br />
@@ -474,6 +520,68 @@ function MorningLesson() {
           )}
           {data && catalog && (
             <>
+              <section className={cn(CARD, "mb-6")} aria-labelledby="morning-lesson-picker">
+                <h2 id="morning-lesson-picker" className="text-xl font-semibold">
+                  這次，想練哪一課？
+                </h2>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <label className="block min-w-0 text-base font-medium">
+                    教材交易日
+                    <select
+                      className={cn(INPUT, "mt-2")}
+                      value={catalog.lessonId}
+                      disabled={Boolean(busy)}
+                      onChange={(event) => {
+                        setAuto(false);
+                        onLessonChange(event.target.value);
+                      }}
+                    >
+                      {(data.lessons ?? [catalog]).map((lesson) => (
+                        <option key={lesson.lessonId} value={lesson.lessonId}>
+                          {lesson.date} · {lesson.symbols.length} 檔 · {lesson.start}–{lesson.end}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block min-w-0 text-base font-medium">
+                    練習主題
+                    <select
+                      className={cn(INPUT, "mt-2")}
+                      value={
+                        session && !newPlan
+                          ? (session.plan.exerciseId ?? "legacy")
+                          : selectedExercise
+                      }
+                      disabled={Boolean(busy) || Boolean(session && !completed && !newPlan)}
+                      onChange={(event) => {
+                        setAuto(false);
+                        onExerciseChange(event.target.value);
+                        if (session) setNewPlan(true);
+                      }}
+                    >
+                      {session && !session.plan.exerciseId && !newPlan && (
+                        <option value="legacy">原有自由練習</option>
+                      )}
+                      {MORNING_EXERCISES.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.no} · {item.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <p className="mt-3 text-sm leading-relaxed text-muted">
+                  每個交易日各自保存進度；換日不會刪除原練習。完成本輪復盤後，可用新的計畫練其他主題。相同日期使用同一份真實行情，重練時可能已知道後續走勢。
+                </p>
+                {session && !completed && exerciseId && exerciseId !== session.plan.exerciseId && (
+                  <p role="status" className="mt-3 rounded-xl bg-bg p-3 text-base leading-relaxed">
+                    已恢復這個交易日尚未完成的練習。先保存本輪復盤，再切換你選的主題。
+                  </p>
+                )}
+              </section>
+              {exercise && (
+                <ExerciseGuide exercise={exercise} compact={Boolean(session && !newPlan)} />
+              )}
               <ol aria-label="練習流程" className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {["看背景與規則", "寫自己的計畫", "逐分鐘練習", "保存復盤"].map((label, index) => (
                   <li
@@ -505,8 +613,9 @@ function MorningLesson() {
                 >
                   <Background catalog={catalog} expanded={layout === "desktop"} />
                   <PlanForm
-                    key={`${catalog.lessonId}:${session?.id ?? "first"}`}
+                    key={`${catalog.lessonId}:${session?.id ?? "first"}:${selectedExercise}`}
                     catalog={catalog}
+                    exerciseId={selectedExercise}
                     busy={Boolean(busy)}
                     onStart={start}
                     onCancel={session ? () => setNewPlan(false) : undefined}
@@ -776,6 +885,33 @@ function PageFrame({ children }: { children: ReactNode }) {
   );
 }
 
+function ExerciseGuide({ exercise, compact }: { exercise: MorningExercise; compact: boolean }) {
+  const content = (
+    <>
+      <p className="mt-3 text-base leading-relaxed">{exercise.principle}</p>
+      <ol className="mt-4 list-decimal space-y-2 pl-5 text-base leading-relaxed text-muted">
+        {exercise.prep.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ol>
+    </>
+  );
+  return compact ? (
+    <details className={cn(CARD, "mb-6")}>
+      <summary className="min-h-12 cursor-pointer text-lg font-semibold">
+        {exercise.no} · {exercise.title} · 本輪重點
+      </summary>
+      {content}
+    </details>
+  ) : (
+    <section className={cn(CARD, "mb-6 border-brand/25 bg-brand/5")} aria-label="本課練習重點">
+      <p className="text-sm font-semibold text-brand">{exercise.no} · 真實行情練習</p>
+      <h2 className="mt-2 text-xl font-semibold">{exercise.title}</h2>
+      {content}
+    </section>
+  );
+}
+
 function Background({
   catalog,
   expanded = false,
@@ -840,16 +976,19 @@ function Background({
 
 function PlanForm({
   catalog,
+  exerciseId,
   busy,
   onStart,
   onCancel,
 }: {
   catalog: MorningCatalog;
+  exerciseId: string;
   busy: boolean;
   onStart: (plan: MorningPlan) => Promise<void>;
   onCancel?: () => void;
 }) {
   const [plan, setPlan] = useState<MorningPlan>({
+    exerciseId,
     bias: "observe",
     focusCode: catalog.symbols[0]?.code ?? "",
     reason: "",
@@ -1520,6 +1659,7 @@ function ReflectionForm({
 }) {
   const [reflection, setReflection] = useState("");
   const [invalid, setInvalid] = useState(false);
+  const exercise = getMorningExercise(session.plan.exerciseId);
   return (
     <form
       className="mt-5 space-y-4"
@@ -1538,6 +1678,16 @@ function ReflectionForm({
         檔 · 待處理委託 {session.orders.filter((item) => item.status === "pending").length}{" "}
         筆。請先核對下方紀錄。
       </p>
+      {exercise && (
+        <div className="rounded-xl border border-border p-4">
+          <h3 className="text-lg font-semibold">{exercise.title} · 復盤想一想</h3>
+          <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-relaxed text-muted">
+            {exercise.review.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <label className="block text-base font-medium">
         這一輪有沒有依計畫等待？觀察或操作後，我想調整哪一件事？
         <textarea
@@ -1577,6 +1727,7 @@ function Completion({
   busy: boolean;
   onRestart: () => void;
 }) {
+  const exercise = getMorningExercise(session.plan.exerciseId);
   const waited =
     session.cursor > 0 &&
     (session.orders.length === 0 ||
@@ -1589,6 +1740,11 @@ function Completion({
   return (
     <section className="mb-6 rounded-2xl border border-brand/25 bg-brand/5 p-5 sm:p-6">
       <p className="text-base font-semibold text-brand">已保存 · 這是操作足跡，不是獲利能力評分</p>
+      {exercise && (
+        <h2 className="mt-3 text-xl font-semibold">
+          {exercise.no} · {exercise.title}，已完成本輪復盤
+        </h2>
+      )}
       <ul className="mt-4 grid gap-3 sm:grid-cols-3">
         {achievements.map((item) => (
           <li

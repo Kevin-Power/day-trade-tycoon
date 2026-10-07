@@ -23,7 +23,7 @@ function forbiddenPath(path) {
   let text = normalizedText(path);
   try { text = decodeURIComponent(text); } catch { /* Literal file names may contain %. */ }
   return /(?:^|\/)(?:research|raw|sourcephotos|morning[-_]?data)(?:\/|$)/i.test(text)
-    || /(?:^|\/)morning-2026-10-06\.json(?:$|[?#])/i.test(text)
+    || /(?:^|\/)morning-\d{4}-\d{2}-\d{2}\.json(?:$|[?#])/i.test(text)
     || /(?:^|\/)server\/data(?:\/|$)/i.test(text);
 }
 
@@ -164,11 +164,20 @@ function positiveControls(fingerprints, markers) {
   assert.equal(forbiddenPath('assets/morning-page-client.js'), false);
 }
 
+function privateDatasets(root) {
+  const files = readdirSync(join(root, 'server/data')).filter(name => /^morning-\d{4}-\d{2}-\d{2}\.json$/.test(name)).sort();
+  assert.ok(files.includes(basename(datasetPath)), 'The original lesson must remain available.');
+  return files.map(name => {
+    const path = `server/data/${name}`;
+    const bytes = readFileSync(join(root, path));
+    return { path, bytes, dataset: JSON.parse(bytes.toString('utf8')) };
+  });
+}
+
 export function verifyMorningBuild(root = workspace) {
-  const datasetBytes = readFileSync(join(root, datasetPath));
-  const dataset = JSON.parse(datasetBytes.toString('utf8'));
-  const fingerprints = tailFingerprints(dataset);
-  const markers = [datasetPath, 'morning-2026-10-06.json', 'server/data/', ...(dataset.provenance?.sourcePaths ?? [])];
+  const datasets = privateDatasets(root);
+  const fingerprints = datasets.flatMap(item => tailFingerprints(item.dataset));
+  const markers = ['server/data/', ...datasets.flatMap(item => [item.path, basename(item.path), ...(item.dataset.provenance?.sourcePaths ?? [])])];
   assert.ok(markers.every(marker => typeof marker === 'string' && marker.length > 0), 'Invalid private source markers.');
   positiveControls(fingerprints, markers);
   const failures = [];
@@ -226,8 +235,8 @@ export function verifyMorningBuild(root = workspace) {
   if (failures.length) throw new Error(`Private morning data leaked into distributable files:\n${[...new Set(failures)].join('\n')}`);
   return {
     ok: true,
-    datasetSha256: createHash('sha256').update(datasetBytes).digest('hex'),
-    symbols: fingerprints.map(item => item.code),
+    datasets: datasets.map(item => ({ path: item.path, sha256: createHash('sha256').update(item.bytes).digest('hex') })),
+    symbols: [...new Set(fingerprints.map(item => item.code))],
     fingerprint: 'last two consecutive minute OHLC bars per symbol; object/array/string/minified forms',
     ...stats,
     offlineArchives: archiveHashes,
@@ -273,9 +282,9 @@ function fixtureZip(content) {
 /** Reproducible end-to-end negative controls; production build files are never written. */
 export function mutationSelfTest(root = workspace) {
   const fixture = mkdtempSync(join(tmpdir(), 'verify-morning-build-'));
-  const datasetBytes = readFileSync(join(root, datasetPath));
-  const dataset = JSON.parse(datasetBytes.toString('utf8'));
-  const fingerprints = tailFingerprints(dataset);
+  const datasets = privateDatasets(root);
+  const dataset = datasets.find(item => item.path === datasetPath).dataset;
+  const fingerprints = datasets.flatMap(item => tailFingerprints(item.dataset));
   const safeUi = 'export const route = "/morning"; export const label = "真實早盤練習";';
   const baselineZip = fixtureZip(safeUi);
   const checks = [];
@@ -295,7 +304,7 @@ export function mutationSelfTest(root = workspace) {
     }
   };
   try {
-    put(datasetPath, datasetBytes);
+    for (const item of datasets) put(item.path, item.bytes);
     put('public/client.js', safeUi);
     put('.output/public/assets/morning-page.js', safeUi);
     put('downloads/daytrade-tycoon-offline.zip', baselineZip);

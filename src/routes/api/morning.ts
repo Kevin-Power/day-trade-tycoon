@@ -16,7 +16,6 @@ async function handle(request: Request): Promise<Response> {
   try {
     if (!checkGateSession(request)) throw new MorningError(403, "請先進入教室");
     assertInquiryOrigin(request, readAuthConfig().origin, request.method === "POST");
-    if (new URL(request.url).search) throw new MorningError(400, "請由課程頁面讀取自己的練習");
     if (!sourceRate.take(gateRateKey(request.headers)) || active >= 12) throw new MorningError(429, "操作較頻繁，請稍候再試");
     active++; counted = true;
     const { auth } = await import("@/lib/auth/server");
@@ -24,13 +23,13 @@ async function handle(request: Request): Promise<Response> {
     if (!session?.user) throw new MorningError(401, "請先登入學員帳號");
     if (!userRate.take(session.user.id)) throw new MorningError(429, "操作較頻繁，請稍候再試");
     const input = request.method === "POST" ? await readCourseInquiryJson(request) : undefined;
-    const [{ withSqlTransaction }, { morningCatalog, morningBars }, { loadMorningSession, mutateMorningSession }] = await Promise.all([
+    const [{ withSqlTransaction }, { selectMorningSource, morningLessons }, { loadMorningSession, mutateMorningSession }] = await Promise.all([
       import("@/lib/db"), import("@/lib/morning-data.server"), import("@/lib/morning-session.server"),
     ]);
-    const source = { catalog: morningCatalog, bars: morningBars };
+    const source = selectMorningSource(new URL(request.url).searchParams);
     return reply(await withSqlTransaction(sql => request.method === "POST"
-      ? mutateMorningSession(sql, session.user.id, input, source)
-      : loadMorningSession(sql, session.user.id, source)));
+      ? mutateMorningSession(sql, session.user.id, input, source, Date.now, morningLessons)
+      : loadMorningSession(sql, session.user.id, source, morningLessons)));
   } catch (error) {
     if (error instanceof CourseInquiryError)
       return reply({ ok: false, message: "請從本網站重試早盤練習操作" }, error.status);

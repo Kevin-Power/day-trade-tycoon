@@ -6,9 +6,9 @@ import { DisplayControls } from "@/components/display-controls";
 import { SimChip } from "@/components/provenance";
 import { cn } from "@/lib/utils";
 import { useGate } from "@/lib/gate/context";
-import { COURSE_PATH } from "@/lib/game/learning-path";
+import { MORNING_EXERCISES } from "@/lib/morning-exercises";
 
-export const MANUAL_VERSION = "2026-10-06-realk";
+export const MANUAL_VERSION = "2026-10-07-realk2";
 const PDF_HREF = `/daytrade-tycoon-manual.pdf?v=${MANUAL_VERSION}`;
 const GITHUB = "https://github.com/Kevin-Power/day-trade-tycoon";
 
@@ -104,7 +104,7 @@ function Cover() {
       <ul className="mt-6 flex flex-wrap gap-2 text-micro">
         <Chip>真實分鐘 K · 紙上委託</Chip>
         <Chip tone="warn">實盤尚未接線</Chip>
-        <Chip>單日教材 2026/10/06</Chip>
+        <Chip>兩日行情 · 六個練習主題</Chip>
         <Chip>非投資建議</Chip>
       </ul>
     </section>
@@ -142,19 +142,19 @@ function Brief() {
           <tbody>
             <Row
               k="目前開放"
-              v="真實早盤練習：2026/10/06、5 檔股票、09:00–10:30，共 450 根來源分鐘 K。不是全日、全市場或每日自動更新。"
+              v="真實早盤練習：2026/10/05、10/06，每日 5 檔各 90 根，共 900 根分鐘 K。回放時段 09:00–10:30，不是全日、全市場或每日自動更新。"
             />
             <Row
               k="練習方式"
-              v="登入後，寫計畫、逐分鐘回放、紙上委託、保存復盤。資料只揭露目前已完成分鐘。"
+              v="登入後選交易日與練習主題，寫計畫、逐分鐘回放、紙上委託、保存復盤。六個主題共用兩日行情，只揭露目前已完成分鐘。"
             />
             <Row
               k="行情來源"
               v="Yahoo Finance 歷史 1 分鐘 OHLC；保留來源開、高、低、收，不用日資料或大盤路徑生成個股 K 線。"
             />
             <Row
-              k="既有課程"
-              v="舊課綱與歷史紀錄保留，待補對應日期的真實分鐘行情。原生成行情盤已停止啟動。"
+              k="舊情境與紀錄"
+              v="舊情境仍停止啟動，歷史紀錄保留。六個新主題不是把舊劇本換成原日真實 K，也不代表六種預定走勢。"
             />
             <Row k="服務範圍" v="歷史行情教學與紙上模擬，沒有券商實盤下單、真錢交易或保證獲利。" />
           </tbody>
@@ -168,8 +168,7 @@ function What() {
   return (
     <Section id="what" n="01" title="這是什麼、給誰用">
       <p className="text-base leading-7 text-muted">
-        完成教室入場及個人帳號登入後，從大廳選「開始真實 K
-        線練習」。適合講師帶班，也可自行逐步觀察；等待條件出現可以是一次練習的選擇。
+        完成教室入場及個人帳號登入後，從大廳選擇練習主題，再選交易日。適合講師帶班，也可自行逐步觀察；等待條件出現可以是一次練習的選擇。
       </p>
       <div className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
         <Fact
@@ -178,11 +177,11 @@ function What() {
         />
         <Fact
           label="真實 K 回放"
-          body="目前只有已提供的單日、5 檔、90 分鐘資料；切換商品共用同一個時鐘，不能預看尚未揭露的 K 線。"
+          body="兩個交易日各有 5 檔、90 分鐘資料；同一天切換商品共用一個時鐘，不能預看尚未揭露的 K 線。"
         />
         <Fact
           label="紀錄分開保存"
-          body="真實早盤進度及復盤由個人帳號保存，重新進入保持暫停。舊版本機紀錄仍在大廳，兩套紀錄不混算。"
+          body="真實早盤依帳號及交易日保存主題、計畫、進度與復盤；換日保留進度，回來保持暫停。舊版本機紀錄仍在大廳，兩套紀錄不混算。"
         />
       </div>
     </Section>
@@ -193,8 +192,8 @@ function Play() {
   return (
     <Section id="play" n="02" title="學員怎麼玩">
       <ol className="space-y-5 text-base leading-7">
-        <Step n="1" title="先讀背景，寫下計畫">
-          進入真實早盤，查看背景與規則。背景是事後蒐集的歷史參考，未驗證每筆在當日 09:00
+        <Step n="1" title="選交易日與主題，寫下計畫">
+          先選 2026/10/05 或 10/06 及本輪主題，查看背景與規則。背景是事後蒐集的歷史參考，未驗證每筆在當日 09:00
           前已可取得。選擇觀察方向與商品，填寫理由、進場條件及停止條件，再保存計畫。
         </Step>
         <Step n="2" title="逐分鐘看真實 K">
@@ -214,6 +213,9 @@ function Play() {
         </Step>
       </ol>
       <p className="mt-5 text-base leading-7 text-muted">
+        換日不會刪除原進度，回到原日期會恢復該日最新一輪與原主題。已有未完成練習時，先完成本輪復盤，再寫新計畫選另一主題；從大廳點選主題不會覆寫原計畫。
+      </p>
+      <p className="mt-3 text-base leading-7 text-muted">
         網路回覆失敗時，依頁面提示重試同一筆操作或重新載入進度；先確認已保存的狀態，再做下一步。不同分頁同時操作時，系統會要求重新載入最新進度。
       </p>
       <p className="mt-3 text-base leading-7 text-muted">
@@ -226,29 +228,28 @@ function Play() {
 
 function Lessons() {
   return (
-    <Section id="lessons" n="03" title="教材課綱">
+    <Section id="lessons" n="03" title="六個真實回放練習">
       <p className="text-base leading-7 text-muted">
-        以下是保留的原有課綱，對應
-        2026/08/24–08/26；目前待補真實個股分鐘行情，不能啟動或重練。上方真實早盤使用另一份
-        2026/10/06 教材，不代表這些課程已完成真實行情切換。
+        六個主題共用 2026/10/05、10/06 的真實行情，沒有預定走勢或標準進場答案。只依當下已揭露的 K
+        線與昨收判斷；條件未成立可以等待，整段不交易也能完成練習。
       </p>
       <div className="mt-5 overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-xl text-left text-base">
           <thead className="bg-surface-2 text-muted">
             <tr>
-              <th className="px-3 py-3">原課與階段</th>
-              <th className="px-3 py-3">課綱目標</th>
-              <th className="px-3 py-3">原操作小任務</th>
+              <th className="px-3 py-3">練習主題</th>
+              <th className="px-3 py-3">練習原則</th>
+              <th className="px-3 py-3">復盤想一想</th>
             </tr>
           </thead>
           <tbody>
-            {COURSE_PATH.map((course, index) => (
+            {MORNING_EXERCISES.map((exercise) => (
               <Tr
-                key={course.id}
+                key={exercise.id}
                 cells={[
-                  (index === 5 ? "期末練習" : "第 " + (index + 1) + " 課") + " · " + course.stage,
-                  course.title,
-                  course.steps.join(" "),
+                  exercise.no + " · " + exercise.title,
+                  exercise.principle,
+                  exercise.review.join(" "),
                 ]}
               />
             ))}
@@ -256,7 +257,7 @@ function Lessons() {
         </table>
       </div>
       <p className="mt-4 text-base leading-7 text-muted">
-        歷史復盤仍可回看，也可保存下一次的個人練習重點；不會用生成行情繼續這些課程。
+        舊版 2026/08/24–08/26 的劇本情境仍停用；歷史復盤保留，不會重新標成真實行情成果。新的六個主題也不代表舊情境已取得原日真實分鐘資料。
       </p>
     </Section>
   );
@@ -296,7 +297,7 @@ function Data() {
         </table>
       </div>
       <p className="mt-4 text-base leading-7 text-muted">
-        這是單日資料試行；來源若缺漏，需先補齊並核對，不能用日開高低收推算一條分鐘路徑代替。
+        目前只提供上述兩個交易日；來源若缺漏，需先補齊並核對，不能用日開高低收推算一條分鐘路徑代替。
       </p>
     </Section>
   );
@@ -330,7 +331,7 @@ function Offline() {
       </p>
       <p className="mt-4 text-base leading-7 text-muted">
         要進行真實 K
-        練習，請連線進入正式教室並登入個人帳號。舊版本機歷史紀錄保存在原瀏覽器；換裝置或清除資料可能無法再讀取。
+        練習，請連線後按大廳主題卡的「連線開始練習」，前往正式教室並登入個人帳號。舊版本機歷史紀錄保存在原瀏覽器；換裝置或清除資料可能無法再讀取。
       </p>
     </Section>
   );
@@ -352,7 +353,7 @@ function Rules() {
             />
             <Row
               k="時間"
-              v="2026/10/06 09:00–10:30；只揭露完整分鐘。10:00 暫停提示後可繼續觀察；最後一分鐘之後不能再前進。"
+              v="2026/10/05、10/06 各為 09:00–10:30；只揭露完整分鐘。10:00 暫停提示後可繼續觀察；最後一分鐘之後不能再前進。"
             />
             <Row
               k="教材手續費"
@@ -392,7 +393,7 @@ function Agenda() {
     <Section id="agenda" n="09" title="上課前的五件事">
       <ol className="space-y-5 text-base leading-7">
         <Step n="1" title="確認教材範圍">
-          向講師確認開課安排。本版實作只開放 2026/10/06 的 5 檔早盤教材；舊課綱待補真實分鐘資料。
+          向講師確認開課安排。本版六個新主題共用 2026/10/05、10/06 的 5 檔早盤教材；舊劇本情境仍停用。
         </Step>
         <Step n="2" title="確認自己的帳號">
           入場碼與個人帳號用途不同；註冊不代表繳費，講師權限由管理員核准。課程安排與費用請看{" "}

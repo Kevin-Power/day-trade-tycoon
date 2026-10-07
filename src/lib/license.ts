@@ -1,6 +1,6 @@
 /** Buyer-facing classroom package copy. No invented NT$ prices. */
 
-export const LICENSE_VERSION = "2026-10-06";
+export const LICENSE_VERSION = "2026-10-07";
 export const LICENSE_QUOTE = "洽教室／講師報價";
 export const LICENSE_TITLE = "從第一筆有計畫的操作開始";
 
@@ -8,12 +8,12 @@ export const LICENSE_INCLUDED = [
   {
     id: "sim",
     title: "模擬教室",
-    body: "以已核對來源的歷史 1 分鐘 K 線逐步練習，核對紙上委託、庫存及交易成本。目前提供 2026/10/06 的 5 檔早盤教材；沒有真實五檔或逐筆資料。",
+    body: "以已核對來源的歷史 1 分鐘 K 線逐步練習，核對紙上委託、庫存及交易成本。可選 2026/10/05、10/06，每日 5 檔早盤教材；沒有真實五檔或逐筆資料。",
   },
   {
     id: "curriculum",
     title: "課綱",
-    body: "課綱分為入門操作、風險紀律與自主練習。原六組情境正在補齊真實行情，尚未開放重練；目前由真實早盤教材練習計畫、等待與復盤。",
+    body: "六個真實 K 練習主題涵蓋計畫委託、部位、出場、N 字觀察、等待與自主復盤，共用兩個已核對交易日。原生成情境仍保留為歷史紀錄，不再啟動。",
   },
   {
     id: "offline",

@@ -54,9 +54,10 @@ describe("teaching symbol SSOT", () => {
   it("keeps archived counts without advertising those daily-only names as active minute data", () => {
     assert.equal(teachingOhlcNote(), "釘在當日 O/H/L/C。24 檔權值與觀察股");
     assert.equal(teachingUniverseLine(), "自選 24 檔（上市 22、上櫃 2）");
-    assert.match(lobby, /teachingUniverseLine/);
+    assert.doesNotMatch(lobby, /teachingUniverseLine/);
+    assert.match(lobby, /MORNING_EXERCISES/);
     assert.doesNotMatch(manual, /teachingOhlcNote/);
-    assert.match(manual, /待補.*真實個股分鐘行情/);
+    assert.match(manual, /舊版.*劇本情境仍停用/);
     assert.equal(manual.includes("17 檔權值與觀察股"), false);
   });
 });

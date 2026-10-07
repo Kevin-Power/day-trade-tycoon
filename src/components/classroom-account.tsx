@@ -184,7 +184,8 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
             </div>
           </div>
           <p className="mt-3 text-base leading-7 text-muted">
-            以上只計舊版課程紀錄，不包含真實 K 練習，也不是目前的課程完成進度。舊課待補真實行情，暫不開放重練。
+            以上只計舊版課程紀錄，不包含真實 K
+            練習。新版六個主題請由大廳進入，依交易日查看真實回放進度；舊生成情境不再啟動。
           </p>
           {latest && (
             <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -299,7 +300,8 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
             <div className="mt-5 rounded-xl border border-dashed border-border p-5">
               <h3 className="text-lg font-semibold">目前沒有舊版課程復盤</h3>
               <p className="mt-2 text-base leading-7 text-muted">
-                請從真實 K 線練習開始：先寫計畫，再逐分鐘觀察與操作，最後保存復盤。新進度與紀錄會在真實早盤頁查看，不計入這裡的舊課統計。
+                請從真實 K
+                線練習開始：先寫計畫，再逐分鐘觀察與操作，最後保存復盤。新進度與紀錄會在真實早盤頁查看，不計入這裡的舊課統計。
               </p>
               <RealCandlesLink className="mt-4">開始真實 K 線練習</RealCandlesLink>
             </div>

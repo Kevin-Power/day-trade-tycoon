@@ -1,6 +1,7 @@
 import type { Bar } from "./game/types";
 
 export type MorningPlan = {
+  exerciseId?: string;
   bias: "observe" | "bullish" | "bearish";
   focusCode: string;
   reason: string;
@@ -20,6 +21,17 @@ export type MorningCatalog = {
   notices: string[];
   videoUrl: string | null;
 };
+export type MorningLessonSummary = Pick<MorningCatalog, "lessonId" | "title" | "date" | "start" | "end" | "maxCursor"> & {
+  symbols: { code: string; name: string }[];
+};
+/** Public selection metadata only: no source bars or unrevealed market context. */
+export function summarizeMorningLesson(catalog: MorningCatalog): MorningLessonSummary {
+  return {
+    lessonId: catalog.lessonId, title: catalog.title, date: catalog.date,
+    start: catalog.start, end: catalog.end, maxCursor: catalog.maxCursor,
+    symbols: catalog.symbols.map(({ code, name }) => ({ code, name })),
+  };
+}
 export type MorningOrder = {
   id: string; code: string; side: "buy" | "sell"; shares: number;
   status: "pending" | "filled" | "cancelled" | "rejected";
@@ -38,7 +50,7 @@ export type MorningState = {
   completed: boolean; reflection: string;
   nextAdvanceAt: number;
 };
-export type MorningResponse = { catalog: MorningCatalog; state: MorningState | null };
+export type MorningResponse = { catalog: MorningCatalog; state: MorningState | null; lessons?: MorningLessonSummary[] };
 export type MorningAction =
   | { action: "start"; requestId: string; plan: MorningPlan }
   | { action: "advance"; requestId: string; id: string; expectedRevision: number }

@@ -21,7 +21,7 @@ import { DisplayControls } from "@/components/display-controls";
 import { SimChip } from "@/components/provenance";
 import { DISCLAIMER } from "@/lib/provenance";
 import { useGate } from "@/lib/gate/context";
-import { COURSE_PATH } from "@/lib/game/learning-path";
+import { MORNING_EXERCISES } from "@/lib/morning-exercises";
 import {
   LICENSE_EXCLUDED,
   LICENSE_INCLUDED,
@@ -176,7 +176,7 @@ function Cover({ unlocked }: { unlocked: boolean }) {
           <div className="flex items-baseline gap-2">
             <dt className="order-2 text-sm text-muted">規劃課程任務</dt>
             <dd className="font-mono text-3xl font-medium text-brand">
-              {String(COURSE_PATH.length).padStart(2, "0")}
+              {String(MORNING_EXERCISES.length).padStart(2, "0")}
             </dd>
           </div>
         </dl>
@@ -252,11 +252,12 @@ function Courses() {
   return (
     <Section id="courses" eyebrow="三階段 · 六組課程任務" title="從跟著做，到自己完成復盤">
       <p className="max-w-3xl text-base leading-8 text-muted">
-        以下是課綱規劃。六組舊情境正等待真實行情補齊，暫停啟動。目前可練習 2026/10/06、5 檔股票的真實早盤 K 線；實際堂數、上課節奏與講師回饋安排，由開課班級確認。
+        六個主題已接上真實歷史 K 線，可選 2026/10/05 或 10/06，每日 5
+        檔股票、09:00–10:30。主題共用這兩日行情，並非六種預設走勢；實際堂數、上課節奏與講師回饋安排，由開課班級確認。
       </p>
       <div className="mt-8 space-y-8">
-        {STAGES.map((stage) => {
-          const courses = COURSE_PATH.filter((course) => course.stage === stage.title);
+        {STAGES.map((stage, stageIndex) => {
+          const courses = MORNING_EXERCISES.slice(stageIndex * 2, stageIndex * 2 + 2);
           return (
             <section
               key={stage.title}
@@ -276,7 +277,7 @@ function Courses() {
               </div>
               <div className={`grid min-w-0 gap-4 ${courses.length > 1 ? "md:grid-cols-2" : ""}`}>
                 {courses.map((course) => {
-                  const index = COURSE_PATH.indexOf(course);
+                  const index = MORNING_EXERCISES.indexOf(course);
                   return (
                     <section
                       key={course.id}
@@ -289,24 +290,30 @@ function Courses() {
                         >
                           {String(index + 1).padStart(2, "0")}
                         </span>
-                        <span>任務 {String(index + 1).padStart(2, "0")} · 待補真實行情</span>
+                        <span>任務 {String(index + 1).padStart(2, "0")} · 真實 K 練習</span>
                       </div>
                       <h4 className="mt-4 text-xl font-semibold leading-snug">{course.title}</h4>
-                      <p className="mt-3 text-base leading-7 text-muted">{course.focus}</p>
+                      <p className="mt-3 text-base leading-7 text-muted">{course.principle}</p>
                       <details className="mt-4 border-t border-border pt-1">
                         <summary className="min-h-12 cursor-pointer py-3 text-base font-medium text-brand">
                           看這一課的三個步驟
                         </summary>
                         <ol className="list-decimal space-y-2 pl-6 text-base leading-7 text-muted">
-                          {course.steps.map((step) => (
+                          {course.prep.map((step) => (
                             <li key={step}>{step}</li>
                           ))}
                         </ol>
                         <p className="mt-4 rounded-xl bg-surface-2 p-3 text-base leading-7">
                           <span className="font-medium">復盤想一想：</span>
-                          {course.reflection}
+                          {course.review[0]}
                         </p>
                       </details>
+                      <a
+                        className="academy-button-primary mt-4 !min-h-12"
+                        href={`${import.meta.env.BASE_URL === "./" ? "https://rich.yilutek.com" : ""}/morning?exercise=${encodeURIComponent(course.id)}`}
+                      >
+                        練習這個主題 <ArrowRight className="size-4" aria-hidden />
+                      </a>
                     </section>
                   );
                 })}

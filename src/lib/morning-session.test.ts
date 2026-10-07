@@ -8,6 +8,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { loadMorningSession, mutateMorningSession } from "./morning-session.server.ts";
 import type { MorningSource } from "./morning-engine.ts";
 import type { Sql } from "./db.ts";
+import { summarizeMorningLesson } from "./morning.ts";
 
 function sqlFor(db: { query: <T>(query: string, params?: unknown[]) => Promise<{ rows: T[] }> }): Sql {
   const sql = (async <T>(strings: TemplateStringsArray, ...values: unknown[]) =>
@@ -29,17 +30,25 @@ test("real SQL replay: owner, consent, atomic revisions, request idempotence, pe
     for (const id of ["alice", "bob", "unconsented"])
       await db.query('INSERT INTO "user"(id,name,email,"emailVerified") VALUES($1,$1,$2,FALSE)', [id, id + "@example.invalid"]);
     await db.exec("INSERT INTO classroom_profiles(user_id,display_name,role,class_code,tos_accepted_at) VALUES ('alice','A','student','A',NOW()),('bob','B','student','B',NOW()),('unconsented','U','student','A',NULL)");
-    const read = (user = "alice") => db.transaction(tx => loadMorningSession(sqlFor(tx), user, source));
-    const act = (input: unknown, now = 0, user = "alice") => db.transaction(tx => mutateMorningSession(sqlFor(tx), user, input, source, now));
-    const start = { action: "start", requestId: randomUUID(), plan: { bias: "observe", focusCode: "2330", reason: "先觀察", entry: "條件成立再進場", stop: "理由消失時離場" } };
+    const otherSource = structuredClone(source);
+    otherSource.catalog.lessonId = "test-source-another-date-and-hash";
+    otherSource.catalog.date = "2026-10-05";
+    for (const bar of otherSource.bars["2330"]) { bar.o += 10; bar.h += 10; bar.l += 10; bar.c += 10; }
+    const lessons = [source, otherSource].map(value => summarizeMorningLesson(value.catalog));
+    const read = (user = "alice", selectedSource = source) => db.transaction(tx => loadMorningSession(sqlFor(tx), user, selectedSource, lessons));
+    const act = (input: unknown, now = 0, user = "alice", selectedSource = source) =>
+      db.transaction(tx => mutateMorningSession(sqlFor(tx), user, input, selectedSource, now, lessons));
+    const start = { action: "start", requestId: randomUUID(), plan: { exerciseId: "first-order", bias: "observe", focusCode: "2330", reason: "先觀察", entry: "條件成立再進場", stop: "理由消失時離場" } };
     await assert.rejects(read("unconsented"), { status: 403 });
     await assert.rejects(act(start, 0, "unconsented"), { status: 403 });
     assert.equal((await read()).state, null);
+    assert.deepEqual((await read()).lessons, lessons);
+    await assert.rejects(act({ ...start, plan: { ...start.plan, exerciseId: "unapproved" } }), { status: 400 });
     const first = (await act(start)).state!;
     assert.equal(first.cursor, 0); assert.deepEqual(first.bars["2330"], []);
     const duplicates = await Promise.all([act(start), act(start)]);
     assert.ok(duplicates.every(value => value.state!.id === first.id));
-    assert.equal((await act({ ...start, requestId: randomUUID(), plan: { ...start.plan, reason: "不可以覆寫原判斷" } })).state!.plan.reason, "先觀察");
+    assert.deepEqual((await act({ ...start, requestId: randomUUID(), plan: { ...start.plan, exerciseId: "review", reason: "不可以覆寫原判斷" } })).state!.plan, start.plan);
     assert.equal((await read("bob")).state, null);
     const advance = { action: "advance", requestId: randomUUID(), id: first.id, expectedRevision: 0 };
     await assert.rejects(act(advance, 1000, "bob"), { status: 404 });
@@ -70,6 +79,31 @@ test("real SQL replay: owner, consent, atomic revisions, request idempotence, pe
     assert.equal((await act(start, 3100)).state!.id, first.id);
     assert.equal((await read()).state!.id, second.id);
     assert.equal((await db.query<{ count: number }>("SELECT count(*)::int AS count FROM morning_sessions")).rows[0].count, 2);
+
+    // Each approved source has its own active run; a known request ID must never
+    // become authorization to apply that request to another date/source hash.
+    assert.equal((await read("alice", otherSource)).state, null);
+    await assert.rejects(act(start, 3200, "alice", otherSource), { status: 409 });
+    const otherStart = { ...start, requestId: randomUUID(), plan: { ...start.plan, exerciseId: "patience" } };
+    let otherState = (await act(otherStart, 3200, "alice", otherSource)).state!;
+    assert.notEqual(otherState.id, second.id);
+    assert.equal(otherState.lessonId, otherSource.catalog.lessonId);
+    assert.equal(otherState.plan.exerciseId, "patience");
+    await assert.rejects(act({ action: "advance", requestId: randomUUID(), id: second.id, expectedRevision: 0 }, 4200, "alice", otherSource), { status: 404 });
+    const otherAdvance = { action: "advance", requestId: randomUUID(), id: otherState.id, expectedRevision: 0 };
+    await assert.rejects(act(otherAdvance, 4200, "alice"), { status: 404 });
+    await assert.rejects(act(otherAdvance, 4200, "bob", otherSource), { status: 404 });
+    otherState = (await act(otherAdvance, 4200, "alice", otherSource)).state!;
+    assert.deepEqual(otherState.bars["2330"], otherSource.bars["2330"].slice(0, 1));
+    assert.deepEqual((await read()).state, second);
+    assert.equal((await read("bob", otherSource)).state, null);
+    await assert.rejects(act(otherAdvance, 5000), { status: 409 });
+    await db.close();
+    db = new PGlite({ dataDir: join(directory, "pglite") });
+    assert.deepEqual((await read()).state, second);
+    assert.deepEqual((await read("alice", otherSource)).state, otherState);
+    assert.deepEqual((await act(otherAdvance, 6000, "alice", otherSource)).state, otherState);
+    assert.equal((await act(start, 6100)).state!.id, first.id, "Legacy/default lesson retries retain the original run");
   } finally {
     await db.close();
     const target = resolve(directory);

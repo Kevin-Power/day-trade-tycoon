@@ -18,6 +18,7 @@ const text = z.string().trim().min(1).max(600)
     return code !== 127 && (code >= 32 || code === 9 || code === 10 || code === 13);
   }));
 const planSchema = z.object({
+  exerciseId: z.enum(["first-order", "position", "exit", "n-breakout", "patience", "review"]).optional(),
   bias: z.enum(["observe", "bullish", "bearish"]), focusCode: z.string().regex(/^\d{4,6}$/),
   reason: text, entry: text, stop: text,
 }).strict();

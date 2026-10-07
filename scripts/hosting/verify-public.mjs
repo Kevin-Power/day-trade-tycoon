@@ -46,6 +46,17 @@ assert.equal(inquiryValidation.status, 400);
 assert.equal(inquiryValidation.headers.getSetCookie().length, 0);
 assert.match(inquiryValidation.headers.get('cache-control'), /no-store/);
 const cookie = issueGateCookie().split(';')[0];
+for (const date of ['2026-10-05', '2026-10-06']) {
+  const source = JSON.parse(readFileSync(new URL(`../../server/data/morning-${date}.json`, import.meta.url), 'utf8'));
+  const path = '/api/morning?lesson=' + encodeURIComponent(source.catalog.lessonId);
+  const anonymous = await request(path);
+  assert.equal(anonymous.status, 403, 'Real lessons require classroom admission');
+  const admittedOnly = await request(path, { headers: { cookie } });
+  assert.equal(admittedOnly.status, 401, 'Admission alone must not reveal lesson state');
+  assert.match(admittedOnly.headers.get('cache-control'), /no-store/);
+  const privateFile = await request(`/server/data/morning-${date}.json`, { headers: { cookie } });
+  assert.equal(privateFile.status, 404, 'Private unrevealed candles must not be public files');
+}
 const retiredTape = await request('/api/tape?fresh=1', { headers: { cookie } });
 assert.equal(retiredTape.status, 410, 'Legacy projection data must remain retired');
 const retiredPayload = await retiredTape.json();

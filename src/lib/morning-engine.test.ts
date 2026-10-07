@@ -17,6 +17,22 @@ function fixture(): MorningSource {
 function action(state: MorningStoredState, value: object): Exclude<MorningAction, { action: "start" }> {
   return parseMorningAction({ id: state.id, expectedRevision: state.revision, requestId: randomUUID(), ...value }) as Exclude<MorningAction, { action: "start" }>;
 }
+
+test("exercise selection is optional for legacy plans and restricted to the six reviewed lessons", () => {
+  const source = fixture();
+  const start = { action: "start", requestId: randomUUID(), plan };
+  assert.deepEqual(parseMorningAction(start), start);
+  for (const exerciseId of ["first-order", "position", "exit", "n-breakout", "patience", "review"] as const) {
+    const parsed = parseMorningAction({ ...start, plan: { ...plan, exerciseId } });
+    assert.equal(parsed.action, "start");
+    if (parsed.action !== "start") throw new Error("Expected a start action");
+    const state = createMorningState(randomUUID(), parsed.plan, source, 0);
+    assert.equal(state.plan.exerciseId, exerciseId);
+    assert.equal(visibleMorningState(state, source).plan.exerciseId, exerciseId);
+  }
+  for (const exerciseId of ["", "tycoon", "future-course", 1, null])
+    assert.throws(() => parseMorningAction({ ...start, plan: { ...plan, exerciseId } }), { status: 400 });
+});
 test("replay exposes only completed minutes and rejects client progress or policy overrides", () => {
   const source = fixture();
   const state = createMorningState(randomUUID(), plan, source, 1000);

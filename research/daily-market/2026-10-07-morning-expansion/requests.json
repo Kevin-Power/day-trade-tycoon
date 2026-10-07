@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-07",
+  "timezone": "Asia/Taipei",
+  "window": {
+    "start": "09:00",
+    "endExclusive": "10:30"
+  },
+  "requestLimit": 5,
+  "retries": 0,
+  "authentication": "none",
+  "attempts": [
+    {
+      "code": "2330",
+      "symbol": "2330.TW",
+      "interval": "1m",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/2330.TW?period1=1791334800&period2=1791340200&interval=1m&includePrePost=false",
+      "startedAt": "2026-10-07T08:39:42.176Z",
+      "status": 200,
+      "responseUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2330.TW?period1=1791334800&period2=1791340200&interval=1m&includePrePost=false",
+      "fetchedAt": "2026-10-07T08:39:42.317Z",
+      "responseDate": "Wed, 07 Oct 2026 08:39:41 GMT",
+      "contentType": "application/json;charset=utf-8",
+      "rawFile": "raw/yahoo-2330-2026-10-07-1m.response",
+      "bytes": 5414,
+      "sha256": "0d33f03c3391789c4e66f3c7254a84b99a6845398e6a6140214f3a9d68de176d"
+    },
+    {
+      "code": "2317",
+      "symbol": "2317.TW",
+      "interval": "1m",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/2317.TW?period1=1791334800&period2=1791340200&interval=1m&includePrePost=false",
+      "startedAt": "2026-10-07T08:39:42.318Z",
+      "status": 200,
+      "responseUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2317.TW?period1=1791334800&period2=1791340200&interval=1m&includePrePost=false",
+      "fetchedAt": "2026-10-07T08:39:42.389Z",
+      "responseDate": "Wed, 07 Oct 2026 08:39:41 GMT",
+      "contentType": "application/json;charset=utf-8",
+      "rawFile": "raw/yahoo-2317-2026-10-07-1m.response",
+      "bytes": 5085,
+      "sha256": "2ecb4b565314586911a1cc13fbd9c58bfb58bfdf302d0335f17b544011f9cc85"
+    },
+    {
+      "code": "2454",
+      "symbol": "2454.TW",
+      "interval": "1m",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/2454.TW?period1=1791334800&period2=1791340200&interval=1m&includePrePost=false",
+      "startedAt": "2026-10-07T08:39:42.389Z",
+      "status": 200,
+      "responseUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2454.TW?period1=1791334800&period2=1791340200&interval=1m&includePrePost=false",
+      "fetchedAt": "2026-10-07T08:39:42.461Z",
+      "responseDate": "Wed, 07 Oct 2026 08:39:42 GMT",
+      "contentType": "application/json;charset=utf-8",
+      "rawFile": "raw/yahoo-2454-2026-10-07-1m.response",
+      "bytes": 5355,
+      "sha256": "69cf2b9d4ad5f36a2a9715aa5e0f78a7cc3d0749253c67fb8898b5d92d0015ec"
+    },
+    {
+      "code": "2382",
+      "symbol": "2382.TW",
+      "interval": "1m",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/2382.TW?period1=1791334800&period2=1791340200&interval=1m&includePrePost=false",
+      "startedAt": "2026-10-07T08:39:42.461Z",
+      "status": 200,
+      "responseUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2382.TW?period1=1791334800&period2=1791340200&interval=1m&includePrePost=false",
+      "fetchedAt": "2026-10-07T08:39:42.645Z",
+      "responseDate": "Wed, 07 Oct 2026 08:39:42 GMT",
+      "contentType": "application/json;charset=utf-8",
+      "rawFile": "raw/yahoo-2382-2026-10-07-1m.response",
+      "bytes": 4997,
+      "sha256": "c1f6073e5443ed0ce0c0296620bd340d29b9c732c634dc93541c64b5faae6077"
+    },
+    {
+      "code": "2308",
+      "symbol": "2308.TW",
+      "interval": "1m",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/2308.TW?period1=1791334800&period2=1791340200&interval=1m&includePrePost=false",
+      "startedAt": "2026-10-07T08:39:42.645Z",
+      "status": 200,
+      "responseUrl": "https://query1.finance.yahoo.com/v8/finance/chart/2308.TW?period1=1791334800&period2=1791340200&interval=1m&includePrePost=false",
+      "fetchedAt": "2026-10-07T08:39:42.726Z",
+      "responseDate": "Wed, 07 Oct 2026 08:39:42 GMT",
+      "contentType": "application/json;charset=utf-8",
+      "rawFile": "raw/yahoo-2308-2026-10-07-1m.response",
+      "bytes": 5386,
+      "sha256": "a171e2736d62c0eaaa3e2c234027a5b932e9bfb6f569f19725d75dc9befada9f"
+    }
+  ]
+}

@@ -40,6 +40,8 @@ test('real HTTP morning replay: private completed bars, durable cursor and exact
     GROK_PROJECT_ID: '', GROK_AUTH_CLIENT_ID: '', GROK_AUTH_CLIENT_SECRET: '',
   };
   const source = JSON.parse(await readFile(join(here, '../../server/data/morning-2026-10-06.json'), 'utf8'));
+  const additionalSource = JSON.parse(await readFile(join(here, '../../server/data/morning-2026-10-05.json'), 'utf8'));
+  const approvedSources = [additionalSource, source];
   let profileId;
   for (const file of await readdir(join(dirname(entry), '_ssr'))) {
     if (!file.endsWith('.mjs')) continue;
@@ -111,6 +113,8 @@ test('real HTTP morning replay: private completed bars, durable cursor and exact
     try { await closed; } finally { owned.kill(); await exit; app = undefined; }
   }
   const post = (jar, data, headers) => request('/api/morning', { method: 'POST', jar, data, headers });
+  const additionalPath = '/api/morning?lesson=' + encodeURIComponent(additionalSource.catalog.lessonId);
+  const additionalPost = (jar, data) => request(additionalPath, { method: 'POST', jar, data });
   const nextAction = (state, action, extra = {}) => ({ action, id: state.id, expectedRevision: state.revision, requestId: randomUUID(), ...extra });
   const ready = state => wait(Math.max(0, state.nextAdvanceAt - Date.now()) + 30);
   try {
@@ -130,18 +134,24 @@ test('real HTTP morning replay: private completed bars, durable cursor and exact
       assert.equal(initial.status, 200); assert.equal(initial.body.state, null);
       assert.equal(initial.body.catalog.lessonId, source.catalog.lessonId);
       assert.equal(Object.hasOwn(initial.body.catalog, 'bars'), false);
+      assert.deepEqual(initial.body.lessons.map(lesson => lesson.lessonId).sort(), approvedSources.map(value => value.catalog.lessonId).sort());
+      for (const lesson of initial.body.lessons) {
+        assert.deepEqual(Object.keys(lesson).sort(), ['date', 'end', 'lessonId', 'maxCursor', 'start', 'symbols', 'title']);
+        for (const symbol of lesson.symbols) assert.deepEqual(Object.keys(symbol).sort(), ['code', 'name']);
+      }
     }
     const code = source.catalog.symbols[0].code;
-    const start = { action: 'start', requestId: randomUUID(), plan: { bias: 'observe', focusCode: code,
+    const start = { action: 'start', requestId: randomUUID(), plan: { exerciseId: 'first-order', bias: 'observe', focusCode: code,
       reason: '先觀察背景與價格', entry: '確認自己的條件後再進場', stop: '理由不成立時離場' } };
     for (const badOrigin of ['', 'https://attacker.invalid']) assert.equal((await post(alice, start, { origin: badOrigin })).status, 403);
+    assert.equal((await post(alice, { ...start, plan: { ...start.plan, exerciseId: 'unapproved' } })).status, 400);
     const began = await post(alice, start);
     assert.equal(began.status, 200); assert.match(began.headers.get('cache-control'), /no-store/);
     let state = began.body.state;
     assert.equal(state.cursor, 0); assert.equal(state.revision, 0); assert.equal(state.cash, 10000000);
     assert.ok(Object.values(state.bars).every(bars => bars.length === 0));
     assert.equal((await post(alice, start)).body.state.id, state.id);
-    assert.deepEqual((await post(alice, { ...start, requestId: randomUUID(), plan: { ...start.plan, reason: 'Do not overwrite' } })).body.state.plan, start.plan);
+    assert.deepEqual((await post(alice, { ...start, requestId: randomUUID(), plan: { ...start.plan, exerciseId: 'review', reason: 'Do not overwrite' } })).body.state.plan, start.plan);
     assert.equal((await request('/api/morning', { jar: bob })).body.state, null);
     assert.equal((await post(bob, nextAction(state, 'advance'))).status, 404);
     assert.equal((await request('/api/morning?id=' + state.id, { jar: bob })).status, 400);
@@ -156,6 +166,40 @@ test('real HTTP morning replay: private completed bars, durable cursor and exact
     assert.equal((await post(alice, nextAction(state, 'advance'))).status, 429);
     assert.equal((await post(alice, { ...advance, expectedRevision: 1 })).status, 409);
     t.diagnostic('HTTP morning: gate/session/consent and exact origin required; no future bars or foreign state; start plan immutable, one concurrent advance, server pace enforced');
+
+    stage = 'approved lessons and independently owned progress';
+    for (const query of ['lesson=', 'lesson=unknown', 'lesson=2026-10-07', 'lesson=2026-10-02',
+      'lesson=' + source.catalog.lessonId + '&lesson=' + source.catalog.lessonId,
+      'lesson=' + source.catalog.lessonId + '&cursor=90']) {
+      assert.equal((await request('/api/morning?' + query, { jar: alice })).status, 400);
+      assert.equal((await request('/api/morning?' + query, { method: 'POST', jar: alice, data: start })).status, 400);
+    }
+    assert.deepEqual((await request('/api/morning?lesson=' + source.catalog.lessonId, { jar: alice })).body.state, state);
+    assert.equal((await request(additionalPath, { jar: alice })).body.state, null);
+    assert.equal((await additionalPost(alice, start)).status, 409, 'An existing request ID cannot be replayed under a different source hash');
+    assert.equal((await additionalPost(alice, nextAction(state, 'advance'))).status, 404);
+    assert.equal((await post(alice, { ...nextAction(state, 'advance'), lessonId: additionalSource.catalog.lessonId })).status, 400);
+    const additionalStart = { ...start, requestId: randomUUID(), plan: { ...start.plan, exerciseId: 'patience' } };
+    const additionalBegan = await additionalPost(alice, additionalStart);
+    assert.equal(additionalBegan.status, 200);
+    assert.equal(additionalBegan.body.catalog.lessonId, additionalSource.catalog.lessonId);
+    let additionalState = additionalBegan.body.state;
+    assert.notEqual(additionalState.id, state.id); assert.equal(additionalState.cursor, 0);
+    assert.equal(additionalState.plan.exerciseId, 'patience');
+    assert.ok(Object.values(additionalState.bars).every(bars => bars.length === 0));
+    assert.equal((await post(alice, nextAction(additionalState, 'advance'))).status, 404);
+    assert.equal((await additionalPost(bob, nextAction(additionalState, 'advance'))).status, 404);
+    assert.equal((await request(additionalPath, { jar: bob })).body.state, null);
+    await ready(additionalState);
+    const additionalAdvance = nextAction(additionalState, 'advance');
+    const additionalAdvanced = await additionalPost(alice, additionalAdvance);
+    assert.equal(additionalAdvanced.status, 200); additionalState = additionalAdvanced.body.state;
+    assert.equal(additionalState.cursor, 1);
+    for (const symbol of additionalSource.catalog.symbols)
+      assert.deepEqual(additionalState.bars[symbol.code], additionalSource.bars[symbol.code].slice(0, 1));
+    assert.equal((await post(alice, additionalAdvance)).status, 409);
+    assert.deepEqual((await request('/api/morning', { jar: alice })).body.state, state);
+    t.diagnostic('HTTP morning lessons: exact approved query only, safe metadata, original default unchanged, source-bound retries and independently owned progress; exercise immutable');
 
     stage = 'paper orders and known-minute valuation';
     assert.equal((await post(alice, nextAction(state, 'order', { code, side: 'sell', lots: 1 }))).status, 400);
@@ -188,6 +232,9 @@ test('real HTTP morning replay: private completed bars, durable cursor and exact
     assert.equal(state.completed, true); assert.equal(state.cursor, 2);
     assert.equal(state.orders.at(-1).status, 'cancelled'); assert.equal(state.positions[0].shares, 1000); assert.equal(state.fills.length, 1);
     assert.deepEqual((await post(alice, finish)).body.state, state);
+    assert.deepEqual((await request(additionalPath, { jar: alice })).body.state, additionalState);
+    assert.deepEqual((await additionalPost(alice, additionalAdvance)).body.state, additionalState);
+    assert.equal((await request(additionalPath, { jar: bob })).body.state, null);
     assert.equal((await post(alice, nextAction(state, 'advance'))).status, 409);
     t.diagnostic('HTTP morning orders: pending until next minute OPEN, long-only lots enforced, exact paper costs, cancel and finish keep holdings without forced liquidation');
 
@@ -195,6 +242,9 @@ test('real HTTP morning replay: private completed bars, durable cursor and exact
     await close(); await launch();
     assert.deepEqual((await request('/api/morning', { jar: alice })).body.state, state);
     assert.deepEqual((await post(alice, finish)).body.state, state);
+    assert.deepEqual((await request(additionalPath, { jar: alice })).body.state, additionalState);
+    assert.deepEqual((await additionalPost(alice, additionalAdvance)).body.state, additionalState);
+    assert.equal((await request(additionalPath, { jar: bob })).body.state, null);
     assert.equal((await request('/api/morning', { jar: bob })).body.state, null);
     assert.equal((await post(bob, nextAction(state, 'advance'))).status, 404);
     const restarted = await post(alice, { ...start, requestId: randomUUID() });
