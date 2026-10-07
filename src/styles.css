@@ -312,6 +312,19 @@
   --shadow-panel: 0 16px 48px rgb(0 0 0 / .5);
 }
 
+.morning-workspace {
+  min-height: 100dvh;
+  background: var(--color-bg);
+}
+
+.morning-chart-grid {
+  background-color: #070d15;
+  background-image:
+    linear-gradient(rgb(123 146 172 / .08) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(123 146 172 / .08) 1px, transparent 1px);
+  background-size: 64px 48px;
+}
+
 .terminal-shell[data-market-theme="dark"] :is(.bg-up, .bg-down).text-white {
   color: #05080d;
 }

@@ -45,12 +45,12 @@ const PRIMARY = `${ACTION} bg-brand text-brand-fg hover:brightness-95`;
 const SECONDARY = `${ACTION} border border-border-strong bg-surface text-fg hover:bg-elevated`;
 const INPUT =
   "block min-h-12 w-full min-w-0 rounded-xl border border-border-strong bg-surface px-3 py-3 text-base leading-relaxed text-fg";
-const CARD = "min-w-0 rounded-2xl border border-border bg-surface p-4 sm:p-6";
+const CARD = "min-w-0 rounded-md border border-border bg-surface p-3 sm:p-4";
 const DARK_CHART = {
-  "--color-bg": "#101b2c",
+  "--color-bg": "#070d15",
   "--color-fg": "#edf3fc",
   "--color-muted": "#b5c4d8",
-  "--color-border": "#314257",
+  "--color-border": "#263442",
   "--color-up": "#ff8a99",
   "--color-down": "#74dbb5",
   "--color-tape": "#efd584",
@@ -423,14 +423,9 @@ function MorningLesson({
 
   return (
     <PageFrame>
-      <div className="mb-4 min-w-0">
-          <p className="text-sm font-semibold text-brand">當沖大富翁 · 交易盤</p>
-          <h1 className="mt-1 text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
-            真實 K 線模擬交易盤
-          </h1>
-          <p className="mt-1 text-sm leading-relaxed text-muted">
-            自選行情、走勢、紙上委託與庫存。先寫計畫，逐分鐘揭露真實歷史 K。
-          </p>
+      <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border px-1 pb-2">
+        <h1 className="text-base font-semibold tracking-wide sm:text-lg">專業看盤 <span className="ml-1 font-normal text-muted">／真實 1 分鐘 K 模擬</span></h1>
+        <p className="hidden text-xs text-muted sm:block">逐分鐘揭露歷史走勢 · 紙上委託 · 無真實下單</p>
       </div>
 
       {needsLogin ? (
@@ -507,9 +502,9 @@ function MorningLesson({
           )}
           {data && catalog && (
             <>
-              <details className="mb-3 rounded-xl border border-border bg-surface px-3 py-3 sm:px-4" aria-labelledby="morning-lesson-picker">
-                <summary id="morning-lesson-picker" className="min-h-10 cursor-pointer text-base font-semibold leading-10">
-                  教材：{catalog.date} · {exercise?.title ?? "自由練習"}{" "}<span className="text-sm font-normal text-muted">選擇交易日／主題</span>
+              <details className="mb-2 rounded-md border border-border bg-surface px-3 py-1" aria-labelledby="morning-lesson-picker">
+                <summary id="morning-lesson-picker" className="min-h-10 cursor-pointer text-sm font-semibold leading-10 sm:text-base">
+                  <span className="inline-block max-w-[calc(100%-2rem)] truncate align-middle">教材：{catalog.date} · {exercise?.no ? `${exercise.no} ${exercise.title}` : "自由練習"}</span>
                 </summary>
                 <div className="mt-2 grid gap-2 border-t border-border pt-3 sm:grid-cols-2">
                   <label className="block min-w-0 text-sm font-medium">
@@ -565,22 +560,25 @@ function MorningLesson({
                 )}
               </details>
               {!session || newPlan ? (
-                <div className="space-y-5"
+                <div className="space-y-3"
                 >
-                  <section data-market-theme="dark" className="terminal-shell real-terminal overflow-hidden rounded-2xl border border-border-strong bg-bg text-fg" aria-label="當沖大富翁交易盤預覽">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-4 py-3 text-sm">
+                  <section data-market-theme="dark" className="terminal-shell real-terminal overflow-hidden rounded-md border border-border-strong bg-bg text-fg" aria-label="當沖大富翁交易盤預覽">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-3 py-2 text-xs sm:text-sm">
                       <strong>自選行情 · 個股走勢 · 紙上委託</strong>
                       <span className="font-mono text-muted">{catalog.date} · 09:00 · 未開始</span>
                     </div>
                     {layout !== "desktop" && <MorningWatchlist catalog={catalog} session={null} code={code} compact onSelect={setSelected} />}
                     <div className={cn("grid min-w-0 gap-px bg-border", layout === "desktop" && "grid-cols-[14rem_minmax(0,1.5fr)_minmax(20rem,1fr)]", layout === "tablet" && "grid-cols-[minmax(0,1fr)_minmax(20rem,1fr)]")}>
                       {layout === "desktop" && <MorningWatchlist catalog={catalog} session={null} code={code} onSelect={setSelected} />}
-                      <div className="flex min-h-72 min-w-0 flex-col justify-start bg-bg p-5 pt-12 text-center">
-                        <p className="text-sm text-muted">{catalog.symbols.find((symbol) => symbol.code === code)?.name} {code} · 真實 1 分鐘 K</p>
-                        <p className="mt-5 text-2xl font-semibold">09:00 尚未揭露行情</p>
-                        <p className="mt-3 text-base leading-relaxed text-muted">寫下作戰計畫後開始回放；第一根 K 棒完成時才會顯示。</p>
+                      <div className="flex min-h-44 min-w-0 flex-col bg-bg lg:min-h-80">
+                        <div className="flex items-center justify-between border-b border-border px-3 py-2 text-xs text-muted"><span>{catalog.symbols.find((symbol) => symbol.code === code)?.name} {code} · 真實 1 分鐘 K</span><span>09:00–10:30</span></div>
+                        <div className="morning-chart-grid flex flex-1 flex-col items-center justify-center p-5 text-center">
+                          <p className="font-mono text-3xl font-semibold text-fg">09:00</p>
+                          <p className="mt-2 text-sm text-brand">等待第一根完整 K 棒</p>
+                          <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">先寫作戰計畫，再依當日真實行情逐分鐘練習。</p>
+                        </div>
                       </div>
-                      <div className="min-w-0 bg-bg p-3"><PlanForm
+                      <div className="min-w-0 bg-bg p-2"><PlanForm
                         key={`${catalog.lessonId}:${session?.id ?? "first"}:${selectedExercise}`}
                         catalog={catalog}
                         exerciseId={selectedExercise}
@@ -594,31 +592,32 @@ function MorningLesson({
                 </div>
               ) : (
                 <>
-                  <section className="mb-6" aria-labelledby="morning-practice-title">
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-muted">{catalog.title}</p>
+                  <section className="border border-b-0 border-border-strong bg-surface px-3 py-2" aria-labelledby="morning-practice-title">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3">
                         <h2
                           ref={practiceHeading}
                           tabIndex={-1}
                           id="morning-practice-title"
-                          className="mt-1 scroll-mt-4 text-2xl font-semibold outline-none"
+                          className="scroll-mt-4 text-base font-semibold outline-none sm:text-lg"
                         >
                           {completed ? "這一輪的練習紀錄" : "交易盤已開始"}
                         </h2>
+                        <p className="hidden text-xs text-muted sm:block">{catalog.title}</p>
                       </div>
-                      <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-base">
-                        <Clock3 className="size-5 shrink-0" aria-hidden />
-                        <strong className="font-mono text-xl">
+                      <span className="inline-flex min-h-10 items-center gap-2 border border-border bg-bg px-3 text-xs">
+                        <Clock3 className="size-4 shrink-0 text-brand" aria-hidden />
+                        <strong className="font-mono text-lg">
                           {formatTime(cursor * 60).slice(0, 5)}
                         </strong>
                         <span>{completed ? "已完成" : auto ? "重播中" : "已暫停"}</span>
                       </span>
                     </div>
                     {!completed && (
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      <div className="mt-2 grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:gap-2">
                         <button
                           type="button"
+                          title="每 2 秒前進 1 分鐘的歷史行情重播"
                           disabled={
                             Boolean(busy) || atCheckpoint || atEnd || Boolean(error || notice)
                           }
@@ -626,20 +625,21 @@ function MorningLesson({
                             setFeedback("");
                             setAuto((value) => !value);
                           }}
-                          className={PRIMARY}
+                          className={cn(PRIMARY, "!flex-col !gap-1 !px-2 !py-2 sm:!flex-row sm:!gap-2 sm:!px-4")}
                         >
                           {auto ? (
                             <CirclePause className="size-5 shrink-0" aria-hidden />
                           ) : (
                             <Play className="size-5 shrink-0" aria-hidden />
                           )}
-                          {auto ? "暫停重播" : "自動播放 · 每 2 秒 1 分鐘"}
+                          <span>{auto ? "暫停重播" : "自動重播"}</span>
+                          {!auto && <span className="hidden text-xs font-normal sm:inline">2 秒／分</span>}
                         </button>
                         <button
                           type="button"
                           disabled={!canAdvance || Boolean(error || notice)}
                           onClick={() => void advance()}
-                          className={SECONDARY}
+                          className={cn(SECONDARY, "!flex-col !gap-1 !px-2 !py-2 sm:!flex-row sm:!gap-2 sm:!px-4")}
                         >
                           前進 1 分鐘
                           <ArrowRight className="size-5 shrink-0" aria-hidden />
@@ -648,7 +648,7 @@ function MorningLesson({
                           type="button"
                           disabled={Boolean(busy)}
                           onClick={openReview}
-                          className={cn(SECONDARY, "col-span-2 sm:col-span-1")}
+                          className={cn(SECONDARY, "col-span-2 !min-h-10 !py-2 sm:col-span-1 sm:!min-h-12")}
                         >
                           <BookOpen className="size-5 shrink-0" aria-hidden />
                           前往復盤
@@ -666,7 +666,7 @@ function MorningLesson({
                       </button>
                     )}
                     {!completed && (
-                      <p className="mt-3 text-sm leading-relaxed text-muted">
+                      <p className="mt-2 hidden text-xs leading-relaxed text-muted sm:block">
                         只揭露已完成分鐘；離開後停止播放，再進入時保持暫停。
                       </p>
                     )}
@@ -722,10 +722,10 @@ function MorningLesson({
                     />
                   )}
 
-                  <section data-market-theme="dark" className="terminal-shell real-terminal overflow-hidden rounded-2xl border border-border-strong bg-bg text-fg" aria-label="真實 K 線模擬交易盤">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-4 py-3 text-sm">
-                      <strong>當沖大富翁 · 自選行情 / 走勢 / 模擬下單 / 庫存</strong>
-                      <span className="font-mono text-muted">{catalog.date} · {formatTime(cursor * 60).slice(0, 5)} · {completed ? "已完成" : auto ? "重播中" : "已暫停"}</span>
+                  <section data-market-theme="dark" className="terminal-shell real-terminal overflow-hidden rounded-b-md border border-border-strong bg-bg text-fg" aria-label="真實 K 線模擬交易盤">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-3 py-2 text-xs sm:text-sm">
+                      <strong>歷史行情模擬盤</strong>
+                      <span className="font-mono text-muted">{catalog.date} · {formatTime(cursor * 60).slice(0, 5)}</span>
                     </div>
                     {layout === "tablet" && <MorningWatchlist catalog={catalog} session={session} code={code} compact onSelect={setSelected} />}
                     {singlePane && <MorningTerminalNav active={activePane} onSelect={setActivePane} />}
@@ -735,17 +735,17 @@ function MorningLesson({
                           <MorningWatchlist catalog={catalog} session={session} code={code} onSelect={(next) => { setSelected(next); setActivePane("chart"); }} />
                         </div>
                       )}
-                      <div className={cn("min-w-0 bg-bg p-2", singlePane && activePane !== "chart" && "hidden")}>
+                      <div className={cn("min-w-0 bg-bg", singlePane && activePane !== "chart" && "hidden")}>
                         <MorningChart catalog={catalog} session={session} code={code} />
                       </div>
-                      <div className={cn("min-w-0 space-y-3 bg-bg p-3", singlePane && activePane !== "trade" && "hidden")}>
+                      <div className={cn("min-w-0 space-y-1 bg-bg p-1", singlePane && activePane !== "trade" && "hidden")}>
                         <AccountSummary session={session} />
                         {!completed && <PaperOrder key={code} catalog={catalog} session={session} code={code} busy={Boolean(busy || error || notice)} atEnd={atEnd} onOrder={order} onCancel={cancel} />}
-                        <p className="rounded-xl border border-border bg-surface p-3 text-sm leading-relaxed text-muted">真實五檔與逐筆江波尚無資料；此處使用已完成的一分鐘 K 與紙上委託。</p>
+                        <p className="border border-border bg-surface px-3 py-2 text-xs leading-relaxed text-muted">真實五檔與逐筆江波尚無資料；此處使用已完成的一分鐘 K 與紙上委託。</p>
                       </div>
                     </div>
-                    {singlePane && activePane === "positions" && <div className="space-y-3 bg-bg p-3"><AccountSummary session={session} /><Ledger catalog={catalog} session={session} busy={Boolean(busy)} onCancel={cancel} /></div>}
-                    {!singlePane && <div className="bg-bg p-3"><Ledger catalog={catalog} session={session} busy={Boolean(busy)} onCancel={cancel} /></div>}
+                    {singlePane && activePane === "positions" && <div className="space-y-1 bg-bg p-1"><AccountSummary session={session} /><Ledger catalog={catalog} session={session} busy={Boolean(busy)} onCancel={cancel} /></div>}
+                    {!singlePane && <div className="border-t border-border bg-bg p-1"><Ledger catalog={catalog} session={session} busy={Boolean(busy)} onCancel={cancel} /></div>}
                   </section>
 
                   {reviewOpen && !completed && (
@@ -801,27 +801,27 @@ function MorningLesson({
 
 function PageFrame({ children }: { children: ReactNode }) {
   return (
-    <div className="academy-page min-h-dvh min-w-0 bg-bg text-base text-fg [overflow-wrap:anywhere]">
+    <div data-market-theme="dark" className="terminal-shell morning-workspace min-h-dvh min-w-0 bg-bg text-base text-fg [overflow-wrap:anywhere]">
       <header className="border-b border-border bg-surface">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <Link to="/" className="flex min-h-12 min-w-0 items-center gap-3 text-base font-semibold">
-            <BrandMark className="size-10 shrink-0" />
-            當沖大富翁
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5">
+          <Link to="/" className="flex min-h-10 min-w-0 items-center gap-2 text-sm font-semibold sm:text-base">
+            <BrandMark className="size-7 shrink-0" />
+            當沖大富翁 <span className="hidden border-l border-border pl-2 text-xs font-normal text-muted sm:inline">歷史行情交易台</span>
           </Link>
-          <div className="flex min-w-0 flex-wrap items-center gap-3">
-            <DisplayControls />
+          <div className="flex min-w-0 flex-wrap items-center gap-1 sm:gap-2">
+            <DisplayControls compact />
             <Link
               to="/"
-              className="inline-flex min-h-12 items-center gap-2 px-2 text-base text-brand"
+              className="inline-flex min-h-12 items-center gap-1 px-2 text-sm text-brand"
             >
-              <ArrowLeft className="size-5 shrink-0" aria-hidden />
+              <ArrowLeft className="size-4 shrink-0" aria-hidden />
               回大廳
             </Link>
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-[1500px] px-3 py-5 sm:px-5 sm:py-8">{children}</main>
-      <footer className="mx-auto max-w-7xl border-t border-border px-4 py-6 text-sm leading-relaxed text-muted sm:px-6">
+      <main className="w-full min-w-0 px-2 py-2 sm:px-3">{children}</main>
+      <footer className="border-t border-border px-3 py-2 text-xs leading-relaxed text-muted">
         歷史資料教學試行 · 所有委託均為紙上模擬 · 沒有連接券商真實交易帳戶。
       </footer>
     </div>
@@ -875,13 +875,15 @@ function MorningWatchlist({
 }) {
   return (
     <section className="min-w-0 bg-surface" aria-label="自選行情">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-3 text-sm font-semibold">
-        <span>自選行情 · 5 檔</span>
-        <span className="font-normal text-muted">已揭露收價</span>
+      <div className="flex items-center justify-between gap-2 border-b border-border bg-elevated px-3 py-2 text-xs font-semibold">
+        <span>自選行情 <span className="font-normal text-muted">／5 檔</span></span>
+        <span className="font-normal text-muted">已完成 K 棒</span>
       </div>
       <div className={cn(compact && "flex justify-between overflow-x-auto bg-border")} role="group" aria-label="選擇重播商品">
         {catalog.symbols.map((symbol) => {
           const last = session?.bars[symbol.code]?.at(-1);
+          const change = last ? last.c - symbol.previousClose : null;
+          const changeClass = change === null ? "text-muted" : change > 0 ? "text-up" : change < 0 ? "text-down" : "text-fg";
           return (
             <button
               type="button"
@@ -889,20 +891,19 @@ function MorningWatchlist({
               aria-pressed={code === symbol.code}
               onClick={() => onSelect(symbol.code)}
               className={cn(
-                "block min-h-16 min-w-0 border-b border-border px-3 py-3 text-left text-sm leading-relaxed hover:bg-elevated",
+                "block min-h-16 min-w-0 border-b border-border px-3 py-2 text-left text-sm leading-relaxed hover:bg-elevated",
                 code === symbol.code && "bg-brand/10 text-brand",
                 compact ? "w-32 shrink-0 border-b-0 bg-surface px-2" : "w-full",
               )}
             >
-              <span className="block truncate font-semibold">{symbol.name}</span>
-              <span className="font-mono text-xs text-muted">{symbol.code}</span>
-              <span className="block font-mono text-base font-semibold">{last ? formatPrice(last.c) : "—"}</span>
+              <span className="flex items-baseline justify-between gap-2"><span className="truncate font-semibold">{symbol.name}</span><span className="font-mono text-xs text-muted">{symbol.code}</span></span>
+              <span className={cn("mt-1 flex items-baseline justify-between gap-2 font-mono", changeClass)}><strong className="text-base">{last ? formatPrice(last.c) : "—"}</strong>{change !== null && <span className="text-xs">{change > 0 ? "+" : ""}{formatPrice(change)} <span className="hidden sm:inline">({change > 0 ? "+" : ""}{((change / symbol.previousClose) * 100).toFixed(2)}%)</span></span>}</span>
               {!compact && <span className="block text-xs text-muted">昨收 {formatPrice(symbol.previousClose)}</span>}
             </button>
           );
         })}
       </div>
-      {!compact && <p className="px-3 py-3 text-xs leading-relaxed text-muted">未完成的分鐘不顯示價格；這裡沒有真實五檔報價。</p>}
+      {!compact && <p className="px-3 py-2 text-xs leading-relaxed text-muted">未完成分鐘不顯示價格 · 尚無真實五檔</p>}
     </section>
   );
 }
@@ -1035,22 +1036,22 @@ function PlanForm({
   }
   return (
     <section className={CARD} aria-labelledby="morning-plan-title">
-      <p className="text-sm font-semibold text-brand">開始之前 · 保存這一刻的想法</p>
-      <h2 id="morning-plan-title" className="mt-2 text-2xl font-semibold">
-        先寫自己的作戰藍圖
+      <p className="text-xs font-semibold text-brand">09:00 開始前 · 交易計畫</p>
+      <h2 id="morning-plan-title" className="mt-1 text-lg font-semibold">
+        寫下今天的作戰藍圖
       </h2>
-      <p className="mt-3 text-base leading-relaxed text-muted">
+      <p className="mt-1 text-xs leading-relaxed text-muted">
         不需要先猜對漲跌。計畫會隨新的一輪保存，重播期間保留原文供復盤核對。
       </p>
-      <form className="mt-5 space-y-5" onSubmit={submit}>
-        <fieldset disabled={busy} className="min-w-0 space-y-5 disabled:opacity-60">
+      <form className="mt-3 space-y-3" onSubmit={submit}>
+        <fieldset disabled={busy} className="min-w-0 space-y-3 disabled:opacity-60">
           <legend className="sr-only">本輪觀察計畫</legend>
           <label className="block text-base font-medium">
             先關注哪一檔
             <select
               value={plan.focusCode}
               onChange={(event) => setPlan({ ...plan, focusCode: event.target.value })}
-              className={cn(INPUT, "mt-2")}
+              className={cn(INPUT, "mt-1")}
             >
               {catalog.symbols.map((symbol) => (
                 <option key={symbol.code} value={symbol.code}>
@@ -1061,7 +1062,7 @@ function PlanForm({
           </label>
           <fieldset className="min-w-0">
             <legend className="mb-2 text-base font-medium">目前的觀察方向</legend>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-1.5">
               {(
                 [
                   { value: "observe", label: "先觀察／不確定" },
@@ -1071,7 +1072,7 @@ function PlanForm({
               ).map((item) => (
                 <label
                   key={item.value}
-                  className="flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border border-border px-3 py-3 text-base"
+                  className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
                 >
                   <input
                     type="radio"
@@ -1107,16 +1108,16 @@ function PlanForm({
           ).map((field) => (
             <label key={field.key} className="block text-base font-medium">
               {field.label}
-              <span className="mt-1 block text-sm font-normal leading-relaxed text-muted">
+              <span className="mt-1 block text-xs font-normal leading-relaxed text-muted">
                 {field.hint}
               </span>
               <textarea
                 required
                 maxLength={600}
-                rows={3}
+                rows={2}
                 value={plan[field.key]}
                 onChange={(event) => setPlan({ ...plan, [field.key]: event.target.value })}
-                className={cn(INPUT, "mt-2 resize-y font-normal")}
+                className={cn(INPUT, "mt-1 resize-y font-normal")}
               />
             </label>
           ))}
@@ -1126,7 +1127,7 @@ function PlanForm({
             {invalid}
           </p>
         )}
-        <div className="rounded-xl bg-bg p-3 text-base leading-relaxed text-muted">
+        <div className="border border-border bg-bg p-2 text-xs leading-relaxed text-muted">
           本課紙上資金為新臺幣 1,000 萬元，每筆 1–3 張。價格來自歷史分鐘
           K；學員成交依教材模型估算，不是真實成交回放。
         </div>
@@ -1166,34 +1167,34 @@ function MorningChart({
   const lastPrice = last?.c ?? symbol.previousClose;
   return (
     <section
-      className="min-w-0 overflow-hidden rounded-3xl border border-slate-700 bg-[#101b2c] text-slate-100"
+      className="min-w-0 overflow-hidden bg-[#070d15] text-slate-100"
       style={DARK_CHART}
       aria-label={`${symbol.name}歷史分鐘行情`}
     >
-      <header className="flex flex-wrap items-start justify-between gap-4 px-4 py-5 sm:px-6">
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 border-b border-slate-700 px-3 py-2">
         <div className="min-w-0">
-          <p className="text-sm text-slate-300">真實 1 分鐘 K · {catalog.date} · 台北時間</p>
-          <h3 className="mt-2 flex flex-wrap items-baseline gap-2 text-2xl font-semibold">
+          <p className="text-xs text-slate-300">歷史行情 · {catalog.date} · 台北時間</p>
+          <h3 className="mt-1 flex flex-wrap items-baseline gap-2 text-lg font-semibold sm:text-xl">
             {symbol.name}
-            <span className="font-mono text-base font-normal text-slate-300">{code}</span>
+            <span className="font-mono text-sm font-normal text-slate-300">{code}</span>
           </h3>
         </div>
-        <div className="min-w-0">
-          <p className="text-sm text-slate-300">
+        <div className="min-w-0 text-right">
+          <p className="text-xs text-slate-300">
             {last ? "最新已揭露分鐘收價" : "尚未揭露第一分鐘"}
           </p>
-          <p className="mt-1 break-all font-mono text-3xl font-semibold">
+          <p className="break-all font-mono text-2xl font-semibold text-brand sm:text-3xl">
             {last ? formatPrice(lastPrice) : "—"}
           </p>
           {last && (
-            <p className="mt-1 text-sm text-slate-300">
+            <p className="text-xs text-slate-300">
               {formatTime(last.t).slice(0, 5)}–{formatTime(last.t + 60).slice(0, 5)} 已完成
             </p>
           )}
         </div>
       </header>
       <div
-        className="mx-4 grid grid-cols-2 gap-2 sm:mx-6"
+        className="flex gap-1 border-b border-slate-700 px-3 py-1"
         role="group"
         aria-label="分鐘行情圖表類型"
       >
@@ -1202,9 +1203,8 @@ function MorningChart({
           aria-pressed={candles}
           onClick={() => setCandles(true)}
           className={cn(
-            ACTION,
-            "border border-slate-500",
-            candles ? "bg-slate-100 text-slate-900" : "text-slate-100",
+            "min-h-11 border-b-2 px-3 text-sm font-semibold",
+            candles ? "border-brand text-brand" : "border-transparent text-slate-300 hover:text-white",
           )}
         >
           1 分鐘 K 線
@@ -1214,15 +1214,14 @@ function MorningChart({
           aria-pressed={!candles}
           onClick={() => setCandles(false)}
           className={cn(
-            ACTION,
-            "border border-slate-500",
-            !candles ? "bg-slate-100 text-slate-900" : "text-slate-100",
+            "min-h-11 border-b-2 px-3 text-sm font-semibold",
+            !candles ? "border-brand text-brand" : "border-transparent text-slate-300 hover:text-white",
           )}
         >
           分鐘收價連線
         </button>
       </div>
-      <div className="mt-4 h-[clamp(18rem,44dvh,30rem)] min-w-0 px-2">
+      <div className="morning-chart-grid h-[clamp(19rem,52dvh,38rem)] min-w-0 px-1 py-2">
         {last ? (
           <TapeChart
             bars={bars}
@@ -1254,12 +1253,12 @@ function MorningChart({
         )}
       </div>
       {last && (
-        <div className="border-t border-slate-700 px-4 py-4 sm:px-6">
-          <p className="text-sm text-slate-300">
+        <div className="border-t border-slate-700 px-3 py-2">
+          <p className="text-xs text-slate-300">
             最新完整 K 棒 · {formatTime(last.t).slice(0, 5)}–{formatTime(last.t + 60).slice(0, 5)}
           </p>
           <dl
-            className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4"
+            className="mt-1 grid grid-cols-4 gap-2"
             aria-label="最新真實 K 棒開高低收"
           >
             {(
@@ -1271,13 +1270,13 @@ function MorningChart({
               ] as const
             ).map(([label, price]) => (
               <div key={label} className="min-w-0">
-                <dt className="text-sm text-slate-300">{label}</dt>
-                <dd className="mt-1 break-all font-mono text-lg">{formatPrice(price)}</dd>
+                <dt className="text-xs text-slate-300">{label}</dt>
+                <dd className="break-all font-mono text-sm font-semibold sm:text-base">{formatPrice(price)}</dd>
               </div>
             ))}
           </dl>
-          <details className="mt-4 rounded-xl border border-slate-600">
-            <summary className="min-h-12 cursor-pointer px-3 py-3 text-base font-medium">
+          <details className="mt-2 border-t border-slate-700">
+            <summary className="min-h-11 cursor-pointer px-1 py-2 text-sm font-medium text-brand">
               核對已揭露的 {bars.length} 根 K 棒
             </summary>
             <div
@@ -1326,22 +1325,13 @@ function MorningChart({
           </details>
         </div>
       )}
-      <div className="grid gap-3 border-t border-slate-700 px-4 py-4 text-base sm:grid-cols-2 sm:px-6">
-        <dl>
-          <dt className="text-sm text-slate-300">前一交易日收盤</dt>
-          <dd className="mt-1 font-mono text-lg">{formatPrice(symbol.previousClose)}</dd>
-        </dl>
-        <dl>
-          <dt className="text-sm text-slate-300">前 5 個完整交易日收盤均值</dt>
-          <dd className="mt-1 font-mono text-lg">
-            {symbol.previous5CloseMean.toLocaleString("zh-TW", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </dd>
-        </dl>
+      <div className="flex flex-wrap gap-x-5 gap-y-1 border-t border-slate-700 px-3 py-2 text-xs">
+        <p><span className="text-slate-300">昨收</span> <strong className="font-mono font-medium">{formatPrice(symbol.previousClose)}</strong></p>
+        <p><span className="text-slate-300">前 5 個完整交易日收盤均值</span> <strong className="font-mono font-medium">{symbol.previous5CloseMean.toLocaleString("zh-TW", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></p>
       </div>
-      <div className="space-y-2 px-4 pb-5 text-sm leading-relaxed text-slate-300 sm:px-6">
+      <details className="border-t border-slate-700 px-3 py-2 text-xs leading-relaxed text-slate-300">
+        <summary className="min-h-8 cursor-pointer text-brand">行情來源與指標說明</summary>
+        <div className="space-y-2 py-2">
         <p>以上均值不含本日，僅供歷史參考；當日 SMA5 的計算定義尚未確認。</p>
         <p>
           {candles
@@ -1355,22 +1345,23 @@ function MorningChart({
         <p>
           分鐘量尚未核對，不顯示量柱、均價或量能訊號；沒有真實五檔。資料缺漏不會以生成價格補齊。
         </p>
-      </div>
+        </div>
+      </details>
     </section>
   );
 }
 
 function AccountSummary({ session }: { session: MorningState }) {
   return (
-    <section className={CARD} aria-label="紙上帳戶">
-      <h3 className="text-xl font-semibold">紙上帳戶</h3>
-      <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+    <section className="min-w-0 border border-border bg-surface p-3" aria-label="紙上帳戶">
+      <h3 className="border-b border-border pb-2 text-sm font-semibold">紙上帳戶 <span className="ml-1 font-normal text-muted">／模擬</span></h3>
+      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
         <Metric label="可用紙上現金" value={formatMoney(session.cash, 0)} />
         <Metric label="依已知價格的帳戶估值" value={formatMoney(session.equity, 0)} />
         <Metric label="起始紙上資金" value={formatMoney(session.startingCash, 0)} />
         <Metric label="持有商品" value={`${session.positions.length} 檔`} />
       </dl>
-      <p className="mt-4 text-sm leading-relaxed text-muted">
+      <p className="mt-2 text-xs leading-relaxed text-muted">
         估值只使用目前已揭露的價格；尚未賣出的部位不是已實現結果。
       </p>
     </section>
@@ -1380,8 +1371,8 @@ function AccountSummary({ session }: { session: MorningState }) {
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <dt className="text-sm leading-relaxed text-muted">{label}</dt>
-      <dd className="mt-1 break-all font-mono text-lg font-semibold">{value}</dd>
+      <dt className="text-xs leading-relaxed text-muted">{label}</dt>
+      <dd className="break-all font-mono text-sm font-semibold sm:text-base">{value}</dd>
     </div>
   );
 }
@@ -1410,11 +1401,11 @@ function PaperOrder({
   const symbol = catalog.symbols.find((item) => item.code === code);
   const invalidSell = side === "sell" && (!position || lots * 1000 > position.shares);
   return (
-    <section className={CARD} aria-labelledby="morning-order-title">
-      <h3 id="morning-order-title" className="text-xl font-semibold">
+    <section className="min-w-0 border border-border bg-surface p-3" aria-labelledby="morning-order-title">
+      <h3 id="morning-order-title" className="border-b border-border pb-2 text-base font-semibold">
         紙上委託 · {symbol?.name ?? code}
       </h3>
-      <p className="mt-3 text-base leading-relaxed text-muted">
+      <p className="mt-2 text-xs leading-relaxed text-muted">
         每筆 1–3 張，1 張為 1,000 股。下一分鐘開盤資料到達後才處理，送出當下不代表成交。
       </p>
       {session.cursor < 1 && (
@@ -1439,7 +1430,7 @@ function PaperOrder({
         </div>
       ) : null}
       <form
-        className="mt-5 space-y-4"
+        className="mt-3 space-y-3"
         onSubmit={(event) => {
           event.preventDefault();
           if (!busy && !pending && !atEnd && session.cursor >= 1 && !invalidSell)
@@ -1448,7 +1439,7 @@ function PaperOrder({
       >
         <fieldset
           disabled={busy || Boolean(pending) || atEnd || session.cursor < 1}
-          className="min-w-0 space-y-4 disabled:opacity-55"
+          className="min-w-0 space-y-3 disabled:opacity-55"
         >
           <legend className="sr-only">紙上委託方向與張數</legend>
           <div className="grid grid-cols-2 gap-2" role="group" aria-label="紙上買賣方向">
@@ -1490,7 +1481,7 @@ function PaperOrder({
               ))}
             </div>
           </fieldset>
-          <p className="rounded-xl bg-bg p-3 text-base leading-relaxed">
+          <p className="border border-border bg-bg p-2 text-sm leading-relaxed">
             {side === "buy" ? "買進" : "賣出"} {code} · {lots} 張（
             {(lots * 1000).toLocaleString("zh-TW")}{" "}
             股）。價格採下一分鐘開盤價，仍須通過紙上資金與庫存檢核。
@@ -1503,7 +1494,7 @@ function PaperOrder({
           </button>
         </fieldset>
       </form>
-      <p className="mt-4 text-sm leading-relaxed text-muted">
+      <p className="mt-3 border-t border-border pt-2 text-xs leading-relaxed text-muted">
         教材手續費為買賣各 0.0855%（每筆最低 20 元），賣出另估 0.15% 稅費，逐筆四捨五入。
         沒有真實排隊、滑價或委託簿深度；這些固定練習參數與券商實際帳單可能不同。
       </p>
