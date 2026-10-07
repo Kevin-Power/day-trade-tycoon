@@ -251,6 +251,7 @@ function MorningLesson({
   const mode = useDisplayPreferences((value) => value.mode);
   const layout = useTerminalLayout(mode === "senior");
   const [selected, setSelected] = useState("");
+  const [activePane, setActivePane] = useState<"watch" | "chart" | "trade" | "positions">("chart");
   const [auto, setAuto] = useState(false);
   const [extended, setExtended] = useState(false);
   const [newPlan, setNewPlan] = useState(false);
@@ -276,6 +277,7 @@ function MorningLesson({
   const code = catalog?.symbols.some((symbol) => symbol.code === selected)
     ? selected
     : (session?.plan.focusCode ?? catalog?.symbols[0]?.code ?? "");
+  const singlePane = layout === "phone" || layout === "senior";
 
   useEffect(() => {
     setAuto(false);
@@ -421,29 +423,14 @@ function MorningLesson({
 
   return (
     <PageFrame>
-      <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 max-w-3xl">
-          <p className="text-base font-semibold text-brand">
-            真實 K 線教室 · 選交易日，練自己的判斷
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
-            先有自己的計畫，
-            <br />
-            再看下一分鐘。
+      <div className="mb-4 min-w-0">
+          <p className="text-sm font-semibold text-brand">當沖大富翁 · 交易盤</p>
+          <h1 className="mt-1 text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
+            真實 K 線模擬交易盤
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-muted">
-            歷史分鐘行情，搭配紙上委託與復盤。慢慢看、自己決定何時前進；這裡不會送出真實委託。
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            自選行情、走勢、紙上委託與庫存。先寫計畫，逐分鐘揭露真實歷史 K。
           </p>
-        </div>
-        {catalog && (
-          <div className="rounded-2xl border border-border bg-surface px-4 py-3">
-            <p className="text-sm text-muted">教材交易日</p>
-            <p className="mt-1 font-mono text-xl font-semibold">{catalog.date}</p>
-            <p className="mt-1 text-sm text-muted">
-              {catalog.start}–{catalog.end} · Asia/Taipei
-            </p>
-          </div>
-        )}
       </div>
 
       {needsLogin ? (
@@ -520,15 +507,15 @@ function MorningLesson({
           )}
           {data && catalog && (
             <>
-              <section className={cn(CARD, "mb-6")} aria-labelledby="morning-lesson-picker">
-                <h2 id="morning-lesson-picker" className="text-xl font-semibold">
-                  這次，想練哪一課？
-                </h2>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <label className="block min-w-0 text-base font-medium">
+              <details className="mb-3 rounded-xl border border-border bg-surface px-3 py-3 sm:px-4" aria-labelledby="morning-lesson-picker">
+                <summary id="morning-lesson-picker" className="min-h-10 cursor-pointer text-base font-semibold leading-10">
+                  教材：{catalog.date} · {exercise?.title ?? "自由練習"}{" "}<span className="text-sm font-normal text-muted">選擇交易日／主題</span>
+                </summary>
+                <div className="mt-2 grid gap-2 border-t border-border pt-3 sm:grid-cols-2">
+                  <label className="block min-w-0 text-sm font-medium">
                     教材交易日
                     <select
-                      className={cn(INPUT, "mt-2")}
+                      className={cn(INPUT, "mt-1")}
                       value={catalog.lessonId}
                       disabled={Boolean(busy)}
                       onChange={(event) => {
@@ -543,10 +530,10 @@ function MorningLesson({
                       ))}
                     </select>
                   </label>
-                  <label className="block min-w-0 text-base font-medium">
+                  <label className="block min-w-0 text-sm font-medium">
                     練習主題
                     <select
-                      className={cn(INPUT, "mt-2")}
+                      className={cn(INPUT, "mt-1")}
                       value={
                         session && !newPlan
                           ? (session.plan.exerciseId ?? "legacy")
@@ -570,56 +557,40 @@ function MorningLesson({
                     </select>
                   </label>
                 </div>
-                <p className="mt-3 text-sm leading-relaxed text-muted">
-                  每個交易日各自保存進度；換日不會刪除原練習。完成本輪復盤後，可用新的計畫練其他主題。相同日期使用同一份真實行情，重練時可能已知道後續走勢。
-                </p>
+                <p className="mt-2 text-xs leading-relaxed text-muted">兩日分別保存進度；完成本輪復盤後可換主題。同日重練可能已知道後續行情。</p>
                 {session && !completed && exerciseId && exerciseId !== session.plan.exerciseId && (
                   <p role="status" className="mt-3 rounded-xl bg-bg p-3 text-base leading-relaxed">
                     已恢復這個交易日尚未完成的練習。先保存本輪復盤，再切換你選的主題。
                   </p>
                 )}
-              </section>
-              {exercise && (
-                <ExerciseGuide exercise={exercise} compact={Boolean(session && !newPlan)} />
-              )}
-              <ol aria-label="練習流程" className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {["看背景與規則", "寫自己的計畫", "逐分鐘練習", "保存復盤"].map((label, index) => (
-                  <li
-                    key={label}
-                    aria-current={
-                      (
-                        completed && !newPlan
-                          ? index === 3
-                          : session && !newPlan
-                            ? index === 2
-                            : index === 0
-                      )
-                        ? "step"
-                        : undefined
-                    }
-                    className="min-w-0 rounded-xl border border-border bg-surface px-3 py-3 text-base leading-relaxed aria-[current=step]:border-brand aria-[current=step]:bg-brand/10"
-                  >
-                    <span className="mr-2 font-mono text-brand">0{index + 1}</span>
-                    {label}
-                  </li>
-                ))}
-              </ol>
+              </details>
               {!session || newPlan ? (
-                <div
-                  className={cn(
-                    "grid items-start gap-6",
-                    layout === "desktop" && "grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]",
-                  )}
+                <div className="space-y-5"
                 >
-                  <Background catalog={catalog} expanded={layout === "desktop"} />
-                  <PlanForm
-                    key={`${catalog.lessonId}:${session?.id ?? "first"}:${selectedExercise}`}
-                    catalog={catalog}
-                    exerciseId={selectedExercise}
-                    busy={Boolean(busy)}
-                    onStart={start}
-                    onCancel={session ? () => setNewPlan(false) : undefined}
-                  />
+                  <section data-market-theme="dark" className="terminal-shell real-terminal overflow-hidden rounded-2xl border border-border-strong bg-bg text-fg" aria-label="當沖大富翁交易盤預覽">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-4 py-3 text-sm">
+                      <strong>自選行情 · 個股走勢 · 紙上委託</strong>
+                      <span className="font-mono text-muted">{catalog.date} · 09:00 · 未開始</span>
+                    </div>
+                    {layout !== "desktop" && <MorningWatchlist catalog={catalog} session={null} code={code} compact onSelect={setSelected} />}
+                    <div className={cn("grid min-w-0 gap-px bg-border", layout === "desktop" && "grid-cols-[14rem_minmax(0,1.5fr)_minmax(20rem,1fr)]", layout === "tablet" && "grid-cols-[minmax(0,1fr)_minmax(20rem,1fr)]")}>
+                      {layout === "desktop" && <MorningWatchlist catalog={catalog} session={null} code={code} onSelect={setSelected} />}
+                      <div className="flex min-h-72 min-w-0 flex-col justify-start bg-bg p-5 pt-12 text-center">
+                        <p className="text-sm text-muted">{catalog.symbols.find((symbol) => symbol.code === code)?.name} {code} · 真實 1 分鐘 K</p>
+                        <p className="mt-5 text-2xl font-semibold">09:00 尚未揭露行情</p>
+                        <p className="mt-3 text-base leading-relaxed text-muted">寫下作戰計畫後開始回放；第一根 K 棒完成時才會顯示。</p>
+                      </div>
+                      <div className="min-w-0 bg-bg p-3"><PlanForm
+                        key={`${catalog.lessonId}:${session?.id ?? "first"}:${selectedExercise}`}
+                        catalog={catalog}
+                        exerciseId={selectedExercise}
+                        busy={Boolean(busy)}
+                        onStart={start}
+                        onCancel={session ? () => setNewPlan(false) : undefined}
+                      /></div>
+                    </div>
+                  </section>
+                  <Background catalog={catalog} />
                 </div>
               ) : (
                 <>
@@ -633,7 +604,7 @@ function MorningLesson({
                           id="morning-practice-title"
                           className="mt-1 scroll-mt-4 text-2xl font-semibold outline-none"
                         >
-                          {completed ? "這一輪，已留下你的練習紀錄" : "依照自己的步調，看下一分鐘"}
+                          {completed ? "這一輪的練習紀錄" : "交易盤已開始"}
                         </h2>
                       </div>
                       <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-base">
@@ -645,7 +616,7 @@ function MorningLesson({
                       </span>
                     </div>
                     {!completed && (
-                      <div className="grid gap-2 sm:grid-cols-3">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         <button
                           type="button"
                           disabled={
@@ -677,7 +648,7 @@ function MorningLesson({
                           type="button"
                           disabled={Boolean(busy)}
                           onClick={openReview}
-                          className={SECONDARY}
+                          className={cn(SECONDARY, "col-span-2 sm:col-span-1")}
                         >
                           <BookOpen className="size-5 shrink-0" aria-hidden />
                           前往復盤
@@ -696,7 +667,7 @@ function MorningLesson({
                     )}
                     {!completed && (
                       <p className="mt-3 text-sm leading-relaxed text-muted">
-                        每次只揭露已完成的一分鐘。切換商品共用相同時間，離開分頁會停止自動播放。重新進入時保持暫停。
+                        只揭露已完成分鐘；離開後停止播放，再進入時保持暫停。
                       </p>
                     )}
                     {atCheckpoint && (
@@ -751,53 +722,31 @@ function MorningLesson({
                     />
                   )}
 
-                  <div
-                    className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-5"
-                    role="group"
-                    aria-label="選擇重播商品"
-                  >
-                    {catalog.symbols.map((symbol) => (
-                      <button
-                        type="button"
-                        key={symbol.code}
-                        aria-pressed={code === symbol.code}
-                        onClick={() => setSelected(symbol.code)}
-                        className={cn(
-                          "min-h-14 min-w-0 rounded-xl border px-3 py-3 text-left text-base leading-relaxed",
-                          code === symbol.code
-                            ? "border-brand bg-brand/10"
-                            : "border-border bg-surface hover:bg-elevated",
-                        )}
-                      >
-                        <span className="block font-semibold">{symbol.name}</span>
-                        <span className="font-mono text-sm text-muted">{symbol.code}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div
-                    className={cn(
-                      "grid items-start gap-5",
-                      layout === "desktop" && "grid-cols-[minmax(0,1.6fr)_minmax(18rem,1fr)]",
-                    )}
-                  >
-                    <MorningChart catalog={catalog} session={session} code={code} />
-                    <div className="min-w-0 space-y-5">
-                      <AccountSummary session={session} />
-                      {!completed && (
-                        <PaperOrder
-                          key={code}
-                          catalog={catalog}
-                          session={session}
-                          code={code}
-                          busy={Boolean(busy || error || notice)}
-                          atEnd={atEnd}
-                          onOrder={order}
-                          onCancel={cancel}
-                        />
-                      )}
+                  <section data-market-theme="dark" className="terminal-shell real-terminal overflow-hidden rounded-2xl border border-border-strong bg-bg text-fg" aria-label="真實 K 線模擬交易盤">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-4 py-3 text-sm">
+                      <strong>當沖大富翁 · 自選行情 / 走勢 / 模擬下單 / 庫存</strong>
+                      <span className="font-mono text-muted">{catalog.date} · {formatTime(cursor * 60).slice(0, 5)} · {completed ? "已完成" : auto ? "重播中" : "已暫停"}</span>
                     </div>
-                  </div>
+                    {layout === "tablet" && <MorningWatchlist catalog={catalog} session={session} code={code} compact onSelect={setSelected} />}
+                    {singlePane && <MorningTerminalNav active={activePane} onSelect={setActivePane} />}
+                    <div className={cn("grid min-w-0 gap-px bg-border", layout === "desktop" && "grid-cols-[14rem_minmax(0,1.6fr)_minmax(19rem,1fr)]", layout === "tablet" && "grid-cols-[minmax(0,1.5fr)_minmax(19rem,1fr)]")}>
+                      {layout !== "tablet" && (
+                        <div className={cn("min-w-0 bg-bg", singlePane && activePane !== "watch" && "hidden")}>
+                          <MorningWatchlist catalog={catalog} session={session} code={code} onSelect={(next) => { setSelected(next); setActivePane("chart"); }} />
+                        </div>
+                      )}
+                      <div className={cn("min-w-0 bg-bg p-2", singlePane && activePane !== "chart" && "hidden")}>
+                        <MorningChart catalog={catalog} session={session} code={code} />
+                      </div>
+                      <div className={cn("min-w-0 space-y-3 bg-bg p-3", singlePane && activePane !== "trade" && "hidden")}>
+                        <AccountSummary session={session} />
+                        {!completed && <PaperOrder key={code} catalog={catalog} session={session} code={code} busy={Boolean(busy || error || notice)} atEnd={atEnd} onOrder={order} onCancel={cancel} />}
+                        <p className="rounded-xl border border-border bg-surface p-3 text-sm leading-relaxed text-muted">真實五檔與逐筆江波尚無資料；此處使用已完成的一分鐘 K 與紙上委託。</p>
+                      </div>
+                    </div>
+                    {singlePane && activePane === "positions" && <div className="space-y-3 bg-bg p-3"><AccountSummary session={session} /><Ledger catalog={catalog} session={session} busy={Boolean(busy)} onCancel={cancel} /></div>}
+                    {!singlePane && <div className="bg-bg p-3"><Ledger catalog={catalog} session={session} busy={Boolean(busy)} onCancel={cancel} /></div>}
+                  </section>
 
                   {reviewOpen && !completed && (
                     <section className={cn(CARD, "my-6")} aria-labelledby="morning-review-title">
@@ -821,23 +770,17 @@ function MorningLesson({
                     </section>
                   )}
 
-                  <div
-                    className={cn(
-                      "my-6 grid items-start gap-5",
-                      layout !== "phone" && layout !== "senior" && "grid-cols-2",
-                    )}
-                  >
-                    <SavedPlan plan={session.plan} catalog={catalog} />
-                    <Ledger
-                      catalog={catalog}
-                      session={session}
-                      busy={Boolean(busy)}
-                      onCancel={cancel}
-                    />
-                  </div>
+                  <div className="my-6"><SavedPlan plan={session.plan} catalog={catalog} /></div>
                   <Background catalog={catalog} />
                 </>
               )}
+              <details className={cn(CARD, "mt-6")}>
+                <summary className="min-h-12 cursor-pointer text-base font-semibold">這一課的步驟與教學提示</summary>
+                {exercise && <div className="mt-4"><ExerciseGuide exercise={exercise} compact={Boolean(session && !newPlan)} /></div>}
+                <ol aria-label="練習流程" className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {["看背景與規則", "寫自己的計畫", "逐分鐘練習", "保存復盤"].map((label, index) => <li key={label} className="min-w-0 rounded-xl border border-border bg-surface px-3 py-3 text-base leading-relaxed"><span className="mr-2 font-mono text-brand">0{index + 1}</span>{label}</li>)}
+                </ol>
+              </details>
               <details className={cn(CARD, "mt-6")}>
                 <summary className="flex min-h-12 cursor-pointer items-center text-base font-semibold">
                   資料來源與本課使用說明
@@ -877,11 +820,90 @@ function PageFrame({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-7xl px-4 py-7 sm:px-6 sm:py-10">{children}</main>
+      <main className="mx-auto w-full max-w-[1500px] px-3 py-5 sm:px-5 sm:py-8">{children}</main>
       <footer className="mx-auto max-w-7xl border-t border-border px-4 py-6 text-sm leading-relaxed text-muted sm:px-6">
         歷史資料教學試行 · 所有委託均為紙上模擬 · 沒有連接券商真實交易帳戶。
       </footer>
     </div>
+  );
+}
+
+function MorningTerminalNav({
+  active,
+  onSelect,
+}: {
+  active: "watch" | "chart" | "trade" | "positions";
+  onSelect: (pane: "watch" | "chart" | "trade" | "positions") => void;
+}) {
+  return (
+    <nav aria-label="模擬操作區" className="grid grid-cols-4 border-b border-border bg-surface">
+      {([
+        ["watch", "自選行情"],
+        ["chart", "走勢圖"],
+        ["trade", "模擬下單"],
+        ["positions", "庫存成交"],
+      ] as const).map(([pane, label]) => (
+        <button
+          key={pane}
+          type="button"
+          aria-current={active === pane ? "page" : undefined}
+          onClick={() => onSelect(pane)}
+          className={cn(
+            "min-h-14 min-w-0 border-b-2 px-1 py-2 text-sm font-semibold leading-5",
+            active === pane ? "border-brand bg-brand/10 text-brand" : "border-transparent text-muted",
+          )}
+        >
+          {label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function MorningWatchlist({
+  catalog,
+  session,
+  code,
+  onSelect,
+  compact = false,
+}: {
+  catalog: MorningCatalog;
+  session: MorningState | null;
+  code: string;
+  onSelect: (code: string) => void;
+  compact?: boolean;
+}) {
+  return (
+    <section className="min-w-0 bg-surface" aria-label="自選行情">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-3 text-sm font-semibold">
+        <span>自選行情 · 5 檔</span>
+        <span className="font-normal text-muted">已揭露收價</span>
+      </div>
+      <div className={cn(compact && "flex justify-between overflow-x-auto bg-border")} role="group" aria-label="選擇重播商品">
+        {catalog.symbols.map((symbol) => {
+          const last = session?.bars[symbol.code]?.at(-1);
+          return (
+            <button
+              type="button"
+              key={symbol.code}
+              aria-pressed={code === symbol.code}
+              onClick={() => onSelect(symbol.code)}
+              className={cn(
+                "block min-h-16 min-w-0 border-b border-border px-3 py-3 text-left text-sm leading-relaxed hover:bg-elevated",
+                code === symbol.code && "bg-brand/10 text-brand",
+                compact ? "w-32 shrink-0 border-b-0 bg-surface px-2" : "w-full",
+              )}
+            >
+              <span className="block truncate font-semibold">{symbol.name}</span>
+              <span className="font-mono text-xs text-muted">{symbol.code}</span>
+              <span className="block font-mono text-base font-semibold">{last ? formatPrice(last.c) : "—"}</span>
+              {!compact && <span className="block text-xs text-muted">昨收 {formatPrice(symbol.previousClose)}</span>}
+            </button>
+          );
+        })}
+      </div>
+      {!compact && <p className="px-3 py-3 text-xs leading-relaxed text-muted">未完成的分鐘不顯示價格；這裡沒有真實五檔報價。</p>}
+    </section>
   );
 }
 

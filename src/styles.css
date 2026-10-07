@@ -316,6 +316,9 @@
   color: #05080d;
 }
 
+/* The embedded real-candle desk grows with its content on phone and tablet. */
+.terminal-shell.real-terminal { min-height: 0; }
+
 /* Shared classroom hierarchy, separate from compact quote typography. */
 .academy-page { min-height: 100dvh; color: var(--color-fg); }
 .academy-container { width: min(100%, 1240px); margin-inline: auto; padding-inline: clamp(20px, 4vw, 48px); }

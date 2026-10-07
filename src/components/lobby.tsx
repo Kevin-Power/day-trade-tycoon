@@ -187,16 +187,16 @@ export function Lobby() {
               id="classroom-title"
               className="premium-hero-title academy-title text-balance text-4xl font-semibold leading-tight tracking-tight sm:text-5xl"
             >
-              今天，練好
-              <span className="premium-hero-title-accent block">一個交易動作。</span>
+              歡迎回到當沖大富翁
+              <span className="premium-hero-title-accent block">交易盤與練習課程。</span>
             </h1>
             <p className="academy-description mt-5 max-w-xl text-pretty text-base leading-8 text-muted">
-              先選一個目標，完成模擬練習，再用紀錄回看操作。從看懂委託與成交，到說清楚進場與離場條件，讓每一次練習都有方向。
+              原本熟悉的自選行情、K 線、紙上委託與庫存操作已整合在交易盤。選擇課程主題與交易日後，逐分鐘練習並保存復盤。
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               {!CLASSROOM_OFFLINE ? (
                 <RealCandlesLink className="academy-button-primary px-5">
-                  開始真實 K 線練習
+                  進入交易盤
                 </RealCandlesLink>
               ) : recentReview ? (
                 <Link
@@ -234,8 +234,7 @@ export function Lobby() {
             </div>
             {!CLASSROOM_OFFLINE && (
               <p className="mt-3 text-base leading-relaxed text-muted">
-                選交易日與練習主題，依序查看已完成的一分鐘 K
-                線，再核對紙上委託與紀錄。可用日期與股票以回放頁為準。
+                交易盤使用已完成的一分鐘 K 線；原本的真實五檔、逐筆江波與閃電下單待取得對應資料後再開放。可用日期與股票以交易盤為準。
               </p>
             )}
             {recentReview && (
@@ -302,16 +301,16 @@ export function Lobby() {
             <div className="min-w-0">
               <p className="text-sm font-semibold text-brand">真實行情 · 分鐘回放</p>
               <h2 id="morning-entry-title" className="mt-2 text-2xl font-semibold">
-                真實早盤練習
+                當沖大富翁交易盤
               </h2>
               <p className="mt-3 max-w-3xl text-base leading-relaxed text-muted">
-                選交易日與練習主題，先寫自己的計畫，再逐分鐘觀察真實開高低收。紙上委託與復盤分步完成，切換股票共用同一個回放時鐘。
+                原本的自選行情、走勢圖、模擬下單與庫存紀錄都在交易盤。選交易日與練習主題，再逐分鐘觀察真實開高低收。
               </p>
               <p className="mt-2 text-sm leading-relaxed text-muted">
                 歷史分鐘資料 · 非即時行情 · 只提供紙上模擬，登入後保存紀錄
               </p>
             </div>
-            <RealCandlesLink className="min-h-14 px-5">進入真實早盤練習</RealCandlesLink>
+            <RealCandlesLink className="min-h-14 px-5">開啟交易盤</RealCandlesLink>
           </section>
         )}
 

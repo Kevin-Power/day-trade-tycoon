@@ -51,7 +51,7 @@ export function GateScreen({ onOpen, submit }: Props) {
           再看懂每一次決策。
         </>
       }
-      heroDescription="講師帶領、模擬操作、課後復盤。在當沖大富翁，循序練習觀察市場與管理風險。"
+      heroDescription="入場後可回到當沖大富翁交易盤，查看自選行情、真實歷史 K 線、紙上委託與庫存，也能選擇六個練習主題。"
       features={FEATURES}
       footer={
         <>
