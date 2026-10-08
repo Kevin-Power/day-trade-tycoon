@@ -2,6 +2,7 @@
 @import "./reading-mode.css";
 @import "./responsive-terminal.css";
 @import "./academy-finish.css";
+@import "./quote-workspace.css";
 @source "./**/*.{ts,tsx}";
 
 @theme {
