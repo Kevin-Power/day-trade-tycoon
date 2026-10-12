@@ -1,0 +1,688 @@
+.quote-workbench[data-layout="desktop"] {
+  grid-template-columns: 178px minmax(0, 1fr) 348px;
+}
+.quote-workbench[data-layout="tablet"] {
+  grid-template-columns: minmax(0, 1fr) 326px;
+}
+.quote-plan-panel {
+  grid-column: 1 / -1;
+  scroll-margin-top: 12px;
+}
+.quote-trade-panel > .sim-ticket {
+  margin: 0;
+}
+.sim-account {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 13px 18px;
+  margin-bottom: 12px;
+  border: 1px solid #2a3a51;
+  border-radius: 10px;
+  background: #101a2b;
+  color: #edf3fc;
+}
+.sim-account-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #c2d3eb;
+}
+.sim-account-label small {
+  display: block;
+  margin-top: 2px;
+  color: #93a8c4;
+  font-size: 10px;
+}
+.sim-account dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 30px;
+  flex: 1;
+  min-width: 0;
+}
+.sim-account dt {
+  color: #9fb1ca;
+  font-size: 11px;
+}
+.sim-account dd {
+  font: 600 18px/1.5 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.sim-account dd small {
+  font-size: 12px;
+  font-weight: 400;
+}
+.sim-account-note {
+  font-size: 10px;
+  color: #9fb1ca;
+}
+.sim-ticket {
+  --order-accent: #ff6073;
+  --order-fill: #c83049;
+  color: #edf3fc;
+  background: #101a2b;
+  min-width: 0;
+}
+.sim-ticket[data-side="sell"] {
+  --order-accent: #40ddb0;
+  --order-fill: #087d5c;
+}
+.sim-ticket-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 15px 17px;
+  border-bottom: 1px solid #2b3e59;
+  background: #1a2b43;
+}
+.sim-ticket-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.sim-paper-tag {
+  color: #efd584;
+  border: 1px solid #73663d;
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 3px 7px;
+}
+.sim-ticket-body {
+  padding: 16px;
+}
+.sim-symbol-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 17px;
+}
+.sim-symbol-row label {
+  min-width: 0;
+}
+.sim-symbol-row label > span,
+.sim-reference-price > span {
+  display: block;
+  margin-bottom: 6px;
+  color: #aebfd6;
+  font-size: 11px;
+}
+.sim-symbol-row select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid #49617f;
+  border-radius: 6px !important;
+  background: #16253b;
+  color: #f4f7fd;
+  font-size: 15px;
+  font-weight: 600;
+}
+.sim-reference-price {
+  text-align: right;
+}
+.sim-reference-price strong {
+  display: block;
+  font: 600 24px/44px var(--font-mono);
+  color: #efd584;
+}
+.sim-ticket button {
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.sim-ticket button:disabled,
+.sim-ticket fieldset:disabled button {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+.sim-ticket :is(button, select, summary):focus-visible,
+.sim-ledger button:focus-visible {
+  outline: 2px solid #c5dcff;
+  outline-offset: 3px;
+}
+.sim-order-fields {
+  border: 0;
+  min-width: 0;
+}
+.sim-side-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  background: #091220;
+  border: 1px solid #2b3e59;
+  border-radius: 8px;
+}
+.sim-side-switch button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #a9bad1;
+  font-size: 18px;
+  font-weight: 700;
+}
+.sim-side-switch [data-side="buy"][aria-pressed="true"] {
+  color: #fff;
+  background: #c83049;
+  border-color: #f76478;
+}
+.sim-side-switch [data-side="sell"][aria-pressed="true"] {
+  color: #fff;
+  background: #087d5c;
+  border-color: #35d4a7;
+}
+.sim-execution {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 14px 0 17px;
+  font-size: 12px;
+}
+.sim-execution span {
+  border: 1px solid #486282;
+  border-radius: 4px;
+  padding: 3px 7px;
+  color: #c6dbf9;
+  background: #182a43;
+}
+.sim-execution strong {
+  font-weight: 400;
+  color: #acbdd4;
+}
+.sim-quantity-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 9px;
+  font-size: 13px;
+}
+.sim-quantity-heading span {
+  color: #aebfd6;
+  font-size: 11px;
+}
+.sim-stepper {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 52px;
+  border: 1px solid #486282;
+  border-radius: 7px;
+  background: #0b1423;
+  overflow: hidden;
+}
+.sim-stepper button {
+  display: grid;
+  place-items: center;
+  min-height: 55px;
+  background: #1a2b43;
+  color: #c6dbf9;
+}
+.sim-stepper output {
+  align-self: center;
+  text-align: center;
+  font: 600 30px/1.5 var(--font-mono);
+  color: #fff;
+}
+.sim-stepper output span {
+  font: 400 13px var(--font-sans);
+  margin-left: 7px;
+  color: #acbdd4;
+}
+.sim-quantity-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 9px;
+}
+.sim-quantity-shortcuts button {
+  min-height: 40px;
+  border: 1px solid #3b516e;
+  border-radius: 5px;
+  color: #b9cce5;
+  font-size: 13px;
+}
+.sim-quantity-shortcuts button[aria-pressed="true"] {
+  border-color: var(--order-accent);
+  color: var(--order-accent);
+  background: #172337;
+}
+.sim-order-facts {
+  display: grid;
+  gap: 8px;
+  padding: 15px 0;
+  margin-top: 12px;
+  border-top: 1px solid #293b54;
+}
+.sim-order-facts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.sim-order-facts dt {
+  color: #afc0d7;
+  font-size: 12px;
+}
+.sim-order-facts dt small {
+  font-size: 10px;
+}
+.sim-order-facts dd {
+  text-align: right;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.sim-submit,
+.sim-prepare {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 50px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--order-fill);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+}
+.sim-submit span {
+  font-size: 13px;
+  padding-left: 10px;
+  border-left: 1px solid #ffffff55;
+}
+.sim-prepare {
+  background: #335e98;
+  font-size: 14px;
+}
+.sim-submit:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.sim-ticket-message {
+  border-left: 2px solid #e0bb69;
+  background: #302b20;
+  color: #f2d99f;
+  font-size: 13px;
+  line-height: 1.7;
+  padding: 9px 11px;
+  margin-bottom: 12px;
+}
+.sim-order-help {
+  margin-top: 13px;
+  border-top: 1px solid #293b54;
+  color: #aebfd6;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.sim-order-help summary {
+  cursor: pointer;
+  padding: 10px 0 5px;
+  min-height: 36px;
+}
+.sim-order-help p {
+  margin: 8px 0;
+}
+.sim-ticket-footnote {
+  text-align: center;
+  color: #9bb0ce;
+  font-size: 10px;
+  margin-top: 6px;
+  line-height: 1.7;
+}
+.sim-pending {
+  border: 1px solid #77633a;
+  border-radius: 6px;
+  background: #29281f;
+  padding: 12px;
+  margin-bottom: 16px;
+  color: #edd49e;
+}
+.sim-pending > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+}
+.sim-pending p {
+  margin: 8px 0 4px;
+  font-size: 14px;
+}
+.sim-pending small {
+  display: block;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #d1c6ab;
+}
+.sim-pending-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+.sim-pending-actions button {
+  min-height: 44px;
+  padding: 8px;
+  font-size: 12px;
+  border: 1px solid #8c7749;
+  border-radius: 5px;
+}
+.sim-pending-actions button:first-child {
+  background: #e1c379;
+  color: #252112;
+  font-weight: 700;
+}
+.sim-confirm h3 {
+  font-size: 14px;
+  color: #c9d8ec;
+  margin-bottom: 14px;
+}
+.sim-confirm-symbol {
+  font-size: 20px;
+  font-weight: 600;
+}
+.sim-confirm-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 0 7px;
+  color: var(--order-accent);
+}
+.sim-confirm-main strong {
+  font-size: 28px;
+}
+.sim-confirm-main > span {
+  font: 600 36px var(--font-mono);
+}
+.sim-confirm-main small {
+  font-size: 16px;
+}
+.sim-help {
+  font-size: 12px;
+  color: #b1c3dd;
+  line-height: 1.9;
+  margin: 0 0 18px;
+}
+.sim-back {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  font-size: 13px;
+  border: 1px solid #49617f;
+  border-radius: 5px;
+  color: #c9d8ec;
+}
+.sim-ledger {
+  color: #edf3fc;
+}
+.sim-ledger-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid #2a3e59;
+  background: #15243a;
+}
+.sim-ledger-header nav {
+  display: flex;
+  gap: 12px;
+}
+.sim-ledger-header button {
+  min-height: 55px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: #afc2de;
+  font-size: 14px;
+  padding: 8px 8px 6px;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.sim-ledger-header button[aria-pressed="true"] {
+  color: #e4eeff;
+  border-color: #e4c779;
+  font-weight: 700;
+}
+.sim-ledger-header button span {
+  font: 500 11px var(--font-mono);
+  background: #293d5a;
+  color: #c9dcf7;
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+.sim-ledger-header > span {
+  font-size: 11px;
+  color: #9db4d1;
+}
+.sim-ledger-content {
+  min-height: 120px;
+  max-height: 440px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sim-ledger-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 16px;
+  text-align: center;
+  gap: 8px;
+  color: #93abc9;
+}
+.sim-ledger-empty strong {
+  color: #c7d7ed;
+  font-size: 14px;
+  font-weight: 500;
+}
+.sim-ledger-empty p {
+  font-size: 12px;
+  line-height: 1.8;
+}
+.sim-records li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #293b54;
+}
+.sim-records li:last-child {
+  border-bottom: none;
+}
+.sim-record-symbol {
+  width: 160px;
+}
+.sim-record-symbol strong {
+  display: block;
+  font-size: 15px;
+}
+.sim-record-symbol > span {
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+  color: #a4bbd9;
+}
+.sim-records dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  flex: 1;
+  gap: 16px;
+  min-width: 0;
+}
+.sim-records dt {
+  font-size: 11px;
+  color: #a8bbd5;
+  margin-bottom: 5px;
+}
+.sim-records dd {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.sim-buy {
+  color: #ff7889;
+}
+.sim-sell {
+  color: #40ddb0;
+}
+.sim-status {
+  display: inline-block;
+  padding: 3px 7px;
+  border-radius: 4px;
+  color: #c4d6f1;
+  background: #243751;
+  font-size: 12px;
+}
+.sim-status[data-status="pending"] {
+  color: #edd49e;
+  background: #3b3320;
+}
+.sim-status[data-status="filled"] {
+  color: #8ae6c6;
+  background: #123c33;
+}
+.sim-status[data-status="rejected"] {
+  color: #ff9aaa;
+  background: #4c2430;
+}
+.sim-cancel {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid #6581a7;
+  border-radius: 5px;
+  font-size: 13px;
+  color: #d5e4f9;
+  cursor: pointer;
+}
+.sim-cancel:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.sim-record-reason {
+  width: 100%;
+  font-size: 13px;
+  color: #edd49e;
+}
+@media (max-width: 1100px) {
+  .sim-account {
+    gap: 16px;
+  }
+  .sim-account dl {
+    gap: 14px;
+  }
+  .sim-account dd {
+    font-size: 15px;
+  }
+  .sim-account-note {
+    display: none;
+  }
+}
+.quote-workbench:is([data-layout="phone"], [data-layout="senior"]) .quote-mobile-ticket {
+  padding: 0;
+}
+.quote-mobile-ticket > .sim-account {
+  margin: 10px;
+  padding: 12px;
+  display: block;
+}
+.quote-mobile-ticket > .sim-account .sim-account-label {
+  margin-bottom: 12px;
+}
+.quote-mobile-ticket > .sim-account dl {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.quote-workbench:is([data-layout="phone"], [data-layout="senior"]) .sim-ledger-header {
+  padding: 0 10px;
+  gap: 0;
+}
+.quote-workbench:is([data-layout="phone"], [data-layout="senior"]) .sim-ledger-header > span {
+  display: none;
+}
+.quote-workbench:is([data-layout="phone"], [data-layout="senior"]) .sim-record-symbol {
+  width: 100%;
+}
+.quote-workbench:is([data-layout="phone"], [data-layout="senior"]) .sim-records li {
+  padding: 16px;
+  gap: 12px;
+}
+.quote-workbench:is([data-layout="phone"], [data-layout="senior"]) .sim-records dl {
+  gap: 12px;
+  flex-basis: 100%;
+}
+.quote-workbench[data-layout="senior"] .sim-ticket-body {
+  padding: 12px;
+}
+.quote-workbench[data-layout="senior"] .sim-symbol-row {
+  grid-template-columns: 1fr;
+}
+.quote-workbench[data-layout="senior"] .sim-reference-price {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+}
+.quote-workbench[data-layout="senior"] .sim-reference-price strong {
+  font-size: 26px;
+}
+.quote-workbench[data-layout="senior"]
+  :is(.sim-ticket, .sim-ledger)
+  :is(
+    p,
+    small,
+    dt,
+    summary,
+    label,
+    select,
+    button,
+    .sim-execution,
+    .sim-symbol-row label > span,
+    .sim-reference-price > span
+  ) {
+  font-size: 16px;
+}
+.quote-workbench[data-layout="senior"] :is(.sim-ticket, .sim-ledger) button {
+  min-height: 56px;
+}
+.quote-workbench[data-layout="senior"] .sim-order-facts > div {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.quote-workbench[data-layout="senior"] .sim-order-facts dd {
+  font-size: 18px;
+}
+.quote-workbench[data-layout="senior"] .sim-quantity-heading {
+  align-items: start;
+  flex-direction: column;
+}
+.quote-workbench[data-layout="senior"] .sim-quantity-heading span {
+  font-size: 14px;
+}
+.quote-workbench[data-layout="senior"] .sim-records dl {
+  grid-template-columns: 1fr;
+}
+.quote-workbench[data-layout="senior"] .sim-pending-actions {
+  grid-template-columns: 1fr;
+}
+.quote-workbench[data-layout="senior"] .sim-ledger-header nav {
+  gap: 0;
+  width: 100%;
+}
+.quote-workbench[data-layout="senior"] .sim-ledger-header button {
+  flex: 1;
+  padding: 8px 2px;
+}

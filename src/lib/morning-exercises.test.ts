@@ -49,13 +49,13 @@ function loadCourseCard(offline: boolean) {
 }
 
 for (const offline of [false, true]) {
-  test(`${offline ? "offline" : "online"} course cards open the selected topic in real replay`, () => {
+  test(`${offline ? "offline" : "online"} course cards open the selected topic at the simulation ticket`, () => {
     const CourseCard = loadCourseCard(offline);
     MORNING_EXERCISES.forEach((exercise, index) => {
       const html = renderToStaticMarkup(createElement(CourseCard, { exercise, index }));
-      const links = [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
+      const links = [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1].replaceAll("&amp;", "&"));
       assert.deepEqual(links, [
-        `${offline ? "https://rich.yilutek.com" : ""}/morning?exercise=${exercise.id}`,
+        `${offline ? "https://rich.yilutek.com" : ""}/morning?exercise=${exercise.id}&panel=trade`,
       ]);
       assert.ok(html.includes(exercise.title));
       assert.ok(html.includes(exercise.prep[0]));

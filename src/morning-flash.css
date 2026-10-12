@@ -1,0 +1,391 @@
+.morning-order-station {
+  min-width: 0;
+}
+.pro-terminal .morning-order-station > section {
+  margin: 0;
+  border-radius: 0;
+}
+.pro-terminal .quote-workbench .terminal-quote-detail[data-pane="book"] .terminal-depth-content {
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  overflow: visible;
+}
+.pro-terminal .morning-order-station .terminal-pane-bar {
+  padding-inline: 9px;
+}
+.pro-terminal .morning-order-station .terminal-pane-bar nav {
+  gap: 11px;
+}
+.morning-book {
+  background: #0a1320;
+  color: #d9e6f5;
+}
+.morning-flash-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  background: #15263d;
+}
+.morning-flash-control > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.morning-flash-control > span svg {
+  color: #99cfff;
+}
+.morning-flash-control button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 27px;
+  padding: 2px 8px;
+  border: 1px solid #456482;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #a6bdd3;
+}
+.morning-flash-control button i {
+  width: 20px;
+  height: 11px;
+  border-radius: 8px;
+  background: #536579;
+  position: relative;
+}
+.morning-flash-control button i::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #dce7f3;
+  transition: transform 0.15s;
+}
+.morning-flash-control button[aria-checked="true"] {
+  background: #66501d;
+  border-color: #b48b37;
+  color: #ffe0a0;
+}
+.morning-flash-control button[aria-checked="true"] i {
+  background: #dcae45;
+}
+.morning-flash-control button[aria-checked="true"] i::after {
+  transform: translateX(9px);
+  background: #fff7dd;
+}
+.morning-book-lots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px 2px;
+}
+.morning-book-lots > span {
+  font-size: 11px;
+  color: #9cb2cb;
+  margin-right: auto;
+}
+.morning-book-lots button {
+  flex: 0 1 55px;
+  min-height: 26px;
+  border: 1px solid #365472;
+  border-radius: 3px;
+  color: #abc1d9;
+  font: 11px var(--font-mono);
+}
+.morning-book-lots button[aria-pressed="true"] {
+  background: #21496f;
+  border-color: #6296c1;
+  color: #e8f4ff;
+}
+.morning-flash-hint {
+  padding: 4px 10px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: #9bb4cf;
+}
+.morning-book[data-flash="true"] .morning-flash-hint {
+  color: #f5d79a;
+  background: #2b281e;
+}
+.morning-book-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 3px 10px;
+  color: #8ba7c4;
+  font-size: 9px;
+  background: #112035;
+}
+.morning-book-levels {
+  padding: 0 5px;
+}
+.morning-book-levels button {
+  display: grid;
+  grid-template-columns: 34px 1fr 78px;
+  align-items: center;
+  width: 100%;
+  min-height: 23px;
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  gap: 6px;
+  font: 12px/1.4 var(--font-mono);
+}
+.morning-book-levels button > span:first-child {
+  font: 10px var(--font-sans);
+  text-align: left;
+}
+.morning-book-levels button strong {
+  text-align: right;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.morning-book-levels button[data-side="buy"] {
+  color: #f68a98;
+}
+.morning-book-levels button[data-side="sell"] {
+  color: #56d2ad;
+}
+.morning-book-levels button:not(:disabled):hover {
+  background: #1d3550;
+  border-color: #6f97bf;
+}
+.morning-book-levels button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.morning-book-depth {
+  position: relative;
+  text-align: right;
+  padding-right: 3px;
+  font-size: 11px;
+  isolation: isolate;
+}
+.morning-book-depth i {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: currentColor;
+  opacity: 0.18;
+  z-index: -1;
+}
+.morning-book-last {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 5px;
+  margin: 2px 5px;
+  padding: 3px 6px;
+  border-block: 1px solid #3c5f80;
+  background: #142941;
+}
+.morning-book-last strong {
+  font: 600 20px/1.2 var(--font-mono);
+  color: #dceeff;
+}
+.morning-book-last > span {
+  font-size: 9px;
+  color: #9cbbd7;
+}
+.morning-book-source {
+  padding: 5px 10px;
+  font-size: 9px;
+  line-height: 1.5;
+  color: #91abc4;
+  border-top: 1px solid #263b53;
+}
+.morning-book-empty {
+  text-align: center;
+  font-size: 12px;
+  padding: 14px 5px;
+  color: #8ea7c1;
+}
+.morning-book button:disabled {
+  cursor: not-allowed;
+}
+.morning-flash-ready {
+  padding: 3px 0 8px;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.morning-flash-ready strong {
+  color: #f5d79a;
+  font-weight: 500;
+}
+.morning-flash-ready p {
+  color: #9db5ce;
+  margin: 4px 0 8px;
+}
+.morning-flash-ready button {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid #46688c;
+  border-radius: 3px;
+  color: #bddaff;
+}
+.morning-order-type {
+  display: flex;
+  gap: 4px;
+}
+.morning-order-type button {
+  min-height: 29px;
+  min-width: 44px;
+  padding: 3px 7px;
+  border: 1px solid #385879;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #9fbbd6;
+}
+.morning-order-type button[aria-pressed="true"] {
+  background: #214669;
+  color: #dfedfc;
+  border-color: #6494bf;
+}
+.morning-limit-field {
+  padding-bottom: 12px;
+}
+.morning-limit-field > label {
+  display: block;
+  font-size: 12px;
+  color: #bdd0e5;
+  margin-bottom: 5px;
+}
+.morning-limit-field > div {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 38px;
+  border: 1px solid #4c698a;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.morning-limit-field button {
+  min-height: 36px;
+  font-size: 17px;
+  background: #1a2a3d;
+}
+.morning-limit-field input {
+  min-width: 0;
+  width: 100%;
+  padding: 5px;
+  text-align: center;
+  font: 17px var(--font-mono);
+  background: #0c1725;
+  color: #e1edff;
+  outline-offset: -2px;
+}
+.morning-limit-field > p {
+  color: #ffc18b;
+  font-size: 11px;
+  margin-top: 5px;
+}
+.pro-terminal .morning-order-station .sim-pending {
+  margin-bottom: 5px;
+}
+.pro-terminal .morning-order-station .sim-pending p {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.pro-terminal .morning-order-station .sim-pending small {
+  font-size: 10px;
+  line-height: 1.7;
+}
+@media (max-width: 767px) {
+  .morning-flash-control {
+    padding: 6px 12px;
+  }
+  .morning-flash-control > span {
+    font-size: 15px;
+  }
+  .morning-flash-control button {
+    min-height: 44px;
+    font-size: 12px;
+  }
+  .morning-book-lots {
+    padding: 5px 12px;
+  }
+  .morning-book-lots button {
+    min-height: 44px;
+    flex-basis: 60px;
+    font-size: 13px;
+  }
+  .morning-flash-hint {
+    font-size: 11px;
+    padding: 5px 12px;
+  }
+  .morning-book-heading {
+    font-size: 10px;
+    padding-block: 5px;
+  }
+  .morning-book-levels button {
+    min-height: 44px;
+    grid-template-columns: 38px 1fr 96px;
+    font-size: 17px;
+  }
+  .morning-book-levels button > span:first-child,
+  .morning-book-depth {
+    font-size: 12px;
+  }
+  .morning-book-last {
+    padding-block: 6px;
+  }
+  .morning-book-source {
+    font-size: 10px;
+    padding: 8px 12px;
+  }
+  .morning-flash-ready {
+    font-size: 13px;
+  }
+  .morning-flash-ready button,
+  .morning-order-type button,
+  .morning-limit-field button,
+  .morning-limit-field input {
+    min-height: 44px;
+  }
+  .pro-terminal .morning-order-station .terminal-pane-bar button {
+    min-height: 44px;
+  }
+  .pro-terminal .morning-order-station .sim-pending small {
+    font-size: 12px;
+  }
+}
+html[data-reading-mode="senior"] .pro-terminal .morning-book :is(button),
+html[data-reading-mode="senior"]
+  .pro-terminal
+  :is(
+    .morning-order-type button,
+    .morning-limit-field input,
+    .morning-limit-field button,
+    .morning-flash-ready button
+  ) {
+  min-height: 56px;
+  font-size: 18px;
+}
+html[data-reading-mode="senior"]
+  .pro-terminal
+  :is(
+    .morning-book-lots > span,
+    .morning-flash-hint,
+    .morning-book-heading,
+    .morning-book-source,
+    .morning-flash-control > span,
+    .morning-flash-ready,
+    .morning-book-levels button > span,
+    .morning-book-last > span
+  ) {
+  font-size: 15px;
+}
+html[data-reading-mode="senior"] .pro-terminal .morning-book-lots {
+  flex-wrap: wrap;
+}
+html[data-reading-mode="senior"] .pro-terminal .morning-book-lots > span {
+  flex-basis: 100%;
+}
+html[data-reading-mode="senior"] .pro-terminal .morning-book-lots button {
+  flex: 1;
+}

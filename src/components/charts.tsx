@@ -5,9 +5,13 @@ import {
   chartLinePoints,
   chartWindow,
   completedBarsInWindow,
+  hairlineDevicePixels,
   inChartWindow,
   minuteColumnWidth,
   nearestTimePoint,
+  snapColumn,
+  snapEdge,
+  snapStroke,
   splitPriceLine,
   timeAxisTicks,
   type ChartRange,
@@ -42,6 +46,8 @@ export type TapeChartProps = {
   endT: number;
   now: number;
   variant?: "index" | "stock" | "jiangbo" | "candles";
+  /** Visual presentation only; source intervals and price coordinates are unchanged. */
+  presentation?: "terminal";
   /** Optional visible interval, always bounded by the lesson and current time. */
   range?: ChartRange;
   interactive?: boolean;
@@ -89,15 +95,21 @@ export function TapeChart(props: TapeChartProps) {
     if (!canvas) return;
     let frame = 0;
     let disposed = false;
+    // Exact device pixels the browser gives this canvas, where ResizeObserver reports them.
+    let deviceBox: { width: number; height: number } | undefined;
     const draw = () => {
       frame = 0;
       if (disposed) return;
       const { width, height } = canvas.getBoundingClientRect();
       if (width < 8 || height < 8) return;
-      const size = canvasResolution(width, height, window.devicePixelRatio);
+      // Backing pixels must match the screen's device pixels one to one: any other size is
+      // resampled by the browser, which blurs every snapped line and every glyph.
+      const size = canvasResolution(width, height, window.devicePixelRatio, deviceBox);
       if (canvas.width !== size.width) canvas.width = size.width;
       if (canvas.height !== size.height) canvas.height = size.height;
-      const ctx = canvas.getContext("2d");
+      // paint() fills the whole canvas with an opaque colour, so an opaque context lets
+      // browsers use their sharper (LCD) text rendering on it.
+      const ctx = canvas.getContext("2d", { alpha: false });
       if (!ctx) return;
       ctx.setTransform(size.scaleX, 0, 0, size.scaleY, 0, 0);
       const description = paint(
@@ -114,8 +126,17 @@ export function TapeChart(props: TapeChartProps) {
       if (!disposed && !frame) frame = requestAnimationFrame(draw);
     };
     redraw.current = schedule;
-    const resize = new ResizeObserver(schedule);
-    resize.observe(canvas);
+    const resize = new ResizeObserver((entries) => {
+      const box = entries.at(-1)?.devicePixelContentBoxSize?.[0];
+      if (box) deviceBox = { width: box.inlineSize, height: box.blockSize };
+      schedule();
+    });
+    try {
+      resize.observe(canvas, { box: "device-pixel-content-box" });
+    } catch {
+      // Browsers without the device-pixel box (older Safari) round CSS size times ratio instead.
+      resize.observe(canvas);
+    }
     const changes = new MutationObserver(schedule);
     for (let element: HTMLElement | null = canvas; element; element = element.parentElement) {
       changes.observe(element, {
@@ -231,8 +252,22 @@ function paint(
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = c.bg;
   ctx.fillRect(0, 0, w, h);
+  // Device pixels per CSS pixel. Straight lines and rectangles are snapped to this grid so they
+  // cover whole device pixels; anti-aliasing is kept only for diagonal price lines and text.
+  const transform = ctx.getTransform();
+  const sx = transform.a > 0 ? transform.a : 1;
+  const sy = transform.d > 0 ? transform.d : 1;
+  const hairline = hairlineDevicePixels(Math.min(sx, sy));
+  const gridPixels = Math.max(1, Math.round(0.75 * Math.min(sx, sy)));
+  const cssPixels = (devicePixels: number) => devicePixels / Math.min(sx, sy);
+  const hRule = (y: number, devicePixels = hairline) => snapStroke(y, sy, devicePixels);
+  const vRule = (x: number, devicePixels = hairline) => snapStroke(x, sx, devicePixels);
+  // Dash lengths in whole device pixels, so each dash starts and ends on a pixel edge.
+  const dashes = (pattern: number[], scale: number) =>
+    pattern.map((length) => Math.max(1, Math.round(length * scale)) / scale);
   const isIndex = opt.variant === "index";
   const isCandles = opt.variant === "candles";
+  const terminal = opt.presentation === "terminal";
   const window = chartWindow({ ...opt, wave: opt.variant === "jiangbo" });
   const interval = opt.completedBarSeconds;
   const bars = (
@@ -260,7 +295,7 @@ function paint(
     ),
     30,
   );
-  const padL = Math.ceil(axisWidth + 12);
+  const padL = terminal ? 16 : Math.ceil(axisWidth + 12);
   const padR = Math.ceil(axisWidth + 14);
   const padT = c.fontSize;
   const axisH = c.fontSize + 12;
@@ -288,20 +323,28 @@ function paint(
   const candleTime = (bar: Bar) => bar.t + (interval ? interval / 2 : 0);
   const plotBottom = padT + plotH;
   ctx.font = font;
-  ctx.lineWidth = 0.75;
+  ctx.lineWidth = cssPixels(gridPixels);
   ctx.strokeStyle = c.grid;
   ctx.fillStyle = c.muted;
   ctx.textBaseline = "middle";
-  ctx.textAlign = "right";
+  ctx.textAlign = terminal ? "left" : "right";
+  const gridLeft = snapEdge(padL, sx);
+  const gridRight = snapEdge(w - padR, sx);
+  const gridTop = snapEdge(padT, sy);
+  const gridBottom = snapEdge(h - axisH, sy);
   const rows = Math.max(2, Math.min(5, Math.floor(plotH / (c.fontSize * 2.6))));
   for (let i = 0; i <= rows; i++) {
     const price = max - (span * i) / rows;
     const y = yOf(price);
     ctx.beginPath();
-    ctx.moveTo(padL, y);
-    ctx.lineTo(w - padR, y);
+    ctx.moveTo(gridLeft, hRule(y, gridPixels));
+    ctx.lineTo(gridRight, hRule(y, gridPixels));
     ctx.stroke();
-    ctx.fillText(label(price), padL - 7, y);
+    ctx.fillText(
+      label(price),
+      snapEdge(terminal ? w - padR + 8 : padL - 7, sx),
+      snapEdge(y, sy),
+    );
   }
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
@@ -309,10 +352,12 @@ function paint(
   for (const time of timeAxisTicks(window.start, window.end, plotW, labelWidth)) {
     const x = xOf(time);
     ctx.beginPath();
-    ctx.moveTo(x, padT);
-    ctx.lineTo(x, h - axisH);
+    ctx.moveTo(vRule(x, gridPixels), gridTop);
+    ctx.lineTo(vRule(x, gridPixels), gridBottom);
     ctx.stroke();
-    ctx.fillText(formatTime(time).slice(0, 5), x, h - axisH + 4);
+    // Keep the first label inside the canvas instead of letting the left edge crop it.
+    const labelX = Math.max(x, labelWidth / 2 + 1);
+    ctx.fillText(formatTime(time).slice(0, 5), snapEdge(labelX, sx), snapEdge(h - axisH + 4, sy));
   }
 
   // Every time-based layer is clipped, including volume, indicators and events.
@@ -324,15 +369,16 @@ function paint(
     if (price === undefined || !Number.isFinite(price) || price <= 0) return;
     ctx.save();
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
-    ctx.setLineDash(dash);
+    ctx.lineWidth = cssPixels(hairline);
+    ctx.setLineDash(dashes(dash, sx));
     ctx.beginPath();
-    ctx.moveTo(padL, yOf(price));
-    ctx.lineTo(w - padR, yOf(price));
+    ctx.moveTo(gridLeft, hRule(yOf(price)));
+    ctx.lineTo(gridRight, hRule(yOf(price)));
     ctx.stroke();
     ctx.restore();
   };
   reference(opt.prev, c.tape, [4, 4]);
+  if (terminal) reference(current, current >= opt.prev ? c.up : c.down, [2, 5]);
   let vwapNow = current;
   if (!isIndex) {
     reference(opt.open, c.muted, [2, 4]);
@@ -363,41 +409,41 @@ function paint(
     ctx.stroke();
   }
   ctx.save();
-  ctx.setLineDash([2, 4]);
+  ctx.setLineDash(dashes([2, 4], sy));
   ctx.strokeStyle = c.grid;
-  ctx.lineWidth = 1;
+  ctx.lineWidth = cssPixels(hairline);
   for (const time of opt.newsAt ?? []) {
     if (time < window.start || time > window.dataEnd) continue;
-    const x = xOf(time);
+    const x = vRule(xOf(time));
     ctx.beginPath();
-    ctx.moveTo(x, padT);
-    ctx.lineTo(x, plotBottom);
+    ctx.moveTo(x, gridTop);
+    ctx.lineTo(x, snapEdge(plotBottom, sy));
     ctx.stroke();
   }
   ctx.restore();
-  const barWidth = minuteColumnWidth(plotW, timeSpan);
+  const barWidth = Math.min(minuteColumnWidth(plotW, timeSpan), terminal ? 7 : Infinity);
   if (isCandles) {
+    // Wicks and bodies are filled rectangles on whole device pixels, so every candle has the
+    // same crisp edges and no neighbour looks thicker than the next.
+    const wickWidth = hairline / sx;
+    const minHeight = hairline / sy;
     for (const bar of bars) {
-      const x = xOf(candleTime(bar));
-      ctx.strokeStyle = ctx.fillStyle = bar.c >= bar.o ? c.up : c.down;
-      ctx.lineWidth = 1.25;
-      ctx.beginPath();
-      ctx.moveTo(x, yOf(bar.h));
-      ctx.lineTo(x, yOf(bar.l));
-      ctx.stroke();
-      const top = Math.min(yOf(bar.o), yOf(bar.c));
+      ctx.fillStyle = bar.c >= bar.o ? c.up : c.down;
+      const column = snapColumn(xOf(candleTime(bar)), barWidth, sx, hairline);
+      const wickTop = snapEdge(yOf(bar.h), sy);
+      const wickBottom = snapEdge(yOf(bar.l), sy);
+      ctx.fillRect(
+        column.center - wickWidth / 2,
+        wickTop,
+        wickWidth,
+        Math.max(minHeight, wickBottom - wickTop),
+      );
       if (bar.o === bar.c) {
-        ctx.beginPath();
-        ctx.moveTo(x - barWidth / 2, top);
-        ctx.lineTo(x + barWidth / 2, top);
-        ctx.stroke();
+        ctx.fillRect(column.left, hRule(yOf(bar.o)) - minHeight / 2, column.width, minHeight);
       } else {
-        ctx.fillRect(
-          x - barWidth / 2,
-          top,
-          barWidth,
-          Math.max(1, Math.abs(yOf(bar.o) - yOf(bar.c))),
-        );
+        const top = snapEdge(Math.min(yOf(bar.o), yOf(bar.c)), sy);
+        const bottom = snapEdge(Math.max(yOf(bar.o), yOf(bar.c)), sy);
+        ctx.fillRect(column.left, top, column.width, Math.max(minHeight, bottom - top));
       }
     }
   } else {
@@ -497,7 +543,9 @@ function paint(
           ? c.up
           : c.down;
       ctx.globalAlpha = 0.8;
-      ctx.fillRect(xOf(candleTime(bar)) - barWidth / 2, base - height, barWidth, height);
+      const column = snapColumn(xOf(candleTime(bar)), barWidth, sx, hairline);
+      const top = snapEdge(base - height, sy);
+      ctx.fillRect(column.left, top, column.width, Math.max(0, snapEdge(base, sy) - top));
     }
     ctx.restore();
   }
@@ -507,9 +555,16 @@ function paint(
   const tagHeight = c.fontSize + 8;
   const tagY = Math.min(plotBottom - tagHeight / 2, Math.max(padT + tagHeight / 2, yOf(current)));
   ctx.fillStyle = current >= opt.prev ? c.up : c.down;
-  ctx.fillRect(w - padR + 3, tagY - tagHeight / 2, padR - 5, tagHeight);
+  const tagLeft = snapEdge(w - padR + 3, sx);
+  const tagTop = snapEdge(tagY - tagHeight / 2, sy);
+  ctx.fillRect(
+    tagLeft,
+    tagTop,
+    snapEdge(w - 2, sx) - tagLeft,
+    snapEdge(tagY + tagHeight / 2, sy) - tagTop,
+  );
   ctx.fillStyle = c.bg;
-  ctx.fillText(label(current), w - padR / 2 + 1, tagY);
+  ctx.fillText(label(current), snapEdge(w - padR / 2 + 1, sx), snapEdge(tagY, sy));
   const marks = [{ text: "昨", price: opt.prev, color: c.tape }];
   if (!isIndex) {
     if (opt.open) marks.push({ text: "開", price: opt.open, color: c.muted });
@@ -534,7 +589,7 @@ function paint(
     const y = Math.max(lastMarkY + markGap, mark.y - c.fontSize / 2);
     if (y > plotBottom - c.fontSize / 2) continue;
     ctx.fillStyle = mark.color;
-    ctx.fillText(mark.text, padL + 4, y);
+    ctx.fillText(mark.text, snapEdge(padL + 4, sx), snapEdge(y, sy));
     lastMarkY = y;
   }
   if (!points.length && !bars.length) {
@@ -555,13 +610,13 @@ function paint(
     const y = yOf(price);
     ctx.save();
     ctx.strokeStyle = c.fg;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 3]);
+    ctx.lineWidth = cssPixels(hairline);
+    ctx.setLineDash(dashes([3, 3], Math.min(sx, sy)));
     ctx.beginPath();
-    ctx.moveTo(x, padT);
-    ctx.lineTo(x, h - axisH);
-    ctx.moveTo(padL, y);
-    ctx.lineTo(w - padR, y);
+    ctx.moveTo(vRule(x), gridTop);
+    ctx.lineTo(vRule(x), gridBottom);
+    ctx.moveTo(gridLeft, hRule(y));
+    ctx.lineTo(gridRight, hRule(y));
     ctx.stroke();
     ctx.restore();
     const intervalLabel = interval
@@ -596,14 +651,27 @@ function paint(
     );
     const boxHeight = lines.length * (c.fontSize + 7) + 9;
     const boxX = Math.max(8, Math.min(w - boxWidth - 8, x - boxWidth / 2));
+    const boxLeft = vRule(boxX);
+    const boxTop = hRule(3);
+    const boxRect = [
+      boxLeft,
+      boxTop,
+      vRule(boxX + boxWidth) - boxLeft,
+      hRule(3 + boxHeight) - boxTop,
+    ] as const;
     ctx.fillStyle = c.bg;
-    ctx.fillRect(boxX, 3, boxWidth, boxHeight);
+    ctx.fillRect(...boxRect);
     ctx.strokeStyle = c.grid;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(boxX, 3, boxWidth, boxHeight);
+    ctx.lineWidth = cssPixels(hairline);
+    ctx.strokeRect(...boxRect);
     ctx.fillStyle = c.fg;
     lines.forEach((line, i) =>
-      ctx.fillText(line, boxX + 8, 8 + i * (c.fontSize + 7), boxWidth - 16),
+      ctx.fillText(
+        line,
+        snapEdge(boxX + 8, sx),
+        snapEdge(8 + i * (c.fontSize + 7), sy),
+        boxWidth - 16,
+      ),
     );
     return fields.join("，");
   }

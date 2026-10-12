@@ -5,9 +5,13 @@ import {
   chartLinePoints,
   chartWindow,
   completedBarsInWindow,
+  hairlineDevicePixels,
   inChartWindow,
   minuteColumnWidth,
   nearestTimePoint,
+  snapColumn,
+  snapEdge,
+  snapStroke,
   splitPriceLine,
   timeAxisTicks,
 } from "./chart-data.ts";
@@ -64,6 +68,92 @@ test("canvas scales its backing pixels exactly, caps DPR at three, and responds 
   assert.equal(high.scaleX, high.width / 311.5);
   assert.equal(high.scaleY, high.height / 220.25);
   assert.equal(canvasResolution(300, 200, 1.25).width, 375);
+});
+
+const SCALES = [1, 1.25, 1.5, 2, 2.5, 3];
+const SAMPLES = [0, 0.3, 17.5, 63.49, 100.5, 311.7, 733.2];
+const near = (actual: number, expected: number) =>
+  assert.ok(Math.abs(actual - expected) < 1e-6, `${actual} should be ${expected}`);
+
+test("canvas backing size follows the browser's own device-pixel box when it is known", () => {
+  // 733 CSS px at 150% is 1099.5 device px. Rounding says 1100, but the browser paints 1099,
+  // and a canvas of any other size is resampled (blurred) when it is drawn.
+  const exact = canvasResolution(733, 300, 1.5, { width: 1099, height: 450 });
+  assert.equal(exact.width, 1099);
+  assert.equal(exact.height, 450);
+  assert.equal(exact.scaleX, 1099 / 733);
+  assert.equal(exact.scaleY, 450 / 300);
+  // Without the box, or with an unusable one, fall back to rounding the CSS size.
+  assert.equal(canvasResolution(733, 300, 1.5).width, 1100);
+  assert.equal(canvasResolution(733, 300, 1.5, { width: 0, height: 0 }).width, 1100);
+  assert.equal(canvasResolution(733, 300, 1.5, { width: Number.NaN, height: 450 }).width, 1100);
+  // A box that disagrees with the ratio (some engines report CSS pixels) is not trusted.
+  assert.equal(canvasResolution(733, 300, 1.5, { width: 733, height: 300 }).width, 1100);
+  assert.equal(canvasResolution(733, 300, 1.5, { width: 733, height: 300 }).height, 450);
+  assert.equal(canvasResolution(733, 300, 1.5, { width: 1100, height: 300 }).height, 450);
+  // A huge device box (extreme zoom) is still capped at three times the CSS size.
+  const capped = canvasResolution(300, 200, 5, { width: 1500, height: 1000 });
+  assert.equal(capped.width, 900);
+  assert.equal(capped.height, 600);
+});
+
+test("hairlines are about one CSS pixel thick but never thinner than one device pixel", () => {
+  assert.equal(hairlineDevicePixels(1), 1);
+  assert.equal(hairlineDevicePixels(1.25), 1);
+  assert.equal(hairlineDevicePixels(1.5), 2);
+  assert.equal(hairlineDevicePixels(2), 2);
+  assert.equal(hairlineDevicePixels(3), 3);
+  assert.equal(hairlineDevicePixels(0.4), 1);
+  assert.equal(hairlineDevicePixels(Number.NaN), 1);
+});
+
+test("strokes are centred so an odd-width line fills one device column and an even one fills two", () => {
+  for (const scale of SCALES)
+    for (const value of SAMPLES) {
+      const odd = snapStroke(value, scale, 1) * scale;
+      near(odd - Math.floor(odd), 0.5);
+      const even = snapStroke(value, scale, 2) * scale;
+      near(even, Math.round(even));
+      // Snapping may move a line by at most one device pixel.
+      assert.ok(Math.abs(snapStroke(value, scale, 1) - value) <= 1 / scale + 1e-9);
+    }
+});
+
+test("filled edges land on whole device pixels", () => {
+  for (const scale of SCALES)
+    for (const value of SAMPLES) {
+      const edge = snapEdge(value, scale) * scale;
+      near(edge, Math.round(edge));
+    }
+});
+
+test("snapping leaves unusable input alone instead of producing NaN", () => {
+  assert.ok(Number.isNaN(snapStroke(Number.NaN, 2, 1)));
+  assert.equal(snapStroke(12.34, 0, 1), 12.34);
+  assert.equal(snapEdge(12.34, Number.NaN), 12.34);
+  assert.equal(snapColumn(12.34, 5, 0, 1).width, 5);
+});
+
+test("a candle body shares its centre with the wick and has whole-pixel edges", () => {
+  for (const scale of SCALES)
+    for (const strokePx of [1, 2, 3])
+      for (const width of [0.6, 1.4, 3.2, 5, 7, 12])
+        for (const center of SAMPLES) {
+          const column = snapColumn(center, width, scale, strokePx);
+          const left = column.left * scale;
+          const right = (column.left + column.width) * scale;
+          near(left, Math.round(left));
+          near(right, Math.round(right));
+          // The wick is a strokePx-wide line at `center`; both sides of it must be equally wide.
+          near(column.center, snapStroke(center, scale, strokePx));
+          near(column.center - column.left, column.left + column.width - column.center);
+          // Same parity as the wick, so the wick sits exactly in the middle of the body.
+          const devicePx = Math.round(column.width * scale);
+          assert.equal(devicePx % 2, strokePx % 2);
+          assert.ok(devicePx >= (strokePx % 2 === 1 ? 1 : 2));
+          // Rounded to the nearest valid width; never fatter than a pixel above the request.
+          assert.ok(Math.abs(devicePx - width * scale) <= 1 + 1e-9 || devicePx === 2);
+        }
 });
 
 test("red and green line runs cross exactly at yesterday's close without changing input", () => {

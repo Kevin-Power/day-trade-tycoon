@@ -24,6 +24,7 @@ export function RealCandlesLink({
   return (
     <Link
       to="/morning"
+      search={{ panel: "trade" }}
       onClick={pauseCurrentPractice}
       onAuxClick={(event) => {
         if (event.button === 1) pauseCurrentPractice();

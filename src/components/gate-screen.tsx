@@ -46,12 +46,12 @@ export function GateScreen({ onOpen, submit }: Props) {
     <ClassroomAuthLayout
       heroTitle={
         <>
-          先練好交易紀律，
+          把每一次判斷，
           <br />
-          再看懂每一次決策。
+          練成自己的交易紀律。
         </>
       }
-      heroDescription="入場後可回到當沖大富翁交易盤，查看自選行情、真實歷史 K 線、紙上委託與庫存，也能選擇六個練習主題。"
+      heroDescription="從看盤、寫計畫到紙上下單，在真實歷史 K 線中逐步練習。六個練習主題，每一輪都有可以回看的紀錄。"
       features={FEATURES}
       footer={
         <>
@@ -74,7 +74,7 @@ export function GateScreen({ onOpen, submit }: Props) {
         </p>
       </div>
 
-      <div className="mb-7 rounded-xl border border-brand/25 bg-brand/5 p-4">
+      <div className="access-trial mb-7 rounded-xl border border-brand/25 bg-brand/5 p-4">
         <p className="text-base font-semibold text-fg">第一次來？先試著操作看看</p>
         <p className="mt-2 text-base leading-7 text-muted">
           不用帳號，跟著步驟練習確認委託、查看成交與理解成本。

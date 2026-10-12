@@ -1,8 +1,16 @@
 @import "tailwindcss";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+@import "@fontsource/ibm-plex-mono/latin-600.css";
 @import "./reading-mode.css";
 @import "./responsive-terminal.css";
 @import "./academy-finish.css";
 @import "./quote-workspace.css";
+@import "./classroom-refresh.css";
+@import "./sim-order.css";
+@import "./terminal-premium.css";
+@import "./morning-flash.css";
+@import "./terminal-polish.css";
 @source "./**/*.{ts,tsx}";
 
 @theme {
@@ -78,9 +86,20 @@
     margin: 0;
   }
 
-  :focus-visible { outline: 2px solid var(--color-ring); outline-offset: 4px; }
-  input, select, textarea { accent-color: var(--color-brand); }
-  button, a, input { -webkit-tap-highlight-color: transparent; }
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 4px;
+  }
+  input,
+  select,
+  textarea {
+    accent-color: var(--color-brand);
+  }
+  button,
+  a,
+  input {
+    -webkit-tap-highlight-color: transparent;
+  }
 
   button:not(:disabled),
   [role="button"]:not(:disabled) {
@@ -310,7 +329,7 @@
   --color-ring: #78def0;
   --color-accent: #69d5eb;
   --color-accent-fg: #04171e;
-  --shadow-panel: 0 16px 48px rgb(0 0 0 / .5);
+  --shadow-panel: 0 16px 48px rgb(0 0 0 / 0.5);
 }
 
 .morning-workspace {
@@ -321,8 +340,8 @@
 .morning-chart-grid {
   background-color: #070d15;
   background-image:
-    linear-gradient(rgb(123 146 172 / .08) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(123 146 172 / .08) 1px, transparent 1px);
+    linear-gradient(rgb(123 146 172 / 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(123 146 172 / 0.08) 1px, transparent 1px);
   background-size: 64px 48px;
 }
 
@@ -331,83 +350,346 @@
 }
 
 /* The embedded real-candle desk grows with its content on phone and tablet. */
-.terminal-shell.real-terminal { min-height: 0; }
+.terminal-shell.real-terminal {
+  min-height: 0;
+}
 
 /* Shared classroom hierarchy, separate from compact quote typography. */
-.academy-page { min-height: 100dvh; color: var(--color-fg); }
-.academy-container { width: min(100%, 1240px); margin-inline: auto; padding-inline: clamp(20px, 4vw, 48px); }
-.academy-header { border-bottom: 1px solid var(--color-border); background: #ffffffed; backdrop-filter: blur(16px); }
-.academy-card { min-width: 0; border: 1px solid var(--color-border); border-radius: 20px; background: var(--color-surface); }
-.academy-eyebrow { color: var(--color-brand); font-size: .6875rem; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
-.academy-title { font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1.2; font-weight: 650; letter-spacing: -.035em; text-wrap: balance; }
-.academy-description { color: var(--color-muted); font-size: .9375rem; line-height: 1.8; text-wrap: pretty; }
-.academy-input { display: block; width: 100%; min-width: 0; min-height: 48px; border: 1px solid var(--color-border-strong); border-radius: 10px; background: var(--color-bg); color: var(--color-fg); padding: 10px 14px; font-size: 1rem; }
-.academy-input::placeholder { color: var(--color-subtle); }
-.academy-button-primary, .academy-button-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border-radius: 10px; padding: 10px 18px; font-size: .875rem; font-weight: 600; transition: background-color 150ms, border-color 150ms; }
-.academy-button-primary { background: var(--color-brand); color: var(--color-brand-fg); border: 1px solid transparent; }
-.academy-button-primary:hover { background: #105b59; }
-.academy-button-secondary { background: var(--color-surface); color: var(--color-fg); border: 1px solid var(--color-border-strong); }
-.academy-button-secondary:hover { background: var(--color-elevated); }
-.academy-button-primary:disabled, .academy-button-secondary:disabled { opacity: .45; cursor: not-allowed; }
-.academy-nav-link { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 8px 12px; border-radius: 9px; color: var(--color-muted); font-size: .8125rem; white-space: normal; }
-.academy-nav-link:hover { color: var(--color-fg); background: var(--color-surface-2); }
-.academy-skip { position: fixed; z-index: 100; top: -80px; left: 16px; border-radius: 8px; background: var(--color-brand); color: var(--color-brand-fg); padding: 12px 20px; }
-.academy-skip:focus { top: 12px; }
-.watchlist-compact { min-width: 310px; }
-.watchlist-compact tr > :is(:nth-child(2), :nth-child(3), :nth-child(7), :nth-child(n+9)) { display: none !important; }
-.watchlist-compact tbody td { padding-block: 8px; }
-.watchlist-compact tbody td:first-child > button > span { display: flex; flex-direction: column; align-items: start; gap: 1px; }
-.terminal-shell .term-desk { overflow: auto; }
-.terminal-shell .term-mobile-nav[aria-label] { padding-bottom: env(safe-area-inset-bottom); }
-.account-bar, .account-controls, .account-primary, .account-settings { min-width: 0; max-width: 100%; }
-.account-primary > button { min-height: 48px; }
-.account-settings > summary { min-height: 48px; align-content: center; }
-.account-settings-content { max-width: 28rem; }
+.academy-page {
+  min-height: 100dvh;
+  color: var(--color-fg);
+}
+.academy-container {
+  width: min(100%, 1240px);
+  margin-inline: auto;
+  padding-inline: clamp(20px, 4vw, 48px);
+}
+.academy-header {
+  border-bottom: 1px solid var(--color-border);
+  background: #ffffffed;
+  backdrop-filter: blur(16px);
+}
+.academy-card {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-surface);
+}
+.academy-eyebrow {
+  color: var(--color-brand);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.academy-title {
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+.academy-description {
+  color: var(--color-muted);
+  font-size: 0.9375rem;
+  line-height: 1.8;
+  text-wrap: pretty;
+}
+.academy-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  padding: 10px 14px;
+  font-size: 1rem;
+}
+.academy-input::placeholder {
+  color: var(--color-subtle);
+}
+.academy-button-primary,
+.academy-button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition:
+    background-color 150ms,
+    border-color 150ms;
+}
+.academy-button-primary {
+  background: var(--color-brand);
+  color: var(--color-brand-fg);
+  border: 1px solid transparent;
+}
+.academy-button-primary:hover {
+  background: #105b59;
+}
+.academy-button-secondary {
+  background: var(--color-surface);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border-strong);
+}
+.academy-button-secondary:hover {
+  background: var(--color-elevated);
+}
+.academy-button-primary:disabled,
+.academy-button-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.academy-nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  white-space: normal;
+}
+.academy-nav-link:hover {
+  color: var(--color-fg);
+  background: var(--color-surface-2);
+}
+.academy-skip {
+  position: fixed;
+  z-index: 100;
+  top: -80px;
+  left: 16px;
+  border-radius: 8px;
+  background: var(--color-brand);
+  color: var(--color-brand-fg);
+  padding: 12px 20px;
+}
+.academy-skip:focus {
+  top: 12px;
+}
+.watchlist-compact {
+  min-width: 310px;
+}
+.watchlist-compact tr > :is(:nth-child(2), :nth-child(3), :nth-child(7), :nth-child(n + 9)) {
+  display: none !important;
+}
+.watchlist-compact tbody td {
+  padding-block: 8px;
+}
+.watchlist-compact tbody td:first-child > button > span {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 1px;
+}
+.terminal-shell .term-desk {
+  overflow: auto;
+}
+.terminal-shell .term-mobile-nav[aria-label] {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.account-bar,
+.account-controls,
+.account-primary,
+.account-settings {
+  min-width: 0;
+  max-width: 100%;
+}
+.account-primary > button {
+  min-height: 48px;
+}
+.account-settings > summary {
+  min-height: 48px;
+  align-content: center;
+}
+.account-settings-content {
+  max-width: 28rem;
+}
 @media (max-width: 1023px) {
   /* Let enlarged text push the page down instead of collapsing the practice area. */
-  .terminal-shell { height: auto; min-height: 100dvh; }
-  .terminal-shell .term-mobile { flex: none; height: max(320px, calc(100dvh - 340px)); }
-  .terminal-shell[data-mobile-view="chart"] .term-mobile { height: auto; min-height: calc(100dvh - 14rem); }
-  .terminal-shell .term-mobile-nav { position: sticky; bottom: 0; }
-  .terminal-shell .pane-title { flex-wrap: wrap; height: auto; gap: 6px; padding-block: 6px; }
-  .terminal-shell .term-mobile-nav[aria-label] button { height: auto; min-height: 64px; padding: .5rem .25rem; font-size: 1rem; line-height: 1.4; white-space: normal; }
-  .terminal-shell .account-clock { width: 100%; font-size: .875rem; }
-  .terminal-shell .account-stat { flex-wrap: wrap; column-gap: 4px; font-size: .875rem; }
-  .terminal-shell .account-stat > span:last-child { font-size: 1rem; }
-  .terminal-shell .account-controls { width: 100%; gap: 8px; }
-  .terminal-shell .account-primary { display: grid; width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-  .terminal-shell .account-primary > button { min-width: 0; height: auto; min-height: 48px; padding: 6px 4px; font-size: 1rem; line-height: 1.4; white-space: normal; text-wrap: balance; }
-  .terminal-shell .account-settings { width: 100%; }
-  .terminal-shell .account-settings > summary { font-size: 1rem; }
-  .terminal-shell .account-settings-content { max-width: none; }
-  .terminal-shell .account-settings legend { font-size: 1rem; }
-  .terminal-shell .account-speed { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .terminal-shell .account-settings button { min-width: 48px; min-height: 48px; height: auto; font-size: 1rem; white-space: normal; }
-  .terminal-shell .account-extra > button { flex: 1 1 8rem; }
-  .terminal-shell .trade-ticket { min-width: 0; height: auto; flex-shrink: 0; }
-  .terminal-shell .trade-ticket :is(button, input, summary) { min-height: 48px; font-size: 1rem; }
-  .terminal-shell .trade-ticket summary { line-height: 1.5; }
-  .terminal-shell .trade-ticket button { min-width: 48px; white-space: normal; }
-  .terminal-shell .ticket-fields { grid-template-columns: minmax(0, 1fr); padding: 12px; }
-  .terminal-shell .ticket-fields > * { grid-column: 1; }
-  .terminal-shell .ticket-product { min-height: 56px; }
-  .terminal-shell .ticket-product > div:last-child { flex-wrap: wrap; }
-  .terminal-shell .ticket-product :is(.text-xs, .text-sm) { font-size: 1rem; }
-  .terminal-shell .ticket-product > div:first-child { font-size: .875rem; }
-  .terminal-shell .ticket-number { height: auto; min-height: 56px; }
-  .terminal-shell .ticket-number button { width: 48px; flex-shrink: 0; font-size: 1.5rem; }
-  .terminal-shell .ticket-number input { width: 0; }
-  .terminal-shell .ticket-field-label { font-size: 1rem; }
-  .terminal-shell .ticket-setting { width: 100%; padding-block: 4px; font-size: .875rem; }
-  .terminal-shell .ticket-setting > span:last-child { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; overflow-wrap: anywhere; }
-  .terminal-shell .ticket-setting button { padding-inline: 12px; }
-  .terminal-shell .order-actions .order-summary { flex-basis: 100%; font-size: .875rem; line-height: 1.6; }
-  .terminal-shell .ticket-presets { display: grid; width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .terminal-shell .ticket-presets > button { min-width: 0; }
-  .terminal-shell .order-actions > :is(.ticket-flatten, .ticket-submit) { flex: 1 1 calc(50% - 4px); min-height: 56px; }
+  .terminal-shell {
+    height: auto;
+    min-height: 100dvh;
+  }
+  .terminal-shell .term-mobile {
+    flex: none;
+    height: max(320px, calc(100dvh - 340px));
+  }
+  .terminal-shell[data-mobile-view="chart"] .term-mobile {
+    height: auto;
+    min-height: calc(100dvh - 14rem);
+  }
+  .terminal-shell .term-mobile-nav {
+    position: sticky;
+    bottom: 0;
+  }
+  .terminal-shell .pane-title {
+    flex-wrap: wrap;
+    height: auto;
+    gap: 6px;
+    padding-block: 6px;
+  }
+  .terminal-shell .term-mobile-nav[aria-label] button {
+    height: auto;
+    min-height: 64px;
+    padding: 0.5rem 0.25rem;
+    font-size: 1rem;
+    line-height: 1.4;
+    white-space: normal;
+  }
+  .terminal-shell .account-clock {
+    width: 100%;
+    font-size: 0.875rem;
+  }
+  .terminal-shell .account-stat {
+    flex-wrap: wrap;
+    column-gap: 4px;
+    font-size: 0.875rem;
+  }
+  .terminal-shell .account-stat > span:last-child {
+    font-size: 1rem;
+  }
+  .terminal-shell .account-controls {
+    width: 100%;
+    gap: 8px;
+  }
+  .terminal-shell .account-primary {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .terminal-shell .account-primary > button {
+    min-width: 0;
+    height: auto;
+    min-height: 48px;
+    padding: 6px 4px;
+    font-size: 1rem;
+    line-height: 1.4;
+    white-space: normal;
+    text-wrap: balance;
+  }
+  .terminal-shell .account-settings {
+    width: 100%;
+  }
+  .terminal-shell .account-settings > summary {
+    font-size: 1rem;
+  }
+  .terminal-shell .account-settings-content {
+    max-width: none;
+  }
+  .terminal-shell .account-settings legend {
+    font-size: 1rem;
+  }
+  .terminal-shell .account-speed {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .terminal-shell .account-settings button {
+    min-width: 48px;
+    min-height: 48px;
+    height: auto;
+    font-size: 1rem;
+    white-space: normal;
+  }
+  .terminal-shell .account-extra > button {
+    flex: 1 1 8rem;
+  }
+  .terminal-shell .trade-ticket {
+    min-width: 0;
+    height: auto;
+    flex-shrink: 0;
+  }
+  .terminal-shell .trade-ticket :is(button, input, summary) {
+    min-height: 48px;
+    font-size: 1rem;
+  }
+  .terminal-shell .trade-ticket summary {
+    line-height: 1.5;
+  }
+  .terminal-shell .trade-ticket button {
+    min-width: 48px;
+    white-space: normal;
+  }
+  .terminal-shell .ticket-fields {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+  }
+  .terminal-shell .ticket-fields > * {
+    grid-column: 1;
+  }
+  .terminal-shell .ticket-product {
+    min-height: 56px;
+  }
+  .terminal-shell .ticket-product > div:last-child {
+    flex-wrap: wrap;
+  }
+  .terminal-shell .ticket-product :is(.text-xs, .text-sm) {
+    font-size: 1rem;
+  }
+  .terminal-shell .ticket-product > div:first-child {
+    font-size: 0.875rem;
+  }
+  .terminal-shell .ticket-number {
+    height: auto;
+    min-height: 56px;
+  }
+  .terminal-shell .ticket-number button {
+    width: 48px;
+    flex-shrink: 0;
+    font-size: 1.5rem;
+  }
+  .terminal-shell .ticket-number input {
+    width: 0;
+  }
+  .terminal-shell .ticket-field-label {
+    font-size: 1rem;
+  }
+  .terminal-shell .ticket-setting {
+    width: 100%;
+    padding-block: 4px;
+    font-size: 0.875rem;
+  }
+  .terminal-shell .ticket-setting > span:last-child {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    overflow-wrap: anywhere;
+  }
+  .terminal-shell .ticket-setting button {
+    padding-inline: 12px;
+  }
+  .terminal-shell .order-actions .order-summary {
+    flex-basis: 100%;
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+  .terminal-shell .ticket-presets {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .terminal-shell .ticket-presets > button {
+    min-width: 0;
+  }
+  .terminal-shell .order-actions > :is(.ticket-flatten, .ticket-submit) {
+    flex: 1 1 calc(50% - 4px);
+    min-height: 56px;
+  }
 }
 @media (max-width: 639px) {
-  .terminal-shell .account-primary > button > svg { display: none; }
+  .terminal-shell .account-primary > button > svg {
+    display: none;
+  }
 }
 
 @media print {

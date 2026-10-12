@@ -21,39 +21,87 @@ export type MorningCatalog = {
   notices: string[];
   videoUrl: string | null;
 };
-export type MorningLessonSummary = Pick<MorningCatalog, "lessonId" | "title" | "date" | "start" | "end" | "maxCursor"> & {
+export type MorningLessonSummary = Pick<
+  MorningCatalog,
+  "lessonId" | "title" | "date" | "start" | "end" | "maxCursor"
+> & {
   symbols: { code: string; name: string }[];
 };
 /** Public selection metadata only: no source bars or unrevealed market context. */
 export function summarizeMorningLesson(catalog: MorningCatalog): MorningLessonSummary {
   return {
-    lessonId: catalog.lessonId, title: catalog.title, date: catalog.date,
-    start: catalog.start, end: catalog.end, maxCursor: catalog.maxCursor,
+    lessonId: catalog.lessonId,
+    title: catalog.title,
+    date: catalog.date,
+    start: catalog.start,
+    end: catalog.end,
+    maxCursor: catalog.maxCursor,
     symbols: catalog.symbols.map(({ code, name }) => ({ code, name })),
   };
 }
 export type MorningOrder = {
-  id: string; code: string; side: "buy" | "sell"; shares: number;
+  id: string;
+  code: string;
+  side: "buy" | "sell";
+  shares: number;
   status: "pending" | "filled" | "cancelled" | "rejected";
-  submittedCursor: number; price?: number; reason?: string;
+  submittedCursor: number;
+  price?: number;
+  reason?: string;
+  limitPrice?: number;
+  entryMode?: "lightning";
 };
 export type MorningFill = {
-  id: string; code: string; side: "buy" | "sell"; shares: number;
-  price: number; fee: number; tax: number; t: number;
+  id: string;
+  code: string;
+  side: "buy" | "sell";
+  shares: number;
+  price: number;
+  fee: number;
+  tax: number;
+  t: number;
 };
 export type MorningState = {
-  id: string; lessonId: string; cursor: number; revision: number;
-  plan: MorningPlan; bars: Record<string, Bar[]>;
-  startingCash: number; cash: number; equity: number;
+  id: string;
+  lessonId: string;
+  cursor: number;
+  revision: number;
+  plan: MorningPlan;
+  bars: Record<string, Bar[]>;
+  startingCash: number;
+  cash: number;
+  equity: number;
   positions: { code: string; shares: number; averageCost: number }[];
-  orders: MorningOrder[]; fills: MorningFill[];
-  completed: boolean; reflection: string;
+  orders: MorningOrder[];
+  fills: MorningFill[];
+  completed: boolean;
+  reflection: string;
   nextAdvanceAt: number;
 };
-export type MorningResponse = { catalog: MorningCatalog; state: MorningState | null; lessons?: MorningLessonSummary[] };
+export type MorningResponse = {
+  catalog: MorningCatalog;
+  state: MorningState | null;
+  lessons?: MorningLessonSummary[];
+};
 export type MorningAction =
   | { action: "start"; requestId: string; plan: MorningPlan }
   | { action: "advance"; requestId: string; id: string; expectedRevision: number }
-  | { action: "order"; requestId: string; id: string; expectedRevision: number; code: string; side: "buy" | "sell"; lots: number }
+  | {
+      action: "order";
+      requestId: string;
+      id: string;
+      expectedRevision: number;
+      code: string;
+      side: "buy" | "sell";
+      lots: number;
+      limitPrice?: number;
+      entryMode?: "lightning";
+    }
   | { action: "cancel"; requestId: string; id: string; expectedRevision: number; orderId: string }
-  | { action: "finish"; requestId: string; id: string; expectedRevision: number; reflection: string };
+  | {
+      action: "finish";
+      requestId: string;
+      id: string;
+      expectedRevision: number;
+      reflection: string;
+    };

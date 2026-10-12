@@ -5,7 +5,7 @@
   "type": "module",
   "overrides": {
     "nf3": "0.3.17",
-    "rolldown": "1.1.0"
+    "rolldown": "1.1.5"
   },
   "scripts": {
     "dev": "node scripts/run-vite.mjs dev",
@@ -16,6 +16,7 @@
     "preview:restart": "node scripts/preview.mjs restart",
     "preview:stop": "node scripts/preview.mjs stop",
     "build:offline": "node scripts/build-offline.mjs",
+    "build:onprem": "npm run build:offline && npm run build && node scripts/build-onprem.mjs",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "check:symbols": "node scripts/check-symbols.mjs",
     "build:manual-pdf": "node scripts/build-manual-pdf.mjs",
@@ -27,11 +28,8 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
     "@hookform/resolvers": "^5.7.0",
-    "better-auth": "~1.6.30",
-    "jose": "6.2.9",
-    "kysely": "^0.28.5",
-    "pg": "^8.16.3",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.11",
@@ -59,11 +57,15 @@
     "@tanstack/react-start": "^1.168.0",
     "@tanstack/react-table": "^8.21.0",
     "@tanstack/router-plugin": "^1.168.0",
+    "better-auth": "~1.6.30",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.0.0",
+    "jose": "6.2.9",
+    "kysely": "^0.28.5",
     "lucide-react": "^0.510.0",
+    "pg": "^8.16.3",
     "react": "^19.2.0",
     "react-day-picker": "^9.14.0",
     "react-dom": "^19.2.0",

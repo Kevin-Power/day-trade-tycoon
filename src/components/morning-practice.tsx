@@ -18,11 +18,19 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  CandlestickChart,
   Play,
   RotateCcw,
 } from "lucide-react";
 import { DisplayControls } from "@/components/display-controls";
 import { TapeChart } from "@/components/charts";
+import {
+  AccountSummary,
+  PaperOrder,
+  Ledger,
+  type MorningOrderOptions,
+} from "@/components/morning-trading";
+import { MorningSparkline } from "@/components/morning-quotes";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useDisplayPreferences } from "@/lib/display-preferences";
 import { useTerminalLayout } from "@/lib/use-terminal-layout";
@@ -33,7 +41,7 @@ import type {
   MorningResponse,
   MorningState,
 } from "@/lib/morning";
-import { cn, formatMoney, formatTime } from "@/lib/utils";
+import { cn, formatTime } from "@/lib/utils";
 import { formatPrice } from "@/lib/market/ticks";
 import {
   MORNING_EXERCISES,
@@ -51,13 +59,13 @@ const INPUT =
   "block min-h-12 w-full min-w-0 rounded-xl border border-border-strong bg-surface px-3 py-3 text-base leading-relaxed text-fg";
 const CARD = "min-w-0 rounded-md border border-border bg-surface p-3 sm:p-4";
 const DARK_CHART = {
-  "--color-bg": "#000000",
-  "--color-fg": "#edf3fc",
-  "--color-muted": "#b5c4d8",
-  "--color-border": "#26282b",
-  "--color-up": "#ff4866",
-  "--color-down": "#16c57d",
-  "--color-tape": "#efd584",
+  "--color-bg": "#10141d",
+  "--color-fg": "#edf1f8",
+  "--color-muted": "#91a0b7",
+  "--color-border": "#222a38",
+  "--color-up": "#fa7185",
+  "--color-down": "#3bd6ad",
+  "--color-tape": "#8e9fc0",
   "--color-vol": "#c4a7ef",
   "--color-vwap": "#bed4ee",
 } as CSSProperties;
@@ -210,10 +218,12 @@ function useMorningData(lessonId: string) {
 export function MorningPractice({
   exerciseId,
   lessonId,
+  initialPane,
   onLessonChange,
 }: {
   exerciseId?: string;
   lessonId: string;
+  initialPane?: "trade";
   onLessonChange: (lessonId: string) => void;
 }) {
   const { user, isPending } = useCurrentUserState();
@@ -232,6 +242,7 @@ export function MorningPractice({
     <MorningLesson
       key={`${user?.id ?? "guest"}:${lessonId}`}
       lessonId={lessonId}
+      initialPane={initialPane}
       exerciseId={selectedExercise}
       onLessonChange={onLessonChange}
       onExerciseChange={setSelectedExercise}
@@ -242,11 +253,13 @@ export function MorningPractice({
 function MorningLesson({
   lessonId,
   exerciseId,
+  initialPane,
   onLessonChange,
   onExerciseChange,
 }: {
   lessonId: string;
   exerciseId: string;
+  initialPane?: "trade";
   onLessonChange: (lessonId: string) => void;
   onExerciseChange: (exerciseId: string) => void;
 }) {
@@ -255,7 +268,7 @@ function MorningLesson({
   const mode = useDisplayPreferences((value) => value.mode);
   const layout = useTerminalLayout(mode === "senior");
   const [selected, setSelected] = useState("");
-  const [activePane, setActivePane] = useState<MorningPane>("quote");
+  const [activePane, setActivePane] = useState<MorningPane>(initialPane ?? "chart");
   const [auto, setAuto] = useState(false);
   const [extended, setExtended] = useState(false);
   const [newPlan, setNewPlan] = useState(false);
@@ -380,7 +393,7 @@ function MorningLesson({
       setNewPlan(false);
       setSelected(plan.focusCode);
       setPlanOpen(false);
-      setActivePane("quote");
+      setActivePane(initialPane ?? "trade");
       window.requestAnimationFrame(() => {
         practiceHeading.current?.focus({ preventScroll: true });
         window.scrollTo({ top: 0, behavior: "auto" });
@@ -388,8 +401,13 @@ function MorningLesson({
     }
   }
 
-  async function order(side: "buy" | "sell", lots: number) {
-    if (!session) return;
+  async function order(
+    side: "buy" | "sell",
+    lots: number,
+    revision: number,
+    options?: MorningOrderOptions,
+  ) {
+    if (!session || session.revision !== revision) return false;
     setAuto(false);
     const next = await request({
       action: "order",
@@ -399,9 +417,11 @@ function MorningLesson({
       code,
       side,
       lots,
+      ...options,
     });
     if (next?.state)
       setFeedback("紙上委託已記錄，尚未代表成交。前進一分鐘後，請核對委託與成交紀錄。");
+    return Boolean(next?.state);
   }
 
   async function cancel(orderId: string) {
@@ -436,6 +456,23 @@ function MorningLesson({
 
   const showPlan = !session || newPlan;
   const marketSession = newPlan ? null : session;
+  const orderTicket = catalog ? (
+    <PaperOrder
+      key={`${marketSession?.id ?? "preview"}:${code}`}
+      catalog={catalog}
+      session={marketSession ?? null}
+      code={code}
+      busy={Boolean(busy || error || notice)}
+      atEnd={atEnd && !showPlan}
+      canAdvance={canAdvance && !showPlan && !error && !notice}
+      onSelect={setSelected}
+      onPrepare={() => setPlanOpen(true)}
+      onReview={() => setAuto(false)}
+      onAdvance={advance}
+      onOrder={order}
+      onCancel={cancel}
+    />
+  ) : null;
 
   return (
     <PageFrame>
@@ -513,9 +550,57 @@ function MorningLesson({
           )}
           {data && catalog && (
             <>
+              <section className="quote-session-toolbar" aria-label="本輪練習設定">
+                <label className="quote-date-picker">
+                  <span>教材交易日</span>
+                  <select
+                    aria-label="教材交易日"
+                    value={catalog.lessonId}
+                    disabled={Boolean(busy)}
+                    onChange={(event) => {
+                      setAuto(false);
+                      onLessonChange(event.target.value);
+                    }}
+                  >
+                    {(data.lessons ?? [catalog]).map((lesson) => (
+                      <option key={lesson.lessonId} value={lesson.lessonId}>
+                        {lesson.date} · {lesson.symbols.length} 檔
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="quote-session-subject">
+                  <span>{exercise?.no ?? "自由練習"}</span>
+                  <strong>{exercise?.title ?? "真實歷史行情練習"}</strong>
+                </div>
+                <ol className="quote-session-steps" aria-label="練習階段">
+                  {["作戰計畫", "看盤練習", "保存復盤"].map((label, index) => (
+                    <li
+                      key={label}
+                      aria-current={
+                        (
+                          showPlan
+                            ? index === 0
+                            : completed || reviewOpen
+                              ? index === 2
+                              : index === 1
+                        )
+                          ? "step"
+                          : undefined
+                      }
+                    >
+                      <span>0{index + 1}</span>
+                      {label}
+                    </li>
+                  ))}
+                </ol>
+              </section>
+              {marketSession && !singlePane && <AccountSummary session={marketSession} />}
               <section
                 className="quote-workbench"
                 data-layout={layout}
+                data-active-pane={activePane}
+                data-plan-open={showPlan && planOpen}
                 aria-label={showPlan ? "當沖大富翁交易盤預覽" : "真實 K 線模擬交易盤"}
               >
                 {!singlePane && (
@@ -527,85 +612,48 @@ function MorningLesson({
                       compact={layout === "tablet"}
                       onSelect={(next) => {
                         setSelected(next);
-                        setActivePane("quote");
+                        setActivePane("chart");
                       }}
                     />
+                    {layout === "desktop" && marketSession && (
+                      <div className="terminal-plan-note">
+                        <span className="terminal-eyebrow">TRADING PLAN</span>
+                        <h3>
+                          <BookOpen size={14} aria-hidden /> 本輪作戰計畫
+                        </h3>
+                        <span className="terminal-plan-code">
+                          {marketSession.plan.focusCode} ·{" "}
+                          {marketSession.plan.bias === "bullish"
+                            ? "偏多觀察"
+                            : marketSession.plan.bias === "bearish"
+                              ? "偏空觀察"
+                              : "等待條件"}
+                        </span>
+                        <p>{marketSession.plan.entry}</p>
+                      </div>
+                    )}
                   </aside>
                 )}
                 <div className="quote-market-panel">
-                  <MorningQuote
-                    catalog={catalog}
-                    session={marketSession ?? null}
-                    code={code}
-                    onSelect={setSelected}
-                    titleRef={practiceHeading}
-                  />
+                  {singlePane && (activePane === "trade" || activePane === "positions") && (
+                    <h1 className="sr-only" ref={practiceHeading} tabIndex={-1}>
+                      真實歷史行情・模擬交易工作台
+                    </h1>
+                  )}
+                  {!(singlePane && (activePane === "trade" || activePane === "positions")) && (
+                    <MorningQuote
+                      catalog={catalog}
+                      session={marketSession ?? null}
+                      code={code}
+                      onSelect={setSelected}
+                      titleRef={practiceHeading}
+                    />
+                  )}
                   <MorningTerminalNav
-                    active={singlePane || activePane === "chart" ? activePane : "quote"}
+                    active={singlePane || activePane === "quote" ? activePane : "chart"}
                     onSelect={setActivePane}
                     singlePane={singlePane}
                   />
-                  <div className="quote-active-pane">
-                    {(!singlePane || activePane === "quote" || activePane === "chart") && (
-                      <MorningChart
-                        catalog={catalog}
-                        session={marketSession ?? null}
-                        code={code}
-                        candles={activePane === "chart"}
-                      />
-                    )}
-                    {singlePane && activePane === "watch" && (
-                      <MorningWatchlist
-                        catalog={catalog}
-                        session={marketSession ?? null}
-                        code={code}
-                        onSelect={(next) => {
-                          setSelected(next);
-                          setActivePane("quote");
-                        }}
-                      />
-                    )}
-                    {singlePane &&
-                      activePane === "trade" &&
-                      (marketSession && !showPlan ? (
-                        <div className="quote-mobile-ticket">
-                          <AccountSummary session={marketSession} />
-                          {!completed && (
-                            <PaperOrder
-                              key={code}
-                              catalog={catalog}
-                              session={marketSession}
-                              code={code}
-                              busy={Boolean(busy || error || notice)}
-                              atEnd={atEnd}
-                              onOrder={order}
-                              onCancel={cancel}
-                            />
-                          )}
-                        </div>
-                      ) : (
-                        <p className="quote-empty-pane">
-                          先保存作戰計畫，前進一分鐘後即可練習紙上委託。
-                        </p>
-                      ))}
-                    {singlePane &&
-                      activePane === "positions" &&
-                      (marketSession && !showPlan ? (
-                        <div className="quote-mobile-ticket">
-                          <AccountSummary session={marketSession} />
-                          <Ledger
-                            catalog={catalog}
-                            session={marketSession}
-                            busy={Boolean(busy)}
-                            onCancel={cancel}
-                          />
-                        </div>
-                      ) : (
-                        <p className="quote-empty-pane">
-                          練習開始後，庫存、委託與成交會記錄在這裡。
-                        </p>
-                      ))}
-                  </div>
                   <section className="quote-replay-bar" aria-label="歷史行情重播控制">
                     {showPlan ? (
                       <>
@@ -670,6 +718,48 @@ function MorningLesson({
                       </>
                     )}
                   </section>
+                  <div className="quote-active-pane">
+                    {(!singlePane || activePane === "quote" || activePane === "chart") && (
+                      <MorningChart
+                        catalog={catalog}
+                        session={marketSession ?? null}
+                        code={code}
+                        candles={activePane !== "quote"}
+                      />
+                    )}
+                    {singlePane && activePane === "watch" && (
+                      <MorningWatchlist
+                        catalog={catalog}
+                        session={marketSession ?? null}
+                        code={code}
+                        onSelect={(next) => {
+                          setSelected(next);
+                          setActivePane("quote");
+                        }}
+                      />
+                    )}
+                    {singlePane && activePane === "trade" && (
+                      <div className="quote-mobile-ticket">{orderTicket}</div>
+                    )}
+                    {singlePane &&
+                      activePane === "positions" &&
+                      (marketSession && !showPlan ? (
+                        <div className="quote-mobile-ticket">
+                          <AccountSummary session={marketSession} />
+                          <Ledger
+                            catalog={catalog}
+                            session={marketSession}
+                            busy={Boolean(busy)}
+                            onCancel={cancel}
+                          />
+                        </div>
+                      ) : (
+                        <p className="quote-empty-pane">
+                          練習開始後，庫存、委託與成交會記錄在這裡。
+                        </p>
+                      ))}
+                  </div>
+
                   {feedback && !showPlan && (
                     <p role="status" className="quote-feedback">
                       {feedback}
@@ -702,46 +792,8 @@ function MorningLesson({
                     </p>
                   )}
                 </div>
-                {!singlePane && (
-                  <aside className="quote-trade-panel" ref={planRegion}>
-                    {showPlan ? (
-                      <PlanForm
-                        key={
-                          catalog.lessonId + ":" + (session?.id ?? "first") + ":" + selectedExercise
-                        }
-                        catalog={catalog}
-                        exerciseId={selectedExercise}
-                        busy={Boolean(busy)}
-                        onStart={start}
-                        onCancel={
-                          session
-                            ? () => {
-                                setNewPlan(false);
-                                setPlanOpen(false);
-                              }
-                            : undefined
-                        }
-                      />
-                    ) : (
-                      <>
-                        <AccountSummary session={session} />
-                        {!completed && (
-                          <PaperOrder
-                            key={code}
-                            catalog={catalog}
-                            session={session}
-                            code={code}
-                            busy={Boolean(busy || error || notice)}
-                            atEnd={atEnd}
-                            onOrder={order}
-                            onCancel={cancel}
-                          />
-                        )}
-                      </>
-                    )}
-                  </aside>
-                )}
-                {singlePane && showPlan && planOpen && (
+                {!singlePane && <aside className="quote-trade-panel">{orderTicket}</aside>}
+                {showPlan && planOpen && (
                   <div className="quote-plan-panel" ref={planRegion}>
                     <button
                       type="button"
@@ -813,86 +865,73 @@ function MorningLesson({
                   />
                 </section>
               )}
-              <details className="quote-settings">
-                <summary id="morning-lesson-picker">
-                  教材與練習 · {catalog.date} · {exercise?.no ?? "自由練習"}
-                </summary>
-                <div className="quote-settings-fields">
-                  <label>
-                    教材交易日
-                    <select
-                      className={cn(INPUT, "mt-1")}
-                      value={catalog.lessonId}
-                      disabled={Boolean(busy)}
-                      onChange={(event) => {
-                        setAuto(false);
-                        onLessonChange(event.target.value);
-                      }}
-                    >
-                      {(data.lessons ?? [catalog]).map((lesson) => (
-                        <option key={lesson.lessonId} value={lesson.lessonId}>
-                          {lesson.date} · {lesson.symbols.length} 檔 · {lesson.start}–{lesson.end}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    練習主題
-                    <select
-                      className={cn(INPUT, "mt-1")}
-                      value={
-                        session && !newPlan
-                          ? (session.plan.exerciseId ?? "legacy")
-                          : selectedExercise
-                      }
-                      disabled={Boolean(busy) || Boolean(session && !completed && !newPlan)}
-                      onChange={(event) => {
-                        setAuto(false);
-                        onExerciseChange(event.target.value);
-                        if (session) {
-                          setNewPlan(true);
-                          setPlanOpen(true);
-                        }
-                      }}
-                    >
-                      {session && !session.plan.exerciseId && !newPlan && (
-                        <option value="legacy">原有自由練習</option>
-                      )}
-                      {MORNING_EXERCISES.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.no} · {item.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <p className="px-3 pb-3 text-sm text-muted">
-                  兩日分別保存進度；完成本輪復盤後可換主題。同日重練可能已知道後續行情。
-                </p>
-                {session && !completed && exerciseId && exerciseId !== session.plan.exerciseId && (
-                  <p role="status" className="quote-alert">
-                    已恢復這個交易日尚未完成的練習。先保存本輪復盤，再切換主題。
-                  </p>
-                )}
-                <Background catalog={catalog} />
-                {exercise && (
-                  <ExerciseGuide exercise={exercise} compact={Boolean(session && !newPlan)} />
-                )}
-              </details>
-              {session && !newPlan && (
+              <div className="terminal-resources" aria-label="教材與練習資料">
                 <details className="quote-settings">
-                  <summary>本輪作戰計畫</summary>
-                  <SavedPlan plan={session.plan} catalog={catalog} />
+                  <summary id="morning-lesson-picker">
+                    教材與練習 · {catalog.date} · {exercise?.no ?? "自由練習"}
+                  </summary>
+                  <div className="quote-settings-fields">
+                    <label>
+                      練習主題
+                      <select
+                        className={cn(INPUT, "mt-1")}
+                        value={
+                          session && !newPlan
+                            ? (session.plan.exerciseId ?? "legacy")
+                            : selectedExercise
+                        }
+                        disabled={Boolean(busy) || Boolean(session && !completed && !newPlan)}
+                        onChange={(event) => {
+                          setAuto(false);
+                          onExerciseChange(event.target.value);
+                          if (session) {
+                            setNewPlan(true);
+                            setPlanOpen(true);
+                          }
+                        }}
+                      >
+                        {session && !session.plan.exerciseId && !newPlan && (
+                          <option value="legacy">原有自由練習</option>
+                        )}
+                        {MORNING_EXERCISES.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.no} · {item.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <p className="px-3 pb-3 text-sm text-muted">
+                    兩日分別保存進度；完成本輪復盤後可換主題。同日重練可能已知道後續行情。
+                  </p>
+                  {session &&
+                    !completed &&
+                    exerciseId &&
+                    exerciseId !== session.plan.exerciseId && (
+                      <p role="status" className="quote-alert">
+                        已恢復這個交易日尚未完成的練習。先保存本輪復盤，再切換主題。
+                      </p>
+                    )}
+                  <Background catalog={catalog} />
+                  {exercise && (
+                    <ExerciseGuide exercise={exercise} compact={Boolean(session && !newPlan)} />
+                  )}
                 </details>
-              )}
-              <details className="quote-settings">
-                <summary>資料來源與本課使用說明</summary>
-                <ul className="list-disc space-y-2 px-6 pb-4 text-sm text-muted">
-                  {catalog.notices.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </details>
+                {session && !newPlan && (
+                  <details className="quote-settings">
+                    <summary>本輪作戰計畫</summary>
+                    <SavedPlan plan={session.plan} catalog={catalog} />
+                  </details>
+                )}
+                <details className="quote-settings">
+                  <summary>資料來源與本課使用說明</summary>
+                  <ul className="list-disc space-y-2 px-6 pb-4 text-sm text-muted">
+                    {catalog.notices.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </details>
+              </div>
             </>
           )}
         </>
@@ -903,19 +942,38 @@ function MorningLesson({
 
 function PageFrame({ children }: { children: ReactNode }) {
   return (
-    <div data-market-theme="dark" className="terminal-shell morning-workspace">
+    <div
+      data-market-theme="dark"
+      className="terminal-shell morning-workspace pro-terminal studio-terminal"
+    >
       <header className="quote-app-header">
         <Link to="/" aria-label="返回教室大廳" className="quote-home-link">
           <ArrowLeft aria-hidden />
-          <span>教室</span>
+          <span>教室大廳</span>
         </Link>
         <span className="quote-app-name">
-          當沖大富翁 <small>模擬看盤</small>
+          <span className="terminal-brand-mark">
+            <CandlestickChart aria-hidden />
+          </span>
+          <span>
+            當沖大富翁<small>TRADING WORKSPACE</small>
+          </span>
         </span>
-        <DisplayControls compact className="quote-reading-control" />
+        <div className="terminal-header-tools">
+          <span className="terminal-mode">
+            <i aria-hidden />
+            歷史回放 · 模擬交易
+          </span>
+          <DisplayControls compact className="quote-reading-control" />
+        </div>
       </header>
       <main className="quote-app-main">{children}</main>
-      <footer className="quote-app-footer">真實歷史 K · 紙上模擬成交 · 未連接券商真實帳戶</footer>
+      <footer className="quote-app-footer">
+        <span>
+          當沖大富翁 <span className="terminal-footer-divider">/</span> 交易實作教室
+        </span>
+        <span>真實歷史 K · 紙上模擬成交 · 未連接券商真實帳戶</span>
+      </footer>
     </div>
   );
 }
@@ -943,41 +1001,48 @@ function MorningQuote({
     onSelect(
       catalog.symbols[(index + step + catalog.symbols.length) % catalog.symbols.length].code,
     );
+  const revealed = session?.bars[symbol.code] ?? [];
   return (
     <div className="quote-overview">
-      <div className="quote-stock-title">
-        <button type="button" onClick={() => move(-1)} aria-label="上一檔股票">
-          <ChevronLeft aria-hidden />
-        </button>
-        <div>
-          <h1 ref={titleRef} tabIndex={-1} id="morning-practice-title">
-            {symbol.name}
-          </h1>
-          <select
-            aria-label="選擇股票"
-            value={symbol.code}
-            onChange={(event) => onSelect(event.target.value)}
-          >
-            {catalog.symbols.map((item) => (
-              <option key={item.code} value={item.code}>
-                {item.code} {item.name}
-              </option>
-            ))}
-          </select>
+      <div className="terminal-instrument-row">
+        <div className="quote-stock-title">
+          <div className="terminal-instrument-identity">
+            <span className="terminal-eyebrow">
+              台股 <span>·</span> 歷史行情
+            </span>
+            <h1 ref={titleRef} tabIndex={-1} id="morning-practice-title">
+              {symbol.name}
+              <small>{symbol.code}</small>
+            </h1>
+            <select
+              aria-label="選擇股票"
+              value={symbol.code}
+              onChange={(event) => onSelect(event.target.value)}
+            >
+              {catalog.symbols.map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.code} {item.name}
+                </option>
+              ))}
+            </select>
+            <div className="terminal-instrument-arrows">
+              <button type="button" onClick={() => move(-1)} aria-label="上一檔股票">
+                <ChevronLeft aria-hidden />
+              </button>
+              <button type="button" onClick={() => move(1)} aria-label="下一檔股票">
+                <ChevronRight aria-hidden />
+              </button>
+            </div>
+          </div>
         </div>
-        <button type="button" onClick={() => move(1)} aria-label="下一檔股票">
-          <ChevronRight aria-hidden />
-        </button>
-      </div>
-      <div className="quote-price-row">
         <div className="quote-main-price" data-tone={tone}>
           <p className="quote-last-price">{last ? formatPrice(last.c) : "—"}</p>
           <p className="quote-change">
             {change !== null ? (
               <>
                 <span>
-                  {change > 0 ? "▲" : change < 0 ? "▼" : ""}
-                  {Math.abs(change).toLocaleString("zh-TW", { maximumFractionDigits: 2 })}
+                  {change > 0 ? "+" : ""}
+                  {change.toLocaleString("zh-TW", { maximumFractionDigits: 2 })}
                 </span>
                 <span>
                   {change > 0 ? "+" : ""}
@@ -985,30 +1050,28 @@ function MorningQuote({
                 </span>
               </>
             ) : (
-              <span>09:00 待開始</span>
+              <span>待揭露第一分鐘</span>
             )}
           </p>
-          <p className="quote-price-caption">
-            {last ? "最新完整分鐘收價" : "尚未揭露第一分鐘"}{" "}
-            <span>昨收 {formatPrice(symbol.previousClose)}</span>
-          </p>
-        </div>
-        <div className="quote-bid-ask" aria-label="買賣報價資料狀態">
-          <dl>
-            <dt>買價</dt>
-            <dd>—</dd>
-          </dl>
-          <dl>
-            <dt>賣價</dt>
-            <dd>—</dd>
-          </dl>
-          <p>五檔報價尚未接入</p>
+          <p className="quote-price-caption">最新完整分鐘收價</p>
         </div>
       </div>
+      <dl className="terminal-market-stats" aria-label="已揭露行情摘要">
+        {[
+          ["昨收", symbol.previousClose],
+          ["開盤", revealed[0]?.o],
+          ["最高", revealed.length ? Math.max(...revealed.map((bar) => bar.h)) : undefined],
+          ["最低", revealed.length ? Math.min(...revealed.map((bar) => bar.l)) : undefined],
+        ].map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{typeof value === "number" ? formatPrice(value) : "—"}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
-
 function MorningTerminalNav({
   active,
   onSelect,
@@ -1061,9 +1124,11 @@ function MorningWatchlist({
 }) {
   return (
     <section className="quote-watchlist min-w-0 bg-surface" aria-label="自選行情">
-      <div className="flex items-center justify-between gap-2 border-b border-border bg-elevated px-3 py-2 text-xs font-semibold">
-        <span>自選行情</span>
-        <span className="font-normal text-muted">5 檔</span>
+      <div className="terminal-watch-heading">
+        <span>
+          <CandlestickChart size={15} aria-hidden /> 自選報價
+        </span>
+        <span>{catalog.symbols.length}</span>
       </div>
       <div className={cn(compact && "flex overflow-x-auto")} role="group" aria-label="選擇重播商品">
         {catalog.symbols.map((symbol) => {
@@ -1089,40 +1154,33 @@ function MorningWatchlist({
                 compact ? "min-w-32 flex-1 shrink-0 border-b-0 border-r bg-surface px-2" : "w-full",
               )}
             >
-              <span className="flex items-baseline justify-between gap-2">
+              <span className="terminal-watch-name flex items-baseline justify-between gap-2">
                 <span className="truncate font-semibold">{symbol.name}</span>
                 <span className="font-mono text-xs text-muted">{symbol.code}</span>
               </span>
-              <span
-                className={cn(
-                  "mt-1 flex items-baseline justify-between gap-2 font-mono",
-                  changeClass,
-                )}
-              >
-                <strong className="text-base">{last ? formatPrice(last.c) : "—"}</strong>
-                {change !== null && (
-                  <span className="text-xs">
-                    {change > 0 ? "+" : ""}
-                    {formatPrice(change)}{" "}
-                    <span className="hidden sm:inline">
-                      ({change > 0 ? "+" : ""}
-                      {((change / symbol.previousClose) * 100).toFixed(2)}%)
-                    </span>
+              <span className={cn("terminal-watch-quote", changeClass)}>
+                <span className="terminal-watch-numbers">
+                  <strong>{last ? formatPrice(last.c) : "—"}</strong>
+                  <span>
+                    {change === null
+                      ? "尚未揭露"
+                      : `${change > 0 ? "▲ +" : change < 0 ? "▼ " : ""}${change.toLocaleString("zh-TW", { maximumFractionDigits: 2 })}  ${change > 0 ? "+" : ""}${((change / symbol.previousClose) * 100).toFixed(2)}%`}
                   </span>
+                </span>
+                {!compact && (
+                  <MorningSparkline
+                    bars={session?.bars[symbol.code] ?? []}
+                    previous={symbol.previousClose}
+                  />
                 )}
               </span>
-              {!compact && (
-                <span className="block text-xs text-muted">
-                  昨收 {formatPrice(symbol.previousClose)}
-                </span>
-              )}
             </button>
           );
         })}
       </div>
       {!compact && (
-        <p className="px-3 py-2 text-xs leading-relaxed text-muted">
-          未完成分鐘不顯示價格 · 尚無真實五檔
+        <p className="terminal-watch-footnote px-3 py-2 text-xs leading-relaxed text-muted">
+          已揭露分鐘收價 · 虛線為昨收
         </p>
       )}
     </section>
@@ -1399,6 +1457,24 @@ function MorningChart({
           <small>台北時間</small>
         </span>
       </div>
+      {last && (
+        <div className="studio-chart-ohlc" aria-label="圖表最新完整分鐘">
+          <time>{formatTime(last.t).slice(0, 5)}</time>
+          {(
+            [
+              ["開", last.o],
+              ["高", last.h],
+              ["低", last.l],
+              ["收", last.c],
+            ] as const
+          ).map(([label, price]) => (
+            <span key={label}>
+              {label}
+              <strong>{formatPrice(price)}</strong>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="quote-chart-canvas">
         {last && session ? (
           <TapeChart
@@ -1414,6 +1490,7 @@ function MorningChart({
             now={session.cursor * 60}
             range={{ start: 0, end: session.cursor * 60 }}
             variant={candles ? "candles" : "stock"}
+            presentation="terminal"
             showVolume={false}
             showAverage={false}
             showVolumeReadout={false}
@@ -1446,26 +1523,27 @@ function MorningChart({
         <span>09:00–{catalog.end}</span>
         <span>{candles ? "開高低收" : "分鐘收價連線"}</span>
       </div>
-      {last && (
-        <dl className="quote-ohlc" aria-label="最新真實 K 棒開高低收">
-          {(
-            [
-              ["開", last.o],
-              ["高", last.h],
-              ["低", last.l],
-              ["收", last.c],
-            ] as const
-          ).map(([label, price]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{formatPrice(price)}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
       <details className="quote-data-details">
         <summary>報價彙總與 K 棒明細{last ? " · " + bars.length + " 根" : ""}</summary>
         <div className="quote-data-details-body">
+          {last && (
+            <dl className="quote-ohlc" aria-label="最新真實 K 棒開高低收">
+              {(
+                [
+                  ["開", last.o],
+                  ["高", last.h],
+                  ["低", last.l],
+                  ["收", last.c],
+                ] as const
+              ).map(([label, price]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{formatPrice(price)}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+
           <dl className="grid grid-cols-2 gap-3">
             <Metric label="前一交易日收盤" value={formatPrice(symbol.previousClose)} />
             <Metric
@@ -1529,159 +1607,12 @@ function MorningChart({
   );
 }
 
-function AccountSummary({ session }: { session: MorningState }) {
-  return (
-    <section className="min-w-0 border border-border bg-surface p-3" aria-label="紙上帳戶">
-      <h3 className="border-b border-border pb-2 text-sm font-semibold">
-        紙上帳戶 <span className="ml-1 font-normal text-muted">／模擬</span>
-      </h3>
-      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
-        <Metric label="可用紙上現金" value={formatMoney(session.cash, 0)} />
-        <Metric label="依已知價格的帳戶估值" value={formatMoney(session.equity, 0)} />
-        <Metric label="起始紙上資金" value={formatMoney(session.startingCash, 0)} />
-        <Metric label="持有商品" value={`${session.positions.length} 檔`} />
-      </dl>
-      <p className="mt-2 text-xs leading-relaxed text-muted">
-        估值只使用目前已揭露的價格；尚未賣出的部位不是已實現結果。
-      </p>
-    </section>
-  );
-}
-
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <dt className="text-xs leading-relaxed text-muted">{label}</dt>
       <dd className="break-all font-mono text-sm font-semibold sm:text-base">{value}</dd>
     </div>
-  );
-}
-
-function PaperOrder({
-  catalog,
-  session,
-  code,
-  busy,
-  atEnd,
-  onOrder,
-  onCancel,
-}: {
-  catalog: MorningCatalog;
-  session: MorningState;
-  code: string;
-  busy: boolean;
-  atEnd: boolean;
-  onOrder: (side: "buy" | "sell", lots: number) => Promise<void>;
-  onCancel: (id: string) => Promise<void>;
-}) {
-  const [side, setSide] = useState<"buy" | "sell">("buy");
-  const [lots, setLots] = useState(1);
-  const position = session.positions.find((item) => item.code === code);
-  const pending = session.orders.find((item) => item.status === "pending");
-  const symbol = catalog.symbols.find((item) => item.code === code);
-  const invalidSell = side === "sell" && (!position || lots * 1000 > position.shares);
-  return (
-    <section
-      className="min-w-0 border border-border bg-surface p-3"
-      aria-labelledby="morning-order-title"
-    >
-      <h3 id="morning-order-title" className="border-b border-border pb-2 text-base font-semibold">
-        紙上委託 · {symbol?.name ?? code}
-      </h3>
-      <p className="mt-2 text-xs leading-relaxed text-muted">
-        每筆 1–3 張，1 張為 1,000 股。下一分鐘開盤資料到達後才處理，送出當下不代表成交。
-      </p>
-      {session.cursor < 1 && (
-        <p className="mt-3 rounded-xl bg-bg p-3 text-base leading-relaxed">
-          請先前進 1 分鐘，看完第一根完整 K 線後，再考慮是否送出紙上委託。
-        </p>
-      )}
-      {pending ? (
-        <div role="status" className="mt-4 rounded-xl border border-warn/30 bg-warn/5 p-4">
-          <p className="text-base font-medium">有一筆委託等待下一分鐘</p>
-          <p className="mt-2 text-base">
-            {pending.code} · {pending.side === "buy" ? "買進" : "賣出"} {pending.shares / 1000} 張
-          </p>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void onCancel(pending.id)}
-            className={cn(SECONDARY, "mt-3 w-full")}
-          >
-            撤回這筆待處理委託
-          </button>
-        </div>
-      ) : null}
-      <form
-        className="mt-3 space-y-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!busy && !pending && !atEnd && session.cursor >= 1 && !invalidSell)
-            void onOrder(side, lots);
-        }}
-      >
-        <fieldset
-          disabled={busy || Boolean(pending) || atEnd || session.cursor < 1}
-          className="min-w-0 space-y-3 disabled:opacity-55"
-        >
-          <legend className="sr-only">紙上委託方向與張數</legend>
-          <div className="grid grid-cols-2 gap-2" role="group" aria-label="紙上買賣方向">
-            <button
-              type="button"
-              aria-pressed={side === "buy"}
-              onClick={() => setSide("buy")}
-              className={cn(SECONDARY, side === "buy" && "border-brand bg-brand/10")}
-            >
-              買進
-            </button>
-            <button
-              type="button"
-              disabled={!position?.shares}
-              aria-pressed={side === "sell"}
-              onClick={() => setSide("sell")}
-              className={cn(SECONDARY, side === "sell" && "border-brand bg-brand/10")}
-            >
-              賣出持倉
-            </button>
-          </div>
-          <p className="text-sm text-muted">
-            目前持有 {position ? position.shares / 1000 : 0} 張；先有做多持倉，才能賣出。
-          </p>
-          <fieldset className="min-w-0">
-            <legend className="mb-2 text-base font-medium">委託張數</legend>
-            <div className="grid grid-cols-3 gap-2">
-              {[1, 2, 3].map((value) => (
-                <button
-                  type="button"
-                  key={value}
-                  aria-pressed={lots === value}
-                  disabled={side === "sell" && value * 1000 > (position?.shares ?? 0)}
-                  onClick={() => setLots(value)}
-                  className={cn(SECONDARY, lots === value && "border-brand bg-brand/10")}
-                >
-                  {value} 張
-                </button>
-              ))}
-            </div>
-          </fieldset>
-          <p className="border border-border bg-bg p-2 text-sm leading-relaxed">
-            {side === "buy" ? "買進" : "賣出"} {code} · {lots} 張（
-            {(lots * 1000).toLocaleString("zh-TW")}{" "}
-            股）。價格採下一分鐘開盤價，仍須通過紙上資金與庫存檢核。
-          </p>
-          {invalidSell && (
-            <p className="text-base text-warn">賣出張數超過目前持倉，請重新選擇張數。</p>
-          )}
-          <button type="submit" disabled={invalidSell} className={cn(PRIMARY, "w-full")}>
-            送出紙上{side === "buy" ? "買進" : "賣出"}委託
-          </button>
-        </fieldset>
-      </form>
-      <p className="mt-3 border-t border-border pt-2 text-xs leading-relaxed text-muted">
-        教材手續費為買賣各 0.0855%（每筆最低 20 元），賣出另估 0.15% 稅費，逐筆四捨五入。
-        沒有真實排隊、滑價或委託簿深度；這些固定練習參數與券商實際帳單可能不同。
-      </p>
-    </section>
   );
 }
 
@@ -1716,128 +1647,6 @@ function SavedPlan({ plan, catalog }: { plan: MorningPlan; catalog: MorningCatal
           </div>
         ))}
       </dl>
-    </section>
-  );
-}
-
-function Ledger({
-  catalog,
-  session,
-  busy,
-  onCancel,
-}: {
-  catalog: MorningCatalog;
-  session: MorningState;
-  busy: boolean;
-  onCancel: (id: string) => Promise<void>;
-}) {
-  const name = (code: string) => catalog.symbols.find((item) => item.code === code)?.name ?? code;
-  const status = {
-    pending: "待下一分鐘處理",
-    filled: "已成交",
-    cancelled: "已撤回",
-    rejected: "未接受",
-  };
-  return (
-    <section className={CARD} aria-labelledby="morning-records-title">
-      <h3 id="morning-records-title" className="text-xl font-semibold">
-        逐筆核對你的紀錄
-      </h3>
-      <h4 className="mt-5 text-base font-semibold">剩餘庫存</h4>
-      {session.positions.length ? (
-        <ul className="mt-2 space-y-2">
-          {session.positions.map((item) => (
-            <li key={item.code} className="rounded-xl bg-bg p-3 text-base leading-relaxed">
-              <strong>
-                {name(item.code)} {item.code}
-              </strong>
-              <p>
-                {item.shares / 1000} 張 · 平均成本（未含費）
-                {item.averageCost.toLocaleString("zh-TW", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </p>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-2 text-base text-muted">目前沒有庫存。</p>
-      )}
-      <details className="mt-5" open>
-        <summary className="min-h-12 cursor-pointer py-3 text-base font-semibold">
-          委託紀錄（{session.orders.length}）
-        </summary>
-        {session.orders.length ? (
-          <ul className="max-h-[28rem] space-y-2 overflow-y-auto overscroll-contain pr-1">
-            {session.orders
-              .slice()
-              .reverse()
-              .map((item) => (
-                <li
-                  key={item.id}
-                  className="rounded-xl border border-border p-3 text-base leading-relaxed"
-                >
-                  <p className="flex flex-wrap justify-between gap-2">
-                    <strong>
-                      {name(item.code)} · {item.side === "buy" ? "買進" : "賣出"}{" "}
-                      {item.shares / 1000} 張
-                    </strong>
-                    <span>{status[item.status]}</span>
-                  </p>
-                  <p className="mt-1 text-sm text-muted">
-                    {formatTime(item.submittedCursor * 60).slice(0, 5)} 送出
-                    {item.price !== undefined ? ` · 處理價格 ${formatPrice(item.price)}` : ""}
-                  </p>
-                  {item.reason && <p className="mt-2 text-base text-warn">{item.reason}</p>}
-                  {item.status === "pending" && !session.completed && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void onCancel(item.id)}
-                      className={cn(SECONDARY, "mt-2 w-full")}
-                    >
-                      撤回這筆待處理委託
-                    </button>
-                  )}
-                </li>
-              ))}
-          </ul>
-        ) : (
-          <p className="text-base text-muted">目前沒有送出委託，保持觀察也可以。</p>
-        )}
-      </details>
-      <details className="mt-3" open>
-        <summary className="min-h-12 cursor-pointer py-3 text-base font-semibold">
-          紙上成交（{session.fills.length}）
-        </summary>
-        {session.fills.length ? (
-          <ul className="max-h-[28rem] space-y-2 overflow-y-auto overscroll-contain pr-1">
-            {session.fills
-              .slice()
-              .reverse()
-              .map((fill) => (
-                <li
-                  key={fill.id}
-                  className="rounded-xl border border-border p-3 text-base leading-relaxed"
-                >
-                  <strong>
-                    {name(fill.code)} · {fill.side === "buy" ? "買進" : "賣出"} {fill.shares / 1000}{" "}
-                    張
-                  </strong>
-                  <p className="mt-1 font-mono">
-                    {formatTime(fill.t).slice(0, 5)} · {formatPrice(fill.price)}
-                  </p>
-                  <p className="mt-2 text-sm text-muted">
-                    教材手續費 {formatMoney(fill.fee)} · 交易稅 {formatMoney(fill.tax)}
-                  </p>
-                </li>
-              ))}
-          </ul>
-        ) : (
-          <p className="text-base text-muted">尚無紙上成交。送出委託不等於已成交。</p>
-        )}
-      </details>
     </section>
   );
 }

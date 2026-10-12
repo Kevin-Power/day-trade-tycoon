@@ -74,15 +74,80 @@ export function timeAxisTicks(
   return result.length ? result : [start];
 }
 
-export function canvasResolution(width: number, height: number, ratio: number) {
-  const dpr = Math.min(3, Number.isFinite(ratio) && ratio > 0 ? ratio : 1);
-  const pixelWidth = Math.max(1, Math.round(width * dpr));
-  const pixelHeight = Math.max(1, Math.round(height * dpr));
+/**
+ * Backing-store size for a canvas shown at `width` x `height` CSS pixels. `deviceBox` is the exact
+ * number of device pixels the browser gives the canvas (ResizeObserver's devicePixelContentBoxSize);
+ * matching it keeps the canvas from being resampled when CSS size times ratio is fractional.
+ */
+export function canvasResolution(
+  width: number,
+  height: number,
+  ratio: number,
+  deviceBox?: { width: number; height: number },
+) {
+  const requested = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+  const dpr = Math.min(3, requested);
+  // Only trust the box when it agrees with the ratio to within one device pixel (snapping), and
+  // stays inside the three-times cap; some engines report CSS pixels here.
+  const exact =
+    deviceBox &&
+    deviceBox.width >= 1 &&
+    deviceBox.height >= 1 &&
+    deviceBox.width <= width * 3 &&
+    deviceBox.height <= height * 3 &&
+    Math.abs(deviceBox.width - width * requested) <= 1 &&
+    Math.abs(deviceBox.height - height * requested) <= 1;
+  const pixelWidth = Math.max(1, exact ? deviceBox.width : Math.round(width * dpr));
+  const pixelHeight = Math.max(1, exact ? deviceBox.height : Math.round(height * dpr));
   return {
     width: pixelWidth,
     height: pixelHeight,
     scaleX: pixelWidth / width,
     scaleY: pixelHeight / height,
+  };
+}
+
+const usableScale = (scale: number) => Number.isFinite(scale) && scale > 0;
+
+/** Device pixels in a line that is about one CSS pixel thick, never thinner than one. */
+export function hairlineDevicePixels(scale: number): number {
+  return usableScale(scale) ? Math.max(1, Math.round(scale)) : 1;
+}
+
+/**
+ * CSS coordinate for the centre of a stroke `devicePx` device pixels wide, so the stroke covers
+ * whole device pixels instead of being blended across two. `scale` is device pixels per CSS pixel.
+ */
+export function snapStroke(value: number, scale: number, devicePx = 1): number {
+  if (!Number.isFinite(value) || !usableScale(scale)) return value;
+  const device = value * scale;
+  return (devicePx % 2 === 1 ? Math.floor(device) + 0.5 : Math.round(device)) / scale;
+}
+
+/** CSS coordinate of a filled edge, moved onto the nearest whole device pixel. */
+export function snapEdge(value: number, scale: number): number {
+  if (!Number.isFinite(value) || !usableScale(scale)) return value;
+  return Math.round(value * scale) / scale;
+}
+
+/**
+ * A candle body (or volume column) centred on its wick. The wick is a `strokePx`-wide stroke; the
+ * body gets the nearest width of the same parity so the wick sits exactly in the middle, and both
+ * edges land on whole device pixels. Ties go to the narrower width so neighbours do not touch.
+ */
+export function snapColumn(center: number, width: number, scale: number, strokePx = 1) {
+  if (!Number.isFinite(center) || !Number.isFinite(width) || !usableScale(scale))
+    return { center, left: center - width / 2, width };
+  const parity = strokePx % 2;
+  const devicePx = Math.max(
+    parity === 1 ? 1 : 2,
+    2 * Math.ceil((width * scale - parity) / 2 - 0.5) + parity,
+  );
+  const middle = snapStroke(center, scale, strokePx) * scale;
+  return {
+    center: middle / scale,
+    left: (middle - devicePx / 2) / scale,
+    width: devicePx / scale,
   };
 }
 

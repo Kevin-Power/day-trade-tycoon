@@ -38,6 +38,7 @@ import { useGate } from "@/lib/gate/context";
 import { ClassroomAccount } from "@/components/classroom-account";
 import { DisplayControls } from "@/components/display-controls";
 import { BrandMark } from "@/components/brand-mark";
+import { WorkspacePreview } from "@/components/workspace-preview";
 import { RealCandlesLink } from "@/components/real-candles-entry";
 import { PracticeGoalReminder } from "@/components/practice-goal";
 import { classroomSampleMicro, officialIndexMicro, officialTurnoverMicro } from "@/lib/provenance";
@@ -112,7 +113,7 @@ export function Lobby() {
     : 0;
 
   return (
-    <div className="academy-page min-h-dvh bg-bg text-fg">
+    <div className="academy-page classroom-lobby min-h-dvh bg-bg text-fg">
       <header className="academy-header border-b border-border">
         <div className="academy-container mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
           <a
@@ -167,10 +168,7 @@ export function Lobby() {
         id="classroom-top"
         className="academy-container mx-auto w-full max-w-7xl px-4 pb-12 sm:px-6 lg:px-8"
       >
-        <section
-          aria-labelledby="classroom-title"
-          className="premium-lobby-hero grid gap-7 pb-8 pt-8 sm:py-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center lg:gap-12"
-        >
+        <section aria-labelledby="classroom-title" className="lobby-launchpad">
           <div className="premium-hero-copy min-w-0">
             <div className="mb-3 flex flex-wrap items-center gap-2.5">
               <span className="academy-eyebrow text-xs font-medium tracking-[0.16em] text-muted">
@@ -187,16 +185,17 @@ export function Lobby() {
               id="classroom-title"
               className="premium-hero-title academy-title text-balance text-4xl font-semibold leading-tight tracking-tight sm:text-5xl"
             >
-              歡迎回到當沖大富翁
-              <span className="premium-hero-title-accent block">交易盤與練習課程。</span>
+              今天，先練好
+              <span className="premium-hero-title-accent block">一筆有計畫的交易。</span>
             </h1>
             <p className="academy-description mt-5 max-w-xl text-pretty text-base leading-8 text-muted">
-              原本熟悉的自選行情、K 線、紙上委託與庫存操作已整合在交易盤。選擇課程主題與交易日後，逐分鐘練習並保存復盤。
+              選擇練習主題，打開交易工作台。觀察已完成的歷史 K
+              線，核對紙上委託與庫存，最後留下自己的判斷。
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               {!CLASSROOM_OFFLINE ? (
                 <RealCandlesLink className="academy-button-primary px-5">
-                  進入交易盤
+                  進入模擬下單
                 </RealCandlesLink>
               ) : recentReview ? (
                 <Link
@@ -234,7 +233,7 @@ export function Lobby() {
             </div>
             {!CLASSROOM_OFFLINE && (
               <p className="mt-3 text-base leading-relaxed text-muted">
-                交易盤使用已完成的一分鐘 K 線；原本的真實五檔、逐筆江波與閃電下單待取得對應資料後再開放。可用日期與股票以交易盤為準。
+                真實歷史分鐘 K · 紙上模擬交易 · 每個交易日分別保存進度
               </p>
             )}
             {recentReview && (
@@ -246,73 +245,26 @@ export function Lobby() {
               </p>
             )}
           </div>
-          <div className="premium-practice-panel min-w-0 rounded-3xl border border-border p-5 sm:p-7">
-            <div className="premium-practice-heading flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium tracking-wide">每次練習，完成三件事</p>
-                <p className="mt-2 text-2xl font-semibold tracking-tight">先計畫，再行動。</p>
-              </div>
-              <span
-                className="premium-practice-panel-mark grid size-11 shrink-0 place-items-center rounded-full"
-                aria-hidden="true"
-              >
-                <Target className="size-5" />
-              </span>
-            </div>
-            <ol className="mt-6 space-y-5">
-              {PRACTICE_STEPS.map(({ number, title, description, icon: Icon }) => (
-                <li key={number} className="premium-practice-step flex items-start gap-4">
-                  <span
-                    className="premium-practice-step-icon grid size-10 shrink-0 place-items-center rounded-xl"
-                    aria-hidden="true"
-                  >
-                    <Icon className="size-[18px]" />
-                  </span>
-                  <div className="premium-practice-step-copy min-w-0 flex-1">
-                    <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-base font-medium">
-                      {title}
-                      <span className="font-mono text-xs opacity-65" aria-hidden="true">
-                        {number}
-                      </span>
-                    </p>
-                    <p className="mt-1 text-sm leading-6 opacity-80">{description}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-            <p className="premium-practice-footer mt-6 flex items-center gap-2 border-t pt-4 text-sm leading-relaxed">
-              <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
-              在模擬環境中，練習自己的操作節奏。
-            </p>
-          </div>
+          <WorkspacePreview />
         </section>
+
+        <ol className="lobby-practice-path" aria-label="每次練習的三個步驟">
+          {PRACTICE_STEPS.map(({ number, title, description, icon: Icon }) => (
+            <li key={number}>
+              <Icon size={21} aria-hidden />
+              <div>
+                <p>
+                  <span>{number}</span> {title}
+                </p>
+                <small>{description}</small>
+              </div>
+            </li>
+          ))}
+        </ol>
 
         <PracticeGoalReminder />
 
-        <ClassroomAccount />
-
-        <LearningFootprints summary={summary} missingReviews={missingReviews} />
-
-        {!CLASSROOM_OFFLINE && (
-          <section
-            aria-labelledby="morning-entry-title"
-            className="my-7 grid min-w-0 gap-5 rounded-3xl border border-brand/25 bg-surface p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
-          >
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-brand">真實行情 · 分鐘回放</p>
-              <h2 id="morning-entry-title" className="mt-2 text-2xl font-semibold">
-                當沖大富翁交易盤
-              </h2>
-              <p className="mt-3 max-w-3xl text-base leading-relaxed text-muted">
-                原本的自選行情、走勢圖、模擬下單與庫存紀錄都在交易盤。選交易日與練習主題，再逐分鐘觀察真實開高低收。
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-muted">
-                歷史分鐘資料 · 非即時行情 · 只提供紙上模擬，登入後保存紀錄
-              </p>
-            </div>
-            <RealCandlesLink className="min-h-14 px-5">開啟交易盤</RealCandlesLink>
-          </section>
-        )}
+        {!userId && <ClassroomAccount />}
 
         <section id="courses" aria-labelledby="courses-title" className="scroll-mt-6">
           <div className="premium-section-heading mb-5 flex flex-wrap items-end justify-between gap-3">
@@ -324,28 +276,12 @@ export function Lobby() {
                 六個真實回放練習
               </h2>
               <p className="mt-1 text-base leading-relaxed text-muted">
-                每個主題都可搭配回放頁提供的交易日。只依已揭露的 K
-                線練習，條件未成立可以不交易。
+                每個主題都可搭配回放頁提供的交易日。只依已揭露的 K 線練習，條件未成立可以不交易。
               </p>
             </div>
             <span className="text-sm leading-6 text-muted">選交易日與練習主題</span>
           </div>
-          <ol
-            aria-label="課程學習階段"
-            className="premium-course-stages mb-5 grid gap-2 sm:grid-cols-3"
-          >
-            {["寫下計畫", "觀察與執行", "核對與復盤"].map((stage, index) => (
-              <li
-                key={stage}
-                className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-base"
-              >
-                <span className="premium-stage-number font-mono text-sm text-muted">
-                  0{index + 1}
-                </span>
-                <span className="min-w-0 font-medium">{stage}</span>
-              </li>
-            ))}
-          </ol>
+
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {MORNING_EXERCISES.map((exercise, index) => (
               <CourseCard key={exercise.id} exercise={exercise} index={index} />
@@ -356,6 +292,13 @@ export function Lobby() {
             所有委託皆為教室模擬，不會送到券商。模擬成績不代表實際交易報酬。
           </p>
         </section>
+
+        {userId && (
+          <div className="mt-8">
+            <ClassroomAccount />
+          </div>
+        )}
+        <LearningFootprints summary={summary} missingReviews={missingReviews} />
 
         <section aria-labelledby="progress-title" className="mt-9 border-t border-border pt-7">
           <div className="premium-section-heading mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -560,9 +503,7 @@ function CourseCard({ exercise, index }: { exercise: MorningExercise; index: num
           <span className="font-medium text-brand">{exercise.no}</span>
           <span className="text-muted">真實 K 線回放</span>
         </div>
-        <h3 className="mt-3 text-xl font-semibold leading-snug tracking-tight">
-          {exercise.title}
-        </h3>
+        <h3 className="mt-3 text-xl font-semibold leading-snug tracking-tight">{exercise.title}</h3>
         <p className="mt-4 flex-1 text-base leading-relaxed text-muted">{exercise.principle}</p>
         <details className="premium-course-outline my-4 rounded-xl border border-border bg-bg px-3">
           <summary className="min-h-12 cursor-pointer py-3 text-base font-medium">
@@ -587,7 +528,7 @@ function CourseCard({ exercise, index }: { exercise: MorningExercise; index: num
           </div>
         </details>
         <a
-          href={`${CLASSROOM_OFFLINE ? "https://rich.yilutek.com" : ""}/morning?exercise=${exercise.id}`}
+          href={`${CLASSROOM_OFFLINE ? "https://rich.yilutek.com" : ""}/morning?exercise=${exercise.id}&panel=trade`}
           aria-label={`開始${exercise.no}：${exercise.title}`}
           className="academy-button-primary inline-flex min-h-12 w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold leading-relaxed"
         >

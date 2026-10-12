@@ -8,7 +8,7 @@ export function BrandMark({ className = "size-11" }: { className?: string }) {
       focusable="false"
       className={`brand-mark shrink-0 ${className}`}
     >
-      <rect x="1" y="1" width="46" height="46" rx="14" fill="#164d46" />
+      <rect x="1" y="1" width="46" height="46" rx="14" fill="#233e61" />
       <rect x="1.5" y="1.5" width="45" height="45" rx="13.5" stroke="#ffffff" strokeOpacity=".12" />
       <path
         d="M12 15.5C16.5 14.5 20.3 16 24 19C27.7 16 31.5 14.5 36 15.5V32C31.5 31 27.7 32.5 24 35C20.3 32.5 16.5 31 12 32V15.5Z"
