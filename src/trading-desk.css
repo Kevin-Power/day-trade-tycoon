@@ -1673,3 +1673,227 @@
   font-size: 11px;
   text-align: center;
 }
+
+/* Phone and senior: single column */
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-workbench {
+  display: flex;
+  flex-direction: column;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-bar {
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 6px 10px;
+  white-space: normal;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) :is(.td-subject, .td-brand > span) {
+  display: none;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-account {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-replay {
+  display: grid;
+  order: 10;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  width: 100%;
+  margin-left: 0;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-replay > :only-child {
+  grid-column: 1 / -1;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-replay :is(button, .td-speed) {
+  min-height: 44px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-replay .td-speed button {
+  flex: 1;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hints {
+  padding: 6px 10px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-alert {
+  margin-left: 0;
+}
+.trading-desk .td-tabs[data-variant="panes"] {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  background: var(--td-title);
+  border-bottom: 1px solid var(--td-title-line);
+}
+.trading-desk .td-tabs[data-variant="panes"] button {
+  min-height: 44px;
+  padding: 0 4px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-quote {
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 8px 10px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-quote-price {
+  width: 100%;
+  margin-left: 0;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-quote-stats {
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-quote-arrows button {
+  width: 44px;
+  height: 44px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-chart-canvas {
+  flex: none;
+  height: clamp(260px, 52vh, 420px);
+}
+.trading-desk .td-mobile-ticket {
+  display: flex;
+  flex-direction: column;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-resources {
+  inset: 0;
+  width: 100vw;
+}
+.trading-desk[data-layout="phone"] :is(.td-level, .td-lots button, .morning-order-type button, .sim-side-switch button) {
+  min-height: 44px;
+}
+.trading-desk[data-layout="phone"] :is(.sim-stepper, .morning-limit-field > div) {
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  min-height: 44px;
+}
+.trading-desk[data-layout="phone"] .td-watch-item {
+  min-height: 64px;
+}
+
+/* Senior mode: larger type; global rules already give buttons 56px */
+.trading-desk[data-layout="senior"] {
+  font-size: 16px;
+}
+.trading-desk[data-layout="senior"] .td-level {
+  grid-template-columns: 56px minmax(0, 1fr) 80px;
+  min-height: 56px;
+  font-size: 18px;
+}
+.trading-desk[data-layout="senior"] .td-ladder-labels {
+  grid-template-columns: 56px minmax(0, 1fr) 80px;
+  font-size: 14px;
+}
+.trading-desk[data-layout="senior"] :is(.sim-submit, .sim-side-switch button, .td-lots button, .morning-order-type button) {
+  min-height: 56px;
+  font-size: 18px;
+}
+.trading-desk[data-layout="senior"] :is(.sim-stepper, .morning-limit-field > div) {
+  grid-template-columns: 56px minmax(0, 1fr) 56px;
+  min-height: 56px;
+}
+.trading-desk[data-layout="senior"] .td-quote-price strong {
+  font-size: 36px;
+}
+.trading-desk[data-layout="senior"] .td-watch-price {
+  font-size: 28px;
+}
+.trading-desk[data-layout="senior"] :is(.td-hints, .td-quote-stats, .sim-order-facts dt, .td-book-hint, .td-book-source, .terminal-data-status, .td-chart-legend, .td-level-rank) {
+  font-size: 15px;
+}
+.trading-desk[data-layout="senior"] .td-account dd {
+  font-size: 18px;
+}
+
+/* Account card (phone and senior positions pane) */
+.trading-desk .sim-account {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--td-line);
+}
+.trading-desk .sim-account-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.trading-desk .sim-account-label small {
+  display: block;
+  color: var(--td-muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+.trading-desk .sim-account dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0;
+}
+.trading-desk .sim-account dt {
+  color: var(--td-muted);
+  font-size: 11px;
+}
+.trading-desk .sim-account dd {
+  margin: 0;
+  font: 600 18px/1.2 var(--font-mono);
+}
+.trading-desk .sim-account dd small {
+  color: var(--td-muted);
+  font-size: 11px;
+}
+.trading-desk .sim-account-note {
+  color: var(--td-muted);
+  font-size: 11px;
+}
+
+/* Tablet, and tab labels that must never wrap into vertical text */
+.trading-desk :is(.td-tabs button, .sim-ledger-header nav button, .terminal-pane-bar nav button) {
+  white-space: nowrap;
+}
+.trading-desk .sim-ledger-header {
+  flex-wrap: wrap;
+}
+.trading-desk .td-ledger-meta {
+  white-space: nowrap;
+}
+.trading-desk[data-layout="tablet"] .td-bar {
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 6px 12px;
+  white-space: normal;
+}
+.trading-desk[data-layout="tablet"] .td-subject {
+  display: none;
+}
+.trading-desk[data-layout="tablet"] .td-replay {
+  margin-left: 0;
+}
+.trading-desk[data-layout="tablet"] .td-quote {
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 6px 10px;
+}
+.trading-desk[data-layout="tablet"] .td-quote-stats {
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+/* Senior mode and very narrow phones: replay controls on two rows so 2x and 復盤 are not cut. */
+.trading-desk[data-layout="senior"] .td-replay {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.trading-desk[data-layout="senior"] .td-replay > :is(.td-play, .td-speed) {
+  grid-column: span 2;
+}
+.trading-desk[data-layout="senior"] .td-replay > button:not(.td-play) {
+  grid-column: span 2;
+}
+.trading-desk[data-layout="senior"] .td-speed {
+  display: flex;
+}
+@media (max-width: 359px) {
+  .trading-desk[data-layout="phone"] .td-replay {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .trading-desk[data-layout="phone"] .td-replay > :is(.td-play, .td-speed),
+  .trading-desk[data-layout="phone"] .td-replay > button:not(.td-play) {
+    grid-column: span 2;
+  }
+  .trading-desk[data-layout="phone"] .td-speed {
+    display: flex;
+  }
+}
