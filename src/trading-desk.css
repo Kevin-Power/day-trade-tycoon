@@ -1204,3 +1204,472 @@
   font-size: 11px;
   border-top: var(--td-hairline) solid var(--td-line);
 }
+
+/* Right column: quote detail tabs */
+.trading-desk .morning-order-station {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+.trading-desk .terminal-quote-detail {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--td-line);
+}
+.trading-desk .terminal-pane-bar nav {
+  display: flex;
+  align-self: stretch;
+}
+.trading-desk .terminal-pane-bar nav button {
+  padding: 0 12px;
+  color: rgb(230 237 247 / 0.72);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+}
+.trading-desk .terminal-pane-bar nav button[aria-pressed="true"] {
+  color: #ffffff;
+  border-bottom-color: var(--td-accent);
+}
+.trading-desk .terminal-pane-bar select {
+  max-width: 140px;
+  height: 26px;
+  color: var(--td-fg);
+  background: rgb(0 0 0 / 0.25);
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 4px;
+  font-size: 12px;
+}
+.trading-desk .terminal-pane-bar > span {
+  font-size: 12px;
+}
+.trading-desk .terminal-detail-price {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px 4px;
+  color: var(--td-tone);
+  font-family: var(--font-mono);
+}
+.trading-desk .terminal-detail-price strong {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+}
+.trading-desk .terminal-detail-price span {
+  font-size: 13px;
+}
+.trading-desk .terminal-detail-stamp {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 12px 6px;
+  color: var(--td-muted);
+  font-size: 11px;
+}
+.trading-desk .terminal-detail-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 6px 12px;
+}
+.trading-desk .terminal-detail-stats div {
+  display: flex;
+  justify-content: space-between;
+}
+.trading-desk .terminal-detail-stats dt {
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk .terminal-detail-stats dd {
+  margin: 0;
+  font-family: var(--font-mono);
+}
+.trading-desk .terminal-price-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 6px 12px 10px;
+  color: var(--td-muted);
+  font: 500 11px/1.2 var(--font-mono);
+}
+.trading-desk .terminal-price-range span:nth-of-type(2) {
+  text-align: right;
+}
+.trading-desk .terminal-price-range div {
+  position: relative;
+  grid-column: 1 / -1;
+  height: 4px;
+  background: var(--td-line-strong);
+  border-radius: 2px;
+}
+.trading-desk .terminal-price-range i {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 10px;
+  background: var(--td-fg);
+  transform: translateX(-1px);
+}
+.trading-desk .terminal-minute-tape {
+  max-height: 300px;
+  overflow: auto;
+}
+.trading-desk .terminal-minute-tape table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 12px/1.4 var(--font-mono);
+}
+.trading-desk .terminal-minute-tape :is(th, td) {
+  padding: 4px 12px;
+  text-align: right;
+  border-bottom: var(--td-hairline) solid var(--td-line);
+}
+.trading-desk .terminal-minute-tape :is(th, td):first-child {
+  text-align: left;
+}
+.trading-desk .terminal-minute-tape thead th {
+  color: var(--td-muted);
+  font: 500 11px/1.4 var(--font-sans);
+}
+.trading-desk .terminal-tape-empty {
+  margin: 0;
+  padding: 12px;
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk .terminal-data-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 5px 12px;
+  color: var(--td-muted);
+  font-size: 11px;
+  border-top: var(--td-hairline) solid var(--td-line);
+}
+.trading-desk .terminal-data-status i {
+  width: 6px;
+  height: 6px;
+  background: var(--td-down);
+  border-radius: 50%;
+}
+.trading-desk .terminal-data-status span {
+  margin-left: auto;
+}
+
+/* Order ticket */
+.trading-desk .sim-ticket {
+  display: flex;
+  flex-direction: column;
+}
+.trading-desk .sim-ticket-header h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.trading-desk .sim-paper-tag {
+  padding: 1px 6px;
+  border: 1px solid rgb(255 255 255 / 0.3);
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.trading-desk .sim-ticket-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+.trading-desk .sim-order-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.trading-desk .sim-side-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.trading-desk .sim-side-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  color: var(--td-muted);
+  background: var(--td-raised);
+  border: 1px solid var(--td-line-strong);
+  border-radius: 4px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.trading-desk .sim-side-switch svg {
+  width: 16px;
+  height: 16px;
+}
+.trading-desk .sim-side-switch button[data-side="buy"][aria-pressed="true"] {
+  color: #ffffff;
+  background: var(--td-up);
+  border-color: var(--td-up);
+}
+.trading-desk .sim-side-switch button[data-side="sell"][aria-pressed="true"] {
+  color: #04120a;
+  background: var(--td-down);
+  border-color: var(--td-down);
+}
+.trading-desk .sim-execution {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk .sim-execution strong {
+  font-weight: 500;
+}
+.trading-desk .morning-order-type {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--td-line-strong);
+  border-radius: 4px;
+}
+.trading-desk .morning-order-type button {
+  min-height: 30px;
+  padding: 0 14px;
+  color: var(--td-muted);
+  background: transparent;
+  border: 0;
+  font-weight: 600;
+}
+.trading-desk .morning-order-type button[aria-pressed="true"] {
+  color: #ffffff;
+  background: var(--td-accent);
+}
+.trading-desk .morning-limit-field {
+  display: grid;
+  gap: 4px;
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk :is(.morning-limit-field > div, .sim-stepper) {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 38px;
+  min-height: 38px;
+  overflow: hidden;
+  background: var(--td-bg);
+  border: 1px solid var(--td-line-strong);
+  border-radius: 4px;
+}
+.trading-desk :is(.morning-limit-field button, .sim-stepper button) {
+  display: grid;
+  place-items: center;
+  color: var(--td-fg);
+  background: var(--td-raised);
+  border: 0;
+  font-size: 16px;
+}
+.trading-desk :is(.morning-limit-field button, .sim-stepper button):disabled {
+  color: var(--td-muted);
+  opacity: 0.5;
+}
+.trading-desk .sim-stepper svg {
+  width: 16px;
+  height: 16px;
+}
+.trading-desk .morning-limit-field input {
+  min-width: 0;
+  color: var(--td-fg);
+  text-align: center;
+  background: transparent;
+  border: 0;
+  font: 600 16px/1 var(--font-mono);
+}
+.trading-desk .morning-limit-field input[aria-invalid="true"] {
+  color: var(--td-alert-fg);
+}
+.trading-desk .morning-limit-field [role="alert"] {
+  margin: 0;
+  color: var(--td-alert-fg);
+}
+.trading-desk .sim-quantity-heading {
+  display: flex;
+  justify-content: space-between;
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk .sim-stepper output {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  font: 600 18px/38px var(--font-mono);
+}
+.trading-desk .sim-stepper output span {
+  color: var(--td-muted);
+  font: 400 12px/1 var(--font-sans);
+}
+.trading-desk .sim-order-facts {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-top: 8px;
+  border-top: var(--td-hairline) solid var(--td-line);
+}
+.trading-desk .sim-order-facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.trading-desk .sim-order-facts dt {
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk .sim-order-facts dt small {
+  font-size: 11px;
+}
+.trading-desk .sim-order-facts dd {
+  margin: 0;
+  font: 600 13px/1.4 var(--font-mono);
+}
+.trading-desk .sim-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  color: #ffffff;
+  background: var(--td-up);
+  border: 0;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.trading-desk .sim-ticket[data-side="sell"] .sim-submit {
+  color: #04120a;
+  background: var(--td-down);
+}
+.trading-desk .sim-submit span {
+  padding-left: 10px;
+  border-left: 1px solid rgb(255 255 255 / 0.35);
+  font: 600 13px/1 var(--font-mono);
+}
+.trading-desk .sim-submit svg {
+  width: 18px;
+  height: 18px;
+}
+.trading-desk .sim-submit:disabled {
+  opacity: 0.45;
+}
+.trading-desk :is(.sim-back, .sim-prepare, .sim-pending-actions button, .morning-flash-ready button) {
+  min-height: 36px;
+  padding: 0 12px;
+  color: var(--td-fg);
+  background: var(--td-raised);
+  border: 1px solid var(--td-line-strong);
+  border-radius: 4px;
+  font-weight: 600;
+}
+.trading-desk .sim-prepare {
+  width: 100%;
+  color: #ffffff;
+  background: var(--td-accent);
+  border-color: var(--td-accent);
+}
+.trading-desk .sim-ticket-message {
+  margin: 0;
+  color: var(--td-alert-fg);
+  font-size: 12px;
+}
+.trading-desk :is(.sim-pending, .morning-flash-ready) {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  background: rgb(232 197 71 / 0.08);
+  border: 1px solid rgb(232 197 71 / 0.45);
+  border-radius: 4px;
+}
+.trading-desk .sim-pending > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--td-prev);
+}
+.trading-desk .sim-pending p {
+  margin: 0;
+  font-family: var(--font-mono);
+}
+.trading-desk .sim-pending small {
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk .sim-pending-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.trading-desk .morning-flash-ready {
+  color: var(--td-prev);
+}
+.trading-desk .morning-flash-ready p {
+  margin: 0;
+  color: var(--td-fg);
+  font-size: 12px;
+}
+.trading-desk .sim-confirm {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: var(--td-raised);
+  border: 1px solid var(--td-accent);
+  border-radius: 4px;
+}
+.trading-desk .sim-confirm h3 {
+  margin: 0;
+  font-size: 14px;
+  outline: none;
+}
+.trading-desk .sim-confirm-symbol {
+  margin: 0;
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk .sim-confirm-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 20px;
+  font-weight: 700;
+}
+.trading-desk .sim-confirm-main span {
+  font-family: var(--font-mono);
+}
+.trading-desk .sim-help {
+  margin: 0;
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk .sim-order-help {
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk .sim-order-help summary {
+  padding: 4px 0;
+  cursor: pointer;
+}
+.trading-desk .sim-order-help p {
+  margin: 4px 0;
+}
+.trading-desk .sim-ticket-footnote {
+  margin: 0;
+  color: var(--td-muted);
+  font-size: 11px;
+  text-align: center;
+}

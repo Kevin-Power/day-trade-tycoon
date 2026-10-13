@@ -97,7 +97,7 @@ export function MorningQuoteDetail({
       : 50;
   return (
     <section className="terminal-quote-detail" data-pane={pane} aria-label="下單行情明細">
-      <header className="terminal-pane-bar">
+      <header className="terminal-pane-bar td-titlebar">
         <nav aria-label="下單行情分類">
           {book && (
             <button type="button" aria-pressed={pane === "book"} onClick={() => changePane("book")}>

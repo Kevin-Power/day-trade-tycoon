@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, Check, Clock3, Minus, Plus, Wallet } from "lucide-react";
 import type { MorningCatalog, MorningState } from "@/lib/morning";
 import { formatMoney, formatTime } from "@/lib/utils";
-import { formatPrice, stepTick } from "@/lib/market/ticks";
+import { estimateRoundTripCost, formatPrice, stepTick } from "@/lib/market/ticks";
 import { validMorningLimit } from "@/lib/morning-book";
 import { MorningQuoteDetail } from "@/components/morning-quotes";
 import { MorningOrderBook } from "@/components/morning-order-book";
@@ -251,11 +251,8 @@ export function PaperOrder({
         }
       />
       <section className="sim-ticket" data-side={side} aria-labelledby="morning-order-title">
-        <header className="sim-ticket-header">
-          <div>
-            <span className="terminal-eyebrow">ORDER ENTRY</span>
-            <h2 id="morning-order-title">模擬下單</h2>
-          </div>
+        <header className="sim-ticket-header td-titlebar">
+          <h2 id="morning-order-title">模擬下單</h2>
           <span className="sim-paper-tag">紙上交易</span>
         </header>
         <div className="sim-ticket-body">
@@ -324,6 +321,14 @@ export function PaperOrder({
                 <div>
                   <dt>參考金額（未含費）</dt>
                   <dd>{referenceAmount === null ? "—" : formatMoney(referenceAmount, 0)}</dd>
+                </div>
+                <div>
+                  <dt>預估來回費稅（假設同價出場）</dt>
+                  <dd>
+                    {referenceAmount === null
+                      ? "—"
+                      : formatMoney(estimateRoundTripCost(referenceAmount), 0)}
+                  </dd>
                 </div>
               </dl>
               <p className="sim-help">
@@ -502,6 +507,16 @@ export function PaperOrder({
                       參考金額<small>（未含費）</small>
                     </dt>
                     <dd>{referenceAmount === null ? "—" : formatMoney(referenceAmount, 0)}</dd>
+                  </div>
+                  <div>
+                    <dt>
+                      預估來回費稅<small>（假設同價出場）</small>
+                    </dt>
+                    <dd>
+                      {referenceAmount === null
+                        ? "—"
+                        : formatMoney(estimateRoundTripCost(referenceAmount), 0)}
+                    </dd>
                   </div>
                   <div>
                     <dt>{side === "buy" ? "可用模擬資金" : "可賣出庫存"}</dt>
