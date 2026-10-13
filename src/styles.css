@@ -5,12 +5,8 @@
 @import "./reading-mode.css";
 @import "./responsive-terminal.css";
 @import "./academy-finish.css";
-@import "./quote-workspace.css";
 @import "./classroom-refresh.css";
-@import "./sim-order.css";
-@import "./terminal-premium.css";
-@import "./morning-flash.css";
-@import "./terminal-polish.css";
+@import "./trading-desk.css";
 @source "./**/*.{ts,tsx}";
 
 @theme {

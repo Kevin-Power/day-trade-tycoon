@@ -3,27 +3,23 @@ import {
   useEffect,
   useRef,
   useState,
-  type CSSProperties,
   type FormEvent,
   type ReactNode,
   type RefObject,
 } from "react";
 import { Link } from "@tanstack/react-router";
 import {
-  ArrowLeft,
   ArrowRight,
   BookOpen,
   Check,
-  CirclePause,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   CandlestickChart,
-  Play,
   RotateCcw,
 } from "lucide-react";
-import { DisplayControls } from "@/components/display-controls";
 import { TapeChart } from "@/components/charts";
+import { DeskBar, HintBar, StatusBar } from "@/components/morning-desk-bar";
+import { REPLAY_DELAY, type ReplaySpeed } from "@/lib/replay-speed";
 import {
   AccountSummary,
   PaperOrder,
@@ -33,7 +29,8 @@ import {
 import { MorningSparkline } from "@/components/morning-quotes";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useDisplayPreferences } from "@/lib/display-preferences";
-import { useTerminalLayout } from "@/lib/use-terminal-layout";
+import { useTerminalLayout, type TerminalLayout } from "@/lib/use-terminal-layout";
+import { deriveMorningAlerts } from "@/lib/morning-alerts";
 import type {
   MorningAction,
   MorningCatalog,
@@ -60,17 +57,6 @@ const SECONDARY = `${ACTION} border border-border-strong bg-surface text-fg hove
 const INPUT =
   "block min-h-12 w-full min-w-0 rounded-xl border border-border-strong bg-surface px-3 py-3 text-base leading-relaxed text-fg";
 const CARD = "min-w-0 rounded-md border border-border bg-surface p-3 sm:p-4";
-const DARK_CHART = {
-  "--color-bg": "#10141d",
-  "--color-fg": "#edf1f8",
-  "--color-muted": "#91a0b7",
-  "--color-border": "#222a38",
-  "--color-up": "#fa7185",
-  "--color-down": "#3bd6ad",
-  "--color-tape": "#8e9fc0",
-  "--color-vol": "#c4a7ef",
-  "--color-vwap": "#bed4ee",
-} as CSSProperties;
 
 function readResponse(value: unknown): MorningResponse {
   if (!value || typeof value !== "object" || !("catalog" in value) || !("state" in value)) {
@@ -278,6 +264,9 @@ function MorningLesson({
   const planRegion = useRef<HTMLDivElement>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [speed, setSpeed] = useState<ReplaySpeed>(1);
+  const [resourcesOpen, setResourcesOpen] = useState(false);
+  const resourcesHeading = useRef<HTMLHeadingElement>(null);
   const [clock, setClock] = useState(() => Date.now());
   const reviewHeading = useRef<HTMLHeadingElement>(null);
   const practiceHeading = useRef<HTMLHeadingElement>(null);
@@ -353,10 +342,14 @@ function MorningLesson({
             setAuto(false);
         });
       },
-      Math.max(2000, nextAdvanceAt - Date.now() + 30),
+      Math.max(REPLAY_DELAY[speed], nextAdvanceAt - Date.now() + 30),
     );
     return () => window.clearTimeout(timer);
-  }, [auto, session, busy, atCheckpoint, atEnd, error, notice, nextAdvanceAt, request]);
+  }, [auto, session, busy, atCheckpoint, atEnd, error, notice, nextAdvanceAt, request, speed]);
+
+  useEffect(() => {
+    if (resourcesOpen) resourcesHeading.current?.focus({ preventScroll: true });
+  }, [resourcesOpen]);
 
   useEffect(() => {
     if (planOpen) planRegion.current?.scrollIntoView({ block: "start", behavior: "auto" });
@@ -475,9 +468,82 @@ function MorningLesson({
       onCancel={cancel}
     />
   ) : null;
+  const latestAlert =
+    catalog && marketSession ? deriveMorningAlerts(catalog, marketSession).at(-1) : undefined;
 
   return (
-    <PageFrame>
+    <PageFrame
+      layout={layout}
+      bar={
+        data && catalog ? (
+          <StatusBar
+            lessons={data.lessons ?? [catalog]}
+            lessonId={catalog.lessonId}
+            exercise={exercise}
+            session={marketSession ?? null}
+            showPlan={showPlan}
+            cursor={cursor}
+            completed={completed}
+            auto={auto}
+            speed={speed}
+            busy={Boolean(busy)}
+            playDisabled={
+              Boolean(busy) || atCheckpoint || atEnd || completed || Boolean(error || notice)
+            }
+            canAdvance={canAdvance && !error && !notice}
+            reviewDisabled={Boolean(busy) || completed}
+            resourcesOpen={resourcesOpen}
+            onLessonChange={(next) => {
+              setAuto(false);
+              onLessonChange(next);
+            }}
+            onStartPlan={() => setPlanOpen(true)}
+            onTogglePlay={() => {
+              setFeedback("");
+              setAuto((value) => !value);
+            }}
+            onSpeed={setSpeed}
+            onAdvance={() => void advance()}
+            onReview={openReview}
+            onResources={() => setResourcesOpen((value) => !value)}
+          />
+        ) : undefined
+      }
+      hints={
+        data && catalog ? (
+          <HintBar
+            tip={exercise?.principle}
+            alert={latestAlert}
+            feedback={showPlan ? "" : feedback}
+          >
+            {atCheckpoint && !showPlan && (
+              <div role="status" className="td-banner">
+                <h2>10:00，回看自己的計畫</h2>
+                <p>主要練習時段已結束。可以寫復盤，或選擇延伸至 10:30；系統不會自動平倉。</p>
+                <div className="td-banner-actions">
+                  <button
+                    type="button"
+                    className="td-button"
+                    data-variant="primary"
+                    onClick={openReview}
+                  >
+                    現在寫復盤
+                  </button>
+                  <button type="button" className="td-button" onClick={() => setExtended(true)}>
+                    延伸觀察至 10:30
+                  </button>
+                </div>
+              </div>
+            )}
+            {atEnd && !completed && !showPlan && (
+              <p role="status" className="td-banner">
+                已到 {catalog.end}，本課沒有下一分鐘。請核對委託與剩餘庫存，再保存復盤；系統不會自動平倉。
+              </p>
+            )}
+          </HintBar>
+        ) : undefined
+      }
+    >
       {needsLogin ? (
         <section className={CARD} aria-labelledby="morning-login-title">
           <h1 id="morning-login-title" className="text-xl font-semibold">
@@ -501,7 +567,7 @@ function MorningLesson({
       ) : (
         <>
           {error && (
-            <div role="alert" className="quote-alert">
+            <div role="alert" className="td-banner">
               <p>{error}</p>
               <p className="mt-1 text-sm text-muted">
                 操作不會自動重送。請重試同一筆，或重新載入後核對紀錄。
@@ -533,7 +599,7 @@ function MorningLesson({
             </div>
           )}
           {notice && (
-            <div role="status" className="quote-alert">
+            <div role="status" className="td-banner">
               <p>{notice}</p>
               <button
                 type="button"
@@ -546,67 +612,21 @@ function MorningLesson({
             </div>
           )}
           {!data && busy && (
-            <p role="status" className="quote-loading">
+            <p role="status" className="td-loading">
               正在載入歷史行情與已保存的進度…
             </p>
           )}
           {data && catalog && (
             <>
-              <section className="quote-session-toolbar" aria-label="本輪練習設定">
-                <label className="quote-date-picker">
-                  <span>教材交易日</span>
-                  <select
-                    aria-label="教材交易日"
-                    value={catalog.lessonId}
-                    disabled={Boolean(busy)}
-                    onChange={(event) => {
-                      setAuto(false);
-                      onLessonChange(event.target.value);
-                    }}
-                  >
-                    {(data.lessons ?? [catalog]).map((lesson) => (
-                      <option key={lesson.lessonId} value={lesson.lessonId}>
-                        {lesson.date} · {lesson.symbols.length} 檔
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="quote-session-subject">
-                  <span>{exercise?.no ?? "自由練習"}</span>
-                  <strong>{exercise?.title ?? "真實歷史行情練習"}</strong>
-                </div>
-                <ol className="quote-session-steps" aria-label="練習階段">
-                  {["作戰計畫", "看盤練習", "保存復盤"].map((label, index) => (
-                    <li
-                      key={label}
-                      aria-current={
-                        (
-                          showPlan
-                            ? index === 0
-                            : completed || reviewOpen
-                              ? index === 2
-                              : index === 1
-                        )
-                          ? "step"
-                          : undefined
-                      }
-                    >
-                      <span>0{index + 1}</span>
-                      {label}
-                    </li>
-                  ))}
-                </ol>
-              </section>
-              {marketSession && !singlePane && <AccountSummary session={marketSession} />}
               <section
-                className="quote-workbench"
+                className="td-workbench"
                 data-layout={layout}
                 data-active-pane={activePane}
                 data-plan-open={showPlan && planOpen}
                 aria-label={showPlan ? "當沖大富翁交易盤預覽" : "真實 K 線模擬交易盤"}
               >
                 {!singlePane && (
-                  <aside className="quote-watch-panel">
+                  <aside className="td-watch">
                     <MorningWatchlist
                       catalog={catalog}
                       session={marketSession ?? null}
@@ -618,7 +638,7 @@ function MorningLesson({
                       }}
                     />
                     {layout === "desktop" && marketSession && (
-                      <div className="terminal-plan-note">
+                      <div className="td-plan-note">
                         <span className="terminal-eyebrow">TRADING PLAN</span>
                         <h3>
                           <BookOpen size={14} aria-hidden /> 本輪作戰計畫
@@ -636,7 +656,7 @@ function MorningLesson({
                     )}
                   </aside>
                 )}
-                <div className="quote-market-panel">
+                <div className="td-center">
                   {singlePane && (activePane === "trade" || activePane === "positions") && (
                     <h1 className="sr-only" ref={practiceHeading} tabIndex={-1}>
                       真實歷史行情・模擬交易工作台
@@ -656,71 +676,7 @@ function MorningLesson({
                     onSelect={setActivePane}
                     singlePane={singlePane}
                   />
-                  <section className="quote-replay-bar" aria-label="歷史行情重播控制">
-                    {showPlan ? (
-                      <>
-                        <span className="quote-replay-time">
-                          <Clock3 aria-hidden />
-                          <strong>09:00</strong>
-                          <small>待開始</small>
-                        </span>
-                        <button
-                          type="button"
-                          className="quote-replay-start"
-                          onClick={() => setPlanOpen(true)}
-                        >
-                          <Play aria-hidden />
-                          開始練習
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          title="每 2 秒前進 1 分鐘"
-                          disabled={
-                            Boolean(busy) ||
-                            atCheckpoint ||
-                            atEnd ||
-                            completed ||
-                            Boolean(error || notice)
-                          }
-                          onClick={() => {
-                            setFeedback("");
-                            setAuto((value) => !value);
-                          }}
-                          className="quote-replay-button quote-replay-play"
-                          aria-label={auto ? "暫停重播" : "自動重播"}
-                        >
-                          {auto ? <CirclePause aria-hidden /> : <Play aria-hidden />}
-                          <span>{auto ? "暫停" : "播放"}</span>
-                        </button>
-                        <span className="quote-replay-time">
-                          <strong>{formatTime(cursor * 60).slice(0, 5)}</strong>
-                          <small>{completed ? "已完成" : auto ? "重播中" : "已暫停"}</small>
-                        </span>
-                        <button
-                          type="button"
-                          aria-label="前進 1 分鐘"
-                          disabled={!canAdvance || Boolean(error || notice)}
-                          onClick={() => void advance()}
-                          className="quote-replay-button"
-                        >
-                          +1 分
-                        </button>
-                        <button
-                          type="button"
-                          disabled={Boolean(busy) || completed}
-                          onClick={openReview}
-                          className="quote-replay-button"
-                        >
-                          <BookOpen aria-hidden />
-                          <span>復盤</span>
-                        </button>
-                      </>
-                    )}
-                  </section>
-                  <div className="quote-active-pane">
+                  <div className="td-pane">
                     {(!singlePane || activePane === "quote" || activePane === "chart") && (
                       <MorningChart
                         catalog={catalog}
@@ -741,12 +697,12 @@ function MorningLesson({
                       />
                     )}
                     {singlePane && activePane === "trade" && (
-                      <div className="quote-mobile-ticket">{orderTicket}</div>
+                      <div className="td-mobile-ticket">{orderTicket}</div>
                     )}
                     {singlePane &&
                       activePane === "positions" &&
                       (marketSession && !showPlan ? (
-                        <div className="quote-mobile-ticket">
+                        <div className="td-mobile-ticket">
                           <AccountSummary session={marketSession} />
                           <Ledger
                             catalog={catalog}
@@ -756,50 +712,19 @@ function MorningLesson({
                           />
                         </div>
                       ) : (
-                        <p className="quote-empty-pane">
+                        <p className="td-empty">
                           練習開始後，庫存、委託與成交會記錄在這裡。
                         </p>
                       ))}
                   </div>
 
-                  {feedback && !showPlan && (
-                    <p role="status" className="quote-feedback">
-                      {feedback}
-                    </p>
-                  )}
-                  {atCheckpoint && !showPlan && (
-                    <div role="status" className="quote-alert">
-                      <h2 className="text-lg font-semibold">10:00，回看自己的計畫</h2>
-                      <p className="mt-2 text-sm">
-                        主要練習時段已結束。可以寫復盤，或選擇延伸至 10:30；系統不會自動平倉。
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button type="button" onClick={openReview} className={PRIMARY}>
-                          現在寫復盤
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setExtended(true)}
-                          className={SECONDARY}
-                        >
-                          延伸觀察至 10:30
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {atEnd && !completed && !showPlan && (
-                    <p role="status" className="quote-alert">
-                      已到 {catalog.end}
-                      ，本課沒有下一分鐘。請核對委託與剩餘庫存，再保存復盤；系統不會自動平倉。
-                    </p>
-                  )}
                 </div>
-                {!singlePane && <aside className="quote-trade-panel">{orderTicket}</aside>}
+                {!singlePane && <aside className="td-trade">{orderTicket}</aside>}
                 {showPlan && planOpen && (
-                  <div className="quote-plan-panel" ref={planRegion}>
+                  <div className="td-plan" ref={planRegion}>
                     <button
                       type="button"
-                      className="quote-plan-close"
+                      className="td-plan-close td-button"
                       onClick={() => setPlanOpen(false)}
                     >
                       收起計畫
@@ -824,7 +749,7 @@ function MorningLesson({
                   </div>
                 )}
                 {!singlePane && session && !newPlan && (
-                  <div className="quote-ledger-panel">
+                  <div className="td-ledger">
                     <Ledger
                       catalog={catalog}
                       session={session}
@@ -867,8 +792,28 @@ function MorningLesson({
                   />
                 </section>
               )}
-              <div className="terminal-resources" aria-label="教材與練習資料">
-                <details className="quote-settings">
+              <aside
+                id="td-resources"
+                className="td-resources"
+                hidden={!resourcesOpen}
+                aria-labelledby="td-resources-title"
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") setResourcesOpen(false);
+                }}
+              >
+                <header className="td-titlebar td-resources-head">
+                  <h2 id="td-resources-title" ref={resourcesHeading} tabIndex={-1}>
+                    教材與資料
+                  </h2>
+                  <button
+                    type="button"
+                    className="td-tool"
+                    onClick={() => setResourcesOpen(false)}
+                  >
+                    關閉
+                  </button>
+                </header>
+                <details className="td-section">
                   <summary id="morning-lesson-picker">
                     教材與練習 · {catalog.date} · {exercise?.no ?? "自由練習"}
                   </summary>
@@ -910,7 +855,7 @@ function MorningLesson({
                     !completed &&
                     exerciseId &&
                     exerciseId !== session.plan.exerciseId && (
-                      <p role="status" className="quote-alert">
+                      <p role="status" className="td-banner">
                         已恢復這個交易日尚未完成的練習。先保存本輪復盤，再切換主題。
                       </p>
                     )}
@@ -920,12 +865,12 @@ function MorningLesson({
                   )}
                 </details>
                 {session && !newPlan && (
-                  <details className="quote-settings">
+                  <details className="td-section">
                     <summary>本輪作戰計畫</summary>
                     <SavedPlan plan={session.plan} catalog={catalog} />
                   </details>
                 )}
-                <details className="quote-settings">
+                <details className="td-section">
                   <summary>資料來源與本課使用說明</summary>
                   <ul className="list-disc space-y-2 px-6 pb-4 text-sm text-muted">
                     {catalog.notices.map((item) => (
@@ -933,7 +878,7 @@ function MorningLesson({
                     ))}
                   </ul>
                 </details>
-              </div>
+              </aside>
             </>
           )}
         </>
@@ -942,40 +887,22 @@ function MorningLesson({
   );
 }
 
-function PageFrame({ children }: { children: ReactNode }) {
+function PageFrame({
+  children,
+  layout,
+  bar,
+  hints,
+}: {
+  children: ReactNode;
+  layout?: TerminalLayout;
+  bar?: ReactNode;
+  hints?: ReactNode;
+}) {
   return (
-    <div
-      data-market-theme="dark"
-      className="terminal-shell morning-workspace pro-terminal studio-terminal"
-    >
-      <header className="quote-app-header">
-        <Link to="/" aria-label="返回教室大廳" className="quote-home-link">
-          <ArrowLeft aria-hidden />
-          <span>教室大廳</span>
-        </Link>
-        <span className="quote-app-name">
-          <span className="terminal-brand-mark">
-            <CandlestickChart aria-hidden />
-          </span>
-          <span>
-            當沖大富翁<small>TRADING WORKSPACE</small>
-          </span>
-        </span>
-        <div className="terminal-header-tools">
-          <span className="terminal-mode">
-            <i aria-hidden />
-            歷史回放 · 模擬交易
-          </span>
-          <DisplayControls compact className="quote-reading-control" />
-        </div>
-      </header>
-      <main className="quote-app-main">{children}</main>
-      <footer className="quote-app-footer">
-        <span>
-          當沖大富翁 <span className="terminal-footer-divider">/</span> 交易實作教室
-        </span>
-        <span>真實歷史 K · 紙上模擬成交 · 未連接券商真實帳戶</span>
-      </footer>
+    <div data-market-theme="dark" data-layout={layout} className="trading-desk">
+      {bar ?? <DeskBar />}
+      {hints}
+      <main className="td-main">{children}</main>
     </div>
   );
 }
@@ -1455,11 +1382,7 @@ function MorningChart({
     .filter((fill) => fill.code === symbol.code)
     .map((fill) => ({ t: fill.t, p: fill.price, side: fill.side }));
   return (
-    <section
-      className="quote-chart-panel"
-      style={DARK_CHART}
-      aria-label={symbol.name + "歷史分鐘行情"}
-    >
+    <section className="quote-chart-panel" aria-label={symbol.name + "歷史分鐘行情"}>
       <div className="quote-chart-heading">
         <span className="quote-data-chip">{candles ? "真實 1 分 K" : "分鐘收價"}</span>
         <span>
