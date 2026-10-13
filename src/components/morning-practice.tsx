@@ -1049,66 +1049,48 @@ function MorningWatchlist({
   compact?: boolean;
 }) {
   return (
-    <section className="quote-watchlist min-w-0 bg-surface" aria-label="自選行情">
-      <div className="terminal-watch-heading">
+    <section className="td-watchlist" data-compact={compact} aria-label="自選行情">
+      <div className="td-titlebar td-watch-head">
         <span>
           <CandlestickChart size={15} aria-hidden /> 自選報價
         </span>
-        <span>{catalog.symbols.length}</span>
+        <span className="td-num">{catalog.symbols.length}</span>
       </div>
-      <div className={cn(compact && "flex overflow-x-auto")} role="group" aria-label="選擇重播商品">
+      <div className="td-watch-list" role="group" aria-label="選擇重播商品">
         {catalog.symbols.map((symbol) => {
           const last = session?.bars[symbol.code]?.at(-1);
           const change = last ? last.c - symbol.previousClose : null;
-          const changeClass =
-            change === null
-              ? "text-muted"
-              : change > 0
-                ? "text-up"
-                : change < 0
-                  ? "text-down"
-                  : "text-fg";
+          const tone = change === null || change === 0 ? "flat" : change > 0 ? "up" : "down";
           return (
             <button
               type="button"
               key={symbol.code}
+              className="td-watch-item"
+              data-tone={tone}
               aria-pressed={code === symbol.code}
               onClick={() => onSelect(symbol.code)}
-              className={cn(
-                "block min-h-16 min-w-0 border-b border-border px-3 py-2 text-left text-sm leading-relaxed hover:bg-elevated",
-                code === symbol.code && "bg-brand/10 text-brand",
-                compact ? "min-w-32 flex-1 shrink-0 border-b-0 border-r bg-surface px-2" : "w-full",
-              )}
             >
-              <span className="terminal-watch-name flex items-baseline justify-between gap-2">
-                <span className="truncate font-semibold">{symbol.name}</span>
-                <span className="font-mono text-xs text-muted">{symbol.code}</span>
+              <span className="td-watch-name">
+                <span>{symbol.name}</span>
+                <small>{symbol.code}</small>
               </span>
-              <span className={cn("terminal-watch-quote", changeClass)}>
-                <span className="terminal-watch-numbers">
-                  <strong>{last ? formatPrice(last.c) : "—"}</strong>
-                  <span>
-                    {change === null
-                      ? "尚未揭露"
-                      : `${change > 0 ? "▲ +" : change < 0 ? "▼ " : ""}${change.toLocaleString("zh-TW", { maximumFractionDigits: 2 })}  ${change > 0 ? "+" : ""}${((change / symbol.previousClose) * 100).toFixed(2)}%`}
-                  </span>
-                </span>
-                {!compact && (
-                  <MorningSparkline
-                    bars={session?.bars[symbol.code] ?? []}
-                    previous={symbol.previousClose}
-                  />
-                )}
+              <strong className="td-watch-price">{last ? formatPrice(last.c) : "—"}</strong>
+              <span className="td-watch-change">
+                {change === null || !last
+                  ? "尚未揭露"
+                  : `${change > 0 ? "▲" : change < 0 ? "▼" : "—"} ${Math.abs(change).toLocaleString("zh-TW", { maximumFractionDigits: 2 })}  ${formatPercentChange(last.c, symbol.previousClose)}`}
               </span>
+              {!compact && (
+                <MorningSparkline
+                  bars={session?.bars[symbol.code] ?? []}
+                  previous={symbol.previousClose}
+                />
+              )}
             </button>
           );
         })}
       </div>
-      {!compact && (
-        <p className="terminal-watch-footnote px-3 py-2 text-xs leading-relaxed text-muted">
-          已揭露分鐘收價 · 虛線為昨收
-        </p>
-      )}
+      {!compact && <p className="td-watch-foot">已揭露分鐘收價 · 虛線為昨收</p>}
     </section>
   );
 }

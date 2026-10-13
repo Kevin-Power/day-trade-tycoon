@@ -7,7 +7,7 @@ import { formatTime } from "@/lib/utils";
 /** Use only the completed bars already disclosed by the morning API. */
 export function MorningSparkline({ bars, previous }: { bars: Bar[]; previous: number }) {
   const gradient = useId();
-  if (!bars.length) return <span className="terminal-spark-empty">等待開盤</span>;
+  if (!bars.length) return <span className="td-spark td-spark-empty">等待開盤</span>;
   const low = Math.min(previous, ...bars.map((bar) => bar.c));
   const high = Math.max(previous, ...bars.map((bar) => bar.c));
   const spread = high - low || previous * 0.002 || 1;
@@ -23,7 +23,7 @@ export function MorningSparkline({ bars, previous }: { bars: Bar[]; previous: nu
   }
   const last = bars.at(-1)!;
   return (
-    <svg className="terminal-spark" viewBox="0 0 120 58" aria-hidden="true">
+    <svg className="td-spark" viewBox="0 0 120 58" aria-hidden="true">
       <defs>
         <linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="currentColor" stopOpacity="0.22" />
@@ -32,9 +32,8 @@ export function MorningSparkline({ bars, previous }: { bars: Bar[]; previous: nu
       </defs>
       <path
         d={`M0 ${y(previous)}H120`}
-        stroke="#607189"
+        className="td-spark-prev"
         strokeDasharray="2 3"
-        opacity="0.55"
         vectorEffect="non-scaling-stroke"
       />
       {segments.map((segment) => {
