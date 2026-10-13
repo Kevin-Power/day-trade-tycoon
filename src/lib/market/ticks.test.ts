@@ -1,6 +1,16 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { clampLimit, limitDown, limitUp, roundToTick, stepTick, tickSize } from "./ticks.ts";
+import {
+  clampLimit,
+  commission,
+  estimateRoundTripCost,
+  limitDown,
+  limitUp,
+  roundToTick,
+  sellTax,
+  stepTick,
+  tickSize,
+} from "./ticks.ts";
 
 // Independent enumeration of the Article 62 stock grid through NT$1,500.
 const legalCents: number[] = [];
@@ -183,5 +193,23 @@ describe("ordinary classroom stock price limits", () => {
       0,
       "no legal price exists in this off-tick reference interval",
     );
+  });
+});
+
+describe("estimateRoundTripCost", () => {
+  it("adds both commissions and the day-trade tax at one reference notional", () => {
+    // 2580 × 1,000 shares: fee 2,206 on each side, tax 3,870.
+    assert.equal(estimateRoundTripCost(2_580_000), 2206 * 2 + 3870);
+  });
+  it("applies the NT$20 minimum fee on each side", () => {
+    assert.equal(estimateRoundTripCost(10_000), 20 + 20 + 15);
+  });
+  it("returns 0 for missing or non-positive notionals", () => {
+    for (const value of [0, -1, Number.NaN, Number.POSITIVE_INFINITY])
+      assert.equal(estimateRoundTripCost(value), 0);
+  });
+  it("uses exactly the engine's commission and sell tax", () => {
+    for (const notional of [9_990, 100_000, 518_000, 4_955_000])
+      assert.equal(estimateRoundTripCost(notional), commission(notional) * 2 + sellTax(notional));
   });
 });

@@ -127,6 +127,12 @@ export function sellTax(notional: number): number {
   return Math.round(Math.abs(notional) * DAYTRADE_TAX);
 }
 
+/** Buy fee, sell fee and day-trade tax if the position is closed at the same notional. */
+export function estimateRoundTripCost(notional: number): number {
+  if (!Number.isFinite(notional) || notional <= 0) return 0;
+  return commission(notional) * 2 + sellTax(notional);
+}
+
 export const OPEN_SECONDS = 0;
 export const CLOSE_SECONDS = 270 * 60;
 export const MARKET_MINUTES = 270;
