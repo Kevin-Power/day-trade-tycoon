@@ -43,6 +43,8 @@ import type {
 } from "@/lib/morning";
 import { cn, formatTime } from "@/lib/utils";
 import { formatPrice } from "@/lib/market/ticks";
+import { candleWindow } from "@/lib/market/chart-data";
+import { deriveSwingHighs } from "@/lib/market/swing-highs";
 import {
   MORNING_EXERCISES,
   getMorningExercise,
@@ -1444,6 +1446,14 @@ function MorningChart({
   if (!symbol) return null;
   const bars = session?.bars[code] ?? [];
   const last = bars.at(-1);
+  const now = (session?.cursor ?? 0) * 60;
+  const view = candles
+    ? candleWindow(session?.cursor ?? 0)
+    : { startT: 0, endT: catalog.maxCursor * 60 };
+  const swingHighs = deriveSwingHighs(bars, now, 0, catalog.maxCursor * 60).confirmed;
+  const fills = (session?.fills ?? [])
+    .filter((fill) => fill.code === symbol.code)
+    .map((fill) => ({ t: fill.t, p: fill.price, side: fill.side }));
   return (
     <section
       className="quote-chart-panel"
@@ -1485,10 +1495,11 @@ function MorningChart({
             low={Math.min(...bars.map((bar) => bar.l))}
             last={last.c}
             open={bars[0]?.o}
-            startT={0}
-            endT={catalog.maxCursor * 60}
-            now={session.cursor * 60}
-            range={{ start: 0, end: session.cursor * 60 }}
+            startT={view.startT}
+            endT={view.endT}
+            now={now}
+            swingHighs={swingHighs}
+            fills={fills}
             variant={candles ? "candles" : "stock"}
             presentation="terminal"
             showVolume={false}

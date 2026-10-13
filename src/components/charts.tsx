@@ -5,10 +5,12 @@ import {
   chartLinePoints,
   chartWindow,
   completedBarsInWindow,
+  formatPercentChange,
   hairlineDevicePixels,
   inChartWindow,
   minuteColumnWidth,
   nearestTimePoint,
+  sessionExtremes,
   snapColumn,
   snapEdge,
   snapStroke,
@@ -295,8 +297,10 @@ function paint(
     ),
     30,
   );
-  const padL = terminal ? 16 : Math.ceil(axisWidth + 12);
-  const padR = Math.ceil(axisWidth + 14);
+  // The trading desk shows prices on the left and change from the previous close on the right.
+  const percentWidth = terminal ? ctx.measureText("+10.00%").width : 0;
+  const padL = Math.ceil(axisWidth + 12);
+  const padR = Math.ceil(Math.max(axisWidth, percentWidth) + 14);
   const padT = c.fontSize;
   const axisH = c.fontSize + 12;
   const volH = opt.showVolume ? Math.max(32, h * 0.21) : 0;
@@ -327,7 +331,7 @@ function paint(
   ctx.strokeStyle = c.grid;
   ctx.fillStyle = c.muted;
   ctx.textBaseline = "middle";
-  ctx.textAlign = terminal ? "left" : "right";
+  ctx.textAlign = "right";
   const gridLeft = snapEdge(padL, sx);
   const gridRight = snapEdge(w - padR, sx);
   const gridTop = snapEdge(padT, sy);
@@ -340,11 +344,12 @@ function paint(
     ctx.moveTo(gridLeft, hRule(y, gridPixels));
     ctx.lineTo(gridRight, hRule(y, gridPixels));
     ctx.stroke();
-    ctx.fillText(
-      label(price),
-      snapEdge(terminal ? w - padR + 8 : padL - 7, sx),
-      snapEdge(y, sy),
-    );
+    ctx.fillText(label(price), snapEdge(padL - 7, sx), snapEdge(y, sy));
+    if (terminal) {
+      ctx.textAlign = "left";
+      ctx.fillText(formatPercentChange(price, opt.prev), snapEdge(w - padR + 8, sx), snapEdge(y, sy));
+      ctx.textAlign = "right";
+    }
   }
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
@@ -448,7 +453,24 @@ function paint(
     }
   } else {
     const runs = isIndex ? [{ above: true, points }] : splitPriceLine(points, opt.prev, interval);
-    ctx.lineWidth = 2;
+    if (terminal && !isIndex) {
+      // Shade between each run and the previous close; the colour follows the run's side.
+      const base = yOf(opt.prev);
+      ctx.save();
+      ctx.globalAlpha = 0.16;
+      for (const run of runs) {
+        if (run.points.length < 2) continue;
+        ctx.fillStyle = run.above ? c.up : c.down;
+        ctx.beginPath();
+        ctx.moveTo(xOf(run.points[0]!.t), base);
+        for (const point of run.points) ctx.lineTo(xOf(point.t), yOf(point.p));
+        ctx.lineTo(xOf(run.points.at(-1)!.t), base);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+    ctx.lineWidth = terminal ? 1.5 : 2;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     for (const run of runs) {
@@ -481,6 +503,35 @@ function paint(
     ctx.closePath();
     ctx.fill();
   }
+  if (terminal && !isIndex) {
+    const extremes = sessionExtremes(bars);
+    if (extremes && extremes.high.p > extremes.low.p) {
+      ctx.save();
+      ctx.font = font;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const tag = (point: TickPt, text: string, color: string, above: boolean) => {
+        const x = xOf(point.t + (interval ? interval / 2 : 0));
+        const raw = yOf(point.p) + (above ? -1 : 1) * (c.fontSize * 0.9);
+        const y = Math.min(plotBottom - c.fontSize / 2 - 2, Math.max(padT + c.fontSize / 2 + 2, raw));
+        const width = ctx.measureText(text).width + 8;
+        // Keep clear of the one-character 昨/開 marks drawn at the left edge of the plot.
+        const left = Math.min(w - padR - width, Math.max(padL + c.fontSize + 8, x - width / 2));
+        ctx.fillStyle = c.bg;
+        ctx.fillRect(
+          snapEdge(left, sx),
+          snapEdge(y - c.fontSize / 2 - 2, sy),
+          snapEdge(width, sx),
+          snapEdge(c.fontSize + 4, sy),
+        );
+        ctx.fillStyle = color;
+        ctx.fillText(text, snapEdge(left + width / 2, sx), snapEdge(y, sy));
+      };
+      tag(extremes.high, `高 ${label(extremes.high.p)}`, c.up, true);
+      tag(extremes.low, `低 ${label(extremes.low.p)}`, c.down, false);
+      ctx.restore();
+    }
+  }
   // These are minute-high intervals; the exact trade second is not in a Bar.
   for (const [index, highPoint] of (opt.swingHighs ?? []).entries()) {
     if (
@@ -489,6 +540,32 @@ function paint(
       highPoint.t > window.dataEnd
     )
       continue;
+    if (terminal) {
+      // Desk style: a dashed level from the confirmed high to the right edge, labelled "前高".
+      const y = hRule(yOf(highPoint.p));
+      ctx.save();
+      ctx.strokeStyle = c.warn;
+      ctx.lineWidth = cssPixels(hairline);
+      ctx.setLineDash(dashes([5, 4], sx));
+      ctx.beginPath();
+      // Start on a pixel edge so every dash begins and ends on whole device pixels.
+      ctx.moveTo(snapEdge(xOf(highPoint.t + (interval ? interval / 2 : 0)), sx), y);
+      ctx.lineTo(gridRight, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = c.warn;
+      ctx.textAlign = "right";
+      // Near the top edge there is no room above the line, so the label goes below it.
+      const above = y - padT >= c.fontSize + 4;
+      ctx.textBaseline = above ? "bottom" : "top";
+      ctx.fillText(
+        `前高 ${label(highPoint.p)}`,
+        snapEdge(w - padR - 4, sx),
+        snapEdge(above ? y - 2 : y + 2, sy),
+      );
+      ctx.restore();
+      continue;
+    }
     const x = xOf(highPoint.t);
     const y = yOf(highPoint.p);
     const endX = xOf(Math.min(highPoint.t + 60, window.dataEnd));
