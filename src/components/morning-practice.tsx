@@ -40,7 +40,7 @@ import type {
 } from "@/lib/morning";
 import { cn, formatTime } from "@/lib/utils";
 import { formatPrice } from "@/lib/market/ticks";
-import { candleWindow } from "@/lib/market/chart-data";
+import { candleWindow, formatPercentChange } from "@/lib/market/chart-data";
 import { deriveSwingHighs } from "@/lib/market/swing-highs";
 import {
   MORNING_EXERCISES,
@@ -468,6 +468,13 @@ function MorningLesson({
       onCancel={cancel}
     />
   ) : null;
+  const paneNav = (
+    <MorningTerminalNav
+      active={singlePane || activePane === "quote" ? activePane : "chart"}
+      onSelect={setActivePane}
+      singlePane={singlePane}
+    />
+  );
   const latestAlert =
     catalog && marketSession ? deriveMorningAlerts(catalog, marketSession).at(-1) : undefined;
 
@@ -669,13 +676,10 @@ function MorningLesson({
                       code={code}
                       onSelect={setSelected}
                       titleRef={practiceHeading}
+                      nav={singlePane ? undefined : paneNav}
                     />
                   )}
-                  <MorningTerminalNav
-                    active={singlePane || activePane === "quote" ? activePane : "chart"}
-                    onSelect={setActivePane}
-                    singlePane={singlePane}
-                  />
+                  {singlePane && paneNav}
                   <div className="td-pane">
                     {(!singlePane || activePane === "quote" || activePane === "chart") && (
                       <MorningChart
@@ -870,6 +874,7 @@ function MorningLesson({
                     <SavedPlan plan={session.plan} catalog={catalog} />
                   </details>
                 )}
+                <MorningDataDetails catalog={catalog} session={marketSession ?? null} code={code} />
                 <details className="td-section">
                   <summary>資料來源與本課使用說明</summary>
                   <ul className="list-disc space-y-2 px-6 pb-4 text-sm text-muted">
@@ -913,79 +918,71 @@ function MorningQuote({
   code,
   onSelect,
   titleRef,
+  nav,
 }: {
   catalog: MorningCatalog;
   session: MorningState | null;
   code: string;
   onSelect: (code: string) => void;
   titleRef: RefObject<HTMLHeadingElement | null>;
+  nav?: ReactNode;
 }) {
   const symbol = catalog.symbols.find((item) => item.code === code) ?? catalog.symbols[0];
   if (!symbol) return null;
   const index = catalog.symbols.findIndex((item) => item.code === symbol.code);
-  const last = session?.bars[symbol.code]?.at(-1);
+  const revealed = session?.bars[symbol.code] ?? [];
+  const last = revealed.at(-1);
   const change = last ? last.c - symbol.previousClose : null;
   const tone = change === null || change === 0 ? "flat" : change > 0 ? "up" : "down";
   const move = (step: number) =>
     onSelect(
       catalog.symbols[(index + step + catalog.symbols.length) % catalog.symbols.length].code,
     );
-  const revealed = session?.bars[symbol.code] ?? [];
   return (
-    <div className="quote-overview">
-      <div className="terminal-instrument-row">
-        <div className="quote-stock-title">
-          <div className="terminal-instrument-identity">
-            <span className="terminal-eyebrow">
-              台股 <span>·</span> 歷史行情
-            </span>
-            <h1 ref={titleRef} tabIndex={-1} id="morning-practice-title">
-              {symbol.name}
-              <small>{symbol.code}</small>
-            </h1>
-            <select
-              aria-label="選擇股票"
-              value={symbol.code}
-              onChange={(event) => onSelect(event.target.value)}
-            >
-              {catalog.symbols.map((item) => (
-                <option key={item.code} value={item.code}>
-                  {item.code} {item.name}
-                </option>
-              ))}
-            </select>
-            <div className="terminal-instrument-arrows">
-              <button type="button" onClick={() => move(-1)} aria-label="上一檔股票">
-                <ChevronLeft aria-hidden />
-              </button>
-              <button type="button" onClick={() => move(1)} aria-label="下一檔股票">
-                <ChevronRight aria-hidden />
-              </button>
-            </div>
+    <>
+      <header className="td-quote" data-tone={tone}>
+        <div className="td-quote-id">
+          <h1 ref={titleRef} tabIndex={-1} id="morning-practice-title">
+            {symbol.name}
+            <small>{symbol.code}</small>
+          </h1>
+          <select
+            aria-label="選擇股票"
+            value={symbol.code}
+            onChange={(event) => onSelect(event.target.value)}
+          >
+            {catalog.symbols.map((item) => (
+              <option key={item.code} value={item.code}>
+                {item.code} {item.name}
+              </option>
+            ))}
+          </select>
+          <div className="td-quote-arrows">
+            <button type="button" onClick={() => move(-1)} aria-label="上一檔股票">
+              <ChevronLeft aria-hidden />
+            </button>
+            <button type="button" onClick={() => move(1)} aria-label="下一檔股票">
+              <ChevronRight aria-hidden />
+            </button>
           </div>
         </div>
-        <div className="quote-main-price" data-tone={tone}>
-          <p className="quote-last-price">{last ? formatPrice(last.c) : "—"}</p>
-          <p className="quote-change">
-            {change !== null ? (
-              <>
-                <span>
-                  {change > 0 ? "+" : ""}
-                  {change.toLocaleString("zh-TW", { maximumFractionDigits: 2 })}
-                </span>
-                <span>
-                  {change > 0 ? "+" : ""}
-                  {((change / symbol.previousClose) * 100).toFixed(2)}%
-                </span>
-              </>
-            ) : (
-              <span>待揭露第一分鐘</span>
-            )}
-          </p>
-          <p className="quote-price-caption">最新完整分鐘收價</p>
-        </div>
-      </div>
-      <dl className="terminal-market-stats" aria-label="已揭露行情摘要">
+        {nav}
+        <p className="td-quote-price" title="最新完整分鐘收價">
+          <strong>{last ? formatPrice(last.c) : "—"}</strong>
+          {change !== null && last ? (
+            <>
+              <span>
+                {change > 0 ? "▲" : change < 0 ? "▼" : ""}
+                {Math.abs(change).toLocaleString("zh-TW", { maximumFractionDigits: 2 })}
+              </span>
+              <span>{formatPercentChange(last.c, symbol.previousClose)}</span>
+            </>
+          ) : (
+            <span>待揭露第一分鐘</span>
+          )}
+        </p>
+      </header>
+      <dl className="td-quote-stats" aria-label="已揭露行情摘要">
         {[
           ["昨收", symbol.previousClose],
           ["開盤", revealed[0]?.o],
@@ -998,7 +995,7 @@ function MorningQuote({
           </div>
         ))}
       </dl>
-    </div>
+    </>
   );
 }
 function MorningTerminalNav({
@@ -1012,18 +1009,18 @@ function MorningTerminalNav({
 }) {
   const items: [MorningPane, string][] = singlePane
     ? [
-        ["quote", "行情"],
+        ["quote", "分時"],
         ["chart", "K線"],
         ["watch", "自選"],
         ["trade", "下單"],
         ["positions", "庫存"],
       ]
     : [
-        ["quote", "行情"],
+        ["quote", "分時"],
         ["chart", "K線"],
       ];
   return (
-    <nav aria-label="看盤分頁" className="quote-tabs">
+    <nav aria-label="看盤分頁" className="td-tabs" data-variant={singlePane ? "panes" : "chart"}>
       {items.map(([pane, label]) => (
         <button
           key={pane}
@@ -1382,33 +1379,30 @@ function MorningChart({
     .filter((fill) => fill.code === symbol.code)
     .map((fill) => ({ t: fill.t, p: fill.price, side: fill.side }));
   return (
-    <section className="quote-chart-panel" aria-label={symbol.name + "歷史分鐘行情"}>
-      <div className="quote-chart-heading">
-        <span className="quote-data-chip">{candles ? "真實 1 分 K" : "分鐘收價"}</span>
-        <span>
-          {catalog.date} {formatTime((session?.cursor ?? 0) * 60).slice(0, 5)}{" "}
-          <small>台北時間</small>
-        </span>
+    <section className="td-chart" aria-label={symbol.name + "歷史分鐘行情"}>
+      <div className="td-chart-legend">
+        <span className="td-chip">{candles ? "真實 1 分 K" : "分時・分鐘收價"}</span>
+        {last && (
+          <span aria-label="圖表最新完整分鐘">
+            <time>{formatTime(last.t).slice(0, 5)}</time>
+            {(
+              [
+                ["開", last.o],
+                ["高", last.h],
+                ["低", last.l],
+                ["收", last.c],
+              ] as const
+            ).map(([label, price]) => (
+              <span key={label}>
+                {label}
+                <strong>{formatPrice(price)}</strong>
+              </span>
+            ))}
+          </span>
+        )}
+        <span className="td-chart-date">{catalog.date} 台北時間</span>
       </div>
-      {last && (
-        <div className="studio-chart-ohlc" aria-label="圖表最新完整分鐘">
-          <time>{formatTime(last.t).slice(0, 5)}</time>
-          {(
-            [
-              ["開", last.o],
-              ["高", last.h],
-              ["低", last.l],
-              ["收", last.c],
-            ] as const
-          ).map(([label, price]) => (
-            <span key={label}>
-              {label}
-              <strong>{formatPrice(price)}</strong>
-            </span>
-          ))}
-        </div>
-      )}
-      <div className="quote-chart-canvas">
+      <div className="td-chart-canvas">
         {last && session ? (
           <TapeChart
             bars={bars}
@@ -1443,7 +1437,7 @@ function MorningChart({
             }
           />
         ) : (
-          <div className="quote-chart-waiting">
+          <div className="td-chart-waiting">
             <strong>09:00</strong>
             <span>等待第一根完整 K 棒</span>
             <small>
@@ -1452,95 +1446,81 @@ function MorningChart({
           </div>
         )}
       </div>
-      <div className="quote-period-strip">
-        <span className="quote-period-active">當日</span>
-        <span>09:00–{catalog.end}</span>
-        <span>{candles ? "開高低收" : "分鐘收價連線"}</span>
-      </div>
-      <details className="quote-data-details">
-        <summary>報價彙總與 K 棒明細{last ? " · " + bars.length + " 根" : ""}</summary>
-        <div className="quote-data-details-body">
-          {last && (
-            <dl className="quote-ohlc" aria-label="最新真實 K 棒開高低收">
-              {(
-                [
-                  ["開", last.o],
-                  ["高", last.h],
-                  ["低", last.l],
-                  ["收", last.c],
-                ] as const
-              ).map(([label, price]) => (
-                <div key={label}>
-                  <dt>{label}</dt>
-                  <dd>{formatPrice(price)}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-
-          <dl className="grid grid-cols-2 gap-3">
-            <Metric label="前一交易日收盤" value={formatPrice(symbol.previousClose)} />
-            <Metric
-              label="前 5 個完整交易日收盤均值"
-              value={symbol.previous5CloseMean.toLocaleString("zh-TW", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            />
-          </dl>
-          <p>以上均值不含本日，僅供歷史參考；當日 SMA5 的計算定義尚未確認。</p>
-          {last && (
-            <div
-              className="quote-candle-table"
-              tabIndex={0}
-              role="region"
-              aria-label="已完成分鐘 K 線明細，可捲動查看"
-            >
-              <table>
-                <caption>
-                  {catalog.date} · {symbol.name} {code} · Yahoo Finance 原始
-                  OHLC。時間為分鐘起點，整根於下一分鐘揭露。
-                </caption>
-                <thead>
-                  <tr>
-                    {["分鐘", "開盤", "最高", "最低", "收盤"].map((label) => (
-                      <th key={label} scope="col">
-                        {label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {bars.map((bar) => (
-                    <tr key={bar.t}>
-                      <th scope="row">{formatTime(bar.t).slice(0, 5)}</th>
-                      {[bar.o, bar.h, bar.l, bar.c].map((price, index) => (
-                        <td key={index}>{formatPrice(price)}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <p>
-            {candles
-              ? "每根 K 線直接使用來源開高低收，該分鐘完成後才揭露整根。"
-              : "連線只連接各分鐘收價，點位標在分鐘結束時間，不代表分鐘內逐筆路徑；缺漏區間保留斷線。"}{" "}
-            點按圖表或用左右方向鍵查看資料。
-          </p>
-          <p>
-            來源：Yahoo Finance 歷史 1 分鐘 OHLC。這是真實歷史分鐘 K，尚非富邦即時或逐筆江波行情。
-          </p>
-          <p>
-            分鐘量尚未核對，不顯示量柱、均價或量能訊號；沒有真實五檔。資料缺漏不會以生成價格補齊。
-          </p>
-        </div>
-      </details>
     </section>
   );
 }
 
+function MorningDataDetails({
+  catalog,
+  session,
+  code,
+}: {
+  catalog: MorningCatalog;
+  session: MorningState | null;
+  code: string;
+}) {
+  const symbol = catalog.symbols.find((item) => item.code === code) ?? catalog.symbols[0];
+  if (!symbol) return null;
+  const bars = session?.bars[symbol.code] ?? [];
+  const last = bars.at(-1);
+  return (
+    <details className="td-section">
+      <summary>報價彙總與 K 棒明細{last ? " · " + bars.length + " 根" : ""}</summary>
+      <div className="td-data-details">
+        <dl className="grid grid-cols-2 gap-3">
+          <Metric label="前一交易日收盤" value={formatPrice(symbol.previousClose)} />
+          <Metric
+            label="前 5 個完整交易日收盤均值"
+            value={symbol.previous5CloseMean.toLocaleString("zh-TW", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          />
+        </dl>
+        <p>以上均值不含本日，僅供歷史參考；當日 SMA5 的計算定義尚未確認。</p>
+        {last && (
+          <div
+            className="td-candle-table"
+            tabIndex={0}
+            role="region"
+            aria-label="已完成分鐘 K 線明細，可捲動查看"
+          >
+            <table>
+              <caption>
+                {catalog.date} · {symbol.name} {symbol.code} · Yahoo Finance 原始
+                OHLC。時間為分鐘起點，整根於下一分鐘揭露。
+              </caption>
+              <thead>
+                <tr>
+                  {["分鐘", "開盤", "最高", "最低", "收盤"].map((label) => (
+                    <th key={label} scope="col">
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {bars.map((bar) => (
+                  <tr key={bar.t}>
+                    <th scope="row">{formatTime(bar.t).slice(0, 5)}</th>
+                    {[bar.o, bar.h, bar.l, bar.c].map((price, index) => (
+                      <td key={index}>{formatPrice(price)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p>
+          K 線直接使用來源開高低收，該分鐘完成後才揭露整根。分時只連接各分鐘收價，點位標在分鐘結束時間，不代表分鐘內逐筆路徑；缺漏區間保留斷線。點按圖表或用左右方向鍵查看資料。
+        </p>
+        <p>來源：Yahoo Finance 歷史 1 分鐘 OHLC。這是真實歷史分鐘 K，尚非富邦即時或逐筆江波行情。</p>
+        <p>分鐘量尚未核對，不顯示量柱、均價或量能訊號；沒有真實五檔。資料缺漏不會以生成價格補齊。</p>
+      </div>
+    </details>
+  );
+}
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">

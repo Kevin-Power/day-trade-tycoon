@@ -601,7 +601,7 @@ export function Ledger({
   const active = panes.find((item) => item.id === pane)!;
   return (
     <section className="sim-ledger" aria-label="模擬交易紀錄">
-      <div className="sim-ledger-header">
+      <div className="sim-ledger-header td-titlebar">
         <nav aria-label="交易紀錄分類">
           {panes.map((item) => (
             <button
@@ -616,8 +616,10 @@ export function Ledger({
             </button>
           ))}
         </nav>
-        <span>
-          本輪紀錄 <b>·</b> {formatTime(session.cursor * 60).slice(0, 5)}
+        <span className="td-ledger-meta">
+          帳戶估值 <b>{formatMoney(session.equity, 0)}</b> · 期初{" "}
+          <b>{formatMoney(session.startingCash, 0)}</b> ·{" "}
+          <time>{formatTime(session.cursor * 60).slice(0, 5)}</time>
         </span>
       </div>
       <div id="sim-ledger-content" className="sim-ledger-content" aria-label={active.label}>
