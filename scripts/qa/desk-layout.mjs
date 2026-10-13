@@ -11,6 +11,8 @@ mkdirSync(out, { recursive: true });
 const cases = [
   [1920, 1080, false],
   [1366, 900, false],
+  [1280, 800, false],
+  [1200, 800, false],
   [820, 900, false],
   [375, 812, false],
   [320, 700, false],
@@ -48,10 +50,32 @@ const scan = () => {
     const rect = el.getBoundingClientRect();
     if (rect.right > innerWidth + 1 || rect.left < -1) offscreen.push(id(el));
   }
+  // Controls shorter than 44px (checked on phone-width cases only).
+  const smallTargets = [];
+  for (const el of document.querySelectorAll(
+    '.trading-desk :is(button, select, input:not([type="hidden"]), [role="switch"], summary)',
+  )) {
+    if (el.closest(".sr-only, [hidden]") || !visible(el)) continue;
+    const height = el.getBoundingClientRect().height;
+    if (height < 44) smallTargets.push(`${Math.round(height)}px ${id(el)}`);
+  }
+  // The main order button must be visible without scrolling its column.
+  const submit = [...document.querySelectorAll("button")].find((el) =>
+    (el.textContent ?? "").trim().startsWith("核對模擬"),
+  );
+  let submitVisible = null;
+  if (submit && visible(submit)) {
+    const rect = submit.getBoundingClientRect();
+    const column = submit.closest(".td-trade");
+    const bottom = Math.min(innerHeight, column ? column.getBoundingClientRect().bottom : innerHeight);
+    submitVisible = rect.bottom <= bottom + 1;
+  }
   const main = document.querySelector("main");
   const canvas = document.querySelector('main canvas[role="img"]');
   return {
     minFont: minFont === Infinity ? null : minFont,
+    smallTargets: [...new Set(smallTargets)],
+    submitVisible,
     small,
     clipped,
     offscreen,
@@ -99,7 +123,10 @@ for (const row of rows) {
   if (row.small.length) failures.push(`${row.name}: ${row.small.length} text elements below 11px`);
   if (row.clipped.length || row.offscreen.length || row.pageOverflowX > 0)
     failures.push(`${row.name}: horizontal overflow or clipped text`);
+  if (row.width < 768 && row.smallTargets.length)
+    failures.push(`${row.name}: ${row.smallTargets.length} controls below 44px (${row.smallTargets.slice(0, 4).join(" | ")})`);
   if (!row.senior && row.width >= 1200 && row.height >= 800) {
+    if (row.submitVisible === false) failures.push(`${row.name}: order button below the fold`);
     if (row.documentScroll > 1 || (row.mainScroll ?? 0) > 1) failures.push(`${row.name}: page scrolls`);
     if (!(row.chartRatio >= 0.5)) failures.push(`${row.name}: chart height ratio ${row.chartRatio}`);
   }

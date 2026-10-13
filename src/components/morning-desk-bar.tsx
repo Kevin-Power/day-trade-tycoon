@@ -180,11 +180,14 @@ export function HintBar({
   tip,
   alert,
   feedback,
+  announcement,
   children,
 }: {
   tip?: string;
   alert?: MorningAlert;
   feedback?: string;
+  /** Text of the learner's latest fill; read out politely whenever it changes. */
+  announcement?: string;
   children?: ReactNode;
 }) {
   return (
@@ -195,21 +198,22 @@ export function HintBar({
           {tip}
         </p>
       )}
-      {feedback ? (
+      {feedback && (
         <p role="status" className="td-feedback">
           {feedback}
         </p>
-      ) : alert ? (
-        <p
-          className="td-alert"
-          data-kind={alert.kind}
-          aria-live={alert.kind === "fill" ? "polite" : "off"}
-        >
+      )}
+      {alert && (
+        <p className="td-alert" data-kind={alert.kind}>
           <span>快訊</span>
           <time>{formatTime(alert.t).slice(0, 5)}</time>
           {alert.text}
         </p>
-      ) : null}
+      )}
+      {/* Always mounted, so a new fill is announced; market events are not read out. */}
+      <p className="sr-only" aria-live="polite">
+        {announcement}
+      </p>
       {children}
     </section>
   );

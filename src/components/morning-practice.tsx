@@ -475,8 +475,9 @@ function MorningLesson({
       singlePane={singlePane}
     />
   );
-  const latestAlert =
-    catalog && marketSession ? deriveMorningAlerts(catalog, marketSession).at(-1) : undefined;
+  const alerts = catalog && marketSession ? deriveMorningAlerts(catalog, marketSession) : [];
+  const latestAlert = alerts.at(-1);
+  const latestFill = [...alerts].reverse().find((alert) => alert.kind === "fill");
 
   return (
     <PageFrame
@@ -521,6 +522,7 @@ function MorningLesson({
           <HintBar
             tip={exercise?.principle}
             alert={latestAlert}
+            announcement={latestFill?.text}
             feedback={showPlan ? "" : feedback}
           >
             {atCheckpoint && !showPlan && (

@@ -41,6 +41,10 @@ result.marketBuy = {
   side: state.fills.at(-1).side,
   shares: state.fills.at(-1).shares,
 };
+// The fill must show as the latest 快訊 after a manual step, and reach the polite live region.
+await until(async () => /你的委託成交/.test((await page.locator(".td-alert").textContent().catch(() => "")) ?? ""), "fill alert not visible after a manual step");
+const announced = await page.locator('.td-hints [aria-live="polite"]').textContent();
+assert.match(announced ?? "", /你的委託成交/);
 
 // 2. Lightning sell from the bid side of the ladder, then withdraw it.
 const lightning = page.getByRole("switch", { name: "閃電即送" });

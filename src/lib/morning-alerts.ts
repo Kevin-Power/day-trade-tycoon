@@ -55,5 +55,10 @@ export function deriveMorningAlerts(catalog: MorningCatalog, state: MorningState
       text: `你的委託成交：${name} ${fill.side === "buy" ? "買進" : "賣出"} ${fill.shares / 1000} 張 @ ${formatPrice(fill.price)}`,
     });
   }
-  return alerts.sort((a, b) => a.t - b.t || PRIORITY[a.kind] - PRIORITY[b.kind]);
+  // Order by when each event became visible: a fill happens at a minute's open but is revealed
+  // together with that minute, one minute later, alongside any crossing that minute completes.
+  const visibleAt = (alert: MorningAlert) => (alert.kind === "fill" ? alert.t + 60 : alert.t);
+  return alerts.sort(
+    (a, b) => visibleAt(a) - visibleAt(b) || PRIORITY[a.kind] - PRIORITY[b.kind],
+  );
 }

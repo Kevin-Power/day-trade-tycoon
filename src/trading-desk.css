@@ -334,7 +334,6 @@
   background: var(--td-up);
 }
 .trading-desk .td-feedback {
-  margin-left: auto;
   color: #9ce6ce;
 }
 .trading-desk .td-banner {
@@ -1899,4 +1898,107 @@
   .trading-desk[data-layout="phone"] .td-speed {
     display: flex;
   }
+}
+
+/* Phone: every control is at least 44px tall (spec §5). */
+.trading-desk[data-layout="phone"]
+  :is(
+    .td-bar :is(button, select, a),
+    .terminal-pane-bar :is(nav button, select),
+    .td-quote select,
+    .td-switch,
+    .sim-back,
+    .sim-prepare,
+    .sim-pending-actions button,
+    .sim-ledger-header nav button,
+    .sim-order-help summary,
+    .td-section > summary,
+    .sim-cancel,
+    .td-resources-head button
+  ) {
+  min-height: 44px;
+}
+.trading-desk[data-layout="phone"] .terminal-pane-bar,
+.trading-desk[data-layout="phone"] .sim-ledger-header {
+  min-height: 44px;
+}
+
+/* Desktops up to 1440px wide: a tighter status bar so nothing overflows at 1200px. */
+@media (max-width: 1439px) {
+  .trading-desk[data-layout="desktop"] .td-bar {
+    gap: 10px;
+    padding: 0 10px;
+  }
+  .trading-desk[data-layout="desktop"] :is(.td-brand > span, .td-subject span) {
+    display: none;
+  }
+  .trading-desk[data-layout="desktop"] .td-account {
+    gap: 10px;
+  }
+  .trading-desk[data-layout="desktop"] :is(.td-home, .td-tool, .td-replay button) {
+    padding: 0 8px;
+  }
+}
+
+/* Short desktops: keep the order button in view without scrolling the right column. */
+@media (max-height: 1000px) {
+  .trading-desk[data-layout="desktop"] .td-level {
+    min-height: 23px;
+  }
+  .trading-desk[data-layout="desktop"] :is(.td-book-head, .td-ladder-mid) {
+    padding-block: 3px;
+  }
+  .trading-desk[data-layout="desktop"] .td-ladder-mid strong {
+    font-size: 18px;
+  }
+  .trading-desk[data-layout="desktop"] .td-pressure {
+    height: 16px;
+    margin-top: 4px;
+  }
+  .trading-desk[data-layout="desktop"] .td-flash {
+    margin-top: 4px;
+    padding-block: 4px;
+  }
+  .trading-desk[data-layout="desktop"] .td-lots {
+    padding-bottom: 4px;
+  }
+  .trading-desk[data-layout="desktop"] .td-lots button {
+    min-height: 26px;
+  }
+  .trading-desk[data-layout="desktop"] :is(.td-book-hint, .terminal-data-status) {
+    display: none;
+  }
+  .trading-desk[data-layout="desktop"] .td-book-source {
+    padding-block: 4px;
+  }
+  .trading-desk[data-layout="desktop"] .sim-ticket-body {
+    gap: 6px;
+    padding: 8px 10px;
+  }
+  .trading-desk[data-layout="desktop"] .sim-order-fields {
+    gap: 6px;
+  }
+  .trading-desk[data-layout="desktop"] .sim-side-switch button {
+    min-height: 32px;
+  }
+  .trading-desk[data-layout="desktop"] :is(.sim-stepper, .morning-limit-field > div) {
+    min-height: 32px;
+  }
+  .trading-desk[data-layout="desktop"] .sim-stepper output {
+    line-height: 32px;
+  }
+  .trading-desk[data-layout="desktop"] .sim-submit {
+    min-height: 40px;
+  }
+}
+
+/* Desktop and tablet: the order button stays pinned to the bottom of the right column. */
+.trading-desk:is([data-layout="desktop"], [data-layout="tablet"]) .sim-submit {
+  position: sticky;
+  bottom: 8px;
+  z-index: 2;
+  box-shadow: 0 0 0 8px var(--td-panel);
+}
+.trading-desk[data-layout="phone"] :is(.sim-stepper button, .morning-limit-field button) {
+  min-height: 44px;
 }

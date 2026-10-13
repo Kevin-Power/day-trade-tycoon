@@ -87,3 +87,13 @@ test("the learner's fills are alerts and sort last within the same minute", () =
 test("an empty or not-yet-started session has no alerts", () => {
   assert.deepEqual(deriveMorningAlerts(catalog, state(0, [])), []);
 });
+
+test("a fill revealed by the latest advance is the latest alert, even when that minute also crosses", () => {
+  // Engine timing: advancing from cursor 2 fills at minute 2's open (t=120) and reveals
+  // minute 2, whose close crosses the previous close at its end (t=180).
+  const bars = [bar(0, 1000, 995), bar(1, 1000, 995), bar(2, 1010, 1005)];
+  const fill = { id: "f", code: "2330", side: "buy" as const, shares: 1000, price: 995, fee: 20, tax: 0, t: 120 };
+  const alerts = deriveMorningAlerts(catalog, state(3, bars, [fill]));
+  assert.equal(alerts.at(-1)?.kind, "fill");
+  assert.equal(alerts.at(-1)?.t, 120);
+});
