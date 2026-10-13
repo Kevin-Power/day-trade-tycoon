@@ -658,6 +658,9 @@
   color: var(--td-fg);
   font: 600 24px/1 var(--font-mono);
 }
+.trading-desk .td-chart-waiting small {
+  font-size: 12px;
+}
 
 /* Ledger */
 .trading-desk .sim-ledger {
