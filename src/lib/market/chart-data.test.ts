@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  candleWindow,
   canvasResolution,
   chartLinePoints,
   chartWindow,
   completedBarsInWindow,
+  formatPercentChange,
   hairlineDevicePixels,
   inChartWindow,
   minuteColumnWidth,
   nearestTimePoint,
+  sessionExtremes,
   snapColumn,
   snapEdge,
   snapStroke,
@@ -247,4 +250,35 @@ test("missing source minutes remain gaps instead of interpolated paths", () => {
     { above: false, points: points.slice(0, 2) },
     { above: true, points: [points[2]] },
   ]);
+});
+
+test("candle view keeps a fixed 60-minute span that follows the cursor", () => {
+  assert.deepEqual(candleWindow(0), { startT: 0, endT: 3600 });
+  assert.deepEqual(candleWindow(5), { startT: 0, endT: 3600 });
+  assert.deepEqual(candleWindow(60), { startT: 0, endT: 3600 });
+  assert.deepEqual(candleWindow(90), { startT: 1800, endT: 5400 });
+  assert.deepEqual(candleWindow(Number.NaN), { startT: 0, endT: 3600 });
+  assert.deepEqual(candleWindow(-3), { startT: 0, endT: 3600 });
+  assert.deepEqual(candleWindow(10, 5), { startT: 300, endT: 600 });
+});
+
+test("percent change is signed, two decimals and never negative zero", () => {
+  assert.equal(formatPercentChange(2580, 2575), "+0.19%");
+  assert.equal(formatPercentChange(2570, 2575), "-0.19%");
+  assert.equal(formatPercentChange(2575, 2575), "0.00%");
+  assert.equal(formatPercentChange(2575.0001, 2575), "0.00%");
+  assert.equal(formatPercentChange(2574.9999, 2575), "0.00%");
+  assert.equal(formatPercentChange(2580, 0), "");
+  assert.equal(formatPercentChange(Number.NaN, 2575), "");
+});
+
+test("session extremes report the first highest high and lowest low", () => {
+  const bars = [
+    { t: 0, o: 10, h: 11, l: 9, c: 10, v: 0 },
+    { t: 60, o: 10, h: 12, l: 9, c: 11, v: 0 },
+    { t: 120, o: 11, h: 12, l: 8, c: 9, v: 0 },
+  ];
+  assert.deepEqual(sessionExtremes(bars), { high: { t: 60, p: 12 }, low: { t: 120, p: 8 } });
+  assert.equal(sessionExtremes([]), null);
+  assert.equal(sessionExtremes([{ t: 0, o: 1, h: Number.NaN, l: 1, c: 1, v: 0 }]), null);
 });

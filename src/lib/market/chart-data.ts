@@ -223,3 +223,31 @@ export function nearestTimePoint<T extends { t: number }>(
     if (!nearest || Math.abs(point.t - time) < Math.abs(nearest.t - time)) nearest = point;
   return nearest;
 }
+
+/** Fixed-width candle view: the latest `minutes` minutes, with empty space ahead early on. */
+export function candleWindow(cursor: number, minutes = 60): { startT: number; endT: number } {
+  const span = Math.max(1, Math.round(minutes)) * 60;
+  const now = Number.isFinite(cursor) ? Math.max(0, cursor) * 60 : 0;
+  const startT = Math.max(0, now - span);
+  return { startT, endT: startT + span };
+}
+
+/** Signed change against the previous close, e.g. "+0.19%"; never shows "-0.00%". */
+export function formatPercentChange(price: number, previous: number): string {
+  if (!Number.isFinite(price) || !Number.isFinite(previous) || previous <= 0) return "";
+  const rounded = Math.round((price / previous - 1) * 10000) / 100;
+  if (rounded === 0) return "0.00%";
+  return `${rounded > 0 ? "+" : ""}${rounded.toFixed(2)}%`;
+}
+
+/** Highest high and lowest low among the given bars; the first occurrence wins. */
+export function sessionExtremes(bars: readonly Bar[]): { high: TickPt; low: TickPt } | null {
+  let high: TickPt | null = null;
+  let low: TickPt | null = null;
+  for (const bar of bars) {
+    if (![bar.t, bar.h, bar.l].every(Number.isFinite)) continue;
+    if (!high || bar.h > high.p) high = { t: bar.t, p: bar.h };
+    if (!low || bar.l < low.p) low = { t: bar.t, p: bar.l };
+  }
+  return high && low ? { high, low } : null;
+}
