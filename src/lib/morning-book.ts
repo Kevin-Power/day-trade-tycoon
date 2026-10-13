@@ -33,3 +33,14 @@ export function createMorningBook(
     })).filter((level) => validMorningLimit(level.price, previousClose));
   return { bids: levels(false), asks: levels(true) };
 }
+
+/** Share of illustrative bid lots among all shown lots; 0.5 when nothing is shown. Teaching data only. */
+export function bookPressure(book: {
+  bids: readonly MorningBookLevel[];
+  asks: readonly MorningBookLevel[];
+}): { bidLots: number; askLots: number; bidShare: number } {
+  const bidLots = book.bids.reduce((sum, level) => sum + level.lots, 0);
+  const askLots = book.asks.reduce((sum, level) => sum + level.lots, 0);
+  const total = bidLots + askLots;
+  return { bidLots, askLots, bidShare: total > 0 ? bidLots / total : 0.5 };
+}

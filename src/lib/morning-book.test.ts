@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createMorningBook, validMorningLimit } from "./morning-book.ts";
+import { bookPressure, createMorningBook, validMorningLimit } from "./morning-book.ts";
 import { limitDown, limitUp } from "./market/ticks.ts";
 
 test("illustrative depth has distinct legal prices, stable simulated quantities and no pre-open quotes", () => {
@@ -33,4 +33,17 @@ test("price limits never manufacture duplicate or out-of-band depth at the bound
   for (const value of [0, -1, NaN, Infinity, 100.1, 89.9, 110.5])
     assert.equal(validMorningLimit(value, 100), false);
   assert.equal(validMorningLimit(100.5, 100), true);
+});
+
+test("book pressure sums illustrative lots and never divides by zero", () => {
+  const book = createMorningBook("2330", 12, 2580, 2575);
+  const pressure = bookPressure(book);
+  assert.equal(pressure.bidLots, book.bids.reduce((sum, level) => sum + level.lots, 0));
+  assert.equal(pressure.askLots, book.asks.reduce((sum, level) => sum + level.lots, 0));
+  assert.ok(
+    Math.abs(pressure.bidShare - pressure.bidLots / (pressure.bidLots + pressure.askLots)) < 1e-12,
+  );
+  assert.deepEqual(bookPressure({ bids: [], asks: [] }), { bidLots: 0, askLots: 0, bidShare: 0.5 });
+  // At limit-up the ask side is empty, so every shown lot is a bid.
+  assert.equal(bookPressure(createMorningBook("2330", 1, limitUp(100), 100)).bidShare, 1);
 });
