@@ -1,6 +1,6 @@
 # 交易畫面改版（版面與質感）— 2026-10-13
 
-使用者提供參考盤截圖，要求交易畫面（`/morning?panel=trade`）做到同等的專業看盤軟體質感、讓下單方便好用，並且只用真實或可推導的資料。設計見 `docs/superpowers/specs/2026-10-13-trading-terminal-redesign-design.md`，實作計畫見 `docs/superpowers/plans/2026-10-13-trading-desk-redesign.md`。本次只改程式，**尚未部署**。
+使用者提供參考盤截圖，要求交易畫面（`/morning?panel=trade`）做到同等的專業看盤軟體質感、讓下單方便好用，並且只用真實或可推導的資料。設計見 `docs/superpowers/specs/2026-10-13-trading-terminal-redesign-design.md`，實作計畫見 `docs/superpowers/plans/2026-10-13-trading-desk-redesign.md`。2026-10-14 已發布到正式站，見文末「正式發布」。
 
 ## 改版內容
 
@@ -131,3 +131,22 @@
 6. 按「教材」開啟側邊面板，計畫內容與資料說明都在；按 Esc 可關閉。
 7. 開啟長輩模式：單欄、大字、主要按鈕夠大。
 8. 在自己常用的螢幕縮放（例如 125% 或 150%）下，K 線邊緣銳利。
+
+## 正式發布 — 2026-10-14
+
+以下時間為 Asia/Taipei，`<runtime>` 指 `%USERPROFILE%\YilutekServices\DayTradeTycoon`。依 `docs/deployment-2026-10-12.md` 的程序進行。
+
+- **發布內容**：提交 `e8806a5`（分支 `codex/course-handover`，已推送；`main` 未變）建置為不可變 release `20261014T033225235Z`，181 個檔案。
+- **發布前驗證**：
+  - 該 release 在隔離資料庫通過 2/2 真實 HTTP 整合測試。
+  - 用同一份 release 檔案跑交易畫面驗收，`desk-layout.mjs --strict` 與 `desk-orders.mjs` 全數通過，包含快訊與朗讀區斷言。
+- **停機與備份**：11:34:20 正常停機，收到資料庫關閉確認。一致備份為 `<runtime>\backups\2026-10-14T03-34-29-014Z`，1,043 個檔案逐檔核對通過。
+- **切換**：只修改 `hosting.json` 的 `appEntry`。前一版 `20261012T124901246Z` 保留。
+- **啟動**：由既有 `DayTradeTycoonHost` 排程啟動，11:34:49 健康檢查通過，停機約 **29 秒**。`healthFailures=0`、`restartCount=0`，8790 只綁定 `127.0.0.1`。
+- **發布後驗證**：
+  - 外網健康檢查 200。
+  - 公開 JS/CSS 共 47 個檔案的 SHA-256 與 release 一致；三個秘密檔案不變；設定除 `appEntry` 外不變。
+  - 正式站樣式檔含新的 `.trading-desk` 規則，已無 `.pro-terminal`／`.studio-terminal`。
+  - 未入場時 `/api/morning` 與 `/api/download/offline` 為 403，私人來源 404；`/`、`/try`、`/manual`、`/morning?panel=trade` 為 200；公開試閱頁主控台沒有錯誤。
+- **未驗證**：沒有以學員帳號登入正式站。登入後的交易畫面請依上方「正式站登入檢查清單」操作一輪。
+- **回退**：先以 `host.ps1 stop` 正常停機並重新備份，再把 `appEntry` 指回 `20261012T124901246Z`，最後以 `host.ps1 start` 啟動。不要用舊備份覆蓋之後產生的學員資料。發布紀錄在 `artifacts/deploy-20261014-trading-desk/`（被 git 忽略）。
