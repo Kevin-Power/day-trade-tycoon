@@ -2180,3 +2180,16 @@
     transition: none;
   }
 }
+
+/* Text size switch in the desk bar */
+.trading-desk .display-size-control > span {
+  border-color: var(--td-line-strong);
+}
+.trading-desk .display-size-option {
+  color: var(--td-fg);
+  background: transparent;
+}
+.trading-desk .display-size-option[aria-checked="true"] {
+  color: #ffffff;
+  background: var(--td-accent);
+}

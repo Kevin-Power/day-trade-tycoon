@@ -317,7 +317,7 @@ function InquiryContents() {
                 >
                   <option value="">請選擇需要的協助</option>
                   <option value="standard">一般操作說明</option>
-                  <option value="large-text">大字與長輩模式</option>
+                  <option value="large-text">大字模式</option>
                   <option value="step-by-step">慢速、一步一步示範</option>
                 </select>
               </Field>

@@ -388,8 +388,8 @@ function Devices() {
         />
         <Device
           icon={<TextCursorInput className="size-6" />}
-          title="長輩與大字模式"
-          body="可切換大字與長輩模式，放大文字和主要操作區；不用趕，先看清楚再操作。"
+          title="大字模式"
+          body="可把文字大小切到「大字」，放大文字和主要操作區；不用趕，先看清楚再操作。"
         />
       </div>
       <p className="mt-4 text-base leading-7 text-muted">

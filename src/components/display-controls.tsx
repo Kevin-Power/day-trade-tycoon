@@ -1,6 +1,5 @@
-import { useEffect } from "react";
-import { Type } from "lucide-react";
-import { useDisplayPreferences } from "@/lib/display-preferences";
+import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useDisplayPreferences, type ReadingMode } from "@/lib/display-preferences";
 import { cn } from "@/lib/utils";
 
 /** Mounted once outside admission/auth so the saved reading preference applies everywhere. */
@@ -14,18 +13,60 @@ export function DisplayPreferencesEffect() {
   return null;
 }
 
+const SIZES: readonly { mode: ReadingMode; label: string }[] = [
+  { mode: "standard", label: "標準" },
+  { mode: "senior", label: "大字" },
+];
+
+/** Text size: standard or large ("大字", the former senior mode: larger type and controls, one pane). */
 export function DisplayControls({ compact = false, className }: { compact?: boolean; className?: string }) {
   const mode = useDisplayPreferences((state) => state.mode);
   const setMode = useDisplayPreferences((state) => state.setMode);
-  const senior = mode === "senior";
+  const options = useRef<(HTMLButtonElement | null)[]>([]);
+  function move(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    const next = (index + 1) % SIZES.length;
+    setMode(SIZES[next].mode);
+    options.current[next]?.focus();
+  }
   return (
-    <button type="button" aria-pressed={senior} aria-label="長輩模式"
-      title="大字、高對比、較大的操作按鈕與單區操作"
-      onClick={() => setMode(senior ? "standard" : "senior")}
-      className={cn("display-mode-control inline-flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold leading-snug", senior ? "border-brand bg-brand text-brand-fg" : "border-border-strong bg-surface text-fg", className)}>
-      <Type className="size-5 shrink-0" aria-hidden="true" />
-      <span>{compact ? "長輩" : "長輩模式"}</span>
-      <span className="rounded border border-current/30 px-1.5 py-0.5 text-xs">{senior ? "開" : "關"}</span>
-    </button>
+    <div
+      role="radiogroup"
+      aria-label="文字大小"
+      title="大字：放大文字與操作按鈕，交易畫面改成單區操作"
+      className={cn("display-size-control inline-flex min-w-0 items-center gap-2", className)}
+    >
+      {!compact && (
+        <span aria-hidden="true" className="text-sm font-semibold">
+          文字大小
+        </span>
+      )}
+      <span className="inline-flex overflow-hidden rounded-lg border border-border-strong">
+        {SIZES.map((size, index) => {
+          const checked = mode === size.mode;
+          return (
+            <button
+              key={size.mode}
+              ref={(element) => {
+                options.current[index] = element;
+              }}
+              type="button"
+              role="radio"
+              aria-checked={checked}
+              tabIndex={checked ? 0 : -1}
+              onClick={() => setMode(size.mode)}
+              onKeyDown={(event) => move(event, index)}
+              className={cn(
+                "display-size-option min-h-11 min-w-11 px-2.5 text-sm font-semibold leading-snug",
+                checked ? "bg-brand text-brand-fg" : "bg-surface text-fg",
+              )}
+            >
+              {size.label}
+            </button>
+          );
+        })}
+      </span>
+    </div>
   );
 }

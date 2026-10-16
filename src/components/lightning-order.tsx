@@ -162,7 +162,7 @@ export function LightningOrder({
         </div>
       </div>
       <p className="my-3 leading-relaxed text-muted">
-        {senior ? "長輩模式預設先核對再送出。" : "未啟用時，點價只帶入一般委託。"}{" "}
+        {senior ? "大字模式預設先核對再送出。" : "未啟用時，點價只帶入一般委託。"}{" "}
         明確啟用後，點下方報價會立即送出限價模擬委託。
       </p>
       <div className="rounded-xl border border-border bg-bg p-3 sm:p-4">

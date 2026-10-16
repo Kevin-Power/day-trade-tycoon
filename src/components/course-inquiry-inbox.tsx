@@ -14,7 +14,7 @@ const BUTTON =
 const DEVICE = { phone: "手機", tablet: "iPad／平板", desktop: "桌機／筆電" };
 const SUPPORT = {
   standard: "一般操作說明",
-  "large-text": "大字與長輩模式",
+  "large-text": "大字模式",
   "step-by-step": "慢速、一步一步示範",
 };
 type Filter = "all" | CourseInquiryStatus;

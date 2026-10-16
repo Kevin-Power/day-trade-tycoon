@@ -20,7 +20,7 @@ export function DeskBar({ children }: { children?: ReactNode }) {
         <span>當沖大富翁</span>
       </span>
       {children}
-      <DisplayControls compact className="td-tool" />
+      <DisplayControls compact className="td-size" />
     </header>
   );
 }
