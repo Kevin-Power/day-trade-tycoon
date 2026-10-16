@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import time
 import uuid
 from datetime import date, datetime
 from pathlib import Path
@@ -15,6 +16,9 @@ from typing import Callable
 
 DAY_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 HISTORY_LIMIT = 30
+# Longer than the scheduled task's two-hour limit: an older lock belongs to a run that is gone.
+STALE_LOCK_SECONDS = 2.5 * 3600
+REPLACE_ATTEMPTS = 5
 
 
 class Locked(Exception):
@@ -51,11 +55,23 @@ def _json_bytes(value: object, indent: int | None = None) -> bytes:
                       separators=separators).encode("utf-8")
 
 
+def _replace(source: Path, target: Path) -> None:
+    """os.replace, retried briefly: Windows refuses a move while a scanner still holds a file."""
+    for attempt in range(REPLACE_ATTEMPTS):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if attempt == REPLACE_ATTEMPTS - 1:
+                raise
+            time.sleep(0.5 * (attempt + 1))
+
+
 def _write_atomic(path: Path, data: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     temporary.write_bytes(data)
-    os.replace(temporary, path)
+    _replace(temporary, path)
 
 
 class MarketStore:
@@ -86,6 +102,9 @@ class MarketStore:
         if not path.is_file():
             return None
         return json.loads(gzip.decompress(path.read_bytes()))
+
+    def drop_raw(self, day: str, kind: str, name: str | None = None) -> None:
+        self._raw_path(day, kind, name).unlink(missing_ok=True)
 
     def discard_staging(self, day: str) -> None:
         shutil.rmtree(self.root / "staging" / day, ignore_errors=True)
@@ -118,21 +137,52 @@ class MarketStore:
         manifest_bytes = _json_bytes(manifest, indent=1)
         (staging / "manifest.json").write_bytes(manifest_bytes)
         target.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(staging, target)
+        _replace(staging, target)
         raw = self.root / "staging" / day / "raw"
         if raw.exists():
             (self.root / "raw").mkdir(parents=True, exist_ok=True)
-            os.replace(raw, self.root / "raw" / day)
+            _replace(raw, self.root / "raw" / day)
         self.discard_staging(day)
         self._update_index({"date": day, "coverage": coverage, "symbols": len(entries),
                             "manifestSha256": hashlib.sha256(manifest_bytes).hexdigest(), "publishedAt": stamp})
         return manifest
 
+    def reconcile(self) -> None:
+        """Repairs a publish interrupted after its day folder moved: index entry and raw evidence."""
+        days = self.root / "days"
+        if not days.is_dir():
+            return
+        listed = {entry["date"] for entry in self._read_json("index.json", {"schema": 1, "days": []})["days"]}
+        for folder in sorted(days.iterdir()):
+            manifest_path = folder / "manifest.json"
+            if not (DAY_NAME.match(folder.name) and manifest_path.is_file()):
+                continue
+            raw = self.root / "staging" / folder.name / "raw"
+            if raw.exists() and not (self.root / "raw" / folder.name).exists():
+                (self.root / "raw").mkdir(parents=True, exist_ok=True)
+                _replace(raw, self.root / "raw" / folder.name)
+            self.discard_staging(folder.name)
+            if folder.name not in listed:
+                manifest_bytes = manifest_path.read_bytes()
+                manifest = json.loads(manifest_bytes)
+                self._update_index({"date": folder.name, "coverage": manifest["coverage"],
+                                    "symbols": manifest["counts"]["symbols"],
+                                    "manifestSha256": hashlib.sha256(manifest_bytes).hexdigest(),
+                                    "publishedAt": manifest["createdAt"]})
+
     def _read_json(self, name: str, default: dict) -> dict:
+        """A corrupt file is moved aside (name.corrupt-<time>) so one bad write never stops later runs."""
         path = self.root / name
         if not path.is_file():
             return default
-        return json.loads(path.read_text(encoding="utf-8-sig"))
+        try:
+            value = json.loads(path.read_text(encoding="utf-8-sig"))
+        except (ValueError, UnicodeDecodeError):
+            value = None
+        if isinstance(value, dict) and all(key in value for key in default):
+            return value
+        _replace(path, path.with_name(f"{name}.corrupt-{time.strftime('%Y%m%dT%H%M%S')}-{uuid.uuid4().hex[:6]}"))
+        return default
 
     def _update_index(self, entry: dict) -> None:
         index = self._read_json("index.json", {"schema": 1, "days": []})
@@ -186,11 +236,16 @@ class MarketStore:
                 handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
                 break
             except FileExistsError:
+                age, pid = 0.0, None
                 try:
-                    pid = int(json.loads(path.read_text(encoding="utf-8")).get("pid", 0))
-                except (OSError, ValueError, AttributeError):
-                    pid = 0
-                if attempt == 1 or self._pid_alive(pid):
+                    age = time.time() - path.stat().st_mtime
+                    pid = int(json.loads(path.read_text(encoding="utf-8"))["pid"])
+                except FileNotFoundError:
+                    continue
+                except (OSError, ValueError, KeyError, TypeError):
+                    pid = None  # still being written, or damaged: only its age can release it
+                held = age <= STALE_LOCK_SECONDS and (pid is None or self._pid_alive(pid))
+                if attempt == 1 or held:
                     raise Locked() from None
                 path.unlink(missing_ok=True)
         with os.fdopen(handle, "w", encoding="utf-8") as stream:

@@ -195,7 +195,7 @@ class PipelineTest(unittest.TestCase):
         again = FakeClient(login_error=LoginError("should not log in"))
         self.assertEqual(self.run_once(again), 0)
         self.assertEqual(again.calls, [])
-        self.assertEqual(self.status()["lastRun"]["outcome"], "already-done")
+        self.assertEqual(self.status()["lastRun"]["outcome"], "ok")
 
     def test_login_failure_is_fatal_notified_and_redacted(self):
         client = FakeClient(login_error=LoginError("登入失敗：A123456789 SECRETKEY123 CERTPASS999 無效"))
@@ -241,6 +241,83 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(self.run_once(client, alive=True), 0)
         self.assertEqual(client.calls, [])
         self.assertFalse((self.data / "status.json").exists())
+
+
+    def test_not_updated_response_is_refetched_on_the_next_run(self):
+        first = FakeClient(minutes={"2330": sparse_day("2330"), "1413": sparse_day()})
+        self.assertEqual(self.run_once(first), 1)
+        second = FakeClient(minutes=good_minutes())
+        self.assertEqual(self.run_once(second, at=datetime(2026, 10, 15, 17, 30, tzinfo=TAIPEI)), 0)
+        self.assertIn(("minute", "2330"), second.calls)
+
+    def test_daily_run_before_1630_leaves_everything_alone(self):
+        client = FakeClient(minutes=good_minutes())
+        self.assertEqual(self.run_once(client, at=datetime(2026, 10, 15, 10, 1, tzinfo=TAIPEI)), 0)
+        self.assertEqual(client.calls, [])
+        self.assertFalse((self.data / "status.json").exists())
+        self.assertFalse((self.data / "staging").exists())
+        self.assertIn("16:30", (self.data / "logs" / f"{DATE}.log").read_text(encoding="utf-8"))
+
+    def test_invalid_daily_candle_in_backfill_is_refetched(self):
+        past = "2026-10-05"
+        at = datetime(2026, 10, 16, 20, 0, tzinfo=TAIPEI)
+        broken = daily("2330", date=past)
+        broken["data"][0]["change"] = None
+        first = FakeClient(snapshot_payload=snapshot(date="2026-10-16"),
+                           minutes={"2330": full_day("2330", date=past, price=2440)}, dailies={"2330": broken})
+        self.assertEqual(self.run_once(first, at=at, date=past, symbols=["2330"]), 1)
+        second = FakeClient(snapshot_payload=snapshot(date="2026-10-16"),
+                            minutes={"2330": full_day("2330", date=past, price=2440)},
+                            dailies={"2330": daily("2330", date=past, close=2440, change=-50)})
+        self.assertEqual(self.run_once(second, at=at, date=past, symbols=["2330"]), 0)
+        self.assertIn(("daily", "2330"), second.calls)
+
+    def test_readiness_skips_a_disposition_top_stock(self):
+        items = [quote("2424", "隴華", 14.2, 1.25, 835, 99_000_000_000),
+                 quote("2330", "台積電", 2440, -50, 58487, 80_781_285_000)]
+        client = FakeClient(snapshot_payload=snapshot(items=items),
+                            minutes={"2424": sparse_day("2424", price=14.2), "2330": full_day("2330", price=2440)})
+        self.assertEqual(self.run_once(client), 0)
+        self.assertEqual([entry["code"] for entry in self.day_index()["symbols"]], ["2424", "2330"])
+
+    def test_unexpected_error_is_recorded_and_notified_on_the_last_attempt(self):
+        minutes = good_minutes()
+        minutes["1413"] = RuntimeError("disk is busy")
+        self.assertEqual(self.run_once(FakeClient(minutes=minutes), at=EVENING), 1)
+        last = self.status()["lastRun"]
+        self.assertEqual(last["outcome"], "failed")
+        self.assertIn("未預期", last["reason"])
+        self.assertEqual(len(self.notices), 1)
+
+    def test_published_day_missing_from_the_index_is_restored(self):
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes())), 0)
+        (self.data / "index.json").unlink()
+        self.assertEqual(self.run_once(FakeClient()), 0)
+        days = json.loads((self.data / "index.json").read_text(encoding="utf-8"))["days"]
+        self.assertEqual([day["date"] for day in days], [DATE])
+
+    def test_already_done_keeps_the_last_real_run(self):
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes())), 0)
+        before = self.status()
+        self.assertEqual(self.run_once(FakeClient()), 0)
+        after = self.status()
+        self.assertEqual(after["lastRun"], before["lastRun"])
+        self.assertEqual(after["history"], before["history"])
+
+    def test_long_error_messages_are_redacted_then_truncated(self):
+        client = FakeClient(login_error=LoginError("x" * 290 + " A123456789 SECRETKEY123 CERTPASS999"))
+        self.assertEqual(self.run_once(client), 2)
+        reason = self.status()["lastRun"]["reason"]
+        self.assertLessEqual(len(reason), 300)
+        for secret in SECRETS:
+            self.assertNotIn(secret[:4], reason + self.notices[0][1])
+
+    def test_log_records_steps_and_timings(self):
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes())), 0)
+        log = (self.data / "logs" / f"{DATE}.log").read_text(encoding="utf-8")
+        for step in ("登入成功", "快照", "1 分 K", "上架"):
+            self.assertIn(step, log)
+        self.assertIn("秒", log)
 
 
 if __name__ == "__main__":

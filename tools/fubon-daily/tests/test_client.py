@@ -16,8 +16,9 @@ class SdkError(Exception):
 
 
 class FakeSdk:
-    def __init__(self, ok=True, failure=None):
+    def __init__(self, ok=True, failure=None, message="bad key"):
         self.ok = ok
+        self.message = message
         self.failure = failure
         self.login_args = None
         self.realtime = False
@@ -37,7 +38,7 @@ class FakeSdk:
 
     def apikey_login(self, *args):
         self.login_args = args
-        return SimpleNamespace(is_success=self.ok, message="bad key", data=["ACCOUNT-OBJECT"])
+        return SimpleNamespace(is_success=self.ok, message=self.message, data=["ACCOUNT-OBJECT"])
 
     def init_realtime(self):
         self.realtime = True
@@ -100,6 +101,23 @@ class ClientTest(unittest.TestCase):
         client.login()
         client.logout()
         client.logout()
+
+
+    def test_long_login_messages_are_kept_whole_for_redaction(self):
+        client = FubonClient(CREDENTIALS, sdk_factory=lambda: FakeSdk(ok=False, message="x" * 295 + "SECRETKEY123"))
+        with self.assertRaises(LoginError) as caught:
+            client.login()
+        self.assertIn("SECRETKEY123", str(caught.exception))
+
+    def test_realtime_setup_failure_is_a_login_error(self):
+        sdk = FakeSdk()
+
+        def broken():
+            raise SdkError("realtime down", 503)
+
+        sdk.init_realtime = broken
+        with self.assertRaises(LoginError):
+            FubonClient(CREDENTIALS, sdk_factory=lambda: sdk).login()
 
 
 if __name__ == "__main__":

@@ -52,7 +52,7 @@ def _call(request: Callable[[], object]) -> object:
             status = int(status) if status is not None else None
         except (TypeError, ValueError):
             status = None
-        message = f"{type(error).__name__}: {error}"[:300]
+        message = f"{type(error).__name__}: {error}"
         if status == 429:
             raise RateLimited(message, status) from None
         if status == 404:
@@ -76,12 +76,15 @@ class FubonClient:
         try:
             result = sdk.apikey_login(c.person_id, c.api_key, c.cert_path, c.cert_password)
         except Exception as error:  # noqa: BLE001 - reported, then redacted by the caller
-            raise LoginError(f"登入失敗：{type(error).__name__}: {error}"[:300]) from None
+            raise LoginError(f"登入失敗：{type(error).__name__}: {error}") from None
         if not getattr(result, "is_success", False):
-            raise LoginError(f"登入失敗：{getattr(result, 'message', '')}"[:300])
+            raise LoginError(f"登入失敗：{getattr(result, 'message', '')}")
         # The account list in result.data is never kept.
         self._sdk = sdk
-        _call(sdk.init_realtime)
+        try:
+            _call(sdk.init_realtime)
+        except ApiError as error:
+            raise LoginError(f"行情連線初始化失敗：{error}") from None
         self._rest = sdk.marketdata.rest_client.stock
 
     def snapshot_quotes(self) -> dict:

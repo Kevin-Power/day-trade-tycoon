@@ -19,6 +19,9 @@ RATE_LIMIT_WAIT = 60
 ERROR_WAIT = 2
 ATTEMPTS = 3
 LAST_ATTEMPT_AFTER = (18, 50)
+# Fubon finishes updating the day's history by 16:30.
+DAILY_EARLIEST = (16, 30)
+MESSAGE_LIMIT = 300
 NOTIFY_TITLE = "當沖大富翁每日行情"
 
 
@@ -108,16 +111,27 @@ class Run:
     def log(self, message: str) -> None:
         self.store.log(self.target, message, self.runtime.now())
 
+    def elapsed(self) -> int:
+        return round((self.runtime.now() - self.started).total_seconds())
+
     def finish(self, outcome: str, reason: str | None = None, code: int = 0, urgent: bool = False) -> int:
+        # Secrets are masked before shortening, so a long message can never keep half a secret.
+        reason = self.store.redact(reason)[:MESSAGE_LIMIT] if reason else None
+        self.log(f"結果：{outcome}" + (f"：{reason}" if reason else "") + f"（{self.elapsed()} 秒）")
+        if outcome == "already-done":
+            return code  # keeps the last real run on the teacher card
         self.store.write_run(self.report.record(outcome, reason, self.runtime.now()))
-        self.log(f"結果：{outcome}" + (f"：{reason}" if reason else ""))
         if outcome == "failed" and (urgent or self.last_attempt):
-            self.runtime.notify(NOTIFY_TITLE, self.store.redact(f"{self.target} 每日行情抓取失敗：{reason}"))
+            self.runtime.notify(NOTIFY_TITLE, self.store.redact(f"{self.target} 每日行情抓取失敗：{reason}")[:MESSAGE_LIMIT])
         return code
 
     def execute(self) -> int:
+        self.store.reconcile()
         if self.store.has_day(self.target):
             return self.finish("already-done")
+        if self.mode == "daily" and (self.started.hour, self.started.minute) < DAILY_EARLIEST:
+            self.log("每日抓取要 16:30 以後才執行（富邦歷史資料尚未更新），這次略過")
+            return 0
         self.store.write_run(self.report.record("running", None, None))
         self.log(f"開始（{self.mode}）")
         try:
@@ -125,18 +139,21 @@ class Run:
         except CredentialsError as error:
             return self.finish("failed", str(error), 2, urgent=True)
         self.store.set_redactor(Redactor(credentials.secrets()))
-        client = self.runtime.make_client(credentials)
         try:
+            client = self.runtime.make_client(credentials)
             try:
-                client.login()
-            except (LoginError, SdkUnavailable) as error:
-                return self.finish("failed", str(error), 2, urgent=True)
-            try:
+                try:
+                    client.login()
+                except (LoginError, SdkUnavailable) as error:
+                    return self.finish("failed", str(error), 2, urgent=True)
+                self.log("登入成功")
                 return self.fetch_day(client, Pacer(self.runtime))
-            except (ApiError, ValidationError) as error:
-                return self.finish("failed", f"抓取中斷：{error}", 1)
-        finally:
-            client.logout()
+            finally:
+                client.logout()
+        except (ApiError, ValidationError) as error:
+            return self.finish("failed", f"抓取中斷：{error}", 1)
+        except Exception as error:  # noqa: BLE001 - pythonw has no console: record every failure
+            return self.finish("failed", f"未預期的錯誤：{type(error).__name__}: {error}", 1)
 
     def candidates(self, client, pacer: Pacer) -> list[dict] | int:
         snapshot = fetch(pacer, self.runtime, client.snapshot_quotes)
@@ -149,23 +166,28 @@ class Run:
             disposition = fetch(pacer, self.runtime, client.disposition_list)
             self.store.save_raw(self.target, "disposition", None, disposition)
             flagged = disposition_codes(disposition)
+            traded = [item for item in listings if item.trade_volume > 0]
+            self.log(f"快照：{len(listings)} 檔上市普通股，{len(traded)} 檔有成交，處置股 {len(flagged)} 檔")
             return [{"code": item.code, "name": item.name, "referencePrice": reference_price(item.close, item.change),
                      "close": item.close, "change": item.change, "tradeVolume": item.trade_volume,
                      "tradeValue": item.trade_value, "disposition": item.code in flagged}
-                    for item in listings if item.trade_volume > 0]
+                    for item in traded]
         wanted = self.options.symbols
         names = {item.code: item.name for item in listings}
         unknown = [code for code in (wanted or []) if code not in names]
         if unknown:
             return self.finish("failed", "今日上市清單找不到：" + "、".join(unknown), 1)
+        self.log(f"快照：補抓 {self.target}，{len(wanted or names)} 檔")
         result = []
         for code in wanted or list(names):
-            summary = self.store.load_raw(self.target, "daily", code)
-            if summary is None:
-                summary = fetch(pacer, self.runtime, lambda: client.daily_candle(code, self.target))
-                if summary is not None:
-                    self.store.save_raw(self.target, "daily", code, summary)
-            day = daily_summary(summary, code, self.target) if summary is not None else None
+            payload = self.store.load_raw(self.target, "daily", code)
+            fresh = payload is None
+            if fresh:
+                payload = fetch(pacer, self.runtime, lambda: client.daily_candle(code, self.target))
+            # Validate before keeping evidence, so a bad answer is fetched again next time.
+            day = daily_summary(payload, code, self.target) if payload is not None else None
+            if fresh and payload is not None:
+                self.store.save_raw(self.target, "daily", code, payload)
             if day is None:
                 self.report.excluded += 1
                 continue
@@ -183,10 +205,13 @@ class Run:
         self.report.total = len(candidates)
         if not candidates:
             return self.finish("failed", "沒有任何有成交的股票", 1)
+        # Fubon's history is complete once the most traded ordinary stock has its 13:30 auction bar;
+        # disposition stocks match in batches and may not have one.
+        ready_code = next((entry["code"] for entry in candidates if entry["disposition"] is not True), None)
         bars_by_code: dict[str, list] = {}
         warnings: list[dict] = []
         errors: list[str] = []
-        for position, entry in enumerate(candidates):
+        for entry in candidates:
             code = entry["code"]
             payload = self.store.load_raw(self.target, "minute", code)
             fresh = payload is None
@@ -201,10 +226,11 @@ class Run:
                     self.report.failed += 1
                     self.log(f"{code} 未通過檢查：{error}")
                     continue
-                if fresh:
-                    self.store.save_raw(self.target, "minute", code, payload)
-            if self.mode == "daily" and position == 0 and (not bars or bars[-1][0] != CLOSING_AUCTION_T):
-                return self.finish("failed", "富邦歷史資料尚未更新（成交值第一名缺少 13:30 收盤 K 棒）", 1)
+            if self.mode == "daily" and code == ready_code and (not bars or bars[-1][0] != CLOSING_AUCTION_T):
+                self.store.drop_raw(self.target, "minute", code)
+                return self.finish("failed", f"富邦歷史資料尚未更新（{code} 缺少 13:30 收盤 K 棒）", 1)
+            if fresh and payload is not None:
+                self.store.save_raw(self.target, "minute", code, payload)
             if not bars:
                 warnings.append({"code": code, "kind": "empty", "detail": "有成交量，但沒有盤中 1 分 K"})
                 self.report.excluded += 1
@@ -212,6 +238,8 @@ class Run:
             bars_by_code[code] = bars
             self.report.fetched += 1
             warnings.extend(symbol_warnings(code, bars, entry["tradeVolume"], entry["close"]))
+        self.log(f"1 分 K：{self.report.fetched}／{self.report.total} 檔通過，排除 {self.report.excluded} 檔，"
+                 f"未通過 {self.report.failed} 檔，已耗時 {self.elapsed()} 秒")
         if errors:
             return self.finish("failed", f"{len(errors)} 檔資料未通過檢查：" + "、".join(errors[:5]), 1)
         entries = [{**entry, "bars": len(bars_by_code[entry["code"]])} for entry in candidates
@@ -219,6 +247,7 @@ class Run:
         coverage = "selected" if self.options.symbols else "full-market"
         self.store.publish_day(self.target, coverage, entries, bars_by_code, warnings, self.report.excluded,
                                self.runtime.now(), self.runtime.source, self.runtime.version)
+        self.log(f"上架 {self.target}：{len(entries)} 檔，警告 {len(warnings)} 筆")
         self.store.prune(self.started.date())
         return self.finish("ok")
 

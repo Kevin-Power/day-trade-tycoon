@@ -2,8 +2,11 @@ import gzip
 import hashlib
 import json
 import os
+import shutil
+import time
 import tempfile
 import unittest
+from unittest import mock
 from datetime import date, datetime
 from pathlib import Path
 
@@ -129,6 +132,61 @@ class StoreTest(unittest.TestCase):
         self.store.save_raw(DATE, "snapshot", None, {"date": "2026-10-14", "data": []})
         self.store.discard_staging(DATE)
         self.assertFalse((self.root / "staging" / DATE).exists())
+
+
+    def test_corrupt_status_and_index_are_quarantined(self):
+        self.root.mkdir(parents=True)
+        (self.root / "status.json").write_text("{not json", encoding="utf-8")
+        (self.root / "index.json").write_text("[]", encoding="utf-8")
+        self.store.write_run(self.run_record(DATE))
+        self.assertEqual(self.store.read_status()["lastRun"]["date"], DATE)
+        names = sorted(path.name for path in self.root.iterdir())
+        self.assertTrue(any(name.startswith("status.json.corrupt-") for name in names))
+        self.assertTrue(any(name.startswith("index.json.corrupt-") for name in names))
+
+    def test_reconcile_restores_index_entries_and_raw_evidence(self):
+        self.store.save_raw(DATE, "snapshot", None, {"date": DATE, "data": []})
+        self.publish()
+        (self.root / "index.json").unlink()
+        shutil.rmtree(self.root / "raw" / DATE)
+        self.store.save_raw(DATE, "snapshot", None, {"date": DATE, "data": []})
+        self.store.reconcile()
+        top = json.loads((self.root / "index.json").read_text(encoding="utf-8"))
+        self.assertEqual([(day["date"], day["coverage"], day["symbols"]) for day in top["days"]],
+                         [(DATE, "full-market", 1)])
+        self.assertTrue((self.root / "raw" / DATE / "snapshot.json.gz").is_file())
+        self.assertFalse((self.root / "staging" / DATE).exists())
+
+    def test_old_lock_is_taken_over_even_if_its_pid_is_alive(self):
+        self.root.mkdir(parents=True)
+        lock = self.root / ".lock"
+        lock.write_text(json.dumps({"pid": 1234, "startedAt": "x"}), encoding="utf-8")
+        old = time.time() - 3 * 3600
+        os.utime(lock, (old, old))
+        with MarketStore(self.root, pid_alive=lambda pid: True).lock(NOW):
+            pass
+
+    def test_unreadable_young_lock_counts_as_held(self):
+        self.root.mkdir(parents=True)
+        (self.root / ".lock").write_text("", encoding="utf-8")
+        with self.assertRaises(Locked):
+            with self.store.lock(NOW):
+                pass
+
+    def test_directory_moves_retry_while_windows_holds_a_file(self):
+        real = os.replace
+        calls = {"count": 0}
+
+        def flaky(source, target):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise PermissionError("in use")
+            return real(source, target)
+
+        with mock.patch("fubon_daily.store.os.replace", side_effect=flaky), \
+                mock.patch("fubon_daily.store.time.sleep"):
+            self.publish()
+        self.assertTrue(self.store.has_day(DATE))
 
 
 if __name__ == "__main__":
