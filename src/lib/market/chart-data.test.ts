@@ -27,6 +27,7 @@ import {
   terminalReadout,
   timeAxisTicks,
   volumeTone,
+  wrapReadout,
   type ChartLabel,
 } from "./chart-data.ts";
 import type { Bar } from "../game/types.ts";
@@ -526,4 +527,29 @@ test("a crowded tiny plot still finishes with every label inside it", () => {
 
 test("labels with non-finite positions are skipped", () => {
   assert.equal(resolveChartLabels([label("x", "昨", Number.NaN, 60, 100)], bounds, measure, 16).length, 0);
+});
+
+const readout = (...texts: string[]) => texts.map((text) => ({ text, tone: "fg" as const }));
+
+test("wrapReadout keeps every field on one line when it fits", () => {
+  const fields = readout("09:26–09:27", "價 2580", "▲5 +0.19%");
+  assert.deepEqual(wrapReadout(fields, measure, 1000, 14), [fields]);
+});
+
+test("wrapReadout moves fields that do not fit onto the next line, in order, dropping none", () => {
+  const fields = readout("09:26–09:27", "開 2580", "高 2580", "低 2575", "收 2580", "▲5 +0.19%");
+  // 11 + 7 chars = 110 + 14 + 70 = 194 fits in 200; adding the next 7-char field does not.
+  const lines = wrapReadout(fields, measure, 200, 14);
+  assert.deepEqual(lines.map((line) => line.map((field) => field.text)), [
+    ["09:26–09:27", "開 2580"],
+    ["高 2580", "低 2575"],
+    ["收 2580", "▲5 +0.19%"],
+  ]);
+  assert.deepEqual(lines.flat(), fields);
+});
+
+test("wrapReadout gives a field wider than the strip its own line instead of dropping it", () => {
+  const fields = readout("09:26–09:27", "價 2580");
+  assert.deepEqual(wrapReadout(fields, measure, 50, 14).map((line) => line.length), [1, 1]);
+  assert.deepEqual(wrapReadout([], measure, 50, 14), []);
 });

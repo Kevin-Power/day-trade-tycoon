@@ -438,6 +438,35 @@ export function terminalReadout(input: {
   return fields;
 }
 
+/**
+ * Splits the readout strip into as many lines as `maxWidth` needs. Fields keep their order and
+ * none is dropped; a field wider than the strip gets a line of its own.
+ */
+export function wrapReadout(
+  fields: readonly ReadoutField[],
+  measure: (text: string) => number,
+  maxWidth: number,
+  gap: number,
+): ReadoutField[][] {
+  const lines: ReadoutField[][] = [];
+  let line: ReadoutField[] = [];
+  let width = 0;
+  for (const field of fields) {
+    const size = measure(field.text);
+    const next = line.length ? width + gap + size : size;
+    if (line.length && next > maxWidth) {
+      lines.push(line);
+      line = [field];
+      width = size;
+    } else {
+      line.push(field);
+      width = next;
+    }
+  }
+  if (line.length) lines.push(line);
+  return lines;
+}
+
 export type ChartLabel = {
   key: string;
   /** Short name, e.g. 昨, 開, 高, 低, 前高, 均. */

@@ -24,6 +24,7 @@ import {
   terminalReadout,
   timeAxisTicks,
   volumeTone,
+  wrapReadout,
   type ChartLabel,
   type ChartRange,
   type ReadoutTone,
@@ -238,12 +239,53 @@ function paint(
   const percentWidth = terminal ? ctx.measureText("+10.00%").width : 0;
   const padL = Math.ceil(axisWidth + 12);
   const padR = Math.ceil(Math.max(axisWidth, percentWidth) + 14);
+  const plotW = w - padL - padR;
+  const timeSpan = Math.max(window.end - window.start, 1);
+  // The minute under the crosshair, found before the layout so the desk's readout strip can
+  // reserve as many lines as its fields need.
+  const pointed =
+    cursor && (cursor.keyboard || (cursor.x >= padL && cursor.x <= w - padR))
+      ? (() => {
+          const time = window.start + Math.min(1, Math.max(0, (cursor.x - padL) / plotW)) * timeSpan;
+          return isCandles
+            ? nearestTimePoint(bars, time - (interval ? interval / 2 : 0))
+            : nearestTimePoint(points, time);
+        })()
+      : undefined;
+  const focus =
+    deskChart && pointed
+      ? "c" in pointed
+        ? pointed
+        : bars.find((bar) => bar.t + (interval ?? 0) === pointed.t)
+      : undefined;
   // The desk draws its readout in a strip above the plot, so it never covers the line or axis text.
-  const infoH = deskChart ? c.fontSize + 10 : 0;
+  // On narrow screens the strip wraps onto more lines rather than dropping fields.
+  const readoutGap = 14;
+  const readoutStep = c.fontSize + 6;
+  const readoutLinesFor = (bar: Bar | undefined) =>
+    bar
+      ? wrapReadout(
+          terminalReadout({
+            bar,
+            previousClose: opt.prev,
+            candles: isCandles,
+            intervalSeconds: interval ?? 60,
+            withVolume: opt.showVolume === true && opt.showVolumeReadout !== false,
+          }),
+          (text) => ctx.measureText(text).width,
+          w - 4 - padL,
+          readoutGap,
+        )
+      : [];
+  const readoutLines = deskChart ? readoutLinesFor(focus ?? bars.at(-1)) : [];
+  // Also reserve the latest minute's lines, so pointing at a minute rarely resizes the plot.
+  const readoutRows = deskChart
+    ? Math.max(1, readoutLines.length, focus ? readoutLinesFor(bars.at(-1)).length : 0)
+    : 0;
+  const infoH = deskChart ? readoutRows * readoutStep + 4 : 0;
   const padT = deskChart ? infoH + 6 : c.fontSize;
   const axisH = c.fontSize + 12;
   const volH = opt.showVolume ? Math.max(32, h * 0.21) : 0;
-  const plotW = w - padL - padR;
   const plotH = h - padT - axisH - volH - 4;
   if (plotW < 15 || plotH < 20) return;
   const values = [
@@ -268,7 +310,6 @@ function paint(
   const max = range.max;
   const span = range.max - range.min;
   const yOf = (price: number) => padT + ((max - price) / span) * plotH;
-  const timeSpan = Math.max(window.end - window.start, 1);
   const xOf = (time: number) => padL + ((time - window.start) / timeSpan) * plotW;
   const candleTime = (bar: Bar) => bar.t + (interval ? interval / 2 : 0);
   const plotBottom = padT + plotH;
@@ -487,6 +528,8 @@ function paint(
       // placed with the other in-plot labels below.
       const y = hRule(yOf(highPoint.p));
       ctx.save();
+      // The price line above set round caps in this scope; dashes need square ends to stay sharp.
+      ctx.lineCap = "butt";
       ctx.strokeStyle = c.warn;
       ctx.lineWidth = cssPixels(hairline);
       ctx.setLineDash(deviceDashPattern([5, 4], sx));
@@ -675,99 +718,83 @@ function paint(
     ctx.fillText("此區間尚無資料", padL + plotW / 2, padT + plotH / 2);
   }
 
-  let focus: Bar | undefined;
-  if (cursor && (cursor.keyboard || (cursor.x >= padL && cursor.x <= w - padR))) {
-    const time = window.start + Math.min(1, Math.max(0, (cursor.x - padL) / plotW)) * timeSpan;
-    const point = isCandles
-      ? nearestTimePoint(bars, time - (interval ? interval / 2 : 0))
-      : nearestTimePoint(points, time);
-    if (point) {
-      const candle = "c" in point ? point : undefined;
-      const price = candle ? candle.c : (point as TickPt).p;
-      const x = xOf(candle ? candleTime(candle) : point.t);
-      const y = yOf(price);
-      ctx.save();
-      ctx.strokeStyle = c.fg;
-      ctx.lineWidth = cssPixels(hairline);
-      ctx.setLineDash(deviceDashPattern([3, 3], Math.min(sx, sy)));
-      ctx.beginPath();
-      ctx.moveTo(vRule(x), gridTop);
-      ctx.lineTo(vRule(x), gridBottom);
-      ctx.moveTo(gridLeft, hRule(y));
-      ctx.lineTo(gridRight, hRule(y));
-      ctx.stroke();
-      ctx.restore();
-      if (deskChart) {
-        focus = candle ?? bars.find((bar) => bar.t + (interval ?? 0) === point.t);
-      } else {
-        const intervalLabel = interval
-          ? `${formatTime(candle ? point.t : point.t - interval).slice(0, 5)}–${formatTime(candle ? point.t + interval : point.t).slice(0, 5)}`
-          : undefined;
-        const fields = candle
-          ? [
-              intervalLabel ?? formatTime(point.t).slice(0, 5),
-              `開 ${label(candle.o)}`,
-              `高 ${label(candle.h)}`,
-              `低 ${label(candle.l)}`,
-              `收 ${label(candle.c)}`,
-              ...(opt.showVolumeReadout !== false ? [`量 ${candle.v} 張`] : []),
-            ]
-          : [intervalLabel ?? formatTime(point.t), `${interval ? "收價" : "價格"} ${label(price)}`];
-        ctx.font = font;
-        const lines: string[] = [];
-        let line = "";
-        for (const field of fields) {
-          const next = line ? `${line}  ${field}` : field;
-          if (line && ctx.measureText(next).width > w - 32) {
-            lines.push(line);
-            line = field;
-          } else line = next;
-        }
-        if (line) lines.push(line);
-        ctx.textAlign = "left";
-        ctx.textBaseline = "top";
-        const boxWidth = Math.min(
-          w - 16,
-          Math.max(...lines.map((line) => ctx.measureText(line).width)) + 16,
-        );
-        const boxHeight = lines.length * (c.fontSize + 7) + 9;
-        const boxX = Math.max(8, Math.min(w - boxWidth - 8, x - boxWidth / 2));
-        const boxLeft = vRule(boxX);
-        const boxTop = hRule(3);
-        const boxRect = [
-          boxLeft,
-          boxTop,
-          vRule(boxX + boxWidth) - boxLeft,
-          hRule(3 + boxHeight) - boxTop,
-        ] as const;
-        ctx.fillStyle = c.bg;
-        ctx.fillRect(...boxRect);
-        ctx.strokeStyle = c.grid;
-        ctx.lineWidth = cssPixels(hairline);
-        ctx.strokeRect(...boxRect);
-        ctx.fillStyle = c.fg;
-        lines.forEach((line, i) =>
-          ctx.fillText(
-            line,
-            snapEdge(boxX + 8, sx),
-            snapEdge(8 + i * (c.fontSize + 7), sy),
-            boxWidth - 16,
-          ),
-        );
-        return fields.join("，");
+  if (pointed) {
+    const point = pointed;
+    const candle = "c" in point ? point : undefined;
+    const price = candle ? candle.c : (point as TickPt).p;
+    const x = xOf(candle ? candleTime(candle) : point.t);
+    const y = yOf(price);
+    ctx.save();
+    ctx.strokeStyle = c.fg;
+    ctx.lineWidth = cssPixels(hairline);
+    ctx.setLineDash(deviceDashPattern([3, 3], Math.min(sx, sy)));
+    ctx.beginPath();
+    ctx.moveTo(vRule(x), gridTop);
+    ctx.lineTo(vRule(x), gridBottom);
+    ctx.moveTo(gridLeft, hRule(y));
+    ctx.lineTo(gridRight, hRule(y));
+    ctx.stroke();
+    ctx.restore();
+    if (!deskChart) {
+      const intervalLabel = interval
+        ? `${formatTime(candle ? point.t : point.t - interval).slice(0, 5)}–${formatTime(candle ? point.t + interval : point.t).slice(0, 5)}`
+        : undefined;
+      const fields = candle
+        ? [
+            intervalLabel ?? formatTime(point.t).slice(0, 5),
+            `開 ${label(candle.o)}`,
+            `高 ${label(candle.h)}`,
+            `低 ${label(candle.l)}`,
+            `收 ${label(candle.c)}`,
+            ...(opt.showVolumeReadout !== false ? [`量 ${candle.v} 張`] : []),
+          ]
+        : [intervalLabel ?? formatTime(point.t), `${interval ? "收價" : "價格"} ${label(price)}`];
+      ctx.font = font;
+      const lines: string[] = [];
+      let line = "";
+      for (const field of fields) {
+        const next = line ? `${line}  ${field}` : field;
+        if (line && ctx.measureText(next).width > w - 32) {
+          lines.push(line);
+          line = field;
+        } else line = next;
       }
+      if (line) lines.push(line);
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      const boxWidth = Math.min(
+        w - 16,
+        Math.max(...lines.map((line) => ctx.measureText(line).width)) + 16,
+      );
+      const boxHeight = lines.length * (c.fontSize + 7) + 9;
+      const boxX = Math.max(8, Math.min(w - boxWidth - 8, x - boxWidth / 2));
+      const boxLeft = vRule(boxX);
+      const boxTop = hRule(3);
+      const boxRect = [
+        boxLeft,
+        boxTop,
+        vRule(boxX + boxWidth) - boxLeft,
+        hRule(3 + boxHeight) - boxTop,
+      ] as const;
+      ctx.fillStyle = c.bg;
+      ctx.fillRect(...boxRect);
+      ctx.strokeStyle = c.grid;
+      ctx.lineWidth = cssPixels(hairline);
+      ctx.strokeRect(...boxRect);
+      ctx.fillStyle = c.fg;
+      lines.forEach((line, i) =>
+        ctx.fillText(
+          line,
+          snapEdge(boxX + 8, sx),
+          snapEdge(8 + i * (c.fontSize + 7), sy),
+          boxWidth - 16,
+        ),
+      );
+      return fields.join("，");
     }
   }
   if (deskChart) {
-    const bar = focus ?? bars.at(-1);
-    if (!bar) return "";
-    const fields = terminalReadout({
-      bar,
-      previousClose: opt.prev,
-      candles: isCandles,
-      intervalSeconds: interval ?? 60,
-      withVolume: opt.showVolume === true && opt.showVolumeReadout !== false,
-    });
+    if (!readoutLines.length) return "";
     const tones: Record<ReadoutTone, string> = {
       muted: c.muted,
       fg: c.fg,
@@ -779,16 +806,18 @@ function paint(
     ctx.font = font;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    let x = padL;
-    for (const field of fields) {
-      if (x + ctx.measureText(field.text).width > w - 4) break;
-      ctx.fillStyle = tones[field.tone];
-      ctx.fillText(field.text, snapEdge(x, sx), snapEdge(infoH / 2 + 1, sy));
-      x += ctx.measureText(field.text).width + 14;
-    }
+    readoutLines.forEach((line, row) => {
+      const y = 2 + row * readoutStep + readoutStep / 2;
+      let x = padL;
+      for (const field of line) {
+        ctx.fillStyle = tones[field.tone];
+        ctx.fillText(field.text, snapEdge(x, sx), snapEdge(y, sy));
+        x += ctx.measureText(field.text).width + readoutGap;
+      }
+    });
     ctx.restore();
     // Announce only what the viewer pointed at; the latest minute is already in the chart label.
-    return focus ? fields.map((field) => field.text).join("，") : "";
+    return focus ? readoutLines.flat().map((field) => field.text).join("，") : "";
   }
   return "";
 }

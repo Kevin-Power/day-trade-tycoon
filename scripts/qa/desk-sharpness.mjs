@@ -11,7 +11,45 @@ mkdirSync(out, { recursive: true });
 const launch = (args) =>
   chromium.launch({ args }).catch(() => chromium.launch({ channel: "chrome", args }));
 
+// Dashed reference lines must have no blended pixels: rows that carry a line colour inside a column
+// band of empty plot (no price data, no labels) are checked pixel by pixel. palette[0] is the
+// background; null samples it from the image's top-right corner.
+async function dashRowSoft(page, png, palette, lines, x0f, x1f) {
+  return page.evaluate(
+    async ({ b64, palette, lines, x0f, x1f }) => {
+      const image = new Image();
+      image.src = "data:image/png;base64," + b64;
+      await image.decode();
+      const surface = document.createElement("canvas");
+      surface.width = image.width;
+      surface.height = image.height;
+      const ctx = surface.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(image, 0, 0);
+      const data = ctx.getImageData(0, 0, image.width, image.height).data;
+      const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      const at = (x, y) => data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 3);
+      const colours = palette.map((hex) => (hex ? rgb(hex) : [...at(image.width - 1, 0)]));
+      const lineColours = lines.map(rgb);
+      const distance = (p, c) => Math.max(Math.abs(c[0] - p[0]), Math.abs(c[1] - p[1]), Math.abs(c[2] - p[2]));
+      const x0 = Math.round(image.width * x0f);
+      const x1 = Math.round(image.width * x1f);
+      let rows = 0;
+      let soft = 0;
+      for (let y = 0; y < image.height; y++) {
+        let onLine = 0;
+        for (let x = x0; x < x1; x++) if (lineColours.some((c) => distance(at(x, y), c) <= 6)) onLine++;
+        if (onLine < 3) continue;
+        rows++;
+        for (let x = x0; x < x1; x++) if (Math.min(...colours.map((c) => distance(at(x, y), c))) > 6) soft++;
+      }
+      return { rows, soft };
+    },
+    { b64: png.toString("base64"), palette, lines, x0f, x1f },
+  );
+}
+
 const rows = [];
+const dashFailures = [];
 for (const ratio of [1, 1.25, 1.5, 2]) {
   const browser = await launch([`--force-device-scale-factor=${ratio}`, "--window-size=1400,1000"]);
   const page = await (await browser.newContext({ viewport: null })).newPage();
@@ -66,9 +104,34 @@ for (const ratio of [1, 1.25, 1.5, 2]) {
     { b64: png.toString("base64"), ratio, palette },
   );
   const spark = page.locator('.td-watch-item[aria-pressed="false"] canvas.td-spark').first();
-  if (await spark.count()) writeFileSync(`${out}spark-dpr${ratio}.png`, await spark.screenshot());
-  rows.push({ dpr: ratio, ...stats, softPct: Number(((100 * stats.soft) / Math.max(1, stats.drawn)).toFixed(1)) });
+  let sparkDash = null;
+  if (await spark.count()) {
+    const sparkPng = await spark.screenshot();
+    writeFileSync(`${out}spark-dpr${ratio}.png`, sparkPng);
+    // The right part of the sparkline is the not-yet-replayed session: only the previous-close dash.
+    sparkDash = await dashRowSoft(page, sparkPng, [null, palette[4], palette[2], palette[3]], [palette[4]], 0.55, 0.98);
+  }
+  // Intraday (分時) tab: the previous close, 前高 and current-price dashes cross the empty future area.
+  await page.getByRole("button", { name: "分時", exact: true }).first().click();
+  await page.waitForTimeout(800);
+  const quotePng = await canvas.screenshot();
+  writeFileSync(`${out}quote-dpr${ratio}.png`, quotePng);
+  const quoteDash = await dashRowSoft(page, quotePng, palette, [palette[4], palette[6], palette[2], palette[3]], 0.5, 0.75);
+  for (const [name, dash] of [["sparkline", sparkDash], ["intraday", quoteDash]])
+    if (!dash || dash.rows === 0 || dash.soft > 0) dashFailures.push(`dpr ${ratio} ${name}: ${JSON.stringify(dash)}`);
+  rows.push({
+    dpr: ratio,
+    ...stats,
+    softPct: Number(((100 * stats.soft) / Math.max(1, stats.drawn)).toFixed(1)),
+    sparkDashSoft: sparkDash?.soft ?? null,
+    quoteDashRows: quoteDash.rows,
+    quoteDashSoft: quoteDash.soft,
+  });
   await browser.close();
 }
 writeFileSync(`${out}sharpness.json`, JSON.stringify(rows, null, 2));
 console.table(rows);
+if (dashFailures.length) {
+  console.log(`DASH FAILURES:\n${dashFailures.join("\n")}`);
+  process.exitCode = 1;
+} else console.log("All dashed reference lines are sharp.");

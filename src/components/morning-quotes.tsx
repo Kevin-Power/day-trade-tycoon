@@ -71,6 +71,8 @@ function paintSparkline(
     ctx.restore();
     // The previous close: whole device pixels, so it stays crisp at every screen scale.
     ctx.save();
+    // Round caps (set for the price line) would blur both ends of every dash.
+    ctx.lineCap = "butt";
     ctx.strokeStyle = tape;
     ctx.lineWidth = hairline / sy;
     ctx.setLineDash(deviceDashPattern([2, 3], sx));
