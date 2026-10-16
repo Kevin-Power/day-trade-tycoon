@@ -601,3 +601,50 @@ html[data-reading-mode="senior"] .today-coach-link {
 .classroom-lobby .academy-header .display-size-control > span {
   border-color: rgb(219 231 247 / 0.55);
 }
+
+/* Lobby: add to home screen (phones only) */
+.install-card {
+  display: grid;
+  gap: 12px;
+  margin-block: 0 20px;
+  padding: 18px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+}
+.install-card h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  font-weight: 700;
+}
+.install-card p,
+.install-card li {
+  font-size: 16px;
+  line-height: 1.7;
+}
+.install-card ol {
+  display: grid;
+  gap: 8px;
+  padding-left: 1.4em;
+  list-style: decimal;
+}
+.install-card .install-primary {
+  min-height: 48px;
+  font-size: 17px;
+}
+.install-dismiss {
+  justify-self: start;
+  min-height: 44px;
+  padding-inline: 4px;
+  color: var(--color-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+html[data-reading-mode="senior"] .install-card :is(p, li) {
+  font-size: 1.15rem;
+}
+html[data-reading-mode="senior"] .install-card .install-primary {
+  min-height: 56px;
+}

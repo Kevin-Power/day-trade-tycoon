@@ -42,6 +42,7 @@ import { WorkspacePreview } from "@/components/workspace-preview";
 import { RealCandlesLink } from "@/components/real-candles-entry";
 import { PracticeGoalReminder } from "@/components/practice-goal";
 import { TodayCard } from "@/components/today-card";
+import { InstallCard } from "@/components/install-card";
 import { classroomSampleMicro, officialIndexMicro, officialTurnoverMicro } from "@/lib/provenance";
 
 const WEEK_ORDER = ["mon", "tue", "wed"] as const;
@@ -171,6 +172,7 @@ export function Lobby() {
       >
         {/* Today's next step comes first, so a phone shows it without scrolling. */}
         {!CLASSROOM_OFFLINE && <TodayCard />}
+        {!CLASSROOM_OFFLINE && <InstallCard />}
         <section aria-labelledby="classroom-title" className="lobby-launchpad">
           <div className="premium-hero-copy min-w-0">
             <div className="mb-3 flex flex-wrap items-center gap-2.5">

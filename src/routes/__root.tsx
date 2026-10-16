@@ -2,6 +2,7 @@ import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-r
 import { AuthProvider } from "@/lib/auth/provider";
 import { GateProvider } from "@/lib/gate/context";
 import { DisplayPreferencesEffect } from "@/components/display-controls";
+import { PwaEffect } from "@/components/pwa-effect";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "當沖大富翁";
@@ -13,6 +14,9 @@ export const Route = createRootRoute({
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: APP_NAME },
       { name: "theme-color", content: "#f5f7fb" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: APP_NAME },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       {
         name: "description",
         content: "模擬台股當沖教室：證交所 5 秒加權指數、五檔撮合、漲跌停與收盤強制平倉，讓學員練習判斷與風控。",
@@ -20,6 +24,7 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
@@ -37,6 +42,7 @@ export const Route = createRootRoute({
       </head>
       <body className="antialiased">
         <DisplayPreferencesEffect />
+        <PwaEffect />
         <AuthProvider>
           <GateProvider>
             <Outlet />
