@@ -5,8 +5,16 @@ import { authClient, authEnabled, signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { loadMyProfile, upsertMyProfile } from "@/lib/classroom-db";
 import { AuthPasswordInput, ClassroomAuthLayout } from "@/components/classroom-auth-layout";
+import { safeNextPath } from "@/lib/safe-next";
 
-export const Route = createFileRoute("/login")({ component: Login });
+export const Route = createFileRoute("/login")({
+  // `next` returns the learner to the practice screen; `mode=up` opens on sign-up.
+  validateSearch: (search: Record<string, unknown>): { next?: string; mode?: "up" } => {
+    const next = safeNextPath(search.next);
+    return { next: next === "/" ? undefined : next, mode: search.mode === "up" ? "up" : undefined };
+  },
+  component: Login,
+});
 
 const FEATURES = [
   { title: "找到自己的學習起點", description: "依照課程安排，從基礎觀察逐步練習到完整操作。" },
@@ -20,6 +28,7 @@ const FEATURES = [
 type VerifiedAccount = { id: string; name: string; email: string };
 
 function Login() {
+  const { next, mode } = Route.useSearch();
   const { user, isPending } = useCurrentUserState();
   // Keep the same account-keyed profile form while the session hook catches up.
   const [justAuthenticated, setJustAuthenticated] = useState<VerifiedAccount | null>(null);
@@ -39,9 +48,9 @@ function Login() {
           正在確認登入狀態…
         </p>
       ) : account ? (
-        <ProfileCompletion key={account.id} account={account} />
+        <ProfileCompletion key={account.id} account={account} next={next ?? "/"} />
       ) : (
-        <AccountCredentials onAuthenticated={setJustAuthenticated} />
+        <AccountCredentials initialMode={mode === "up" ? "up" : "in"} onAuthenticated={setJustAuthenticated} />
       )}
     </LoginLayout>
   );
@@ -75,11 +84,13 @@ function LoginLayout({ children }: { children: ReactNode }) {
 }
 
 function AccountCredentials({
+  initialMode,
   onAuthenticated,
 }: {
+  initialMode: "in" | "up";
   onAuthenticated: (account: VerifiedAccount) => void;
 }) {
-  const [mode, setMode] = useState<"in" | "up">("in");
+  const [mode, setMode] = useState<"in" | "up">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -225,7 +236,7 @@ function AccountCredentials({
   );
 }
 
-function ProfileCompletion({ account }: { account: VerifiedAccount }) {
+function ProfileCompletion({ account, next }: { account: VerifiedAccount; next: string }) {
   const navigate = useNavigate();
   const [profileReady, setProfileReady] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -255,7 +266,7 @@ function ProfileCompletion({ account }: { account: VerifiedAccount }) {
         if (profile && profile.user_id !== account.id)
           throw new Error("登入帳號已變更，請重新確認。");
         if (profile?.tos_accepted_at) {
-          await navigate({ to: "/" });
+          await navigate({ href: next });
           return;
         }
         if (profile?.display_name) setName(profile.display_name);
@@ -270,7 +281,7 @@ function ProfileCompletion({ account }: { account: VerifiedAccount }) {
     return () => {
       cancelled = true;
     };
-  }, [account.id, checkAttempt, navigate]);
+  }, [account.id, checkAttempt, navigate, next]);
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!profileReady || !accepted || inFlight.current || !authEnabled) return;
@@ -285,7 +296,7 @@ function ProfileCompletion({ account }: { account: VerifiedAccount }) {
           acceptTos: true,
         },
       });
-      if (mounted.current) await navigate({ to: "/" });
+      if (mounted.current) await navigate({ href: next });
     } catch (problem) {
       if (mounted.current)
         setError(problem instanceof Error ? problem.message : "班級資料尚未儲存，請重試。");
