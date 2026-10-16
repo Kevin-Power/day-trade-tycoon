@@ -25,7 +25,7 @@ test("real SQL replay: owner, consent, atomic revisions, request idempotence, pe
   const directory = await mkdtemp(join(tmpdir(), "morning-sql-test-"));
   let db = new PGlite({ dataDir: join(directory, "pglite") });
   try {
-    for (const migration of ["0001_auth.sql", "0003_classroom.sql", "0007_morning_replay.sql"])
+    for (const migration of ["0001_auth.sql", "0003_classroom.sql", "0007_morning_replay.sql", "0008_anonymous_users.sql"])
       await db.exec(await readFile(new URL("../../migrations/" + migration, import.meta.url), "utf8"));
     for (const id of ["alice", "bob", "unconsented"])
       await db.query('INSERT INTO "user"(id,name,email,"emailVerified") VALUES($1,$1,$2,FALSE)', [id, id + "@example.invalid"]);
@@ -115,3 +115,56 @@ test("real SQL replay: owner, consent, atomic revisions, request idempotence, pe
     await rm(target, { recursive: true, force: true });
   }
 });
+
+async function guestFixture(run: (tools: {
+  read: (user: string) => Promise<Awaited<ReturnType<typeof loadMorningSession>>>;
+  act: (input: unknown, now: number, user: string) => Promise<Awaited<ReturnType<typeof mutateMorningSession>>>;
+  count: (query: string) => Promise<number>;
+}) => Promise<void>) {
+  const directory = await mkdtemp(join(tmpdir(), "morning-sql-test-"));
+  const db = new PGlite({ dataDir: join(directory, "pglite") });
+  try {
+    for (const migration of ["0001_auth.sql", "0003_classroom.sql", "0007_morning_replay.sql", "0008_anonymous_users.sql"])
+      await db.exec(await readFile(new URL("../../migrations/" + migration, import.meta.url), "utf8"));
+    for (const [id, anonymous] of [["guest", true], ["guest2", true], ["member", false], ["stranger", false]] as const)
+      await db.query('INSERT INTO "user"(id,name,email,"emailVerified","isAnonymous") VALUES($1,$1,$2,FALSE,$3)', [id, id + "@example.invalid", anonymous]);
+    await db.exec("INSERT INTO classroom_profiles(user_id,display_name,role,class_code,tos_accepted_at) VALUES ('member','M','student','A',NOW())");
+    await run({
+      read: user => db.transaction(tx => loadMorningSession(sqlFor(tx), user, source)),
+      act: (input, now, user) => db.transaction(tx => mutateMorningSession(sqlFor(tx), user, input, source, now)),
+      count: async query => Number((await db.query<{ count: number }>(query)).rows[0].count),
+    });
+  } finally {
+    await db.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+const guestStart = () => ({ action: "start", requestId: randomUUID(), plan: { exerciseId: "first-order", bias: "bullish", focusCode: "2330",
+  reason: "開盤後走強，想等它站上前高", entry: "價格站上前高（圖上標「前高」的虛線）再買", stop: "跌回前高下方就賣出" } });
+
+test("guests can read freely but start only with the teaching statement", () => guestFixture(async ({ read, act, count }) => {
+  const start = guestStart();
+  assert.equal((await read("guest")).state, null);
+  await assert.rejects(act(start, 0, "guest"), { status: 403, message: "請先確認教學聲明" });
+  const began = (await act({ ...start, guestTerms: true }, 0, "guest")).state!;
+  assert.equal(began.cursor, 0);
+  assert.equal(await count("SELECT count(*)::int AS count FROM guest_consents WHERE user_id='guest'"), 1);
+  assert.equal(await count("SELECT count(*)::int AS count FROM classroom_profiles WHERE user_id='guest'"), 0);
+  await assert.rejects(act({ ...guestStart(), guestTerms: true }, 0, "member"), { status: 400, message: "這個帳號不需要訪客聲明" });
+  await assert.rejects(read("stranger"), { status: 403, message: "請先完成學員資料與教學聲明" });
+  const advanced = (await act({ action: "advance", requestId: randomUUID(), id: began.id, expectedRevision: 0 }, 1000, "guest")).state!;
+  assert.equal(advanced.cursor, 1);
+}));
+
+test("guest start is idempotent under a double tap", () => guestFixture(async ({ act, count }) => {
+  const start = { ...guestStart(), guestTerms: true };
+  // allSettled: a rejected first call must not leave the second transaction pending at close.
+  const settled = await Promise.allSettled([act(start, 0, "guest2"), act(start, 0, "guest2")]);
+  const [first, second] = settled.map(result => {
+    assert.equal(result.status, "fulfilled", result.status === "rejected" ? String(result.reason?.message) : "");
+    return (result as PromiseFulfilledResult<Awaited<ReturnType<typeof mutateMorningSession>>>).value;
+  });
+  assert.equal(first.state!.id, second.state!.id);
+  assert.equal(await count("SELECT count(*)::int AS count FROM guest_consents WHERE user_id='guest2'"), 1);
+  assert.equal((await act({ ...guestStart(), guestTerms: true }, 10, "guest2")).state!.id, first.state!.id);
+}));

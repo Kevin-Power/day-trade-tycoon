@@ -8,11 +8,20 @@ type SessionRow = { id: string; state_json: MorningStoredState | string };
 function stored(row: SessionRow): MorningStoredState {
   return typeof row.state_json === "string" ? JSON.parse(row.state_json) : row.state_json;
 }
-async function requireProfile(sql: Sql, userId: string): Promise<void> {
-  // Serializing by real profile also protects concurrent starts and idempotency across runs.
+type PracticeAccess = { kind: "member" } | { kind: "guest"; consented: boolean };
+/**
+ * Members need an accepted classroom profile; guests (anonymous accounts) never get one and
+ * accept the teaching statement by pressing start. The row lock serializes concurrent starts
+ * and keeps request idempotency per owner.
+ */
+async function requirePracticeAccess(sql: Sql, userId: string): Promise<PracticeAccess> {
   const profile = await sql<{ tos_accepted_at: unknown }>`
     SELECT tos_accepted_at FROM classroom_profiles WHERE user_id = ${userId} FOR UPDATE`;
-  if (!profile[0]?.tos_accepted_at) throw new MorningError(403, "請先完成學員資料與教學聲明");
+  if (profile[0]?.tos_accepted_at) return { kind: "member" };
+  const user = await sql<{ isAnonymous: boolean }>`SELECT "isAnonymous" FROM "user" WHERE id = ${userId} FOR UPDATE`;
+  if (!user[0]?.isAnonymous) throw new MorningError(403, "請先完成學員資料與教學聲明");
+  const consent = await sql<{ user_id: string }>`SELECT user_id FROM guest_consents WHERE user_id = ${userId}`;
+  return { kind: "guest", consented: consent.length > 0 };
 }
 function response(state: MorningStoredState | null, source: MorningSource, lessons?: readonly MorningLessonSummary[]): MorningResponse {
   return { catalog: source.catalog, state: state ? visibleMorningState(state, source) : null,
@@ -20,7 +29,7 @@ function response(state: MorningStoredState | null, source: MorningSource, lesso
 }
 /** Always use a transaction-bound SQL handle and the user ID from the verified cookie session. */
 export async function loadMorningSession(sql: Sql, userId: string, source: MorningSource, lessons?: readonly MorningLessonSummary[]): Promise<MorningResponse> {
-  await requireProfile(sql, userId);
+  await requirePracticeAccess(sql, userId);
   const rows = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions
     WHERE user_id = ${userId} AND lesson_id = ${source.catalog.lessonId}
     ORDER BY created_at DESC, id DESC LIMIT 1`;
@@ -29,7 +38,13 @@ export async function loadMorningSession(sql: Sql, userId: string, source: Morni
 /** Durable exactly-once mutation; retries return this run's current, already revealed state. */
 export async function mutateMorningSession(sql: Sql, userId: string, input: unknown, source: MorningSource, clock: number | (() => number) = Date.now, lessons?: readonly MorningLessonSummary[]): Promise<MorningResponse> {
   const action = parseMorningAction(input);
-  await requireProfile(sql, userId);
+  const access = await requirePracticeAccess(sql, userId);
+  const acceptsTerms = action.action === "start" && action.guestTerms === true;
+  if (access.kind === "member" && acceptsTerms) throw new MorningError(400, "這個帳號不需要訪客聲明");
+  if (access.kind === "guest" && !access.consented) {
+    if (!acceptsTerms) throw new MorningError(403, "請先確認教學聲明");
+    await sql`INSERT INTO guest_consents (user_id) VALUES (${userId}) ON CONFLICT DO NOTHING`;
+  }
   // Read the clock after acquiring the owner lock: queued requests cannot reuse stale elapsed time.
   const now = typeof clock === "function" ? clock() : clock;
   const hash = createHash("sha256").update(source.catalog.lessonId + "\n" + JSON.stringify(action)).digest("hex");

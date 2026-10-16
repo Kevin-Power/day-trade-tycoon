@@ -27,7 +27,7 @@ const text = z
       return code !== 127 && (code >= 32 || code === 9 || code === 10 || code === 13);
     }),
   );
-const planSchema = z
+export const planSchema = z
   .object({
     exerciseId: z
       .enum(["first-order", "position", "exit", "n-breakout", "patience", "review"])
@@ -54,7 +54,15 @@ const existing = {
   expectedRevision: z.number().int().min(0).max(10_000),
 };
 export const morningActionSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("start"), ...base, plan: planSchema }).strict(),
+  z
+    .object({
+      action: z.literal("start"),
+      ...base,
+      plan: planSchema,
+      // A guest accepts the teaching statement by pressing start (see morning-session.server.ts).
+      guestTerms: z.literal(true).optional(),
+    })
+    .strict(),
   z.object({ action: z.literal("advance"), ...existing }).strict(),
   z
     .object({
@@ -150,6 +158,7 @@ export function createMorningState(
     completed: false,
     reflection: "",
     nextAdvanceAt: now + MORNING_ADVANCE_INTERVAL,
+    startedAt: now,
   };
 }
 /** Only completed bars are materialized. The persisted state never contains source bars. */

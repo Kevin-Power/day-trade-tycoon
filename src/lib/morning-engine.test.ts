@@ -433,3 +433,7 @@ test("price gaps reject unaffordable fills, cancellation preserves money, and mi
     { status: 409 },
   );
 });
+
+test("a new run records when it started", () => {
+  assert.equal(createMorningState(randomUUID(), plan, fixture(), 5000).startedAt, 5000);
+});

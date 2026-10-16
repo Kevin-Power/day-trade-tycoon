@@ -79,6 +79,8 @@ export type MorningState = {
   completed: boolean;
   reflection: string;
   nextAdvanceAt: number;
+  /** When this run was created (ms); runs saved before 2026-10-17 have none. */
+  startedAt?: number;
 };
 export type MorningResponse = {
   catalog: MorningCatalog;
@@ -86,7 +88,7 @@ export type MorningResponse = {
   lessons?: MorningLessonSummary[];
 };
 export type MorningAction =
-  | { action: "start"; requestId: string; plan: MorningPlan }
+  | { action: "start"; requestId: string; plan: MorningPlan; guestTerms?: true }
   | { action: "advance"; requestId: string; id: string; expectedRevision: number }
   | {
       action: "order";
