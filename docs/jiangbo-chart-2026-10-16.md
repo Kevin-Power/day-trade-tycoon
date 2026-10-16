@@ -1,6 +1,6 @@
 # 江波圖放大與畫質 — 2026-10-16
 
-依 `docs/superpowers/specs/2026-10-15-jiangbo-chart-quality-design.md`（子專案 1）與計畫 `docs/superpowers/plans/2026-10-16-jiangbo-chart-quality.md` 實作。尚未推送、尚未部署。
+依 `docs/superpowers/specs/2026-10-15-jiangbo-chart-quality-design.md`（子專案 1）與計畫 `docs/superpowers/plans/2026-10-16-jiangbo-chart-quality.md` 實作，已於 2026-10-16 推送並發布到正式站（見文末「正式站發布」）。
 
 ## 改了什麼
 
@@ -70,4 +70,31 @@
 ## 尚未驗證
 
 - 均價線與成交量的真實畫面，要等子專案 3（富邦教材）上線才能驗收；目前只有單元測試涵蓋顯示條件與讀數欄位。
-- 正式站尚未部署；部署步驟依 `docs/deployment-2026-10-12.md`。
+- 沒有以學員帳號登入正式站。登入後的交易畫面已在隔離環境、用同一份 release 驗證；正式站請依 `docs/trading-desk-2026-10-13.md` 的「正式站登入檢查清單」操作一輪，並另外確認：
+  - 帳務區預設收成一行，按「展開」可展開。
+  - 分時圖以昨收為中心。
+  - 左側小走勢佔滿整列寬。
+
+## 正式站發布（2026-10-16，Asia/Taipei）
+
+- **發布內容**：提交 `6a8b23d`（分支 `codex/course-handover`，已推送；`main` 未變），建置為不可變 release `20261016T035645257Z`，181 個檔案。
+- **發布前驗證**（隔離環境，正式服務未受影響）：
+  - 該 release 通過 2/2 真實 HTTP 整合測試。
+  - 用同一份 release 檔案跑 `desk-layout --strict`、`desk-orders`、`desk-sharpness`，全部通過；虛線列混色像素為 0。
+- **停機與備份**：
+  - 11:59:03 正常停機，`lastCleanShutdown=true`，資料庫鎖已釋放。
+  - 一致備份為 `<runtime>\backups\2026-10-16T03-59-07-545Z`，1,043 個檔案逐檔核對通過。
+- **切換與啟動**：
+  - 11:59:16 只修改 `hosting.json` 的 `appEntry`，從 `20261014T033225235Z` 改為 `20261016T035645257Z`。
+  - 由既有排程啟動（`launchMode=scheduled-task`），11:59:31 首次健康檢查通過。
+  - 停機到恢復約 **28 秒**。
+- **發布後檢查**：
+  - 公開 JS/CSS 共 47 個檔案的 SHA-256 與 release 一致；三個秘密檔案不變；設定除 `appEntry` 外不變。
+  - `/try` 與 `/morning?panel=trade` 回覆 200；未登入時 `/api/morning` 回覆 403；`/server/index.mjs` 回覆 404。
+  - `healthFailures=0`、`restartCount=0`；8790 只綁定 `127.0.0.1`。
+- **回退**：
+  1. 先以 `host.ps1 stop` 正常停機，並重新備份。
+  2. 把 `appEntry` 指回 `20261014T033225235Z`。
+  3. 以 `host.ps1 start` 啟動。
+  - 不要用舊備份覆蓋之後產生的學員資料。
+- **發布紀錄**：在 `artifacts/deploy-20261016-jiangbo-chart/`（被 git 忽略）。
