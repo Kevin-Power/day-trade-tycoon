@@ -1,4 +1,5 @@
 import type { Bar, TickPt } from "../game/types.ts";
+import { formatPrice } from "./ticks.ts";
 
 export type ChartRange = { start: number; end?: number };
 
@@ -384,4 +385,162 @@ export function sparklineLayout(input: {
     runs,
     last: tail ? { x: xOf(tail.t), y: yOf(tail.p), above: tail.p >= input.previous } : null,
   };
+}
+
+/** "HH:MM" for seconds after 09:00, matching formatTime(...).slice(0, 5) in src/lib/utils. */
+function clock(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const hours = 9 + Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+export type ReadoutTone = "muted" | "fg" | "up" | "down" | "average";
+export type ReadoutField = { text: string; tone: ReadoutTone };
+
+/**
+ * Fields of the desk chart's readout strip for one completed minute: its interval, its price (or
+ * OHLC for candles), the change from the previous close and, only when the source supports them,
+ * the source session average and volume in lots.
+ */
+export function terminalReadout(input: {
+  bar: Bar;
+  previousClose: number;
+  candles: boolean;
+  intervalSeconds: number;
+  withVolume: boolean;
+}): ReadoutField[] {
+  const { bar, previousClose } = input;
+  const fields: ReadoutField[] = [
+    { text: `${clock(bar.t)}–${clock(bar.t + input.intervalSeconds)}`, tone: "muted" },
+  ];
+  if (input.candles)
+    fields.push(
+      { text: `開 ${formatPrice(bar.o)}`, tone: "fg" },
+      { text: `高 ${formatPrice(bar.h)}`, tone: "fg" },
+      { text: `低 ${formatPrice(bar.l)}`, tone: "fg" },
+      { text: `收 ${formatPrice(bar.c)}`, tone: "fg" },
+    );
+  else fields.push({ text: `價 ${formatPrice(bar.c)}`, tone: "fg" });
+  if (positive(previousClose)) {
+    const change = bar.c - previousClose;
+    const size = Math.abs(change).toLocaleString("zh-TW", { maximumFractionDigits: 2 });
+    fields.push({
+      text: `${change > 0 ? "▲" : change < 0 ? "▼" : ""}${size} ${formatPercentChange(bar.c, previousClose)}`,
+      tone: change > 0 ? "up" : change < 0 ? "down" : "muted",
+    });
+  }
+  if (input.withVolume) {
+    if (typeof bar.a === "number" && Number.isFinite(bar.a))
+      fields.push({ text: `均 ${bar.a.toFixed(2)}`, tone: "average" });
+    fields.push({ text: `量 ${bar.v.toLocaleString("zh-TW")} 張`, tone: "fg" });
+  }
+  return fields;
+}
+
+export type ChartLabel = {
+  key: string;
+  /** Short name, e.g. 昨, 開, 高, 低, 前高, 均. */
+  text: string;
+  price: number;
+  priceText: string;
+  color: string;
+  /** Anchor in CSS px; `anchor` says whether it is the label's left edge, centre or right edge. */
+  x: number;
+  anchor: "start" | "center" | "end";
+  /** Preferred vertical centre in CSS px. */
+  y: number;
+};
+export type PlacedChartLabel = {
+  keys: string[];
+  price: number;
+  parts: { text: string; color: string }[];
+  priceText: string;
+  left: number;
+  width: number;
+  y: number;
+};
+export const LABEL_PADDING = 4;
+
+export function chartLabelText(label: Pick<PlacedChartLabel, "parts" | "priceText">): string {
+  return `${label.parts.map((part) => part.text).join("・")} ${label.priceText}`;
+}
+
+/**
+ * Places the desk chart's in-plot labels so none overlaps another. Labels at the same price that
+ * would touch merge into one ("昨・開・低 2575"); others that would overlap move down by one line,
+ * or up when there is no room below. Every label stays inside `bounds`.
+ */
+export function resolveChartLabels(
+  labels: readonly ChartLabel[],
+  bounds: { left: number; right: number; top: number; bottom: number },
+  measure: (text: string) => number,
+  lineHeight: number,
+): PlacedChartLabel[] {
+  const widthOf = (label: Pick<PlacedChartLabel, "parts" | "priceText">) =>
+    measure(chartLabelText(label)) + LABEL_PADDING * 2;
+  const clampLeft = (left: number, width: number) =>
+    Math.max(bounds.left, Math.min(bounds.right - width, left));
+  const placed: PlacedChartLabel[] = [];
+  for (const label of labels) {
+    if (![label.price, label.x, label.y].every(Number.isFinite)) continue;
+    const single: PlacedChartLabel = {
+      keys: [label.key],
+      price: label.price,
+      parts: [{ text: label.text, color: label.color }],
+      priceText: label.priceText,
+      left: 0,
+      width: 0,
+      y: label.y,
+    };
+    single.width = widthOf(single);
+    const preferred =
+      label.anchor === "start"
+        ? label.x
+        : label.anchor === "center"
+          ? label.x - single.width / 2
+          : label.x - single.width;
+    single.left = clampLeft(preferred, single.width);
+    const twin = placed.find(
+      (other) =>
+        other.price === label.price &&
+        single.left < other.left + other.width + lineHeight &&
+        other.left < single.left + single.width + lineHeight,
+    );
+    if (twin) {
+      twin.keys.push(label.key);
+      twin.parts.push(single.parts[0]!);
+      twin.width = widthOf(twin);
+      twin.left = clampLeft(twin.left, twin.width);
+    } else placed.push(single);
+  }
+  const half = lineHeight / 2;
+  const clampY = (y: number) => Math.min(bounds.bottom - half, Math.max(bounds.top + half, y));
+  const settled: PlacedChartLabel[] = [];
+  for (const label of [...placed].sort((a, b) => a.y - b.y)) {
+    const overlapping = (y: number) =>
+      settled.find(
+        (other) =>
+          label.left < other.left + other.width &&
+          other.left < label.left + label.width &&
+          Math.abs(other.y - y) < lineHeight,
+      );
+    let y = clampY(label.y);
+    let hit = overlapping(y);
+    for (let guard = 0; hit && guard <= settled.length; guard++) {
+      y = hit.y + lineHeight;
+      hit = overlapping(y);
+    }
+    if (y > bounds.bottom - half) {
+      y = clampY(label.y);
+      hit = overlapping(y);
+      for (let guard = 0; hit && guard <= settled.length; guard++) {
+        y = hit.y - lineHeight;
+        hit = overlapping(y);
+      }
+    }
+    label.y = clampY(y);
+    settled.push(label);
+  }
+  return settled;
 }

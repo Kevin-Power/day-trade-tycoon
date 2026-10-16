@@ -5,6 +5,7 @@ import {
   candlePriceRange,
   candleWindow,
   canvasResolution,
+  chartLabelText,
   chartLinePoints,
   chartWindow,
   completedBarsInWindow,
@@ -15,6 +16,7 @@ import {
   jiangboPriceRange,
   minuteColumnWidth,
   nearestTimePoint,
+  resolveChartLabels,
   sessionExtremes,
   showVolumeAndAverage,
   snapColumn,
@@ -22,8 +24,10 @@ import {
   snapStroke,
   sparklineLayout,
   splitPriceLine,
+  terminalReadout,
   timeAxisTicks,
   volumeTone,
+  type ChartLabel,
 } from "./chart-data.ts";
 import type { Bar } from "../game/types.ts";
 
@@ -428,4 +432,98 @@ test("sparklineLayout keeps finite coordinates without a previous close", () => 
   for (const run of layout.runs)
     for (const point of run.points) assert.ok(Number.isFinite(point.x) && Number.isFinite(point.y));
   assert.equal(Number.isFinite(layout.previousY), false);
+});
+
+const minute = bar(1560, 2580, { o: 2580, h: 2580, l: 2575, v: 12, a: 2581.234 });
+
+test("terminalReadout lists time, price and change for the intraday chart", () => {
+  assert.deepEqual(
+    terminalReadout({ bar: minute, previousClose: 2575, candles: false, intervalSeconds: 60, withVolume: false }),
+    [
+      { text: "09:26–09:27", tone: "muted" },
+      { text: "價 2580", tone: "fg" },
+      { text: "▲5 +0.19%", tone: "up" },
+    ],
+  );
+});
+
+test("terminalReadout lists OHLC for candles and adds source average and lots when allowed", () => {
+  const fields = terminalReadout({
+    bar: minute, previousClose: 2575, candles: true, intervalSeconds: 60, withVolume: true,
+  });
+  assert.deepEqual(fields.map((field) => field.text), [
+    "09:26–09:27", "開 2580", "高 2580", "低 2575", "收 2580", "▲5 +0.19%", "均 2581.23", "量 12 張",
+  ]);
+  assert.equal(fields.at(-2)!.tone, "average");
+});
+
+test("terminalReadout marks falling and unchanged minutes", () => {
+  const down = terminalReadout({
+    bar: bar(0, 2570), previousClose: 2575, candles: false, intervalSeconds: 60, withVolume: false,
+  });
+  assert.deepEqual(down.at(-1), { text: "▼5 -0.19%", tone: "down" });
+  const flat = terminalReadout({
+    bar: bar(0, 2575), previousClose: 2575, candles: false, intervalSeconds: 60, withVolume: false,
+  });
+  assert.deepEqual(flat.at(-1), { text: "0 0.00%", tone: "muted" });
+});
+
+const measure = (text: string) => text.length * 10;
+const bounds = { left: 56, right: 600, top: 20, bottom: 400 };
+const label = (key: string, text: string, price: number, x: number, y: number, anchor: ChartLabel["anchor"] = "start"): ChartLabel => ({
+  key, text, price, priceText: String(price), color: "#fff", x, y, anchor,
+});
+
+test("labels at the same price and place merge into one", () => {
+  const placed = resolveChartLabels(
+    [label("prev", "昨", 2575, 60, 300), label("open", "開", 2575, 60, 300), label("low", "低", 2575, 70, 312, "center")],
+    bounds, measure, 16,
+  );
+  assert.equal(placed.length, 1);
+  assert.deepEqual(placed[0]!.keys, ["prev", "open", "low"]);
+  assert.equal(chartLabelText(placed[0]!), "昨・開・低 2575");
+  assert.equal(placed[0]!.width, measure("昨・開・低 2575") + 8);
+});
+
+test("labels at the same price far apart stay separate", () => {
+  const placed = resolveChartLabels(
+    [label("prev", "昨", 2575, 60, 300), label("low", "低", 2575, 500, 312, "center")],
+    bounds, measure, 16,
+  );
+  assert.equal(placed.length, 2);
+});
+
+test("nearby labels at different prices are moved apart", () => {
+  const placed = resolveChartLabels(
+    [label("high", "高", 2590, 300, 100, "center"), label("swing", "前高", 2585, 310, 106, "center")],
+    bounds, measure, 16,
+  );
+  const [a, b] = placed;
+  assert.ok(Math.abs(b!.y - a!.y) >= 16);
+});
+
+test("a label pushed past the bottom moves above instead", () => {
+  const placed = resolveChartLabels(
+    [label("a", "低", 1, 300, 392, "center"), label("b", "開", 2, 300, 395, "center")],
+    bounds, measure, 16,
+  );
+  const moved = placed.find((item) => item.keys[0] === "b")!;
+  near(moved.y, 376);
+});
+
+test("end-anchored labels are kept inside the plot", () => {
+  const [inside] = resolveChartLabels([label("swing", "前高", 2590, 650, 200, "end")], bounds, measure, 16);
+  near(inside!.left + inside!.width, 600);
+});
+
+test("a crowded tiny plot still finishes with every label inside it", () => {
+  const crowded = Array.from({ length: 8 }, (_, i) => label(`k${i}`, "高", 100 + i, 300, 50, "center"));
+  const tiny = { left: 0, right: 600, top: 0, bottom: 60 };
+  const placed = resolveChartLabels(crowded, tiny, measure, 16);
+  assert.equal(placed.length, 8);
+  for (const item of placed) assert.ok(item.y >= 8 && item.y <= 52, `y ${item.y}`);
+});
+
+test("labels with non-finite positions are skipped", () => {
+  assert.equal(resolveChartLabels([label("x", "昨", Number.NaN, 60, 100)], bounds, measure, 16).length, 0);
 });
