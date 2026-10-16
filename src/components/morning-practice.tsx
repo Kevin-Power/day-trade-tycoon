@@ -32,6 +32,9 @@ import { clearLinkNoticeCookie, readLinkNotice, type LinkNotice } from "@/lib/gu
 import { describeAccessProblem, PRACTICE_PATH } from "@/lib/morning-access";
 import { PlanForm } from "@/components/morning-plan-form";
 import { CARD, INPUT, PRIMARY, SECONDARY } from "@/components/morning-styles";
+import { CoachMarks } from "@/components/coach-marks";
+import { readCoachSeen, writeCoachSeen } from "@/lib/coach-steps";
+import { browserStorage } from "@/lib/device-storage";
 import { loginHref } from "@/lib/safe-next";
 import { useDisplayPreferences } from "@/lib/display-preferences";
 import { useLedgerPreferences } from "@/lib/ledger-preferences";
@@ -218,11 +221,13 @@ export function MorningPractice({
   exerciseId,
   lessonId,
   initialPane,
+  coach = false,
   onLessonChange,
 }: {
   exerciseId?: string;
   lessonId: string;
   initialPane?: "trade";
+  coach?: boolean;
   onLessonChange: (lessonId: string) => void;
 }) {
   const { user, guest, isPending } = useCurrentUserState();
@@ -275,6 +280,7 @@ export function MorningPractice({
     <MorningLesson
       key={`${user?.id ?? guest?.id ?? "none"}:${lessonId}`}
       guest={Boolean(guest)}
+      coach={coach}
       lessonId={lessonId}
       initialPane={initialPane}
       exerciseId={selectedExercise}
@@ -286,6 +292,7 @@ export function MorningPractice({
 
 function MorningLesson({
   guest,
+  coach,
   lessonId,
   exerciseId,
   initialPane,
@@ -293,6 +300,7 @@ function MorningLesson({
   onExerciseChange,
 }: {
   guest: boolean;
+  coach: boolean;
   lessonId: string;
   exerciseId: string;
   initialPane?: "trade";
@@ -318,6 +326,9 @@ function MorningLesson({
   const [planOpen, setPlanOpen] = useState(false);
   const planRegion = useRef<HTMLDivElement>(null);
   const autoPlanned = useRef(false);
+  const [coachOpen, setCoachOpen] = useState(false);
+  // First start on this device (or ?coach=1) shows the hints once 09:00 is on screen.
+  const coachPending = useRef(coach);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [speed, setSpeed] = useState<ReplaySpeed>(1);
@@ -417,6 +428,19 @@ function MorningLesson({
     if (planOpen) planRegion.current?.scrollIntoView({ block: "start", behavior: "auto" });
   }, [planOpen]);
 
+  const activeRun = Boolean(data?.state && !data.state.completed);
+  useEffect(() => {
+    if (!coachPending.current || !activeRun || (data?.state?.cursor ?? 0) === 0) return;
+    coachPending.current = false;
+    // Step 1 talks about the chart; on one-pane layouts it must be the visible pane.
+    setActivePane("chart");
+    setCoachOpen(true);
+  }, [activeRun, data?.state?.cursor]);
+  function closeCoach() {
+    setCoachOpen(false);
+    writeCoachSeen(browserStorage());
+  }
+
   // First visit: no run yet, so open the plan right away (lobby tap + start tap = 09:00).
   const noRunYet = Boolean(data && data.state === null);
   useEffect(() => {
@@ -465,6 +489,7 @@ function MorningLesson({
       setPlanOpen(false);
       // Show the chart, then reveal 09:00 by itself; playing on stays the learner's choice.
       setActivePane("chart");
+      if (!readCoachSeen(browserStorage())) coachPending.current = true;
       window.requestAnimationFrame(() => {
         practiceHeading.current?.focus({ preventScroll: true });
         window.scrollTo({ top: 0, behavior: "auto" });
@@ -804,7 +829,11 @@ function MorningLesson({
                   </div>
 
                 </div>
-                {!singlePane && <aside className="td-trade">{orderTicket}</aside>}
+                {!singlePane && (
+                  <aside className="td-trade" data-coach="ticket">
+                    {orderTicket}
+                  </aside>
+                )}
                 {showPlan && planOpen && (
                   <div className="td-plan" ref={planRegion}>
                     <button
@@ -835,7 +864,7 @@ function MorningLesson({
                   </div>
                 )}
                 {!singlePane && session && !newPlan && (
-                  <div className="td-ledger" data-open={ledgerOpen}>
+                  <div className="td-ledger" data-open={ledgerOpen} data-coach="ledger">
                     <Ledger
                       catalog={catalog}
                       session={session}
@@ -846,6 +875,9 @@ function MorningLesson({
                   </div>
                 )}
               </section>
+              {coachOpen && session && !completed && (
+                <CoachMarks layout={layout} onClose={closeCoach} />
+              )}
               {completed && session && !newPlan && guest && <GuestSaveCard />}
               {completed && session && !newPlan && (
                 <Completion
@@ -1160,6 +1192,7 @@ function MorningTerminalNav({
           key={pane}
           type="button"
           aria-pressed={active === pane}
+          data-coach={`tab-${pane}`}
           onClick={() => onSelect(pane)}
         >
           {label}
@@ -1344,7 +1377,7 @@ function MorningChart({
     .map((fill) => ({ t: fill.t, p: fill.price, side: fill.side }));
   const sourceBacked = showVolumeAndAverage(catalog.volumeUnit, bars);
   return (
-    <section className="td-chart" aria-label={symbol.name + "歷史分鐘行情"}>
+    <section className="td-chart" data-coach="chart" aria-label={symbol.name + "歷史分鐘行情"}>
       <div className="td-chart-canvas">
         {last && session ? (
           <TapeChart

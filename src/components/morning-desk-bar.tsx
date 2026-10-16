@@ -126,6 +126,7 @@ export function StatusBar({
             <button
               type="button"
               className="td-play"
+              data-coach="play"
               data-running={auto}
               title={`每 ${REPLAY_DELAY[speed] / 1000} 秒前進 1 分鐘`}
               disabled={playDisabled}

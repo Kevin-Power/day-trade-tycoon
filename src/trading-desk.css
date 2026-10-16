@@ -2103,3 +2103,80 @@
 .trading-desk[data-layout="senior"] .td-template span {
   font-size: 16px;
 }
+
+/* First-time coach marks: dim the desk, ring the parts each step names */
+.trading-desk .td-coach {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+}
+.trading-desk .td-coach-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.55);
+}
+.trading-desk .td-coach-ring {
+  position: fixed;
+  border: 3px solid var(--td-prev);
+  border-radius: 6px;
+  box-shadow: 0 0 0 4px rgb(232 197 71 / 0.25);
+  pointer-events: none;
+  transition: top 0.2s ease, left 0.2s ease, width 0.2s ease, height 0.2s ease;
+}
+.trading-desk .td-coach-dialog {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  display: grid;
+  gap: 8px;
+  width: min(28rem, calc(100vw - 32px));
+  padding: 16px;
+  color: var(--td-fg);
+  background: var(--td-raised);
+  border: 1px solid var(--td-line-strong);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.5);
+  transform: translateX(-50%);
+}
+.trading-desk .td-coach-count {
+  margin: 0;
+  color: var(--td-muted);
+  font-size: 13px;
+}
+.trading-desk .td-coach-dialog h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  outline: none;
+}
+.trading-desk .td-coach-dialog p:not(.td-coach-count) {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.trading-desk .td-coach-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.trading-desk .td-coach-actions .td-button {
+  min-height: 44px;
+}
+.trading-desk .td-coach-skip {
+  margin-left: auto;
+}
+.trading-desk[data-layout="senior"] .td-coach-dialog h2 {
+  font-size: 20px;
+}
+.trading-desk[data-layout="senior"] .td-coach-dialog p:not(.td-coach-count) {
+  font-size: 18px;
+}
+.trading-desk[data-layout="senior"] .td-coach-actions .td-button {
+  min-height: 56px;
+  font-size: 18px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .trading-desk .td-coach-ring {
+    transition: none;
+  }
+}
