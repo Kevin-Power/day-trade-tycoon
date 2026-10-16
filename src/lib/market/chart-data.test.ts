@@ -1,23 +1,31 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  candleBodyWidth,
+  candlePriceRange,
   candleWindow,
   canvasResolution,
   chartLinePoints,
   chartWindow,
   completedBarsInWindow,
+  deviceDashPattern,
   formatPercentChange,
   hairlineDevicePixels,
   inChartWindow,
+  jiangboPriceRange,
   minuteColumnWidth,
   nearestTimePoint,
   sessionExtremes,
+  showVolumeAndAverage,
   snapColumn,
   snapEdge,
   snapStroke,
+  sparklineLayout,
   splitPriceLine,
   timeAxisTicks,
+  volumeTone,
 } from "./chart-data.ts";
+import type { Bar } from "../game/types.ts";
 
 test("range clips all timed layers to the current lesson and never includes future bars", () => {
   const source = [{ t: 0 }, { t: 300 }, { t: 600 }, { t: 660 }, { t: 900 }];
@@ -281,4 +289,143 @@ test("session extremes report the first highest high and lowest low", () => {
   assert.deepEqual(sessionExtremes(bars), { high: { t: 60, p: 12 }, low: { t: 120, p: 8 } });
   assert.equal(sessionExtremes([]), null);
   assert.equal(sessionExtremes([{ t: 0, o: 1, h: Number.NaN, l: 1, c: 1, v: 0 }]), null);
+});
+
+const bar = (t: number, c: number, extra: Partial<Bar> = {}): Bar => ({
+  t, o: c, h: c, l: c, c, v: 1, ...extra,
+});
+
+test("jiangboPriceRange centres on the previous close with at least ±1%", () => {
+  // 10/06 台積電: 昨收 2575, 高 2590, 低 2575 → 半幅 max(16.5, 25.75).
+  const range = jiangboPriceRange(2575, 2590, 2575);
+  near(range.min, 2549.25);
+  near(range.max, 2600.75);
+  // A wide day uses 1.1 × the largest deviation instead.
+  const wide = jiangboPriceRange(100, 104, 99);
+  near(wide.max - 100, 4.4);
+  near(100 - wide.min, 4.4);
+});
+
+test("jiangboPriceRange never collapses on a flat day", () => {
+  const flat = jiangboPriceRange(50, 50, 50);
+  near(flat.max - flat.min, 1);
+});
+
+test("jiangboPriceRange falls back to the data when the previous close is unusable", () => {
+  for (const previous of [0, Number.NaN, -5]) {
+    const range = jiangboPriceRange(previous, 110, 90);
+    near(range.min, 89);
+    near(range.max, 111);
+  }
+  assert.deepEqual(jiangboPriceRange(Number.NaN, Number.NaN, Number.NaN), { min: 0, max: 1 });
+});
+
+test("candlePriceRange pads 8% and keeps at least 1.5% of the previous close", () => {
+  const narrow = candlePriceRange(2590, 2575, 2575);
+  near(narrow.min, 2563.1875);
+  near(narrow.max, 2601.8125);
+  const wide = candlePriceRange(2700, 2575, 2575);
+  near(wide.min, 2565);
+  near(wide.max, 2710);
+  // The previous close is always inside the range.
+  const above = candlePriceRange(120, 118, 100);
+  assert.ok(above.min < 100 && above.max > 120);
+});
+
+test("candlePriceRange stays finite without a previous close or on a flat minute", () => {
+  const flat = candlePriceRange(80, 80, 80);
+  near(flat.max - flat.min, 1.2);
+  const missing = candlePriceRange(110, 90, Number.NaN);
+  assert.ok(Number.isFinite(missing.min) && Number.isFinite(missing.max) && missing.max > missing.min);
+  assert.deepEqual(candlePriceRange(Number.NaN, Number.NaN, 0), { min: 0, max: 1 });
+});
+
+test("candleBodyWidth is 70% of a minute column, between 1 and 13 CSS px", () => {
+  near(candleBodyWidth(1000, 3600), 1000 / 60 * 0.7);
+  assert.equal(candleBodyWidth(2000, 3600), 13);
+  assert.equal(candleBodyWidth(10, 3600), 1);
+  assert.equal(candleBodyWidth(1000, 0), 13);
+});
+
+test("candle bodies keep the wick's pixel parity at every screen scale", () => {
+  for (const scale of [1, 1.25, 1.5, 2]) {
+    const stroke = hairlineDevicePixels(scale);
+    for (const [plot, span] of [[1000, 3600], [2000, 3600], [700, 3600], [900, 16200]]) {
+      const column = snapColumn(500, candleBodyWidth(plot, span), scale, stroke);
+      const device = Math.round(column.width * scale);
+      assert.equal(device % 2, stroke % 2, `scale ${scale}, plot ${plot}`);
+      assert.ok(device <= Math.round(13 * scale) + 1);
+    }
+  }
+});
+
+test("deviceDashPattern rounds every dash to whole device pixels", () => {
+  for (const scale of [1, 1.25, 1.5, 2])
+    for (const pattern of [[4, 4], [2, 5], [5, 4], [2, 3]])
+      for (const length of deviceDashPattern(pattern, scale)) {
+        const device = length * scale;
+        near(device, Math.round(device));
+        assert.ok(device >= 1);
+      }
+  assert.deepEqual(deviceDashPattern([0.2], 1), [1]);
+});
+
+test("showVolumeAndAverage requires lot volume and a source average on every bar", () => {
+  const sourced = [bar(0, 10, { a: 10.1, v: 3 }), bar(60, 11, { a: 10.4, v: 0 })];
+  assert.equal(showVolumeAndAverage("lot", sourced), true);
+  assert.equal(showVolumeAndAverage(undefined, sourced), false);
+  assert.equal(showVolumeAndAverage("share", sourced), false);
+  assert.equal(showVolumeAndAverage("lot", []), false);
+  assert.equal(showVolumeAndAverage("lot", [bar(0, 10, { a: 10, v: 1 }), bar(60, 10)]), false);
+  assert.equal(showVolumeAndAverage("lot", [bar(0, 10, { a: Number.NaN })]), false);
+  assert.equal(showVolumeAndAverage("lot", [bar(0, 10, { a: 10, v: 1.5 })]), false);
+  assert.equal(showVolumeAndAverage("lot", [bar(0, 10, { a: 10, v: -1 })]), false);
+});
+
+test("volumeTone compares a minute's close with the minute before", () => {
+  assert.equal(volumeTone(101, 100), "up");
+  assert.equal(volumeTone(99, 100), "down");
+  assert.equal(volumeTone(100, 100), "flat");
+  assert.equal(volumeTone(100, Number.NaN), "flat");
+});
+
+test("sparklineLayout centres the previous close and maps the whole session", () => {
+  const layout = sparklineLayout({
+    bars: [bar(0, 100.5, { h: 101, l: 99 })],
+    previous: 100,
+    startT: 0,
+    endT: 5400,
+    width: 263,
+    height: 56,
+  });
+  near(layout.previousY, 28);
+  assert.equal(layout.runs.length, 1);
+  assert.equal(layout.runs[0]!.points.length, 1);
+  near(layout.last!.x, 3 + (60 / 5400) * 257);
+  assert.equal(layout.last!.above, true);
+  const end = sparklineLayout({
+    bars: [bar(5340, 100)], previous: 100, startT: 0, endT: 5400, width: 263, height: 56,
+  });
+  near(end.last!.x, 260);
+});
+
+test("sparklineLayout breaks the line at missing minutes", () => {
+  const layout = sparklineLayout({
+    bars: [bar(0, 101), bar(60, 102), bar(300, 103)],
+    previous: 100,
+    startT: 0,
+    endT: 5400,
+    width: 263,
+    height: 56,
+  });
+  assert.deepEqual(layout.runs.map((run) => run.points.length), [2, 1]);
+});
+
+test("sparklineLayout keeps finite coordinates without a previous close", () => {
+  const layout = sparklineLayout({
+    bars: [bar(0, 101), bar(60, 99)], previous: 0, startT: 0, endT: 5400, width: 263, height: 56,
+  });
+  for (const run of layout.runs)
+    for (const point of run.points) assert.ok(Number.isFinite(point.x) && Number.isFinite(point.y));
+  assert.equal(Number.isFinite(layout.previousY), false);
 });

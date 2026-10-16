@@ -18,6 +18,8 @@ export type Bar = {
   l: number;
   c: number;
   v: number;
+  /** Session average price (開盤至今成交均價) when the data source provides one; never derived here. */
+  a?: number;
 };
 
 

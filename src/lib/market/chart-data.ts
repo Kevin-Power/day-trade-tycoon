@@ -251,3 +251,137 @@ export function sessionExtremes(bars: readonly Bar[]): { high: TickPt; low: Tick
   }
   return high && low ? { high, low } : null;
 }
+
+type PriceRange = { min: number; max: number };
+const positive = (value: number) => Number.isFinite(value) && value > 0;
+
+/**
+ * Intraday (分時) price range for the trading desk: symmetric about the previous close, so the
+ * percent axis reads −x% / 0 / +x%, and never narrower than ±minFraction of that close.
+ */
+export function jiangboPriceRange(
+  previous: number,
+  high: number,
+  low: number,
+  minFraction = 0.01,
+): PriceRange {
+  const prices = [high, low].filter(positive);
+  if (!positive(previous)) {
+    if (!prices.length) return { min: 0, max: 1 };
+    const top = Math.max(...prices);
+    const bottom = Math.min(...prices);
+    const middle = (top + bottom) / 2;
+    const half = Math.max(((top - bottom) / 2) * 1.1, middle * minFraction);
+    return { min: middle - half, max: middle + half };
+  }
+  const reach = Math.max(0, ...prices.map((price) => Math.abs(price - previous)));
+  const half = Math.max(reach * 1.1, previous * minFraction);
+  return { min: previous - half, max: previous + half };
+}
+
+/**
+ * Candle price range for the trading desk: the visible high and low (and the previous close),
+ * padded by `padding` on each side, and never narrower than `minFraction` of the previous close.
+ */
+export function candlePriceRange(
+  high: number,
+  low: number,
+  previous: number,
+  minFraction = 0.015,
+  padding = 0.08,
+): PriceRange {
+  const prices = [high, low, previous].filter(positive);
+  if (!prices.length) return { min: 0, max: 1 };
+  const top = Math.max(...prices);
+  const bottom = Math.min(...prices);
+  const middle = (top + bottom) / 2;
+  const base = positive(previous) ? previous : middle;
+  const span = Math.max((top - bottom) * (1 + 2 * padding), base * minFraction);
+  return { min: middle - span / 2, max: middle + span / 2 };
+}
+
+/** Desk candle body: 70% of a minute column, 1–13 CSS px. snapColumn then fixes pixel parity. */
+export function candleBodyWidth(plotWidth: number, timeSpan: number): number {
+  const column = (plotWidth * 60) / Math.max(1, timeSpan);
+  return Math.max(1, Math.min(13, column * 0.7));
+}
+
+/** Dash lengths rounded to whole device pixels, so each dash starts and ends on a pixel edge. */
+export function deviceDashPattern(pattern: readonly number[], scale: number): number[] {
+  const usable = usableScale(scale) ? scale : 1;
+  return pattern.map((length) => Math.max(1, Math.round(length * usable)) / usable);
+}
+
+/**
+ * Volume bars and the average line need a documented unit and the source's own session average;
+ * a lesson without them (e.g. Yahoo minutes) shows neither, rather than a guess.
+ */
+export function showVolumeAndAverage(volumeUnit: string | undefined, bars: readonly Bar[]): boolean {
+  return (
+    volumeUnit === "lot" &&
+    bars.length > 0 &&
+    bars.every(
+      (bar) =>
+        typeof bar.a === "number" &&
+        Number.isFinite(bar.a) &&
+        bar.a > 0 &&
+        Number.isInteger(bar.v) &&
+        bar.v >= 0,
+    )
+  );
+}
+
+/** Colour of a volume bar: this minute's close against the minute before (or the previous close). */
+export function volumeTone(close: number, previousClose: number): "up" | "down" | "flat" {
+  if (!Number.isFinite(close) || !Number.isFinite(previousClose) || close === previousClose)
+    return "flat";
+  return close > previousClose ? "up" : "down";
+}
+
+export type SparkPoint = { x: number; y: number };
+
+/**
+ * Watchlist sparkline geometry in CSS pixels. Uses the same symmetric range as the big intraday
+ * chart and the whole lesson as its time axis, so both charts have the same shape. Closes sit at
+ * the end of their minute; a missing minute breaks the line.
+ */
+export function sparklineLayout(input: {
+  bars: readonly Bar[];
+  previous: number;
+  startT: number;
+  endT: number;
+  width: number;
+  height: number;
+  intervalSeconds?: number;
+}): {
+  previousY: number;
+  runs: { above: boolean; points: SparkPoint[] }[];
+  last: (SparkPoint & { above: boolean }) | null;
+} {
+  const interval = input.intervalSeconds ?? 60;
+  const padX = 3;
+  const padY = 4;
+  const bars = input.bars.filter((bar) => [bar.t, bar.h, bar.l, bar.c].every(Number.isFinite));
+  const range = jiangboPriceRange(
+    input.previous,
+    bars.length ? Math.max(...bars.map((bar) => bar.h)) : Number.NaN,
+    bars.length ? Math.min(...bars.map((bar) => bar.l)) : Number.NaN,
+  );
+  const span = Math.max(range.max - range.min, Number.EPSILON);
+  const plotHeight = Math.max(1, input.height - padY * 2);
+  const plotWidth = Math.max(1, input.width - padX * 2);
+  const yOf = (price: number) => padY + ((range.max - price) / span) * plotHeight;
+  const timeSpan = Math.max(interval, input.endT - input.startT);
+  const xOf = (time: number) => padX + ((time - input.startT) / timeSpan) * plotWidth;
+  const points = bars.map((bar) => ({ t: bar.t + interval, p: bar.c }));
+  const runs = splitPriceLine(points, input.previous, interval).map((run) => ({
+    above: run.above,
+    points: run.points.map((point) => ({ x: xOf(point.t), y: yOf(point.p) })),
+  }));
+  const tail = points.at(-1);
+  return {
+    previousY: positive(input.previous) ? yOf(input.previous) : Number.NaN,
+    runs,
+    last: tail ? { x: xOf(tail.t), y: yOf(tail.p), above: tail.p >= input.previous } : null,
+  };
+}
