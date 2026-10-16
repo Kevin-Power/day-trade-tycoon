@@ -19,3 +19,9 @@ tmp
 /tmp
 AGENTS.md
 attachments
+
+# Broker credentials and the Fubon handoff package stay out of Git.
+*.pfx
+*.p12
+Fubon_Codex_Handoff/
+Fubon_Codex_Handoff.zip
