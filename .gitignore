@@ -25,3 +25,6 @@ attachments
 *.p12
 Fubon_Codex_Handoff/
 Fubon_Codex_Handoff.zip
+
+# Python bytecode from tools/fubon-daily.
+__pycache__/
