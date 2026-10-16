@@ -8,6 +8,7 @@ import { createServer, createConnection } from 'node:net';
 import { resolveHostingRuntime } from './runtime-path.mjs';
 import { trackOwnedProcess, createOwnedShutdown } from './owned-process.mjs';
 import { probeHealth } from './health-check.mjs';
+import { hostedAppPaths } from './app-paths.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const workspace = resolve(here, '../..');
@@ -87,7 +88,7 @@ function appEnvironment(config) {
   for (const key of ['SystemRoot', 'WINDIR', 'PATH', 'Path', 'TEMP', 'TMP', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA', 'COMSPEC', 'PATHEXT']) {
     if (process.env[key]) inherited[key] = process.env[key];
   }
-  return { ...inherited, ...saved, NODE_ENV: 'production', HOST: '127.0.0.1', NITRO_HOST: '127.0.0.1', PORT: String(config.port), NITRO_PORT: String(config.port), PGLITE_DATA_DIR: join(runtime, 'data', 'pglite'), CLASSROOM_DOWNLOADS_DIR: resolve(dirname(config.entry), '../downloads') };
+  return { ...inherited, ...saved, NODE_ENV: 'production', HOST: '127.0.0.1', NITRO_HOST: '127.0.0.1', PORT: String(config.port), NITRO_PORT: String(config.port), ...hostedAppPaths(runtime, config.entry) };
 }
 async function health(config) {
   return (await probeHealth(config.healthUrl)).ok;
