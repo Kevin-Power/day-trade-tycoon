@@ -11,7 +11,8 @@ export async function getSessionUser(_bearerToken?: string): Promise<VerifiedUse
   const request = getRequest();
   if (!request) return null;
   const session = await auth.api.getSession({ headers: request.headers });
-  if (!session?.user) return null;
+  // Guests can only practice through /api/morning; every other server call treats them as signed out.
+  if (!session?.user || session.user.isAnonymous) return null;
   return { id: session.user.id, email: session.user.email ?? null, emailVerified: session.user.emailVerified };
 }
 export async function requireAuthenticatedUser(): Promise<VerifiedUser> {

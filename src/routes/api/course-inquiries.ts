@@ -40,7 +40,7 @@ async function handle(request: Request): Promise<Response> {
     }
     const { auth } = await import("@/lib/auth/server");
     const session = await auth.api.getSession({ headers: request.headers });
-    const viewer = session?.user ? { id: session.user.id, emailVerified: session.user.emailVerified } : null;
+    const viewer = session?.user && !session.user.isAnonymous ? { id: session.user.id, emailVerified: session.user.emailVerified } : null;
     if (!viewer) throw new CourseInquiryError(403, "目前帳號無權管理課程詢問");
     if (request.method === "GET") {
       // Preserve unexpected fields so the shared strict query schema rejects them.
