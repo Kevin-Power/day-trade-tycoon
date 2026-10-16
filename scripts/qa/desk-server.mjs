@@ -93,7 +93,11 @@ await new Promise((done, fail) => {
 });
 const stateDir = join(project, "artifacts/trading-desk-qa");
 await mkdir(stateDir, { recursive: true });
-await writeFile(join(stateDir, `server-${proxyPort}.json`), JSON.stringify({ runtime: root }));
+// The entry code of this throwaway runtime lets desk-guest.mjs walk the real gate as a new visitor.
+await writeFile(
+  join(stateDir, `server-${proxyPort}.json`),
+  JSON.stringify({ runtime: root, appBase: base, gateCode: config.gateCode }),
+);
 console.log(`QA ready: http://127.0.0.1:${proxyPort} (runtime ${root})`);
 
 let stopping = false;
