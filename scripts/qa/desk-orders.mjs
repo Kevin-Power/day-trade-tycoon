@@ -56,6 +56,16 @@ state = await until(async () => {
   const order = next.orders.at(-1);
   return order?.status === "pending" && order.entryMode === "lightning" && next;
 }, "lightning order missing");
+// The ledger starts collapsed; a pending order is flagged, and the 委託 tab opens it.
+const ledger = page.locator(".td-ledger");
+const ledgerToggle = ledger.locator(".sim-ledger-toggle");
+assert.equal(await ledgerToggle.getAttribute("aria-expanded"), "false");
+await until(
+  async () => /1 待成交/.test((await ledger.locator(".sim-pending-badge").textContent().catch(() => "")) ?? ""),
+  "pending badge missing while the ledger is collapsed",
+);
+await ledger.getByRole("button", { name: /^委託/ }).click();
+await until(async () => (await ledgerToggle.getAttribute("aria-expanded")) === "true", "ledger did not open");
 await page.getByRole("button", { name: "撤回委託" }).first().click();
 state = await until(async () => {
   const next = await api();
@@ -65,6 +75,7 @@ result.lightning = {
   side: state.orders.at(-1).side,
   status: state.orders.at(-1).status,
   entryMode: state.orders.at(-1).entryMode,
+  ledgerOpenedFromTab: true,
 };
 
 // 3. Selling a symbol without holdings is refused before submission.

@@ -29,6 +29,7 @@ import {
 import { MorningSparkline } from "@/components/morning-quotes";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useDisplayPreferences } from "@/lib/display-preferences";
+import { useLedgerPreferences } from "@/lib/ledger-preferences";
 import { useTerminalLayout, type TerminalLayout } from "@/lib/use-terminal-layout";
 import { deriveMorningAlerts } from "@/lib/morning-alerts";
 import type {
@@ -288,6 +289,12 @@ function MorningLesson({
     ? selected
     : (session?.plan.focusCode ?? catalog?.symbols[0]?.code ?? "");
   const singlePane = layout === "phone" || layout === "senior";
+  const ledgerOpen = useLedgerPreferences((value) => value.open);
+  const setLedgerOpen = useLedgerPreferences((value) => value.setOpen);
+
+  useEffect(() => {
+    useLedgerPreferences.getState().hydrate();
+  }, []);
 
   useEffect(() => {
     setAuto(false);
@@ -755,12 +762,13 @@ function MorningLesson({
                   </div>
                 )}
                 {!singlePane && session && !newPlan && (
-                  <div className="td-ledger">
+                  <div className="td-ledger" data-open={ledgerOpen}>
                     <Ledger
                       catalog={catalog}
                       session={session}
                       busy={Boolean(busy)}
                       onCancel={cancel}
+                      collapsible={{ open: ledgerOpen, onOpenChange: setLedgerOpen }}
                     />
                   </div>
                 )}

@@ -414,7 +414,7 @@
   display: grid;
   height: 100%;
   grid-template-columns: minmax(240px, 21fr) minmax(0, 55fr) minmax(300px, 24fr);
-  grid-template-rows: minmax(0, 1fr) 190px;
+  grid-template-rows: minmax(0, 1fr) auto;
   grid-template-areas:
     "watch center trade"
     "watch ledger trade";
@@ -467,6 +467,12 @@
   overflow: auto;
   background: var(--td-panel);
   border-top: 1px solid var(--td-line);
+}
+.trading-desk .td-ledger[data-open="true"] {
+  height: 190px;
+}
+.trading-desk .td-ledger[data-open="false"] {
+  overflow: hidden;
 }
 .trading-desk .td-workbench:not(:has(.td-ledger)) .td-center {
   grid-row: 1 / 3;
@@ -708,6 +714,39 @@
   color: var(--td-fg);
   font-family: var(--font-mono);
   font-weight: 600;
+}
+.trading-desk .td-ledger-meta {
+  margin-left: auto;
+}
+.trading-desk .sim-ledger-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 0 10px;
+  color: var(--td-fg);
+  background: rgb(0 0 0 / 0.25);
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.trading-desk .sim-ledger-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+.trading-desk .sim-pending-badge {
+  padding: 0 5px;
+  color: #1a1300;
+  background: var(--td-prev);
+  border-radius: 2px;
+  font: 600 11px/16px var(--font-mono);
+  font-style: normal;
+}
+/* Tablet center column (~508px) cannot fit tabs, account line and toggle on one row; the status
+   bar already shows 本輪損益 and 可用資金. */
+.trading-desk[data-layout="tablet"] .td-ledger[data-open="false"] .td-ledger-meta {
+  display: none;
 }
 .trading-desk .sim-ledger-content {
   flex: 1;

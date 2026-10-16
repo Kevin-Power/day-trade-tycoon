@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, Check, Clock3, Minus, Plus, Wallet } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Clock3,
+  Minus,
+  Plus,
+  Wallet,
+} from "lucide-react";
 import type { MorningCatalog, MorningState } from "@/lib/morning";
+import { ledgerSummary } from "@/lib/morning-ledger";
 import { formatMoney, formatTime } from "@/lib/utils";
 import { estimateRoundTripCost, formatPrice, stepTick } from "@/lib/market/ticks";
 import { validMorningLimit } from "@/lib/morning-book";
@@ -600,18 +611,23 @@ export function Ledger({
   session,
   busy,
   onCancel,
+  collapsible,
 }: {
   catalog: MorningCatalog;
   session: MorningState;
   busy: boolean;
   onCancel: (id: string) => Promise<void>;
+  /** Desktop and tablet: one summary row until the viewer opens it. */
+  collapsible?: { open: boolean; onOpenChange: (open: boolean) => void };
 }) {
   const [pane, setPane] = useState<LedgerPane>("positions");
+  const summary = ledgerSummary(session);
+  const open = collapsible?.open ?? true;
   const name = (code: string) => catalog.symbols.find((item) => item.code === code)?.name ?? code;
   const panes = [
-    { id: "positions" as const, label: "庫存", count: session.positions.length },
-    { id: "orders" as const, label: "委託", count: session.orders.length },
-    { id: "fills" as const, label: "成交", count: session.fills.length },
+    { id: "positions" as const, label: "庫存", count: summary.positions },
+    { id: "orders" as const, label: "委託", count: summary.orders },
+    { id: "fills" as const, label: "成交", count: summary.fills },
   ];
   const active = panes.find((item) => item.id === pane)!;
   return (
@@ -624,10 +640,16 @@ export function Ledger({
               key={item.id}
               aria-pressed={pane === item.id}
               aria-controls="sim-ledger-content"
-              onClick={() => setPane(item.id)}
+              onClick={() => {
+                setPane(item.id);
+                if (!open) collapsible?.onOpenChange(true);
+              }}
             >
               {item.label}
               <span>{item.count}</span>
+              {item.id === "orders" && summary.pending > 0 && (
+                <em className="sim-pending-badge">{summary.pending} 待成交</em>
+              )}
             </button>
           ))}
         </nav>
@@ -636,8 +658,25 @@ export function Ledger({
           <b>{formatMoney(session.startingCash, 0)}</b> ·{" "}
           <time>{formatTime(session.cursor * 60).slice(0, 5)}</time>
         </span>
+        {collapsible && (
+          <button
+            type="button"
+            className="sim-ledger-toggle"
+            aria-expanded={open}
+            aria-controls="sim-ledger-content"
+            onClick={() => collapsible.onOpenChange(!open)}
+          >
+            {open ? <ChevronDown aria-hidden /> : <ChevronUp aria-hidden />}
+            {open ? "收起" : "展開"}
+          </button>
+        )}
       </div>
-      <div id="sim-ledger-content" className="sim-ledger-content" aria-label={active.label}>
+      <div
+        id="sim-ledger-content"
+        className="sim-ledger-content"
+        aria-label={active.label}
+        hidden={!open}
+      >
         {active.count === 0 ? (
           <div className="sim-ledger-empty">
             <Wallet size={22} aria-hidden />

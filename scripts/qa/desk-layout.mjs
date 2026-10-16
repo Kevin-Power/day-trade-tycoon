@@ -83,6 +83,8 @@ const scan = () => {
     documentScroll: document.documentElement.scrollHeight - innerHeight,
     mainScroll: main ? main.scrollHeight - main.clientHeight : null,
     chartRatio: canvas ? Number((canvas.getBoundingClientRect().height / innerHeight).toFixed(3)) : null,
+    ledgerExpanded: document.querySelector(".td-ledger .sim-ledger-toggle")?.getAttribute("aria-expanded") ?? null,
+    ledgerHeight: Math.round(document.querySelector(".td-ledger")?.getBoundingClientRect().height ?? 0),
   };
 };
 
@@ -100,7 +102,17 @@ for (const [width, height, senior] of cases) {
   const report = await page.evaluate(scan);
   const name = `${width}x${height}${senior ? "-senior" : ""}`;
   await page.screenshot({ path: `${out}${name}.png`, fullPage: true });
-  rows.push({ name, width, height, senior, ...report });
+  let ledgerToggle = null;
+  const toggle = page.locator(".td-ledger .sim-ledger-toggle");
+  if (await toggle.count()) {
+    await toggle.click();
+    await page.waitForTimeout(200);
+    ledgerToggle = await page.evaluate(() => ({
+      expanded: document.querySelector(".td-ledger .sim-ledger-toggle")?.getAttribute("aria-expanded"),
+      height: Math.round(document.querySelector(".td-ledger")?.getBoundingClientRect().height ?? 0),
+    }));
+  }
+  rows.push({ name, width, height, senior, ...report, ledgerToggle });
   await context.close();
 }
 await browser.close();
@@ -125,6 +137,12 @@ for (const row of rows) {
     failures.push(`${row.name}: horizontal overflow or clipped text`);
   if (row.width < 768 && row.smallTargets.length)
     failures.push(`${row.name}: ${row.smallTargets.length} controls below 44px (${row.smallTargets.slice(0, 4).join(" | ")})`);
+  if (!row.senior && row.width >= 768) {
+    if (row.ledgerExpanded !== "false" || row.ledgerHeight > 40)
+      failures.push(`${row.name}: ledger not collapsed by default (${row.ledgerExpanded}, ${row.ledgerHeight}px)`);
+    if (row.ledgerToggle?.expanded !== "true" || row.ledgerToggle.height < 150)
+      failures.push(`${row.name}: ledger did not expand (${JSON.stringify(row.ledgerToggle)})`);
+  }
   if (!row.senior && row.width >= 1200 && row.height >= 800) {
     if (row.submitVisible === false) failures.push(`${row.name}: order button below the fold`);
     if (row.documentScroll > 1 || (row.mainScroll ?? 0) > 1) failures.push(`${row.name}: page scrolls`);
