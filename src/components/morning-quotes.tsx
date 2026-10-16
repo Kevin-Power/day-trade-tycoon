@@ -1,64 +1,103 @@
-import { useId, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { Bar } from "@/lib/game/types";
 import type { MorningCatalog, MorningState } from "@/lib/morning";
 import { formatPrice } from "@/lib/market/ticks";
+import { useDeviceCanvas } from "@/components/use-device-canvas";
+import {
+  deviceDashPattern,
+  hairlineDevicePixels,
+  snapEdge,
+  snapStroke,
+  sparklineLayout,
+} from "@/lib/market/chart-data";
 import { formatTime } from "@/lib/utils";
 
 /** Use only the completed bars already disclosed by the morning API. */
-export function MorningSparkline({ bars, previous }: { bars: Bar[]; previous: number }) {
-  const gradient = useId();
+export function MorningSparkline({
+  bars,
+  previous,
+  endT,
+}: {
+  bars: Bar[];
+  previous: number;
+  endT: number;
+}) {
   if (!bars.length) return <span className="td-spark td-spark-empty">等待開盤</span>;
-  const low = Math.min(previous, ...bars.map((bar) => bar.c));
-  const high = Math.max(previous, ...bars.map((bar) => bar.c));
-  const spread = high - low || previous * 0.002 || 1;
-  const start = bars[0].t;
-  const span = Math.max(60, bars.at(-1)!.t - start);
-  const x = (bar: Bar) => 3 + ((bar.t - start) / span) * 114;
-  const y = (price: number) => 7 + ((high - price) / spread) * 42;
-  const segments: Bar[][] = [];
-  for (const bar of bars) {
-    const segment = segments.at(-1);
-    if (!segment || bar.t - segment.at(-1)!.t > 60) segments.push([bar]);
-    else segment.push(bar);
-  }
-  const last = bars.at(-1)!;
-  return (
-    <svg className="td-spark" viewBox="0 0 120 58" aria-hidden="true">
-      <defs>
-        <linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity="0.22" />
-          <stop offset="100%" stopColor="currentColor" stopOpacity="0.01" />
-        </linearGradient>
-      </defs>
-      <path
-        d={`M0 ${y(previous)}H120`}
-        className="td-spark-prev"
-        strokeDasharray="2 3"
-        vectorEffect="non-scaling-stroke"
-      />
-      {segments.map((segment) => {
-        const path = segment
-          .map((bar, index) => `${index ? "L" : "M"}${x(bar)} ${y(bar.c)}`)
-          .join(" ");
-        return (
-          <g key={segment[0].t}>
-            <path
-              d={`${path} L${x(segment.at(-1)!)} 57 L${x(segment[0])} 57 Z`}
-              fill={`url(#${gradient})`}
-            />
-            <path
-              d={path}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              vectorEffect="non-scaling-stroke"
-            />
-          </g>
-        );
-      })}
-      <circle cx={x(last)} cy={y(last.c)} r="2" fill="currentColor" />
-    </svg>
+  return <SparkCanvas bars={bars} previous={previous} endT={endT} />;
+}
+
+/** A separate component so the canvas hook mounts with the canvas, not before it. */
+function SparkCanvas({ bars, previous, endT }: { bars: Bar[]; previous: number; endT: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useDeviceCanvas(ref, (ctx, width, height) =>
+    paintSparkline(ctx, width, height, { bars, previous, startT: 0, endT }),
   );
+  return <canvas ref={ref} className="td-spark" aria-hidden="true" />;
+}
+
+function paintSparkline(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  input: { bars: Bar[]; previous: number; startT: number; endT: number },
+) {
+  const style = getComputedStyle(ctx.canvas);
+  const read = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
+  const up = read("--color-up", "#ff3b3b");
+  const down = read("--color-down", "#17c964");
+  const tape = read("--color-tape", "#e8c547");
+  const transform = ctx.getTransform();
+  const sx = transform.a > 0 ? transform.a : 1;
+  const sy = transform.d > 0 ? transform.d : 1;
+  const hairline = hairlineDevicePixels(Math.min(sx, sy));
+  const layout = sparklineLayout({ ...input, width, height });
+  const base = layout.previousY;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  // Shade between the line and the previous close, like the big intraday chart.
+  if (Number.isFinite(base)) {
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    for (const run of layout.runs) {
+      if (run.points.length < 2) continue;
+      ctx.fillStyle = run.above ? up : down;
+      ctx.beginPath();
+      ctx.moveTo(run.points[0]!.x, base);
+      for (const point of run.points) ctx.lineTo(point.x, point.y);
+      ctx.lineTo(run.points.at(-1)!.x, base);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+    // The previous close: whole device pixels, so it stays crisp at every screen scale.
+    ctx.save();
+    ctx.strokeStyle = tape;
+    ctx.lineWidth = hairline / sy;
+    ctx.setLineDash(deviceDashPattern([2, 3], sx));
+    const y = snapStroke(base, sy, hairline);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(snapEdge(width, sx), y);
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.lineWidth = 1.5;
+  for (const run of layout.runs) {
+    if (run.points.length < 2) continue;
+    ctx.strokeStyle = run.above ? up : down;
+    ctx.beginPath();
+    run.points.forEach((point, index) => {
+      if (index) ctx.lineTo(point.x, point.y);
+      else ctx.moveTo(point.x, point.y);
+    });
+    ctx.stroke();
+  }
+  if (layout.last) {
+    ctx.fillStyle = layout.last.above ? up : down;
+    ctx.beginPath();
+    ctx.arc(layout.last.x, layout.last.y, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 export function MorningQuoteDetail({

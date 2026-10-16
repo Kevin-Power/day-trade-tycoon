@@ -84,6 +84,12 @@ const scan = () => {
     mainScroll: main ? main.scrollHeight - main.clientHeight : null,
     chartRatio: canvas ? Number((canvas.getBoundingClientRect().height / innerHeight).toFixed(3)) : null,
     chartHeight: canvas ? Math.round(canvas.getBoundingClientRect().height) : null,
+    sparkSize: (() => {
+      const spark = document.querySelector(".td-watch-item .td-spark");
+      if (!spark) return null;
+      const rect = spark.getBoundingClientRect();
+      return [Math.round(rect.width), Math.round(rect.height)];
+    })(),
     ledgerExpanded: document.querySelector(".td-ledger .sim-ledger-toggle")?.getAttribute("aria-expanded") ?? null,
     ledgerHeight: Math.round(document.querySelector(".td-ledger")?.getBoundingClientRect().height ?? 0),
   };
@@ -142,6 +148,8 @@ for (const row of rows) {
   const minChart = { "1366x900": 700, "1920x1080": 880 }[row.name];
   if (minChart && !(row.chartHeight >= minChart))
     failures.push(`${row.name}: chart ${row.chartHeight}px, needs ${minChart}px`);
+  if (!row.senior && row.width >= 1200 && !(row.sparkSize && row.sparkSize[0] >= 200 && row.sparkSize[1] >= 48))
+    failures.push(`${row.name}: sparkline ${JSON.stringify(row.sparkSize)}, needs 200x48`);
   if (!row.senior && row.width >= 768) {
     if (row.ledgerExpanded !== "false" || row.ledgerHeight > 40)
       failures.push(`${row.name}: ledger not collapsed by default (${row.ledgerExpanded}, ${row.ledgerHeight}px)`);

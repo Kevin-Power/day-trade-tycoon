@@ -1,10 +1,10 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { Bar, TickPt } from "@/lib/game/types";
+import { useDeviceCanvas } from "@/components/use-device-canvas";
 import {
   LABEL_PADDING,
   candleBodyWidth,
   candlePriceRange,
-  canvasResolution,
   chartLinePoints,
   chartWindow,
   completedBarsInWindow,
@@ -91,103 +91,30 @@ type Cursor = { x: number; keyboard?: boolean } | null;
 
 export function TapeChart(props: TapeChartProps) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const latest = useRef(props);
   const cursor = useRef<Cursor>(null);
-  const redraw = useRef<() => void>(() => {});
   const readoutId = useId();
   const [readout, setReadout] = useState("");
-
-  // Keep observers stable even when the simulator supplies new arrays each tick.
-  useEffect(() => {
-    latest.current = props;
-    redraw.current();
-  });
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    let frame = 0;
-    let disposed = false;
-    // Exact device pixels the browser gives this canvas, where ResizeObserver reports them.
-    let deviceBox: { width: number; height: number } | undefined;
-    const draw = () => {
-      frame = 0;
-      if (disposed) return;
-      const { width, height } = canvas.getBoundingClientRect();
-      if (width < 8 || height < 8) return;
-      // Backing pixels must match the screen's device pixels one to one: any other size is
-      // resampled by the browser, which blurs every snapped line and every glyph.
-      const size = canvasResolution(width, height, window.devicePixelRatio, deviceBox);
-      if (canvas.width !== size.width) canvas.width = size.width;
-      if (canvas.height !== size.height) canvas.height = size.height;
-      // paint() fills the whole canvas with an opaque colour, so an opaque context lets
-      // browsers use their sharper (LCD) text rendering on it.
-      const ctx = canvas.getContext("2d", { alpha: false });
-      if (!ctx) return;
-      ctx.setTransform(size.scaleX, 0, 0, size.scaleY, 0, 0);
+  // paint() fills the whole canvas with an opaque colour, so an opaque context lets browsers use
+  // their sharper (LCD) text rendering on it.
+  const redraw = useDeviceCanvas(
+    ref,
+    (ctx, width, height) => {
       const description = paint(
         ctx,
         width,
         height,
-        latest.current,
-        tokens(canvas),
-        latest.current.interactive === false ? null : cursor.current,
+        props,
+        tokens(ctx.canvas),
+        props.interactive === false ? null : cursor.current,
       );
       setReadout(description ?? "");
-    };
-    const schedule = () => {
-      if (!disposed && !frame) frame = requestAnimationFrame(draw);
-    };
-    redraw.current = schedule;
-    const resize = new ResizeObserver((entries) => {
-      const box = entries.at(-1)?.devicePixelContentBoxSize?.[0];
-      if (box) deviceBox = { width: box.inlineSize, height: box.blockSize };
-      schedule();
-    });
-    try {
-      resize.observe(canvas, { box: "device-pixel-content-box" });
-    } catch {
-      // Browsers without the device-pixel box (older Safari) round CSS size times ratio instead.
-      resize.observe(canvas);
-    }
-    const changes = new MutationObserver(schedule);
-    for (let element: HTMLElement | null = canvas; element; element = element.parentElement) {
-      changes.observe(element, {
-        attributes: true,
-        attributeFilter: ["class", "style", "data-market-theme", "data-reading-mode"],
-      });
-    }
-    const palette = window.matchMedia("(prefers-color-scheme: dark)");
-    palette.addEventListener("change", schedule);
-    let resolution: MediaQueryList | undefined;
-    const watchResolution = () => {
-      resolution?.removeEventListener("change", watchResolution);
-      resolution = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
-      resolution.addEventListener("change", watchResolution);
-      schedule();
-    };
-    watchResolution();
-    window.addEventListener("resize", schedule);
-    window.visualViewport?.addEventListener("resize", schedule);
-    document.fonts?.addEventListener("loadingdone", schedule);
-    void document.fonts?.ready.then(schedule);
-    schedule();
-    return () => {
-      disposed = true;
-      cancelAnimationFrame(frame);
-      resize.disconnect();
-      changes.disconnect();
-      palette.removeEventListener("change", schedule);
-      resolution?.removeEventListener("change", watchResolution);
-      window.removeEventListener("resize", schedule);
-      window.visualViewport?.removeEventListener("resize", schedule);
-      document.fonts?.removeEventListener("loadingdone", schedule);
-      redraw.current = () => {};
-    };
-  }, []);
+    },
+    { opaque: true },
+  );
 
   const clear = () => {
     cursor.current = null;
-    redraw.current();
+    redraw();
   };
   const interact = props.interactive !== false;
   const label =
@@ -209,7 +136,7 @@ export function TapeChart(props: TapeChartProps) {
             cursor.current = {
               x: event.clientX - event.currentTarget.getBoundingClientRect().left,
             };
-            redraw.current();
+            redraw();
           }
         }}
         onPointerMove={(event) => {
@@ -217,7 +144,7 @@ export function TapeChart(props: TapeChartProps) {
             cursor.current = {
               x: event.clientX - event.currentTarget.getBoundingClientRect().left,
             };
-            redraw.current();
+            redraw();
           }
         }}
         onPointerLeave={(event) => {
@@ -241,7 +168,7 @@ export function TapeChart(props: TapeChartProps) {
             ),
             keyboard: true,
           };
-          redraw.current();
+          redraw();
         }}
       />
       {interact && (

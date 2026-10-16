@@ -884,10 +884,10 @@
 .trading-desk .td-watch-item {
   display: grid;
   grid-template-areas:
-    "name spark"
-    "price spark"
-    "change spark";
-  grid-template-columns: minmax(0, 1fr) 92px;
+    "name price"
+    "name change"
+    "spark spark";
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   column-gap: 8px;
   width: 100%;
@@ -909,8 +909,9 @@
 .trading-desk .td-watch-name {
   grid-area: name;
   display: flex;
-  justify-content: space-between;
-  gap: 6px;
+  flex-direction: column;
+  align-self: start;
+  gap: 2px;
   min-width: 0;
   font-size: 13px;
   font-weight: 600;
@@ -921,30 +922,29 @@
 }
 .trading-desk .td-watch-price {
   grid-area: price;
+  justify-self: end;
   color: var(--td-tone);
   font: 600 24px/1.1 var(--font-mono);
 }
 .trading-desk .td-watch-change {
   grid-area: change;
+  justify-self: end;
   color: var(--td-tone);
   font: 500 12px/1.3 var(--font-mono);
   white-space: pre;
 }
 .trading-desk .td-spark {
   grid-area: spark;
-  width: 92px;
-  height: 52px;
-  color: var(--td-tone);
+  display: block;
+  width: 100%;
+  height: 56px;
+  margin-top: 6px;
 }
 .trading-desk .td-spark-empty {
   display: grid;
   place-items: center;
   color: var(--td-muted);
   font-size: 11px;
-}
-.trading-desk .td-spark-prev {
-  stroke: var(--td-prev);
-  opacity: 0.6;
 }
 .trading-desk .td-watch-foot {
   margin: 0;
@@ -1001,6 +1001,13 @@
   border-left: 0;
   border-right: var(--td-hairline) solid var(--td-line);
   border-top: 2px solid transparent;
+}
+.trading-desk .td-watchlist[data-compact="true"] .td-watch-name {
+  flex-direction: row;
+  justify-content: space-between;
+}
+.trading-desk .td-watchlist[data-compact="true"] :is(.td-watch-price, .td-watch-change) {
+  justify-self: start;
 }
 .trading-desk .td-watchlist[data-compact="true"] .td-watch-item[aria-pressed="true"] {
   border-top-color: var(--td-accent);
@@ -1823,6 +1830,9 @@
 }
 .trading-desk[data-layout="senior"] .td-watch-price {
   font-size: 28px;
+}
+.trading-desk[data-layout="senior"] .td-spark {
+  height: 64px;
 }
 .trading-desk[data-layout="senior"] :is(.td-hints, .td-quote-stats, .sim-order-facts dt, .td-book-hint, .td-book-source, .terminal-data-status, .td-chart-source, .td-level-rank) {
   font-size: 15px;

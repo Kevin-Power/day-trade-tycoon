@@ -1104,6 +1104,7 @@ function MorningWatchlist({
                 <MorningSparkline
                   bars={session?.bars[symbol.code] ?? []}
                   previous={symbol.previousClose}
+                  endT={catalog.maxCursor * 60}
                 />
               )}
             </button>

@@ -65,6 +65,8 @@ for (const ratio of [1, 1.25, 1.5, 2]) {
     },
     { b64: png.toString("base64"), ratio, palette },
   );
+  const spark = page.locator('.td-watch-item[aria-pressed="false"] canvas.td-spark').first();
+  if (await spark.count()) writeFileSync(`${out}spark-dpr${ratio}.png`, await spark.screenshot());
   rows.push({ dpr: ratio, ...stats, softPct: Number(((100 * stats.soft) / Math.max(1, stats.drawn)).toFixed(1)) });
   await browser.close();
 }
