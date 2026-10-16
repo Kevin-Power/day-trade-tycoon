@@ -31,5 +31,17 @@ test("speaking cancels what is being read first", () => {
 });
 
 test("start and finish lines are fixed", () => {
-  assert.deepEqual(SPEECH_TEXT, { start: "練習開始，現在是早上九點。", finish: "這一輪已經保存，辛苦了。" });
+  assert.equal(SPEECH_TEXT.start, "練習開始，現在是早上九點。");
+  assert.equal(SPEECH_TEXT.finish, "這一輪已經保存，辛苦了。");
+});
+
+test("a queued line does not cut off the one being read", () => {
+  const calls: string[] = [];
+  const synth = { getVoices: () => [], cancel: () => calls.push("cancel"), speak: (u: { text: string }) => calls.push(`speak:${u.text}`) };
+  speak("第二句", synth as never, (text) => ({ text }) as never, false);
+  assert.deepEqual(calls, ["speak:第二句"]);
+});
+
+test("turning read-aloud on is confirmed out loud", () => {
+  assert.equal(SPEECH_TEXT.enabled, "朗讀提示已開啟。");
 });

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { coachSteps, readCoachSeen, resetCoachSeen, writeCoachSeen } from "./coach-steps.ts";
+import { coachDialogTop, coachSteps, readCoachSeen, resetCoachSeen, writeCoachSeen } from "./coach-steps.ts";
 
 const memory = () => {
   const values = new Map<string, string>();
@@ -46,4 +46,24 @@ test("seen state survives only where storage works", () => {
   assert.equal(readCoachSeen(blocked), false);
   assert.doesNotThrow(() => writeCoachSeen(blocked));
   assert.doesNotThrow(() => resetCoachSeen(blocked));
+});
+
+test("the dialog sits where it overlaps nothing it explains, as low as possible", () => {
+  const overlaps = (top: number, height: number, rings: { top: number; height: number }[]) =>
+    rings.some((ring) => top < ring.top + ring.height && ring.top < top + height);
+  // Phone chart filling the lower part of the screen: the dialog goes above it.
+  const chart = [{ top: 386, height: 428 }];
+  const above = coachDialogTop(chart, 812, 220);
+  assert.equal(overlaps(above, 220, chart), false);
+  assert.ok(above >= 16);
+  // Targets near the top: the dialog stays at the bottom.
+  assert.equal(coachDialogTop([{ top: 180, height: 50 }, { top: 360, height: 50 }], 812, 220), 812 - 16 - 220);
+  // Large text: one target high, one low; the dialog fits in the gap between them.
+  const split = [{ top: 220, height: 60 }, { top: 600, height: 56 }];
+  const gap = coachDialogTop(split, 812, 300);
+  assert.equal(overlaps(gap, 300, split), false);
+  // Desktop ledger at the bottom edge: the dialog moves up just enough.
+  const ledger = [{ top: 860, height: 40 }];
+  assert.equal(overlaps(coachDialogTop(ledger, 900, 200), 200, ledger), false);
+  assert.equal(coachDialogTop([], 812, 220), 812 - 16 - 220);
 });

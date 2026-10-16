@@ -33,6 +33,36 @@ export function coachSteps(layout: TerminalLayout): CoachStep[] {
   ];
 }
 
+const DIALOG_MARGIN = 16;
+const POSITION_STEP = 4;
+
+/**
+ * Top of the coach dialog: the lowest position that overlaps none of the step's targets, or the
+ * one that overlaps them least, so the dialog never hides what it is explaining.
+ */
+export function coachDialogTop(
+  rings: readonly { top: number; height: number }[],
+  viewportHeight: number,
+  dialogHeight: number,
+): number {
+  const lowest = Math.max(DIALOG_MARGIN, viewportHeight - DIALOG_MARGIN - dialogHeight);
+  const overlap = (top: number) =>
+    rings.reduce(
+      (total, ring) => total + Math.max(0, Math.min(top + dialogHeight, ring.top + ring.height) - Math.max(top, ring.top)),
+      0,
+    );
+  let best = lowest;
+  let bestOverlap = overlap(lowest);
+  for (let top = lowest - POSITION_STEP; top >= DIALOG_MARGIN && bestOverlap > 0; top -= POSITION_STEP) {
+    const current = overlap(top);
+    if (current < bestOverlap) {
+      best = top;
+      bestOverlap = current;
+    }
+  }
+  return best;
+}
+
 export function readCoachSeen(storage: Pick<Storage, "getItem"> | undefined): boolean {
   return readDeviceValue(storage, COACH_KEY) === "seen";
 }

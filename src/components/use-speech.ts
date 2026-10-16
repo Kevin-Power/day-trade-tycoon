@@ -16,13 +16,18 @@ export function useSpeechSupport(): boolean {
   return useSyncExternalStore(subscribe, () => speechSupported(synth()), () => false);
 }
 
+/** Speaks right away. Call it inside a tap at least once: iPhone stays silent until then. */
+export function speakNow(text: string, interrupt = true): void {
+  speak(text, synth(), (value) => new SpeechSynthesisUtterance(value), interrupt);
+}
+
 /** Reads text aloud only when the learner turned read-aloud on and a Chinese voice exists. */
-export function useSay(): (text: string) => void {
+export function useSay(): (text: string, interrupt?: boolean) => void {
   const on = useDisplayPreferences((state) => state.speech);
   const supported = useSpeechSupport();
   return useCallback(
-    (text: string) => {
-      if (on && supported) speak(text, synth(), (value) => new SpeechSynthesisUtterance(value));
+    (text: string, interrupt = true) => {
+      if (on && supported) speakNow(text, interrupt);
     },
     [on, supported],
   );

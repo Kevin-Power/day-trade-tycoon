@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { resetCoachSeen } from "@/lib/coach-steps";
 import { browserStorage } from "@/lib/device-storage";
-import { TODAY_STEP_LABELS, todaySteps, type TodayAction } from "@/lib/today-steps";
+import { TODAY_STEP_LABELS, todayLink, todaySteps, type TodayAction } from "@/lib/today-steps";
 
 const ACTION_LABEL: Record<TodayAction, string> = {
   start: "開始今天的練習",
@@ -54,12 +54,12 @@ export function TodayCard() {
         })}
       </ol>
       {today.action === "again" && <p className="today-done">今天完成了，明天再來</p>}
-      <Link to="/morning" search={{ panel: "trade" }} className="academy-button-primary today-primary">
+      <Link to="/morning" search={todayLink(today.action)} className="academy-button-primary today-primary">
         {ACTION_LABEL[today.action]}
       </Link>
       <Link
         to="/morning"
-        search={{ panel: "trade", coach: "1" }}
+        search={{ panel: "trade", coach: "1", new: "1" }}
         onClick={() => resetCoachSeen(browserStorage())}
         className="today-coach-link"
       >

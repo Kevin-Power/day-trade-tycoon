@@ -45,6 +45,9 @@ export function PlanForm({
     }),
   );
   const [invalid, setInvalid] = useState("");
+  // With a template chosen the details stay folded, so the start button is on the first screen.
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const showDetails = detailsOpen || choice === "custom";
   const options = useRef<(HTMLButtonElement | null)[]>([]);
 
   function choose(next: Choice) {
@@ -79,6 +82,15 @@ export function PlanForm({
     setInvalid("");
     void onStart(next);
   }
+  const startBlock = (
+    <>
+      {guest && <p className="td-guest-terms text-base leading-relaxed">{GUEST_TERMS_TEXT}</p>}
+      <button type="submit" disabled={busy} className={cn(PRIMARY, "w-full")}>
+        {busy ? "正在保存…" : choice === "custom" ? "保存計畫，進入 09:00 練習" : "用這個計畫開始"}
+        <ArrowRight className="size-5 shrink-0" aria-hidden />
+      </button>
+    </>
+  );
   return (
     <section className={CARD} aria-labelledby="morning-plan-title">
       <p className="text-xs font-semibold text-brand">09:00 開始前 · 交易計畫</p>
@@ -111,96 +123,104 @@ export function PlanForm({
               </button>
             ))}
           </div>
-          <label className="block text-base font-medium">
-            先關注哪一檔
-            <select
-              value={plan.focusCode}
-              onChange={(event) => setPlan({ ...plan, focusCode: event.target.value })}
-              className={cn(INPUT, "mt-1")}
-            >
-              {catalog.symbols.map((symbol) => (
-                <option key={symbol.code} value={symbol.code}>
-                  {symbol.code} {symbol.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <fieldset className="min-w-0">
-            <legend className="mb-2 text-base font-medium">目前的觀察方向</legend>
-            <div className="grid gap-1.5">
+          {choice !== "custom" && startBlock}
+          <details
+            className="td-plan-details min-w-0"
+            open={showDetails}
+            onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
+          >
+            <summary className="flex min-h-11 cursor-pointer items-center text-base font-medium">
+              看／改計畫內容（股票、方向、條件）
+            </summary>
+            <div className="mt-2 space-y-3">
+              <label className="block text-base font-medium">
+                先關注哪一檔
+                <select
+                  value={plan.focusCode}
+                  onChange={(event) => setPlan({ ...plan, focusCode: event.target.value })}
+                  className={cn(INPUT, "mt-1")}
+                >
+                  {catalog.symbols.map((symbol) => (
+                    <option key={symbol.code} value={symbol.code}>
+                      {symbol.code} {symbol.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <fieldset className="min-w-0">
+                <legend className="mb-2 text-base font-medium">目前的觀察方向</legend>
+                <div className="grid gap-1.5">
+                  {(
+                    [
+                      { value: "observe", label: "先觀察／不確定" },
+                      { value: "bullish", label: "觀察偏多條件" },
+                      { value: "bearish", label: "觀察偏空條件" },
+                    ] as const
+                  ).map((item) => (
+                    <label
+                      key={item.value}
+                      className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
+                    >
+                      <input
+                        type="radio"
+                        name="morning-bias"
+                        value={item.value}
+                        checked={plan.bias === item.value}
+                        onChange={() => setPlan({ ...plan, bias: item.value })}
+                        className="size-5 shrink-0"
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               {(
                 [
-                  { value: "observe", label: "先觀察／不確定" },
-                  { value: "bullish", label: "觀察偏多條件" },
-                  { value: "bearish", label: "觀察偏空條件" },
+                  {
+                    key: "reason",
+                    label: "我觀察的理由",
+                    hint: "先描述背景或價格條件，不必寫成買賣答案。",
+                  },
+                  {
+                    key: "entry",
+                    label: "什麼條件出現，我才考慮操作",
+                    hint: "沒有符合條件，也可以選擇繼續等待。",
+                  },
+                  {
+                    key: "stop",
+                    label: "什麼情況代表計畫失效，需要停止或重新核對",
+                    hint: "寫下自己能核對的條件。",
+                  },
                 ] as const
-              ).map((item) => (
-                <label
-                  key={item.value}
-                  className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
-                >
-                  <input
-                    type="radio"
-                    name="morning-bias"
-                    value={item.value}
-                    checked={plan.bias === item.value}
-                    onChange={() => setPlan({ ...plan, bias: item.value })}
-                    className="size-5 shrink-0"
+              ).map((field) => (
+                <label key={field.key} className="block text-base font-medium">
+                  {field.label}
+                  <span className="mt-1 block text-xs font-normal leading-relaxed text-muted">
+                    {field.hint}
+                  </span>
+                  <textarea
+                    required
+                    maxLength={600}
+                    rows={2}
+                    value={plan[field.key]}
+                    onChange={(event) => edit(field.key, event.target.value)}
+                    className={cn(INPUT, "mt-1 resize-y font-normal")}
                   />
-                  <span>{item.label}</span>
                 </label>
               ))}
             </div>
-          </fieldset>
-          {(
-            [
-              {
-                key: "reason",
-                label: "我觀察的理由",
-                hint: "先描述背景或價格條件，不必寫成買賣答案。",
-              },
-              {
-                key: "entry",
-                label: "什麼條件出現，我才考慮操作",
-                hint: "沒有符合條件，也可以選擇繼續等待。",
-              },
-              {
-                key: "stop",
-                label: "什麼情況代表計畫失效，需要停止或重新核對",
-                hint: "寫下自己能核對的條件。",
-              },
-            ] as const
-          ).map((field) => (
-            <label key={field.key} className="block text-base font-medium">
-              {field.label}
-              <span className="mt-1 block text-xs font-normal leading-relaxed text-muted">
-                {field.hint}
-              </span>
-              <textarea
-                required
-                maxLength={600}
-                rows={2}
-                value={plan[field.key]}
-                onChange={(event) => edit(field.key, event.target.value)}
-                className={cn(INPUT, "mt-1 resize-y font-normal")}
-              />
-            </label>
-          ))}
+          </details>
         </fieldset>
         {invalid && (
           <p role="alert" className="text-base text-warn">
             {invalid}
           </p>
         )}
+        {choice === "custom" && startBlock}
         <div className="border border-border bg-bg p-2 text-xs leading-relaxed text-muted">
           本課紙上資金為新臺幣 1,000 萬元，每筆 1–3 張。價格來自歷史分鐘
           K；學員成交依教材模型估算，不是真實成交回放。
         </div>
-        {guest && <p className="td-guest-terms text-base leading-relaxed">{GUEST_TERMS_TEXT}</p>}
-        <button type="submit" disabled={busy} className={cn(PRIMARY, "w-full")}>
-          {busy ? "正在保存…" : choice === "custom" ? "保存計畫，進入 09:00 練習" : "用這個計畫開始"}
-          <ArrowRight className="size-5 shrink-0" aria-hidden />
-        </button>
         {onCancel && (
           <button
             type="button"

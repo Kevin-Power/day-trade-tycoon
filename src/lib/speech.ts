@@ -3,7 +3,11 @@ import type { MorningFill } from "./morning.ts";
 /** Optional read-aloud with the device's built-in voices. Market moves are never read out. */
 export type SpeechLike = Pick<SpeechSynthesis, "getVoices" | "cancel" | "speak">;
 
-export const SPEECH_TEXT = { start: "練習開始，現在是早上九點。", finish: "這一輪已經保存，辛苦了。" };
+export const SPEECH_TEXT = {
+  start: "練習開始，現在是早上九點。",
+  finish: "這一輪已經保存，辛苦了。",
+  enabled: "朗讀提示已開啟。",
+};
 
 const normal = (lang: string) => lang.replace("_", "-").toLowerCase();
 
@@ -23,13 +27,15 @@ export function speechSupported(synth: Pick<SpeechSynthesis, "getVoices"> | unde
   }
 }
 
+/** `interrupt: false` queues the line after the one being read instead of cutting it off. */
 export function speak(
   text: string,
   synth: SpeechLike | undefined,
   makeUtterance: (text: string) => SpeechSynthesisUtterance,
+  interrupt = true,
 ): void {
   if (!synth) return;
-  synth.cancel();
+  if (interrupt) synth.cancel();
   const utterance = makeUtterance(text);
   utterance.lang = "zh-TW";
   utterance.rate = 0.9;

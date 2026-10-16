@@ -5,7 +5,7 @@ import { getMorningExercise } from "@/lib/morning-exercises";
 export const Route = createFileRoute("/morning")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { exercise?: string; lesson?: string; panel?: "trade"; coach?: "1" } => ({
+  ): { exercise?: string; lesson?: string; panel?: "trade"; coach?: "1"; new?: "1" } => ({
     exercise:
       typeof search.exercise === "string" ? getMorningExercise(search.exercise)?.id : undefined,
     lesson:
@@ -15,6 +15,8 @@ export const Route = createFileRoute("/morning")({
     panel: search.panel === "trade" ? "trade" : undefined,
     // `coach=1` replays the first-time hints (lobby link "第一次使用？看新手教學").
     coach: search.coach === "1" || search.coach === 1 ? "1" : undefined,
+    // `new=1` (lobby 開始今天的練習／再練一輪) opens a new plan instead of the last finished round.
+    new: search.new === "1" || search.new === 1 ? "1" : undefined,
   }),
   component: MorningPage,
   head: () => ({
@@ -30,7 +32,7 @@ export const Route = createFileRoute("/morning")({
 });
 
 function MorningPage() {
-  const { exercise, lesson, panel, coach } = Route.useSearch();
+  const { exercise, lesson, panel, coach, new: fresh } = Route.useSearch();
   const navigate = Route.useNavigate();
   return (
     <MorningPractice
@@ -38,6 +40,7 @@ function MorningPage() {
       lessonId={lesson ?? ""}
       initialPane={panel}
       coach={coach === "1"}
+      fresh={fresh === "1"}
       onLessonChange={(next) => {
         void navigate({ search: (previous) => ({ ...previous, lesson: next }), replace: true });
       }}

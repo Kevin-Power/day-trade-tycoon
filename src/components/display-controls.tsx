@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useDisplayPreferences, type ReadingMode } from "@/lib/display-preferences";
-import { useSpeechSupport } from "@/components/use-speech";
+import { speakNow, useSpeechSupport } from "@/components/use-speech";
+import { SPEECH_TEXT } from "@/lib/speech";
 import { cn } from "@/lib/utils";
 
 /** Mounted once outside admission/auth so the saved reading preference applies everywhere. */
@@ -89,7 +90,11 @@ export function DisplayControls({ compact = false, className }: { compact?: bool
             role="switch"
             aria-checked={speech && supported}
             disabled={!supported}
-            onClick={() => setSpeech(!speech)}
+            onClick={() => {
+              // Speaking inside the tap also unlocks speech on iPhone for later hints.
+              if (!speech) speakNow(SPEECH_TEXT.enabled);
+              setSpeech(!speech);
+            }}
             className={cn(
               "display-speech-switch inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-semibold disabled:opacity-55",
               speech && supported ? "border-brand bg-brand text-brand-fg" : "border-border-strong bg-surface text-fg",
@@ -104,6 +109,7 @@ export function DisplayControls({ compact = false, className }: { compact?: bool
       {offer && (
         <SpeechOffer
           onAnswer={(on) => {
+            if (on) speakNow(SPEECH_TEXT.enabled);
             setSpeech(on);
             setOffer(false);
           }}

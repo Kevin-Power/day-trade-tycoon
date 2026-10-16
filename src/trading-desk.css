@@ -2113,7 +2113,7 @@
 .trading-desk .td-coach-backdrop {
   position: absolute;
   inset: 0;
-  background: rgb(0 0 0 / 0.55);
+  fill: rgb(0 0 0 / 0.55);
 }
 .trading-desk .td-coach-ring {
   position: fixed;
@@ -2192,4 +2192,12 @@
 .trading-desk .display-size-option[aria-checked="true"] {
   color: #ffffff;
   background: var(--td-accent);
+}
+
+/* Text size switch: touch-sized on tablets, large in large-text mode (the desk bar keeps 28px elsewhere) */
+.trading-desk:is([data-layout="tablet"], [data-layout="phone"]) .display-size-option {
+  min-height: 44px;
+}
+.trading-desk[data-layout="senior"] .display-size-option {
+  min-height: 56px;
 }

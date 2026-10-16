@@ -37,6 +37,7 @@ import { readCoachSeen, writeCoachSeen } from "@/lib/coach-steps";
 import { browserStorage } from "@/lib/device-storage";
 import { useSay } from "@/components/use-speech";
 import { fillAnnouncement, SPEECH_TEXT } from "@/lib/speech";
+import { openingRevealDelay } from "@/lib/opening-reveal";
 import { loginHref } from "@/lib/safe-next";
 import { useDisplayPreferences } from "@/lib/display-preferences";
 import { useLedgerPreferences } from "@/lib/ledger-preferences";
@@ -224,12 +225,14 @@ export function MorningPractice({
   lessonId,
   initialPane,
   coach = false,
+  fresh = false,
   onLessonChange,
 }: {
   exerciseId?: string;
   lessonId: string;
   initialPane?: "trade";
   coach?: boolean;
+  fresh?: boolean;
   onLessonChange: (lessonId: string) => void;
 }) {
   const { user, guest, isPending } = useCurrentUserState();
@@ -283,6 +286,7 @@ export function MorningPractice({
       key={`${user?.id ?? guest?.id ?? "none"}:${lessonId}`}
       guest={Boolean(guest)}
       coach={coach}
+      fresh={fresh}
       lessonId={lessonId}
       initialPane={initialPane}
       exerciseId={selectedExercise}
@@ -295,6 +299,7 @@ export function MorningPractice({
 function MorningLesson({
   guest,
   coach,
+  fresh,
   lessonId,
   exerciseId,
   initialPane,
@@ -303,6 +308,7 @@ function MorningLesson({
 }: {
   guest: boolean;
   coach: boolean;
+  fresh: boolean;
   lessonId: string;
   exerciseId: string;
   initialPane?: "trade";
@@ -456,13 +462,25 @@ function MorningLesson({
     writeCoachSeen(browserStorage());
   }
 
-  // First visit: no run yet, so open the plan right away (lobby tap + start tap = 09:00).
-  const noRunYet = Boolean(data && data.state === null);
+  // Decided once, on the first load: no run yet, or the lobby asked for a new round after a finished
+  // one, opens the plan right away (lobby tap + start tap = 09:00). An unfinished run is never
+  // replaced, and finishing a round later in this page keeps its completion screen.
   useEffect(() => {
-    if (!noRunYet || autoPlanned.current) return;
+    if (!data || autoPlanned.current) return;
     autoPlanned.current = true;
-    setPlanOpen(true);
-  }, [noRunYet]);
+    if (data.state === null) setPlanOpen(true);
+    else if (fresh && data.state.completed) {
+      setNewPlan(true);
+      setPlanOpen(true);
+    }
+  }, [data, fresh]);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!reviewOpen) return;
@@ -492,19 +510,21 @@ function MorningLesson({
 
   async function start(plan: MorningPlan) {
     setAuto(false);
+    // Said inside the tap: iPhone only allows speech that starts from one.
+    say(SPEECH_TEXT.start);
     const next = await request({
       action: "start",
       requestId: crypto.randomUUID(),
       plan,
       ...(guest ? { guestTerms: true as const } : {}),
     });
+    const receivedAt = Date.now();
     if (next?.state) {
       setNewPlan(false);
       setSelected(plan.focusCode);
       setPlanOpen(false);
       // Show the chart, then reveal 09:00 by itself; playing on stays the learner's choice.
       setActivePane("chart");
-      say(SPEECH_TEXT.start);
       if (!readCoachSeen(browserStorage())) coachPending.current = true;
       window.requestAnimationFrame(() => {
         practiceHeading.current?.focus({ preventScroll: true });
@@ -512,9 +532,11 @@ function MorningLesson({
       });
       if (next.state.cursor === 0) {
         const opening = next.state;
+        // Timed from the reply, never from nextAdvanceAt: a fast phone clock would be refused.
         await new Promise((resolve) =>
-          window.setTimeout(resolve, Math.max(0, opening.nextAdvanceAt - Date.now()) + 30),
+          window.setTimeout(resolve, openingRevealDelay(receivedAt, Date.now())),
         );
+        if (!mounted.current) return;
         await request({
           action: "advance",
           requestId: crypto.randomUUID(),
@@ -896,7 +918,7 @@ function MorningLesson({
                 <CoachMarks
                   layout={layout}
                   onClose={closeCoach}
-                  onStep={(step) => say(`${step.title}。${step.body}`)}
+                  onStep={(step) => say(`${step.title}。${step.body}`, step.id !== "chart")}
                 />
               )}
               {completed && session && !newPlan && guest && <GuestSaveCard />}

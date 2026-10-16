@@ -17,8 +17,10 @@ const IPHONE_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
 const cases = [
   { name: "375", width: 375, height: 812, senior: false, iphone: true },
-  { name: "320", width: 320, height: 700, senior: false, iphone: false },
+  // The phone clock runs 500 ms fast here: the 09:00 reveal must not depend on it.
+  { name: "320", width: 320, height: 700, senior: false, iphone: false, fastClock: true },
   { name: "375-large", width: 375, height: 812, senior: true, iphone: true },
+  { name: "820", width: 820, height: 1100, senior: false, iphone: false },
   { name: "1366", width: 1366, height: 900, senior: false, iphone: false },
 ];
 const NEW_CONTROLS =
@@ -62,6 +64,11 @@ for (const item of cases) {
     ...(item.iphone ? { userAgent: IPHONE_UA } : {}),
   });
   if (item.senior) await context.addInitScript(() => localStorage.setItem("day-tycoon-display-v1", "senior"));
+  if (item.fastClock)
+    await context.addInitScript(() => {
+      const realNow = Date.now.bind(Date);
+      Date.now = () => realNow() + 500;
+    });
   const page = await context.newPage();
   const fail = (message) => failures.push(`${item.name}: ${message}`);
   const check = async (screen, scope = null) => {
@@ -69,7 +76,8 @@ for (const item of cases) {
     rows.push({ case: item.name, screen, ...report });
     if (report.small.length) fail(`${screen}: ${report.small.length} texts below 11px (${report.small.slice(0, 3).join(" | ")})`);
     if (report.offscreen.length || report.overflowX > 0) fail(`${screen}: horizontal overflow (${report.offscreen.slice(0, 3).join(" | ")})`);
-    if (item.width < 768 && report.short.length) fail(`${screen}: controls below 44px (${report.short.slice(0, 4).join(" | ")})`);
+    // Phones and tablets are touch screens; the desktop desk bar keeps its compact 28px controls.
+    if (item.width < 1200 && report.short.length) fail(`${screen}: controls below 44px (${report.short.slice(0, 4).join(" | ")})`);
     if (report.shortLarge.length) fail(`${screen}: large-text primary controls below 56px (${report.shortLarge.slice(0, 4).join(" | ")})`);
     await page.screenshot({ path: `${out}${item.name}-${screen}.png` });
   };
@@ -91,8 +99,14 @@ for (const item of cases) {
     await breakout.waitFor({ timeout: 20000 });
     if ((await breakout.getAttribute("aria-checked")) !== "true") fail("突破前高 is not preselected");
     if (!(await page.getByText("按下開始，表示你了解").isVisible())) fail("guest statement not visible above start");
+    const startButton = page.getByRole("button", { name: "用這個計畫開始" });
+    if (item.width < 768) {
+      const box = await startButton.boundingBox();
+      const viewport = page.viewportSize();
+      if (!box || box.y + box.height > viewport.height) fail(`start button is not on the first screen of the plan (bottom ${box && Math.round(box.y + box.height)}px)`);
+    }
     await check("plan");
-    await page.getByRole("button", { name: "用這個計畫開始" }).click();
+    await startButton.click();
     taps++;
     const deadline = Date.now() + 15000;
     let run = null;
@@ -103,14 +117,28 @@ for (const item of cases) {
     if (!(run && run.cursor >= 1)) fail(`09:00 not revealed after start (cursor ${run?.cursor})`);
     await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 10000 });
     if (taps !== 2) fail(`taps from lobby to 09:00 = ${taps}`);
+    if (await page.getByText("請稍候一秒").count()) fail("the 09:00 reveal was refused as too early");
 
     const coach = page.getByRole("dialog");
     await coach.waitFor({ timeout: 10000 });
     if ((await page.locator("#td-coach-title").textContent()) !== "看走勢圖") fail("coach does not start at 看走勢圖");
-    await check("coach");
-    await coach.getByRole("button", { name: "下一步" }).click();
-    await coach.getByRole("button", { name: "下一步" }).click();
-    await coach.getByRole("button", { name: "完成" }).click();
+    // The dialog must never sit on top of what the step is pointing at.
+    const coversRing = () =>
+      page.evaluate(() => {
+        const dialog = document.querySelector(".td-coach-dialog")?.getBoundingClientRect();
+        return [...document.querySelectorAll(".td-coach-ring")].some((ring) => {
+          const box = ring.getBoundingClientRect();
+          const x = box.left + box.width / 2;
+          const y = box.top + box.height / 2;
+          return dialog && x >= dialog.left && x <= dialog.right && y >= dialog.top && y <= dialog.bottom;
+        });
+      });
+    for (let step = 1; step <= 3; step++) {
+      await page.waitForTimeout(400);
+      if (await coversRing()) fail(`coach step ${step} dialog covers its target`);
+      if (step === 1) await check("coach");
+      await coach.getByRole("button", { name: step === 3 ? "完成" : "下一步" }).click();
+    }
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.locator(".td-workbench").waitFor({ timeout: 15000 });
     await page.waitForTimeout(1500);
@@ -131,6 +159,11 @@ for (const item of cases) {
     await page.getByRole("link", { name: "再練一輪" }).waitFor({ timeout: 15000 });
     if (!(await page.getByText("今天完成了，明天再來").isVisible())) fail("lobby does not say today is done");
     await check("lobby-done", ".today-card, .install-card");
+    await page.getByRole("link", { name: "再練一輪" }).click();
+    await page
+      .getByRole("radio", { name: /突破前高/ })
+      .waitFor({ timeout: 15000 })
+      .catch(() => fail("再練一輪 does not open a new plan"));
   } catch (error) {
     fail(`flow stopped: ${error.message.split("\n")[0]}`);
     await page.screenshot({ path: `${out}${item.name}-stopped.png` }).catch(() => {});

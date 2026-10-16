@@ -19,3 +19,10 @@ test("the service worker registers only on the hosted HTTPS site", () => {
   assert.equal(shouldRegisterServiceWorker({ protocol: "http:", baseUrl: "/" }), false);
   assert.equal(shouldRegisterServiceWorker({ protocol: "https:", baseUrl: "./" }), false);
 });
+
+test("in-app browsers on iPhone are told to open Safari instead", () => {
+  const line = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Safari Line/14.7.0";
+  const facebook = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/470.0]";
+  assert.equal(installMode({ userAgent: line, hasPrompt: false, standalone: false }), "ios-open-safari");
+  assert.equal(installMode({ userAgent: facebook, hasPrompt: false, standalone: false }), "ios-open-safari");
+});

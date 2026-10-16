@@ -99,7 +99,7 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
           <p className="mt-2 max-w-2xl text-base leading-7 text-muted">
             {userId
               ? "這裡保留已存到主機的舊版課程復盤與講師回饋。新的真實 K 練習進度與復盤，請在真實早盤頁查看。"
-              : "真實 K 練習需登入個人帳號，進度與復盤保存在教室主機。這裡另保留舊版課程紀錄；舊訪客紀錄只在原瀏覽器，不會自動加入帳號。"}
+              : "可以先以訪客練習真實 K 線；建立個人帳號後，訪客的練習會搬進帳號，進度與復盤保存在教室主機。這裡另保留舊版課程紀錄。"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

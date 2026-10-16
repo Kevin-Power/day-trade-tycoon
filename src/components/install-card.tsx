@@ -41,6 +41,11 @@ export function InstallCard() {
             安裝
           </button>
         </>
+      ) : mode === "ios-open-safari" ? (
+        <p>
+          現在是在 LINE 或 Facebook 裡面打開，無法加到主畫面。請點畫面上的選單（⋯
+          或分享），選「用 Safari 開啟」，再照步驟加到主畫面。
+        </p>
       ) : (
         <ol>
           <li>點畫面下方的「分享」按鈕（方框加向上箭頭）</li>

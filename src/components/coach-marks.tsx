@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { coachSteps, type CoachStep } from "@/lib/coach-steps";
+import { coachDialogTop, coachSteps, type CoachStep } from "@/lib/coach-steps";
 import type { TerminalLayout } from "@/lib/use-terminal-layout";
 
 type Ring = { top: number; left: number; width: number; height: number };
@@ -19,6 +19,7 @@ export function CoachMarks({
   const [index, setIndex] = useState(0);
   const step = steps[Math.min(index, steps.length - 1)];
   const [rings, setRings] = useState<Ring[]>([]);
+  const [dialogTop, setDialogTop] = useState<number | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const dialog = useRef<HTMLDivElement>(null);
   const stepListener = useRef(onStep);
@@ -41,19 +42,21 @@ export function CoachMarks({
     let frame = 0;
     const measure = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() =>
-        setRings(
-          elements
-            .map((element) => element.getBoundingClientRect())
-            .filter((rect) => rect.width > 0 && rect.height > 0)
-            .map((rect) => ({
-              top: rect.top - RING_GAP,
-              left: rect.left - RING_GAP,
-              width: rect.width + RING_GAP * 2,
-              height: rect.height + RING_GAP * 2,
-            })),
-        ),
-      );
+      frame = requestAnimationFrame(() => {
+        const next = elements
+          .map((element) => element.getBoundingClientRect())
+          .filter((rect) => rect.width > 0 && rect.height > 0)
+          .map((rect) => ({
+            top: rect.top - RING_GAP,
+            left: rect.left - RING_GAP,
+            width: rect.width + RING_GAP * 2,
+            height: rect.height + RING_GAP * 2,
+          }));
+        setRings(next);
+        // Place the dialog where it hides none of what this step points at.
+        const height = dialog.current?.offsetHeight ?? 0;
+        setDialogTop(coachDialogTop(next, window.innerHeight, height));
+      });
     };
     measure();
     window.addEventListener("resize", measure);
@@ -87,13 +90,25 @@ export function CoachMarks({
 
   return (
     <div className="td-coach" onKeyDown={keep}>
-      <div className="td-coach-backdrop" aria-hidden />
+      {/* Dims the desk but cuts the targets out, so the learner sees exactly what is explained. */}
+      <svg className="td-coach-backdrop" aria-hidden width="100%" height="100%">
+        <defs>
+          <mask id="td-coach-cutout">
+            <rect width="100%" height="100%" fill="white" />
+            {rings.map((ring, ringIndex) => (
+              <rect key={ringIndex} x={ring.left} y={ring.top} width={ring.width} height={ring.height} rx={6} fill="black" />
+            ))}
+          </mask>
+        </defs>
+        <rect width="100%" height="100%" mask="url(#td-coach-cutout)" />
+      </svg>
       {rings.map((ring, ringIndex) => (
         <div key={ringIndex} className="td-coach-ring" aria-hidden style={ring} />
       ))}
       <div
         ref={dialog}
         className="td-coach-dialog"
+        style={dialogTop === null ? undefined : { top: dialogTop, bottom: "auto" }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="td-coach-title"
