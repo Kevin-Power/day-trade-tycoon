@@ -35,6 +35,8 @@ import { CARD, INPUT, PRIMARY, SECONDARY } from "@/components/morning-styles";
 import { CoachMarks } from "@/components/coach-marks";
 import { readCoachSeen, writeCoachSeen } from "@/lib/coach-steps";
 import { browserStorage } from "@/lib/device-storage";
+import { useSay } from "@/components/use-speech";
+import { fillAnnouncement, SPEECH_TEXT } from "@/lib/speech";
 import { loginHref } from "@/lib/safe-next";
 import { useDisplayPreferences } from "@/lib/display-preferences";
 import { useLedgerPreferences } from "@/lib/ledger-preferences";
@@ -327,6 +329,9 @@ function MorningLesson({
   const planRegion = useRef<HTMLDivElement>(null);
   const autoPlanned = useRef(false);
   const [coachOpen, setCoachOpen] = useState(false);
+  const say = useSay();
+  // Fills are read out only when they happen while watching, not when progress loads.
+  const heardFills = useRef<{ id: string; count: number } | null>(null);
   // First start on this device (or ?coach=1) shows the hints once 09:00 is on screen.
   const coachPending = useRef(coach);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -428,6 +433,16 @@ function MorningLesson({
     if (planOpen) planRegion.current?.scrollIntoView({ block: "start", behavior: "auto" });
   }, [planOpen]);
 
+  useEffect(() => {
+    const run = data?.state;
+    if (!run || !catalog) return;
+    const previous = heardFills.current;
+    heardFills.current = { id: run.id, count: run.fills.length };
+    if (!previous || previous.id !== run.id || run.fills.length <= previous.count) return;
+    const fill = run.fills[run.fills.length - 1];
+    say(fillAnnouncement(fill, catalog.symbols.find((symbol) => symbol.code === fill.code)?.name ?? fill.code));
+  }, [data?.state, catalog, say]);
+
   const activeRun = Boolean(data?.state && !data.state.completed);
   useEffect(() => {
     if (!coachPending.current || !activeRun || (data?.state?.cursor ?? 0) === 0) return;
@@ -489,6 +504,7 @@ function MorningLesson({
       setPlanOpen(false);
       // Show the chart, then reveal 09:00 by itself; playing on stays the learner's choice.
       setActivePane("chart");
+      say(SPEECH_TEXT.start);
       if (!readCoachSeen(browserStorage())) coachPending.current = true;
       window.requestAnimationFrame(() => {
         practiceHeading.current?.focus({ preventScroll: true });
@@ -556,6 +572,7 @@ function MorningLesson({
       reflection,
     });
     if (next?.state?.completed) {
+      say(SPEECH_TEXT.finish);
       setReviewOpen(false);
       setFeedback("這一輪的計畫、操作與復盤已保存。");
       window.requestAnimationFrame(() => practiceHeading.current?.focus({ preventScroll: true }));
@@ -876,7 +893,11 @@ function MorningLesson({
                 )}
               </section>
               {coachOpen && session && !completed && (
-                <CoachMarks layout={layout} onClose={closeCoach} />
+                <CoachMarks
+                  layout={layout}
+                  onClose={closeCoach}
+                  onStep={(step) => say(`${step.title}。${step.body}`)}
+                />
               )}
               {completed && session && !newPlan && guest && <GuestSaveCard />}
               {completed && session && !newPlan && (
