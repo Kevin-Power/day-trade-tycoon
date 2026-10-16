@@ -83,6 +83,7 @@ const scan = () => {
     documentScroll: document.documentElement.scrollHeight - innerHeight,
     mainScroll: main ? main.scrollHeight - main.clientHeight : null,
     chartRatio: canvas ? Number((canvas.getBoundingClientRect().height / innerHeight).toFixed(3)) : null,
+    chartHeight: canvas ? Math.round(canvas.getBoundingClientRect().height) : null,
     ledgerExpanded: document.querySelector(".td-ledger .sim-ledger-toggle")?.getAttribute("aria-expanded") ?? null,
     ledgerHeight: Math.round(document.querySelector(".td-ledger")?.getBoundingClientRect().height ?? 0),
   };
@@ -128,6 +129,7 @@ console.table(
     docScroll: row.documentScroll,
     mainScroll: row.mainScroll,
     chart: row.chartRatio,
+    chartPx: row.chartHeight,
   })),
 );
 const failures = [];
@@ -137,6 +139,9 @@ for (const row of rows) {
     failures.push(`${row.name}: horizontal overflow or clipped text`);
   if (row.width < 768 && row.smallTargets.length)
     failures.push(`${row.name}: ${row.smallTargets.length} controls below 44px (${row.smallTargets.slice(0, 4).join(" | ")})`);
+  const minChart = { "1366x900": 700, "1920x1080": 880 }[row.name];
+  if (minChart && !(row.chartHeight >= minChart))
+    failures.push(`${row.name}: chart ${row.chartHeight}px, needs ${minChart}px`);
   if (!row.senior && row.width >= 768) {
     if (row.ledgerExpanded !== "false" || row.ledgerHeight > 40)
       failures.push(`${row.name}: ledger not collapsed by default (${row.ledgerExpanded}, ${row.ledgerHeight}px)`);

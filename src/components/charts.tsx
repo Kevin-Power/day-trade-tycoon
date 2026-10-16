@@ -1,22 +1,32 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { Bar, TickPt } from "@/lib/game/types";
 import {
+  LABEL_PADDING,
+  candleBodyWidth,
+  candlePriceRange,
   canvasResolution,
   chartLinePoints,
   chartWindow,
   completedBarsInWindow,
+  deviceDashPattern,
   formatPercentChange,
   hairlineDevicePixels,
   inChartWindow,
+  jiangboPriceRange,
   minuteColumnWidth,
   nearestTimePoint,
+  resolveChartLabels,
   sessionExtremes,
   snapColumn,
   snapEdge,
   snapStroke,
   splitPriceLine,
+  terminalReadout,
   timeAxisTicks,
+  volumeTone,
+  type ChartLabel,
   type ChartRange,
+  type ReadoutTone,
 } from "@/lib/market/chart-data";
 import { formatPrice } from "@/lib/market/ticks";
 import { formatIndex } from "@/lib/market/week";
@@ -264,12 +274,12 @@ function paint(
   const cssPixels = (devicePixels: number) => devicePixels / Math.min(sx, sy);
   const hRule = (y: number, devicePixels = hairline) => snapStroke(y, sy, devicePixels);
   const vRule = (x: number, devicePixels = hairline) => snapStroke(x, sx, devicePixels);
-  // Dash lengths in whole device pixels, so each dash starts and ends on a pixel edge.
-  const dashes = (pattern: number[], scale: number) =>
-    pattern.map((length) => Math.max(1, Math.round(length * scale)) / scale);
   const isIndex = opt.variant === "index";
   const isCandles = opt.variant === "candles";
   const terminal = opt.presentation === "terminal";
+  // The trading desk's own rules (spec 2026-10-15): symmetric intraday range, padded candle range,
+  // wider candles, merged labels and a readout strip. Other screens keep the previous drawing.
+  const deskChart = terminal && !isIndex;
   const window = chartWindow({ ...opt, wave: opt.variant === "jiangbo" });
   const interval = opt.completedBarSeconds;
   const bars = (
@@ -301,7 +311,9 @@ function paint(
   const percentWidth = terminal ? ctx.measureText("+10.00%").width : 0;
   const padL = Math.ceil(axisWidth + 12);
   const padR = Math.ceil(Math.max(axisWidth, percentWidth) + 14);
-  const padT = c.fontSize;
+  // The desk draws its readout in a strip above the plot, so it never covers the line or axis text.
+  const infoH = deskChart ? c.fontSize + 10 : 0;
+  const padT = deskChart ? infoH + 6 : c.fontSize;
   const axisH = c.fontSize + 12;
   const volH = opt.showVolume ? Math.max(32, h * 0.21) : 0;
   const plotW = w - padL - padR;
@@ -316,11 +328,18 @@ function paint(
     ...(opt.variant === "jiangbo" && !opt.range ? [opt.high, opt.low] : []),
     ...bars.flatMap((bar) => [bar.h, bar.l]),
     ...points.map((point) => point.p),
+    ...(deskChart && opt.showAverage ? bars.map((bar) => bar.a) : []),
   ].filter((price): price is number => price !== undefined && Number.isFinite(price) && price > 0);
   const high = Math.max(...values);
   const low = Math.min(...values);
-  const span = Math.max((high - low) * 1.16, Math.abs(opt.prev) * 0.003, isIndex ? 40 : 0.05);
-  const max = (high + low + span) / 2;
+  const legacySpan = Math.max((high - low) * 1.16, Math.abs(opt.prev) * 0.003, isIndex ? 40 : 0.05);
+  const range = deskChart
+    ? isCandles
+      ? candlePriceRange(high, low, opt.prev)
+      : jiangboPriceRange(opt.prev, high, low)
+    : { min: (high + low - legacySpan) / 2, max: (high + low + legacySpan) / 2 };
+  const max = range.max;
+  const span = range.max - range.min;
   const yOf = (price: number) => padT + ((max - price) / span) * plotH;
   const timeSpan = Math.max(window.end - window.start, 1);
   const xOf = (time: number) => padL + ((time - window.start) / timeSpan) * plotW;
@@ -336,7 +355,9 @@ function paint(
   const gridRight = snapEdge(w - padR, sx);
   const gridTop = snapEdge(padT, sy);
   const gridBottom = snapEdge(h - axisH, sy);
-  const rows = Math.max(2, Math.min(5, Math.floor(plotH / (c.fontSize * 2.6))));
+  const fittedRows = Math.max(2, Math.min(5, Math.floor(plotH / (c.fontSize * 2.6))));
+  // An even count puts the previous close (0.00%) on the middle grid line of the intraday chart.
+  const rows = deskChart && !isCandles ? Math.max(2, fittedRows - (fittedRows % 2)) : fittedRows;
   for (let i = 0; i <= rows; i++) {
     const price = max - (span * i) / rows;
     const y = yOf(price);
@@ -375,7 +396,7 @@ function paint(
     ctx.save();
     ctx.strokeStyle = color;
     ctx.lineWidth = cssPixels(hairline);
-    ctx.setLineDash(dashes(dash, sx));
+    ctx.setLineDash(deviceDashPattern(dash, sx));
     ctx.beginPath();
     ctx.moveTo(gridLeft, hRule(yOf(price)));
     ctx.lineTo(gridRight, hRule(yOf(price)));
@@ -385,12 +406,33 @@ function paint(
   reference(opt.prev, c.tape, [4, 4]);
   if (terminal) reference(current, current >= opt.prev ? c.up : c.down, [2, 5]);
   let vwapNow = current;
+  let averageNow: number | undefined;
   if (!isIndex) {
     reference(opt.open, c.muted, [2, 4]);
     reference(opt.cost, c.warn, [6, 3]);
     reference(opt.poc, c.vol, [1, 4]);
   }
-  if (!isIndex && opt.showAverage !== false) {
+  if (deskChart) {
+    // The desk draws only the source's own session average (bar.a); it never derives one.
+    if (opt.showAverage) {
+      ctx.save();
+      ctx.strokeStyle = c.vwap;
+      ctx.lineWidth = cssPixels(hairline);
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      let begun = false;
+      for (const bar of bars) {
+        if (typeof bar.a !== "number" || !Number.isFinite(bar.a)) continue;
+        const x = xOf(isCandles ? candleTime(bar) : bar.t + (interval ?? 0));
+        if (begun) ctx.lineTo(x, yOf(bar.a));
+        else ctx.moveTo(x, yOf(bar.a));
+        begun = true;
+        averageNow = bar.a;
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+  } else if (!isIndex && opt.showAverage !== false) {
     // Accumulate existing session bars before the window to retain the same VWAP definition.
     let weighted = 0;
     let volume = 0;
@@ -414,7 +456,7 @@ function paint(
     ctx.stroke();
   }
   ctx.save();
-  ctx.setLineDash(dashes([2, 4], sy));
+  ctx.setLineDash(deviceDashPattern([2, 4], sy));
   ctx.strokeStyle = c.grid;
   ctx.lineWidth = cssPixels(hairline);
   for (const time of opt.newsAt ?? []) {
@@ -426,7 +468,9 @@ function paint(
     ctx.stroke();
   }
   ctx.restore();
-  const barWidth = Math.min(minuteColumnWidth(plotW, timeSpan), terminal ? 7 : Infinity);
+  const barWidth = deskChart
+    ? candleBodyWidth(plotW, timeSpan)
+    : Math.min(minuteColumnWidth(plotW, timeSpan), terminal ? 7 : Infinity);
   if (isCandles) {
     // Wicks and bodies are filled rectangles on whole device pixels, so every candle has the
     // same crisp edges and no neighbour looks thicker than the next.
@@ -503,35 +547,6 @@ function paint(
     ctx.closePath();
     ctx.fill();
   }
-  if (terminal && !isIndex) {
-    const extremes = sessionExtremes(bars);
-    if (extremes && extremes.high.p > extremes.low.p) {
-      ctx.save();
-      ctx.font = font;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      const tag = (point: TickPt, text: string, color: string, above: boolean) => {
-        const x = xOf(point.t + (interval ? interval / 2 : 0));
-        const raw = yOf(point.p) + (above ? -1 : 1) * (c.fontSize * 0.9);
-        const y = Math.min(plotBottom - c.fontSize / 2 - 2, Math.max(padT + c.fontSize / 2 + 2, raw));
-        const width = ctx.measureText(text).width + 8;
-        // Keep clear of the one-character 昨/開 marks drawn at the left edge of the plot.
-        const left = Math.min(w - padR - width, Math.max(padL + c.fontSize + 8, x - width / 2));
-        ctx.fillStyle = c.bg;
-        ctx.fillRect(
-          snapEdge(left, sx),
-          snapEdge(y - c.fontSize / 2 - 2, sy),
-          snapEdge(width, sx),
-          snapEdge(c.fontSize + 4, sy),
-        );
-        ctx.fillStyle = color;
-        ctx.fillText(text, snapEdge(left + width / 2, sx), snapEdge(y, sy));
-      };
-      tag(extremes.high, `高 ${label(extremes.high.p)}`, c.up, true);
-      tag(extremes.low, `低 ${label(extremes.low.p)}`, c.down, false);
-      ctx.restore();
-    }
-  }
   // These are minute-high intervals; the exact trade second is not in a Bar.
   for (const [index, highPoint] of (opt.swingHighs ?? []).entries()) {
     if (
@@ -541,28 +556,18 @@ function paint(
     )
       continue;
     if (terminal) {
-      // Desk style: a dashed level from the confirmed high to the right edge, labelled "前高".
+      // Desk style: a dashed level from the confirmed high to the right edge; its "前高" label is
+      // placed with the other in-plot labels below.
       const y = hRule(yOf(highPoint.p));
       ctx.save();
       ctx.strokeStyle = c.warn;
       ctx.lineWidth = cssPixels(hairline);
-      ctx.setLineDash(dashes([5, 4], sx));
+      ctx.setLineDash(deviceDashPattern([5, 4], sx));
       ctx.beginPath();
       // Start on a pixel edge so every dash begins and ends on whole device pixels.
       ctx.moveTo(snapEdge(xOf(highPoint.t + (interval ? interval / 2 : 0)), sx), y);
       ctx.lineTo(gridRight, y);
       ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = c.warn;
-      ctx.textAlign = "right";
-      // Near the top edge there is no room above the line, so the label goes below it.
-      const above = y - padT >= c.fontSize + 4;
-      ctx.textBaseline = above ? "bottom" : "top";
-      ctx.fillText(
-        `前高 ${label(highPoint.p)}`,
-        snapEdge(w - padR - 4, sx),
-        snapEdge(above ? y - 2 : y + 2, sy),
-      );
       ctx.restore();
       continue;
     }
@@ -604,6 +609,58 @@ function paint(
     ctx.restore();
   }
   ctx.restore();
+  if (deskChart) {
+    // Every in-plot label is placed together, so no two overlap (昨・開・低 2575 when they meet).
+    const lineHeight = c.fontSize + 4;
+    const labels: ChartLabel[] = [
+      { key: "prev", text: "昨", price: opt.prev, priceText: label(opt.prev), color: c.tape, x: padL + 4, anchor: "start", y: yOf(opt.prev) },
+    ];
+    if (opt.open)
+      labels.push({ key: "open", text: "開", price: opt.open, priceText: label(opt.open), color: c.muted, x: padL + 4, anchor: "start", y: yOf(opt.open) });
+    if (averageNow !== undefined)
+      labels.push({ key: "average", text: "均", price: averageNow, priceText: averageNow.toFixed(2), color: c.vwap, x: padL + 4, anchor: "start", y: yOf(averageNow) });
+    const extremes = sessionExtremes(bars);
+    if (extremes && extremes.high.p > extremes.low.p) {
+      const at = (point: TickPt) => xOf(point.t + (interval ? interval / 2 : 0));
+      labels.push(
+        { key: "high", text: "高", price: extremes.high.p, priceText: label(extremes.high.p), color: c.up, x: at(extremes.high), anchor: "center", y: yOf(extremes.high.p) - lineHeight },
+        { key: "low", text: "低", price: extremes.low.p, priceText: label(extremes.low.p), color: c.down, x: at(extremes.low), anchor: "center", y: yOf(extremes.low.p) + lineHeight },
+      );
+    }
+    (opt.swingHighs ?? [])
+      .filter((point) => point.confirmedAt <= window.dataEnd && point.t >= window.start && point.t <= window.dataEnd)
+      .forEach((point, index) => {
+        const y = yOf(point.p);
+        const above = y - padT >= lineHeight;
+        labels.push({ key: `swing-${index}`, text: "前高", price: point.p, priceText: label(point.p), color: c.warn, x: w - padR - 4, anchor: "end", y: above ? y - lineHeight / 2 - 1 : y + lineHeight / 2 + 1 });
+      });
+    ctx.save();
+    ctx.font = font;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    const placed = resolveChartLabels(
+      labels,
+      { left: padL + 2, right: w - padR - 2, top: padT, bottom: plotBottom },
+      (text) => ctx.measureText(text).width,
+      lineHeight,
+    );
+    for (const item of placed) {
+      const left = snapEdge(item.left, sx);
+      const top = snapEdge(item.y - lineHeight / 2, sy);
+      ctx.fillStyle = c.bg;
+      ctx.fillRect(left, top, snapEdge(item.left + item.width, sx) - left, snapEdge(item.y + lineHeight / 2, sy) - top);
+      let x = item.left + LABEL_PADDING;
+      item.parts.forEach((part, index) => {
+        const text = index ? `・${part.text}` : part.text;
+        ctx.fillStyle = part.color;
+        ctx.fillText(text, snapEdge(x, sx), snapEdge(item.y, sy));
+        x += ctx.measureText(text).width;
+      });
+      ctx.fillStyle = item.parts[0]!.color;
+      ctx.fillText(` ${item.priceText}`, snapEdge(x, sx), snapEdge(item.y, sy));
+    }
+    ctx.restore();
+  }
 
   if (opt.showVolume) {
     const maxVolume = Math.max(1, ...bars.map((bar) => bar.v));
@@ -612,19 +669,33 @@ function paint(
     ctx.beginPath();
     ctx.rect(padL, plotBottom + 4, plotW, volH - 4);
     ctx.clip();
+    const closeBefore = new Map<number, number>();
+    opt.bars.forEach((bar, index) => closeBefore.set(bar.t, index ? opt.bars[index - 1]!.c : opt.prev));
     for (const bar of bars) {
       const height = (Math.max(0, bar.v) / maxVolume) * (volH - 8);
-      ctx.fillStyle = isIndex
-        ? c.vol
-        : (isCandles ? bar.c >= bar.o : bar.c >= opt.prev)
-          ? c.up
-          : c.down;
+      if (deskChart) {
+        const tone = volumeTone(bar.c, closeBefore.get(bar.t) ?? opt.prev);
+        ctx.fillStyle = tone === "up" ? c.up : tone === "down" ? c.down : c.muted;
+      } else
+        ctx.fillStyle = isIndex
+          ? c.vol
+          : (isCandles ? bar.c >= bar.o : bar.c >= opt.prev)
+            ? c.up
+            : c.down;
       ctx.globalAlpha = 0.8;
       const column = snapColumn(xOf(candleTime(bar)), barWidth, sx, hairline);
       const top = snapEdge(base - height, sy);
       ctx.fillRect(column.left, top, column.width, Math.max(0, snapEdge(base, sy) - top));
     }
     ctx.restore();
+    if (deskChart) {
+      ctx.strokeStyle = c.grid;
+      ctx.lineWidth = cssPixels(gridPixels);
+      ctx.beginPath();
+      ctx.moveTo(gridLeft, hRule(plotBottom + 2, gridPixels));
+      ctx.lineTo(gridRight, hRule(plotBottom + 2, gridPixels));
+      ctx.stroke();
+    }
   }
   ctx.font = font;
   ctx.textBaseline = "middle";
@@ -642,32 +713,34 @@ function paint(
   );
   ctx.fillStyle = c.bg;
   ctx.fillText(label(current), snapEdge(w - padR / 2 + 1, sx), snapEdge(tagY, sy));
-  const marks = [{ text: "昨", price: opt.prev, color: c.tape }];
-  if (!isIndex) {
-    if (opt.open) marks.push({ text: "開", price: opt.open, color: c.muted });
-    if (bars.length && opt.showAverage !== false)
-      marks.push({ text: "均", price: vwapNow, color: c.vwap });
-    if (opt.cost) marks.push({ text: "成", price: opt.cost, color: c.warn });
-    if (opt.poc) marks.push({ text: "堆", price: opt.poc, color: c.vol });
-    if (opt.variant === "jiangbo" && !opt.range && opt.high > opt.low) {
-      marks.push(
-        { text: "壓", price: opt.high, color: c.up },
-        { text: "撐", price: opt.low, color: c.down },
-      );
+  if (!deskChart) {
+    const marks = [{ text: "昨", price: opt.prev, color: c.tape }];
+    if (!isIndex) {
+      if (opt.open) marks.push({ text: "開", price: opt.open, color: c.muted });
+      if (bars.length && opt.showAverage !== false)
+        marks.push({ text: "均", price: vwapNow, color: c.vwap });
+      if (opt.cost) marks.push({ text: "成", price: opt.cost, color: c.warn });
+      if (opt.poc) marks.push({ text: "堆", price: opt.poc, color: c.vol });
+      if (opt.variant === "jiangbo" && !opt.range && opt.high > opt.low) {
+        marks.push(
+          { text: "壓", price: opt.high, color: c.up },
+          { text: "撐", price: opt.low, color: c.down },
+        );
+      }
     }
-  }
-  const visibleMarks = marks
-    .map((mark) => ({ ...mark, y: yOf(mark.price) }))
-    .sort((a, b) => a.y - b.y);
-  const markGap = c.fontSize + 3;
-  let lastMarkY = padT - markGap / 2;
-  ctx.textAlign = "left";
-  for (const mark of visibleMarks) {
-    const y = Math.max(lastMarkY + markGap, mark.y - c.fontSize / 2);
-    if (y > plotBottom - c.fontSize / 2) continue;
-    ctx.fillStyle = mark.color;
-    ctx.fillText(mark.text, snapEdge(padL + 4, sx), snapEdge(y, sy));
-    lastMarkY = y;
+    const visibleMarks = marks
+      .map((mark) => ({ ...mark, y: yOf(mark.price) }))
+      .sort((a, b) => a.y - b.y);
+    const markGap = c.fontSize + 3;
+    let lastMarkY = padT - markGap / 2;
+    ctx.textAlign = "left";
+    for (const mark of visibleMarks) {
+      const y = Math.max(lastMarkY + markGap, mark.y - c.fontSize / 2);
+      if (y > plotBottom - c.fontSize / 2) continue;
+      ctx.fillStyle = mark.color;
+      ctx.fillText(mark.text, snapEdge(padL + 4, sx), snapEdge(y, sy));
+      lastMarkY = y;
+    }
   }
   if (!points.length && !bars.length) {
     ctx.fillStyle = c.muted;
@@ -675,82 +748,120 @@ function paint(
     ctx.fillText("此區間尚無資料", padL + plotW / 2, padT + plotH / 2);
   }
 
+  let focus: Bar | undefined;
   if (cursor && (cursor.keyboard || (cursor.x >= padL && cursor.x <= w - padR))) {
     const time = window.start + Math.min(1, Math.max(0, (cursor.x - padL) / plotW)) * timeSpan;
     const point = isCandles
       ? nearestTimePoint(bars, time - (interval ? interval / 2 : 0))
       : nearestTimePoint(points, time);
-    if (!point) return;
-    const candle = "c" in point ? point : undefined;
-    const price = candle ? candle.c : (point as TickPt).p;
-    const x = xOf(candle ? candleTime(candle) : point.t);
-    const y = yOf(price);
-    ctx.save();
-    ctx.strokeStyle = c.fg;
-    ctx.lineWidth = cssPixels(hairline);
-    ctx.setLineDash(dashes([3, 3], Math.min(sx, sy)));
-    ctx.beginPath();
-    ctx.moveTo(vRule(x), gridTop);
-    ctx.lineTo(vRule(x), gridBottom);
-    ctx.moveTo(gridLeft, hRule(y));
-    ctx.lineTo(gridRight, hRule(y));
-    ctx.stroke();
-    ctx.restore();
-    const intervalLabel = interval
-      ? `${formatTime(candle ? point.t : point.t - interval).slice(0, 5)}–${formatTime(candle ? point.t + interval : point.t).slice(0, 5)}`
-      : undefined;
-    const fields = candle
-      ? [
-          intervalLabel ?? formatTime(point.t).slice(0, 5),
-          `開 ${label(candle.o)}`,
-          `高 ${label(candle.h)}`,
-          `低 ${label(candle.l)}`,
-          `收 ${label(candle.c)}`,
-          ...(opt.showVolumeReadout !== false ? [`量 ${candle.v} 張`] : []),
-        ]
-      : [intervalLabel ?? formatTime(point.t), `${interval ? "收價" : "價格"} ${label(price)}`];
-    ctx.font = font;
-    const lines: string[] = [];
-    let line = "";
-    for (const field of fields) {
-      const next = line ? `${line}  ${field}` : field;
-      if (line && ctx.measureText(next).width > w - 32) {
-        lines.push(line);
-        line = field;
-      } else line = next;
+    if (point) {
+      const candle = "c" in point ? point : undefined;
+      const price = candle ? candle.c : (point as TickPt).p;
+      const x = xOf(candle ? candleTime(candle) : point.t);
+      const y = yOf(price);
+      ctx.save();
+      ctx.strokeStyle = c.fg;
+      ctx.lineWidth = cssPixels(hairline);
+      ctx.setLineDash(deviceDashPattern([3, 3], Math.min(sx, sy)));
+      ctx.beginPath();
+      ctx.moveTo(vRule(x), gridTop);
+      ctx.lineTo(vRule(x), gridBottom);
+      ctx.moveTo(gridLeft, hRule(y));
+      ctx.lineTo(gridRight, hRule(y));
+      ctx.stroke();
+      ctx.restore();
+      if (deskChart) {
+        focus = candle ?? bars.find((bar) => bar.t + (interval ?? 0) === point.t);
+      } else {
+        const intervalLabel = interval
+          ? `${formatTime(candle ? point.t : point.t - interval).slice(0, 5)}–${formatTime(candle ? point.t + interval : point.t).slice(0, 5)}`
+          : undefined;
+        const fields = candle
+          ? [
+              intervalLabel ?? formatTime(point.t).slice(0, 5),
+              `開 ${label(candle.o)}`,
+              `高 ${label(candle.h)}`,
+              `低 ${label(candle.l)}`,
+              `收 ${label(candle.c)}`,
+              ...(opt.showVolumeReadout !== false ? [`量 ${candle.v} 張`] : []),
+            ]
+          : [intervalLabel ?? formatTime(point.t), `${interval ? "收價" : "價格"} ${label(price)}`];
+        ctx.font = font;
+        const lines: string[] = [];
+        let line = "";
+        for (const field of fields) {
+          const next = line ? `${line}  ${field}` : field;
+          if (line && ctx.measureText(next).width > w - 32) {
+            lines.push(line);
+            line = field;
+          } else line = next;
+        }
+        if (line) lines.push(line);
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        const boxWidth = Math.min(
+          w - 16,
+          Math.max(...lines.map((line) => ctx.measureText(line).width)) + 16,
+        );
+        const boxHeight = lines.length * (c.fontSize + 7) + 9;
+        const boxX = Math.max(8, Math.min(w - boxWidth - 8, x - boxWidth / 2));
+        const boxLeft = vRule(boxX);
+        const boxTop = hRule(3);
+        const boxRect = [
+          boxLeft,
+          boxTop,
+          vRule(boxX + boxWidth) - boxLeft,
+          hRule(3 + boxHeight) - boxTop,
+        ] as const;
+        ctx.fillStyle = c.bg;
+        ctx.fillRect(...boxRect);
+        ctx.strokeStyle = c.grid;
+        ctx.lineWidth = cssPixels(hairline);
+        ctx.strokeRect(...boxRect);
+        ctx.fillStyle = c.fg;
+        lines.forEach((line, i) =>
+          ctx.fillText(
+            line,
+            snapEdge(boxX + 8, sx),
+            snapEdge(8 + i * (c.fontSize + 7), sy),
+            boxWidth - 16,
+          ),
+        );
+        return fields.join("，");
+      }
     }
-    if (line) lines.push(line);
+  }
+  if (deskChart) {
+    const bar = focus ?? bars.at(-1);
+    if (!bar) return "";
+    const fields = terminalReadout({
+      bar,
+      previousClose: opt.prev,
+      candles: isCandles,
+      intervalSeconds: interval ?? 60,
+      withVolume: opt.showVolume === true && opt.showVolumeReadout !== false,
+    });
+    const tones: Record<ReadoutTone, string> = {
+      muted: c.muted,
+      fg: c.fg,
+      up: c.up,
+      down: c.down,
+      average: c.vwap,
+    };
+    ctx.save();
+    ctx.font = font;
     ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    const boxWidth = Math.min(
-      w - 16,
-      Math.max(...lines.map((line) => ctx.measureText(line).width)) + 16,
-    );
-    const boxHeight = lines.length * (c.fontSize + 7) + 9;
-    const boxX = Math.max(8, Math.min(w - boxWidth - 8, x - boxWidth / 2));
-    const boxLeft = vRule(boxX);
-    const boxTop = hRule(3);
-    const boxRect = [
-      boxLeft,
-      boxTop,
-      vRule(boxX + boxWidth) - boxLeft,
-      hRule(3 + boxHeight) - boxTop,
-    ] as const;
-    ctx.fillStyle = c.bg;
-    ctx.fillRect(...boxRect);
-    ctx.strokeStyle = c.grid;
-    ctx.lineWidth = cssPixels(hairline);
-    ctx.strokeRect(...boxRect);
-    ctx.fillStyle = c.fg;
-    lines.forEach((line, i) =>
-      ctx.fillText(
-        line,
-        snapEdge(boxX + 8, sx),
-        snapEdge(8 + i * (c.fontSize + 7), sy),
-        boxWidth - 16,
-      ),
-    );
-    return fields.join("，");
+    ctx.textBaseline = "middle";
+    let x = padL;
+    for (const field of fields) {
+      if (x + ctx.measureText(field.text).width > w - 4) break;
+      ctx.fillStyle = tones[field.tone];
+      ctx.fillText(field.text, snapEdge(x, sx), snapEdge(infoH / 2 + 1, sy));
+      x += ctx.measureText(field.text).width + 14;
+    }
+    ctx.restore();
+    // Announce only what the viewer pointed at; the latest minute is already in the chart label.
+    return focus ? fields.map((field) => field.text).join("，") : "";
   }
   return "";
 }

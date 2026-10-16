@@ -35,7 +35,7 @@
   --color-down: var(--td-down);
   --color-tape: var(--td-prev);
   --color-warn: #e7b549;
-  --color-vwap: #9eb6d4;
+  --color-vwap: #f0a73a;
   --color-vol: #8a9bb6;
 
   display: flex;
@@ -596,13 +596,27 @@
 .trading-desk .td-quote-price span {
   font-size: 13px;
 }
+.trading-desk .td-quote-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 18px;
+  padding: 5px 12px;
+  border-bottom: var(--td-hairline) solid var(--td-line);
+  font-size: 12px;
+}
 .trading-desk .td-quote-stats {
   display: flex;
   gap: 18px;
   margin: 0;
-  padding: 5px 12px;
-  border-bottom: var(--td-hairline) solid var(--td-line);
-  font-size: 12px;
+}
+.trading-desk .td-chart-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 0 auto;
+  color: var(--td-muted);
+  font-size: 11px;
 }
 .trading-desk .td-quote-stats div {
   display: flex;
@@ -621,28 +635,6 @@
   flex: 1;
   flex-direction: column;
   min-height: 0;
-}
-.trading-desk .td-chart-legend {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-  padding: 5px 12px;
-  color: var(--td-muted);
-  font-size: 11px;
-}
-.trading-desk .td-chart-legend > span[aria-label] {
-  display: inline-flex;
-  gap: 10px;
-}
-.trading-desk .td-chart-legend :is(time, strong) {
-  margin-left: 3px;
-  color: var(--td-fg);
-  font-family: var(--font-mono);
-  font-weight: 500;
-}
-.trading-desk .td-chart-date {
-  margin-left: auto;
 }
 .trading-desk .td-chart-canvas {
   position: relative;
@@ -1832,7 +1824,7 @@
 .trading-desk[data-layout="senior"] .td-watch-price {
   font-size: 28px;
 }
-.trading-desk[data-layout="senior"] :is(.td-hints, .td-quote-stats, .sim-order-facts dt, .td-book-hint, .td-book-source, .terminal-data-status, .td-chart-legend, .td-level-rank) {
+.trading-desk[data-layout="senior"] :is(.td-hints, .td-quote-stats, .sim-order-facts dt, .td-book-hint, .td-book-source, .terminal-data-status, .td-chart-source, .td-level-rank) {
   font-size: 15px;
 }
 .trading-desk[data-layout="senior"] .td-account dd {

@@ -41,7 +41,7 @@ import type {
 } from "@/lib/morning";
 import { cn, formatTime } from "@/lib/utils";
 import { formatPrice } from "@/lib/market/ticks";
-import { candleWindow, formatPercentChange } from "@/lib/market/chart-data";
+import { candleWindow, formatPercentChange, showVolumeAndAverage } from "@/lib/market/chart-data";
 import { deriveSwingHighs } from "@/lib/market/swing-highs";
 import {
   MORNING_EXERCISES,
@@ -686,6 +686,7 @@ function MorningLesson({
                       onSelect={setSelected}
                       titleRef={practiceHeading}
                       nav={singlePane ? undefined : paneNav}
+                      source={activePane === "quote" ? "分時・分鐘收價" : "真實 1 分 K"}
                     />
                   )}
                   {singlePane && paneNav}
@@ -929,6 +930,7 @@ function MorningQuote({
   onSelect,
   titleRef,
   nav,
+  source,
 }: {
   catalog: MorningCatalog;
   session: MorningState | null;
@@ -936,6 +938,8 @@ function MorningQuote({
   onSelect: (code: string) => void;
   titleRef: RefObject<HTMLHeadingElement | null>;
   nav?: ReactNode;
+  /** Data label for the active chart, e.g. 分時・分鐘收價 or 真實 1 分 K. */
+  source: string;
 }) {
   const symbol = catalog.symbols.find((item) => item.code === code) ?? catalog.symbols[0];
   if (!symbol) return null;
@@ -992,19 +996,25 @@ function MorningQuote({
           )}
         </p>
       </header>
-      <dl className="td-quote-stats" aria-label="已揭露行情摘要">
-        {[
-          ["昨收", symbol.previousClose],
-          ["開盤", revealed[0]?.o],
-          ["最高", revealed.length ? Math.max(...revealed.map((bar) => bar.h)) : undefined],
-          ["最低", revealed.length ? Math.min(...revealed.map((bar) => bar.l)) : undefined],
-        ].map(([label, value]) => (
-          <div key={label}>
-            <dt>{label}</dt>
-            <dd>{typeof value === "number" ? formatPrice(value) : "—"}</dd>
-          </div>
-        ))}
-      </dl>
+      <div className="td-quote-info">
+        <dl className="td-quote-stats" aria-label="已揭露行情摘要">
+          {[
+            ["昨收", symbol.previousClose],
+            ["開盤", revealed[0]?.o],
+            ["最高", revealed.length ? Math.max(...revealed.map((bar) => bar.h)) : undefined],
+            ["最低", revealed.length ? Math.min(...revealed.map((bar) => bar.l)) : undefined],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{typeof value === "number" ? formatPrice(value) : "—"}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="td-chart-source">
+          <span className="td-chip">{source}</span>
+          <span>{catalog.date} 台北時間</span>
+        </p>
+      </div>
     </>
   );
 }
@@ -1370,30 +1380,9 @@ function MorningChart({
   const fills = (session?.fills ?? [])
     .filter((fill) => fill.code === symbol.code)
     .map((fill) => ({ t: fill.t, p: fill.price, side: fill.side }));
+  const sourceBacked = showVolumeAndAverage(catalog.volumeUnit, bars);
   return (
     <section className="td-chart" aria-label={symbol.name + "歷史分鐘行情"}>
-      <div className="td-chart-legend">
-        <span className="td-chip">{candles ? "真實 1 分 K" : "分時・分鐘收價"}</span>
-        {last && (
-          <span aria-label="圖表最新完整分鐘">
-            <time>{formatTime(last.t).slice(0, 5)}</time>
-            {(
-              [
-                ["開", last.o],
-                ["高", last.h],
-                ["低", last.l],
-                ["收", last.c],
-              ] as const
-            ).map(([label, price]) => (
-              <span key={label}>
-                {label}
-                <strong>{formatPrice(price)}</strong>
-              </span>
-            ))}
-          </span>
-        )}
-        <span className="td-chart-date">{catalog.date} 台北時間</span>
-      </div>
       <div className="td-chart-canvas">
         {last && session ? (
           <TapeChart
@@ -1411,22 +1400,13 @@ function MorningChart({
             fills={fills}
             variant={candles ? "candles" : "stock"}
             presentation="terminal"
-            showVolume={false}
-            showAverage={false}
-            showVolumeReadout={false}
+            showVolume={sourceBacked}
+            showAverage={sourceBacked}
+            showVolumeReadout={sourceBacked}
             appendCurrentQuote={false}
             completedBarSeconds={60}
             interactive
-            ariaLabel={
-              catalog.date +
-              " " +
-              code +
-              " " +
-              symbol.name +
-              "歷史" +
-              (candles ? "一分鐘K線" : "分鐘收價連線") +
-              "，只包含目前已完成分鐘，不顯示成交量或均價。"
-            }
+            ariaLabel={`${catalog.date} ${code} ${symbol.name}歷史${candles ? "一分鐘K線" : "分鐘收價連線"}，只包含目前已完成分鐘，${sourceBacked ? "含均價與成交量（張）" : "不顯示成交量或均價"}。最新完整分鐘 ${formatTime(last.t).slice(0, 5)} 開 ${formatPrice(last.o)} 高 ${formatPrice(last.h)} 低 ${formatPrice(last.l)} 收 ${formatPrice(last.c)}。`}
           />
         ) : (
           <div className="td-chart-waiting">

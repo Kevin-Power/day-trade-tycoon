@@ -20,6 +20,8 @@ export type MorningCatalog = {
   strategy: string[];
   notices: string[];
   videoUrl: string | null;
+  /** Present only when the source documents whole-share minute volume in lots (張). */
+  volumeUnit?: "lot";
 };
 export type MorningLessonSummary = Pick<
   MorningCatalog,
