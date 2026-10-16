@@ -3,13 +3,11 @@ import {
   useEffect,
   useRef,
   useState,
-  type FormEvent,
   type ReactNode,
   type RefObject,
 } from "react";
 import { Link } from "@tanstack/react-router";
 import {
-  ArrowRight,
   BookOpen,
   Check,
   ChevronLeft,
@@ -31,7 +29,9 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { authClient, authEnabled } from "@/lib/auth/client";
 import { GuestBanner, GuestSaveCard, LinkNoticeBanner } from "@/components/guest-prompts";
 import { clearLinkNoticeCookie, readLinkNotice, type LinkNotice } from "@/lib/guest-link";
-import { describeAccessProblem, GUEST_TERMS_TEXT, PRACTICE_PATH } from "@/lib/morning-access";
+import { describeAccessProblem, PRACTICE_PATH } from "@/lib/morning-access";
+import { PlanForm } from "@/components/morning-plan-form";
+import { CARD, INPUT, PRIMARY, SECONDARY } from "@/components/morning-styles";
 import { loginHref } from "@/lib/safe-next";
 import { useDisplayPreferences } from "@/lib/display-preferences";
 import { useLedgerPreferences } from "@/lib/ledger-preferences";
@@ -56,13 +56,6 @@ import {
 
 type MorningPane = "quote" | "chart" | "watch" | "trade" | "positions";
 
-const ACTION =
-  "inline-flex min-h-12 min-w-0 items-center justify-center gap-2 whitespace-normal rounded-xl px-4 py-3 text-base font-semibold leading-relaxed disabled:cursor-not-allowed disabled:opacity-45";
-const PRIMARY = `${ACTION} bg-brand text-brand-fg hover:brightness-95`;
-const SECONDARY = `${ACTION} border border-border-strong bg-surface text-fg hover:bg-elevated`;
-const INPUT =
-  "block min-h-12 w-full min-w-0 rounded-xl border border-border-strong bg-surface px-3 py-3 text-base leading-relaxed text-fg";
-const CARD = "min-w-0 rounded-md border border-border bg-surface p-3 sm:p-4";
 
 function readResponse(value: unknown): MorningResponse {
   if (!value || typeof value !== "object" || !("catalog" in value) || !("state" in value)) {
@@ -324,6 +317,7 @@ function MorningLesson({
   const [newPlan, setNewPlan] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
   const planRegion = useRef<HTMLDivElement>(null);
+  const autoPlanned = useRef(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [speed, setSpeed] = useState<ReplaySpeed>(1);
@@ -423,6 +417,14 @@ function MorningLesson({
     if (planOpen) planRegion.current?.scrollIntoView({ block: "start", behavior: "auto" });
   }, [planOpen]);
 
+  // First visit: no run yet, so open the plan right away (lobby tap + start tap = 09:00).
+  const noRunYet = Boolean(data && data.state === null);
+  useEffect(() => {
+    if (!noRunYet || autoPlanned.current) return;
+    autoPlanned.current = true;
+    setPlanOpen(true);
+  }, [noRunYet]);
+
   useEffect(() => {
     if (!reviewOpen) return;
     reviewHeading.current?.focus({ preventScroll: true });
@@ -461,11 +463,24 @@ function MorningLesson({
       setNewPlan(false);
       setSelected(plan.focusCode);
       setPlanOpen(false);
-      setActivePane(initialPane ?? "trade");
+      // Show the chart, then reveal 09:00 by itself; playing on stays the learner's choice.
+      setActivePane("chart");
       window.requestAnimationFrame(() => {
         practiceHeading.current?.focus({ preventScroll: true });
         window.scrollTo({ top: 0, behavior: "auto" });
       });
+      if (next.state.cursor === 0) {
+        const opening = next.state;
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, Math.max(0, opening.nextAdvanceAt - Date.now()) + 30),
+        );
+        await request({
+          action: "advance",
+          requestId: crypto.randomUUID(),
+          id: opening.id,
+          expectedRevision: opening.revision,
+        });
+      }
     }
   }
 
@@ -1301,162 +1316,6 @@ function Background({
         </div>
       </details>
     </div>
-  );
-}
-
-function PlanForm({
-  catalog,
-  exerciseId,
-  busy,
-  guest,
-  onStart,
-  onCancel,
-}: {
-  catalog: MorningCatalog;
-  exerciseId: string;
-  busy: boolean;
-  guest: boolean;
-  onStart: (plan: MorningPlan) => Promise<void>;
-  onCancel?: () => void;
-}) {
-  const [plan, setPlan] = useState<MorningPlan>({
-    exerciseId,
-    bias: "observe",
-    focusCode: catalog.symbols[0]?.code ?? "",
-    reason: "",
-    entry: "",
-    stop: "",
-  });
-  const [invalid, setInvalid] = useState("");
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const next = {
-      ...plan,
-      reason: plan.reason.trim(),
-      entry: plan.entry.trim(),
-      stop: plan.stop.trim(),
-    };
-    if (!next.reason || !next.entry || !next.stop) {
-      setInvalid("每一欄都寫下自己的想法；尚不確定也可以說明正在等待什麼。");
-      return;
-    }
-    setInvalid("");
-    void onStart(next);
-  }
-  return (
-    <section className={CARD} aria-labelledby="morning-plan-title">
-      <p className="text-xs font-semibold text-brand">09:00 開始前 · 交易計畫</p>
-      <h2 id="morning-plan-title" className="mt-1 text-lg font-semibold">
-        寫下今天的作戰藍圖
-      </h2>
-      <p className="mt-1 text-xs leading-relaxed text-muted">
-        不需要先猜對漲跌。計畫會隨新的一輪保存，重播期間保留原文供復盤核對。
-      </p>
-      <form className="mt-3 space-y-3" onSubmit={submit}>
-        <fieldset disabled={busy} className="min-w-0 space-y-3 disabled:opacity-60">
-          <legend className="sr-only">本輪觀察計畫</legend>
-          <label className="block text-base font-medium">
-            先關注哪一檔
-            <select
-              value={plan.focusCode}
-              onChange={(event) => setPlan({ ...plan, focusCode: event.target.value })}
-              className={cn(INPUT, "mt-1")}
-            >
-              {catalog.symbols.map((symbol) => (
-                <option key={symbol.code} value={symbol.code}>
-                  {symbol.code} {symbol.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <fieldset className="min-w-0">
-            <legend className="mb-2 text-base font-medium">目前的觀察方向</legend>
-            <div className="grid gap-1.5">
-              {(
-                [
-                  { value: "observe", label: "先觀察／不確定" },
-                  { value: "bullish", label: "觀察偏多條件" },
-                  { value: "bearish", label: "觀察偏空條件" },
-                ] as const
-              ).map((item) => (
-                <label
-                  key={item.value}
-                  className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
-                >
-                  <input
-                    type="radio"
-                    name="morning-bias"
-                    value={item.value}
-                    checked={plan.bias === item.value}
-                    onChange={() => setPlan({ ...plan, bias: item.value })}
-                    className="size-5 shrink-0"
-                  />
-                  <span>{item.label}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          {(
-            [
-              {
-                key: "reason",
-                label: "我觀察的理由",
-                hint: "先描述背景或價格條件，不必寫成買賣答案。",
-              },
-              {
-                key: "entry",
-                label: "什麼條件出現，我才考慮操作",
-                hint: "沒有符合條件，也可以選擇繼續等待。",
-              },
-              {
-                key: "stop",
-                label: "什麼情況代表計畫失效，需要停止或重新核對",
-                hint: "寫下自己能核對的條件。",
-              },
-            ] as const
-          ).map((field) => (
-            <label key={field.key} className="block text-base font-medium">
-              {field.label}
-              <span className="mt-1 block text-xs font-normal leading-relaxed text-muted">
-                {field.hint}
-              </span>
-              <textarea
-                required
-                maxLength={600}
-                rows={2}
-                value={plan[field.key]}
-                onChange={(event) => setPlan({ ...plan, [field.key]: event.target.value })}
-                className={cn(INPUT, "mt-1 resize-y font-normal")}
-              />
-            </label>
-          ))}
-        </fieldset>
-        {invalid && (
-          <p role="alert" className="text-base text-warn">
-            {invalid}
-          </p>
-        )}
-        <div className="border border-border bg-bg p-2 text-xs leading-relaxed text-muted">
-          本課紙上資金為新臺幣 1,000 萬元，每筆 1–3 張。價格來自歷史分鐘
-          K；學員成交依教材模型估算，不是真實成交回放。
-        </div>
-        {guest && <p className="td-guest-terms text-base leading-relaxed">{GUEST_TERMS_TEXT}</p>}
-        <button type="submit" disabled={busy} className={cn(PRIMARY, "w-full")}>
-          {busy ? "正在保存…" : "保存計畫，進入 09:00 練習"}
-          <ArrowRight className="size-5 shrink-0" aria-hidden />
-        </button>
-        {onCancel && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onCancel}
-            className={cn(SECONDARY, "w-full")}
-          >
-            回看上一輪紀錄
-          </button>
-        )}
-      </form>
-    </section>
   );
 }
 

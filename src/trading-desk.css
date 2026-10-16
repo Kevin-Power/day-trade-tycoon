@@ -2085,3 +2085,21 @@
 .trading-desk[data-layout="senior"] :is(.td-guest-save p, .td-guest-terms) {
   font-size: 16px;
 }
+
+/* Plan templates: one tap fills the plan, still editable */
+.trading-desk .td-template {
+  min-height: 64px;
+  color: var(--td-fg);
+  background: var(--td-panel);
+}
+.trading-desk .td-template[aria-checked="true"] {
+  background: var(--td-raised);
+  border-color: var(--td-accent);
+  box-shadow: inset 3px 0 0 var(--td-accent);
+}
+.trading-desk[data-layout="senior"] .td-template {
+  min-height: 72px;
+}
+.trading-desk[data-layout="senior"] .td-template span {
+  font-size: 16px;
+}
