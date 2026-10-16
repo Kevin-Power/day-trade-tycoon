@@ -487,3 +487,117 @@ html[data-reading-mode="senior"] .access-features {
     display: none;
   }
 }
+
+/* Lobby: today's three steps with one next-step button */
+.today-card {
+  display: grid;
+  gap: 14px;
+  margin-block: 16px 20px;
+  padding: 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+}
+.today-card h2 {
+  font-size: 20px;
+  font-weight: 700;
+}
+.today-card ol {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.today-card li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 12px;
+  color: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.today-card li[data-state="now"] {
+  color: var(--color-fg);
+  background: color-mix(in srgb, var(--color-brand) 9%, var(--color-surface));
+  border-color: var(--color-brand);
+}
+.today-step-mark {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  font-size: 14px;
+}
+.today-card li:is([data-state="now"], [data-state="done"]) .today-step-mark {
+  color: #ffffff;
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+}
+.today-step-now {
+  margin-left: auto;
+  padding: 2px 10px;
+  color: #ffffff;
+  background: var(--color-brand);
+  border-radius: 999px;
+  font-size: 13px;
+}
+.today-done {
+  font-size: 16px;
+  font-weight: 600;
+}
+.today-card .today-primary {
+  justify-self: start;
+  min-height: 48px;
+  padding-inline: 28px;
+  font-size: 17px;
+}
+.today-coach-link {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  min-height: 44px;
+  color: var(--color-brand);
+  font-size: 15px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 767px) {
+  .today-card {
+    padding: 16px;
+  }
+  .today-card ol {
+    grid-template-columns: 1fr;
+  }
+  .today-card .today-primary {
+    justify-self: stretch;
+  }
+}
+html[data-reading-mode="senior"] .today-card li {
+  min-height: 56px;
+  font-size: 1.05rem;
+}
+html[data-reading-mode="senior"] .today-card .today-primary,
+html[data-reading-mode="senior"] .today-coach-link {
+  min-height: 56px;
+  font-size: 1.1rem;
+}
+
+/* Text size and read-aloud controls on the dark lobby header: the chosen option must stay legible */
+.classroom-lobby .academy-header .display-size-option {
+  color: #dbe7f7;
+  background: transparent;
+}
+.classroom-lobby .academy-header :is(.display-size-option[aria-checked="true"], .display-speech-switch[aria-checked="true"]) {
+  color: #10203a;
+  background: #ffffff;
+  border-color: #ffffff;
+}
+.classroom-lobby .academy-header .display-size-control > span {
+  border-color: rgb(219 231 247 / 0.55);
+}

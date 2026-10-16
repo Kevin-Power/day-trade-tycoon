@@ -41,6 +41,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { WorkspacePreview } from "@/components/workspace-preview";
 import { RealCandlesLink } from "@/components/real-candles-entry";
 import { PracticeGoalReminder } from "@/components/practice-goal";
+import { TodayCard } from "@/components/today-card";
 import { classroomSampleMicro, officialIndexMicro, officialTurnoverMicro } from "@/lib/provenance";
 
 const WEEK_ORDER = ["mon", "tue", "wed"] as const;
@@ -168,6 +169,8 @@ export function Lobby() {
         id="classroom-top"
         className="academy-container mx-auto w-full max-w-7xl px-4 pb-12 sm:px-6 lg:px-8"
       >
+        {/* Today's next step comes first, so a phone shows it without scrolling. */}
+        {!CLASSROOM_OFFLINE && <TodayCard />}
         <section aria-labelledby="classroom-title" className="lobby-launchpad">
           <div className="premium-hero-copy min-w-0">
             <div className="mb-3 flex flex-wrap items-center gap-2.5">
@@ -194,7 +197,7 @@ export function Lobby() {
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               {!CLASSROOM_OFFLINE ? (
-                <RealCandlesLink className="academy-button-primary px-5">
+                <RealCandlesLink className="border-current/50 bg-transparent px-5 text-[#dbe7f7] hover:bg-white/10">
                   進入模擬下單
                 </RealCandlesLink>
               ) : recentReview ? (
@@ -248,19 +251,21 @@ export function Lobby() {
           <WorkspacePreview />
         </section>
 
-        <ol className="lobby-practice-path" aria-label="每次練習的三個步驟">
-          {PRACTICE_STEPS.map(({ number, title, description, icon: Icon }) => (
-            <li key={number}>
-              <Icon size={21} aria-hidden />
-              <div>
-                <p>
-                  <span>{number}</span> {title}
-                </p>
-                <small>{description}</small>
-              </div>
-            </li>
-          ))}
-        </ol>
+        {CLASSROOM_OFFLINE && (
+          <ol className="lobby-practice-path" aria-label="每次練習的三個步驟">
+            {PRACTICE_STEPS.map(({ number, title, description, icon: Icon }) => (
+              <li key={number}>
+                <Icon size={21} aria-hidden />
+                <div>
+                  <p>
+                    <span>{number}</span> {title}
+                  </p>
+                  <small>{description}</small>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
 
         <PracticeGoalReminder />
 
