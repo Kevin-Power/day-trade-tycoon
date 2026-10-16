@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { test } from "node:test";
 import ts from "typescript";
+import * as safeNext from "../src/lib/safe-next.ts";
 
 // Invoke the real route components and submit handlers with controlled hook
 // state. Only identity, navigation and server calls are replaced; no browser
@@ -11,6 +12,7 @@ function fixture({
   user = null,
   saveProfile = async () => ({ ok: true }),
   loadProfile = async () => null,
+  search = {},
 } = {}) {
   const frames = new Map();
   let current;
@@ -63,7 +65,7 @@ function fixture({
     "@tanstack/react-router": {
       createFileRoute: () => (options) => {
         component = options.component;
-        return options;
+        return { ...options, useSearch: () => options.validateSearch(search) };
       },
       Link: "link",
       useNavigate: () => navigate,
@@ -89,6 +91,7 @@ function fixture({
         return saveProfile(input);
       },
     },
+    "@/lib/safe-next": safeNext,
     "@/components/classroom-auth-layout": {
       AuthPasswordInput: "password-field",
       ClassroomAuthLayout: "auth-layout",
@@ -292,4 +295,20 @@ test("a failed profile read retries reading without reauthenticating or overwrit
   assert.equal(reads, 2);
   assert.equal(f.calls.navigate.length, 1);
   assert.equal(f.calls.profiles.length + f.calls.signIn.length + f.calls.signUp.length, 0);
+});
+
+test("a learner sent from practice returns there after completing the profile", async () => {
+  const f = fixture({ user: user("student-a", "小安"), search: { next: "/morning?panel=trade" } });
+  const tree = await f.ready();
+  checkbox(tree).props.onChange({ target: { checked: true } });
+  await submit(f.render());
+  assert.deepEqual(f.calls.navigate.map((target) => target.href), ["/morning?panel=trade"]);
+});
+
+test("an unsafe return path falls back to the lobby and sign-up mode opens the sign-up form", async () => {
+  const returning = fixture({ user: user("student-b"), search: { next: "//evil.test" }, loadProfile: async () => ({ user_id: "student-b", tos_accepted_at: "2026-10-01" }) });
+  await returning.ready();
+  assert.deepEqual(returning.calls.navigate.map((target) => target.href), ["/"]);
+  const fresh = fixture({ search: { mode: "up" } });
+  assert.ok(field(fresh.render(), "learner-name"), "sign-up mode shows the learner name field");
 });
