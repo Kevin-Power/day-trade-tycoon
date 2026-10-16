@@ -2043,3 +2043,45 @@
 .trading-desk[data-layout="phone"] :is(.sim-stepper button, .morning-limit-field button) {
   min-height: 44px;
 }
+
+/* Guest practice: reminder, save invitation and the statement accepted on start */
+.trading-desk .td-guest p {
+  color: var(--td-fg);
+}
+.trading-desk .td-guest .td-button,
+.trading-desk .td-guest-save .td-button {
+  min-height: 44px;
+  text-decoration: none;
+}
+.trading-desk .td-guest-save {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  background: var(--td-raised);
+  border: 1px solid var(--td-accent);
+  border-radius: 6px;
+}
+.trading-desk .td-guest-save h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.trading-desk .td-guest-save p {
+  margin: 0;
+  color: var(--td-muted);
+}
+.trading-desk .td-guest-save .td-banner-actions {
+  margin-left: 0;
+  flex-wrap: wrap;
+}
+.trading-desk .td-guest-terms {
+  margin: 0;
+  color: var(--td-fg);
+}
+.trading-desk[data-layout="senior"] :is(.td-guest .td-button, .td-guest-save .td-button) {
+  min-height: 56px;
+  font-size: 18px;
+}
+.trading-desk[data-layout="senior"] :is(.td-guest-save p, .td-guest-terms) {
+  font-size: 16px;
+}

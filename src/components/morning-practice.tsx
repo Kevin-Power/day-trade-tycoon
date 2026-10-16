@@ -28,6 +28,11 @@ import {
 } from "@/components/morning-trading";
 import { MorningSparkline } from "@/components/morning-quotes";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { authClient, authEnabled } from "@/lib/auth/client";
+import { GuestBanner, GuestSaveCard, LinkNoticeBanner } from "@/components/guest-prompts";
+import { clearLinkNoticeCookie, readLinkNotice, type LinkNotice } from "@/lib/guest-link";
+import { describeAccessProblem, GUEST_TERMS_TEXT, PRACTICE_PATH } from "@/lib/morning-access";
+import { loginHref } from "@/lib/safe-next";
 import { useDisplayPreferences } from "@/lib/display-preferences";
 import { useLedgerPreferences } from "@/lib/ledger-preferences";
 import { useTerminalLayout, type TerminalLayout } from "@/lib/use-terminal-layout";
@@ -74,12 +79,24 @@ async function readJsonResponse(response: Response): Promise<unknown> {
   }
 }
 
+async function readAccessProblem(response: Response): Promise<{ status: 401 | 403; message: string }> {
+  let message = "";
+  try {
+    const payload: unknown = await response.json();
+    if (payload && typeof payload === "object" && "message" in payload && typeof payload.message === "string")
+      message = payload.message;
+  } catch {
+    /* The status alone decides the card. */
+  }
+  return { status: response.status === 401 ? 401 : 403, message };
+}
+
 function useMorningData(lessonId: string) {
   const [data, setData] = useState<MorningResponse | null>(null);
   const [busy, setBusy] = useState<MorningAction["action"] | "load" | null>("load");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [needsLogin, setNeedsLogin] = useState(false);
+  const [access, setAccess] = useState<{ status: 401 | 403; message: string } | null>(null);
   const locked = useRef(false);
   const serial = useRef(0);
   const controller = useRef<AbortController | null>(null);
@@ -117,7 +134,7 @@ function useMorningData(lessonId: string) {
         });
         if (!current()) return null;
         if (response.status === 401 || response.status === 403) {
-          setNeedsLogin(true);
+          setAccess(await readAccessProblem(response));
           setData(null);
           retryAction.current = undefined;
           return null;
@@ -131,7 +148,7 @@ function useMorningData(lessonId: string) {
           });
           if (!current()) return null;
           if (latest.status === 401 || latest.status === 403) {
-            setNeedsLogin(true);
+            setAccess(await readAccessProblem(latest));
             setData(null);
             return null;
           }
@@ -158,7 +175,7 @@ function useMorningData(lessonId: string) {
         }
         const next = readResponse(payload);
         setData(next);
-        setNeedsLogin(false);
+        setAccess(null);
         retryAction.current = undefined;
         return next;
       } catch (failure) {
@@ -198,7 +215,7 @@ function useMorningData(lessonId: string) {
     busy,
     error,
     notice,
-    needsLogin,
+    access,
     request,
     retry: () => request(retryAction.current),
   };
@@ -215,21 +232,56 @@ export function MorningPractice({
   initialPane?: "trade";
   onLessonChange: (lessonId: string) => void;
 }) {
-  const { user, isPending } = useCurrentUserState();
+  const { user, guest, isPending } = useCurrentUserState();
   const [selectedExercise, setSelectedExercise] = useState(
     () => getMorningExercise(exerciseId)?.id ?? MORNING_EXERCISES[0].id,
   );
-  if (isPending)
+  const [guestStart, setGuestStart] = useState<"idle" | "pending" | "failed">("idle");
+  const guestAttempt = useRef(false);
+  const needsGuest = authEnabled && !isPending && !user && !guest;
+  useEffect(() => {
+    if (!needsGuest || guestAttempt.current) return;
+    guestAttempt.current = true;
+    setGuestStart("pending");
+    // Practice first, account later: a guest account is created right after classroom entry.
+    void authClient.signIn
+      .anonymous()
+      .then(async ({ error }) => {
+        if (!error) return setGuestStart("idle");
+        // 400: this browser already holds a guest session; refresh it instead of failing.
+        if (error.status === 400) {
+          await authClient.getSession();
+          return setGuestStart("idle");
+        }
+        setGuestStart("failed");
+      })
+      .catch(() => setGuestStart("failed"));
+  }, [needsGuest]);
+  if (isPending || (needsGuest && guestStart !== "failed"))
     return (
       <PageFrame>
         <p role="status" className={CARD}>
-          正在確認登入狀態…
+          {isPending ? "正在確認登入狀態…" : "正在準備練習…"}
         </p>
+      </PageFrame>
+    );
+  if (needsGuest)
+    return (
+      <PageFrame>
+        <AccessCard
+          problem={describeAccessProblem(401, "")}
+          busy={false}
+          onRetry={() => {
+            guestAttempt.current = false;
+            setGuestStart("idle");
+          }}
+        />
       </PageFrame>
     );
   return (
     <MorningLesson
-      key={`${user?.id ?? "guest"}:${lessonId}`}
+      key={`${user?.id ?? guest?.id ?? "none"}:${lessonId}`}
+      guest={Boolean(guest)}
       lessonId={lessonId}
       initialPane={initialPane}
       exerciseId={selectedExercise}
@@ -240,19 +292,28 @@ export function MorningPractice({
 }
 
 function MorningLesson({
+  guest,
   lessonId,
   exerciseId,
   initialPane,
   onLessonChange,
   onExerciseChange,
 }: {
+  guest: boolean;
   lessonId: string;
   exerciseId: string;
   initialPane?: "trade";
   onLessonChange: (lessonId: string) => void;
   onExerciseChange: (exerciseId: string) => void;
 }) {
-  const { data, busy, error, notice, needsLogin, request, retry } = useMorningData(lessonId);
+  const { data, busy, error, notice, access, request, retry } = useMorningData(lessonId);
+  const [linkNotice, setLinkNotice] = useState<LinkNotice | null>(null);
+  useEffect(() => {
+    const value = readLinkNotice(document.cookie);
+    if (!value) return;
+    document.cookie = clearLinkNoticeCookie();
+    setLinkNotice(value);
+  }, []);
   const selectedExercise = exerciseId;
   const mode = useDisplayPreferences((value) => value.mode);
   const layout = useTerminalLayout(mode === "senior");
@@ -390,7 +451,12 @@ function MorningLesson({
 
   async function start(plan: MorningPlan) {
     setAuto(false);
-    const next = await request({ action: "start", requestId: crypto.randomUUID(), plan });
+    const next = await request({
+      action: "start",
+      requestId: crypto.randomUUID(),
+      plan,
+      ...(guest ? { guestTerms: true as const } : {}),
+    });
     if (next?.state) {
       setNewPlan(false);
       setSelected(plan.focusCode);
@@ -532,6 +598,10 @@ function MorningLesson({
             announcement={latestFill?.text}
             feedback={showPlan ? "" : feedback}
           >
+            {linkNotice && (
+              <LinkNoticeBanner notice={linkNotice} onDismiss={() => setLinkNotice(null)} />
+            )}
+            {guest && <GuestBanner />}
             {atCheckpoint && !showPlan && (
               <div role="status" className="td-banner">
                 <h2>10:00，回看自己的計畫</h2>
@@ -560,26 +630,12 @@ function MorningLesson({
         ) : undefined
       }
     >
-      {needsLogin ? (
-        <section className={CARD} aria-labelledby="morning-login-title">
-          <h1 id="morning-login-title" className="text-xl font-semibold">
-            先登入，才能保存這一輪練習
-          </h1>
-          <p className="mt-3 text-muted">請回大廳登入學員帳號，再進入真實早盤練習。</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link to="/" className={PRIMARY}>
-              回大廳登入
-            </Link>
-            <button
-              type="button"
-              disabled={Boolean(busy)}
-              onClick={() => void request()}
-              className={SECONDARY}
-            >
-              重新檢查
-            </button>
-          </div>
-        </section>
+      {access ? (
+        <AccessCard
+          problem={describeAccessProblem(access.status, access.message)}
+          busy={Boolean(busy)}
+          onRetry={() => void request()}
+        />
       ) : (
         <>
           {error && (
@@ -750,6 +806,7 @@ function MorningLesson({
                       catalog={catalog}
                       exerciseId={selectedExercise}
                       busy={Boolean(busy)}
+                      guest={guest}
                       onStart={start}
                       onCancel={
                         session
@@ -774,6 +831,7 @@ function MorningLesson({
                   </div>
                 )}
               </section>
+              {completed && session && !newPlan && guest && <GuestSaveCard />}
               {completed && session && !newPlan && (
                 <Completion
                   session={session}
@@ -900,6 +958,47 @@ function MorningLesson({
         </>
       )}
     </PageFrame>
+  );
+}
+
+function AccessCard({
+  problem,
+  busy,
+  onRetry,
+}: {
+  problem: ReturnType<typeof describeAccessProblem>;
+  busy: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <section className={CARD} aria-labelledby="morning-access-title">
+      <h1 id="morning-access-title" className="text-xl font-semibold">
+        {problem.title}
+      </h1>
+      <p className="mt-3 text-muted">{problem.body}</p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {problem.kind === "guest-start" && (
+          <>
+            <button type="button" disabled={busy} onClick={onRetry} className={PRIMARY}>
+              再試一次
+            </button>
+            <a href={loginHref({ next: PRACTICE_PATH, mode: "up" })} className={SECONDARY}>
+              登入／建立帳號
+            </a>
+          </>
+        )}
+        {problem.kind === "profile" && (
+          <a href={loginHref({ next: PRACTICE_PATH })} className={PRIMARY}>
+            完成學員資料
+          </a>
+        )}
+        {problem.kind === "gate" && (
+          <Link to="/" className={PRIMARY}>
+            回大廳
+          </Link>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -1209,12 +1308,14 @@ function PlanForm({
   catalog,
   exerciseId,
   busy,
+  guest,
   onStart,
   onCancel,
 }: {
   catalog: MorningCatalog;
   exerciseId: string;
   busy: boolean;
+  guest: boolean;
   onStart: (plan: MorningPlan) => Promise<void>;
   onCancel?: () => void;
 }) {
@@ -1339,6 +1440,7 @@ function PlanForm({
           本課紙上資金為新臺幣 1,000 萬元，每筆 1–3 張。價格來自歷史分鐘
           K；學員成交依教材模型估算，不是真實成交回放。
         </div>
+        {guest && <p className="td-guest-terms text-base leading-relaxed">{GUEST_TERMS_TEXT}</p>}
         <button type="submit" disabled={busy} className={cn(PRIMARY, "w-full")}>
           {busy ? "正在保存…" : "保存計畫，進入 09:00 練習"}
           <ArrowRight className="size-5 shrink-0" aria-hidden />
