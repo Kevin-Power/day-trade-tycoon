@@ -1,0 +1,51 @@
+[
+  {
+    "command": "npm run check:auth",
+    "seconds": 0.4,
+    "exitCode": 2,
+    "log": "check-auth.log",
+    "tail": "> node scripts/check-auth-invariant.mjs |  | [auth-invariant] could not read the dev server's resolved VITE_AUTH_ENABLED"
+  },
+  {
+    "command": "npm run check:symbols",
+    "seconds": 0.4,
+    "exitCode": 0,
+    "log": "check-symbols.log",
+    "tail": "> node scripts/check-symbols.mjs |  | 標的 SSOT 通過：歷史封存 24 檔；可用真實分鐘教材 5 檔，目錄與行情一致"
+  },
+  {
+    "command": "npm run test",
+    "seconds": 71.8,
+    "exitCode": 0,
+    "log": "test.log",
+    "tail": "ℹ skipped 4 | ℹ todo 0 | ℹ duration_ms 71340.223"
+  },
+  {
+    "command": "npm run typecheck",
+    "seconds": 6.5,
+    "exitCode": 0,
+    "log": "typecheck.log",
+    "tail": "> typecheck | > tsc --noEmit"
+  },
+  {
+    "command": "npm run lint",
+    "seconds": 4.6,
+    "exitCode": 1,
+    "log": "lint.log",
+    "tail": " | ✖ 13 problems (4 errors, 9 warnings) |   1 error and 0 warnings potentially fixable with the `--fix` option."
+  },
+  {
+    "command": "npm run build",
+    "seconds": 6.8,
+    "exitCode": 0,
+    "log": "build.log",
+    "tail": "\u001b[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:186:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.\u001b[39m | \u001b[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kev"
+  },
+  {
+    "command": "npm run build:offline",
+    "seconds": 2,
+    "exitCode": 0,
+    "log": "build-offline.log",
+    "tail": "- Using dynamic import() to code-split the application | - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting | - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\u001b[39m"
+  }
+]

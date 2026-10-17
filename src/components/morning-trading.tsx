@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -15,6 +15,7 @@ import { ledgerSummary } from "@/lib/morning-ledger";
 import { formatMoney, formatTime } from "@/lib/utils";
 import { estimateRoundTripCost, formatPrice, stepTick } from "@/lib/market/ticks";
 import { validMorningLimit } from "@/lib/morning-book";
+import { positionMark } from "@/lib/morning-quote";
 import { MorningQuoteDetail } from "@/components/morning-quotes";
 import { MorningOrderBook } from "@/components/morning-order-book";
 
@@ -612,6 +613,7 @@ export function Ledger({
   busy,
   onCancel,
   collapsible,
+  cards = false,
 }: {
   catalog: MorningCatalog;
   session: MorningState;
@@ -619,6 +621,8 @@ export function Ledger({
   onCancel: (id: string) => Promise<void>;
   /** Desktop and tablet: one summary row until the viewer opens it. */
   collapsible?: { open: boolean; onOpenChange: (open: boolean) => void };
+  /** Phones and large text: one card per record instead of a wide table. */
+  cards?: boolean;
 }) {
   const [pane, setPane] = useState<LedgerPane>("positions");
   const summary = ledgerSummary(session);
@@ -630,6 +634,7 @@ export function Ledger({
     { id: "fills" as const, label: "成交", count: summary.fills },
   ];
   const active = panes.find((item) => item.id === pane)!;
+  const records = ledgerRecords(pane, session, name, busy, onCancel);
   return (
     <section className="sim-ledger" aria-label="模擬交易紀錄">
       <div className="sim-ledger-header td-titlebar">
@@ -695,111 +700,168 @@ export function Ledger({
                   : "送出委託，再前進一分鐘查看撮合結果。"}
             </p>
           </div>
+        ) : cards ? (
+          <ul className="sim-cards" aria-label={`本輪模擬${active.label}明細`}>
+            {records.map((record) => (
+              <li key={record.key} className="sim-card">
+                <div className="sim-card-head">
+                  <strong>{record.name}</strong>
+                  <small>{record.sub}</small>
+                </div>
+                <dl>
+                  {record.cells.map((cell) => (
+                    <div key={cell.label}>
+                      <dt>{cell.label}</dt>
+                      <dd data-tone={cell.tone} className={cell.className}>
+                        {cell.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
+            ))}
+          </ul>
         ) : (
           <table className="terminal-record-table">
             <caption className="sr-only">本輪模擬{active.label}明細</caption>
             <thead>
               <tr>
                 <th scope="col">商品</th>
-                <th scope="col">{pane === "positions" ? "持有張數" : "方向 / 張數"}</th>
-                {pane === "orders" && <th scope="col">委託價</th>}
-                <th scope="col">{pane === "positions" ? "平均成本（未含費）" : "成交價"}</th>
-                <th scope="col">
-                  {pane === "positions"
-                    ? "已揭露收盤價"
-                    : pane === "orders"
-                      ? "狀態"
-                      : "手續費 / 稅費"}
-                </th>
+                {records[0].cells.map((cell) => (
+                  <th key={cell.label} scope="col">
+                    {cell.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {pane === "positions" &&
-                session.positions.map((item) => (
-                  <tr key={item.code}>
-                    <th scope="row">
-                      <strong>{name(item.code)}</strong>
-                      <small>{item.code}</small>
-                    </th>
-                    <td data-label="持有張數">{item.shares / 1000} 張</td>
-                    <td data-label="平均成本（未含費）">
-                      {item.averageCost.toLocaleString("zh-TW", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+              {records.map((record) => (
+                <tr key={record.key}>
+                  <th scope="row">
+                    <strong>{record.name}</strong>
+                    <small>{record.sub}</small>
+                  </th>
+                  {record.cells.map((cell) => (
+                    <td
+                      key={cell.label}
+                      data-label={cell.label}
+                      data-tone={cell.tone}
+                      className={cell.className}
+                    >
+                      {cell.value}
                     </td>
-                    <td data-label="已揭露收盤價">
-                      {session.bars[item.code]?.at(-1)
-                        ? formatPrice(session.bars[item.code].at(-1)!.c)
-                        : "—"}
-                    </td>
-                  </tr>
-                ))}
-              {pane === "orders" &&
-                session.orders
-                  .slice()
-                  .reverse()
-                  .map((item) => (
-                    <tr key={item.id}>
-                      <th scope="row">
-                        <strong>{name(item.code)}</strong>
-                        <small>
-                          {item.code} · {formatTime(item.submittedCursor * 60).slice(0, 5)}
-                          {item.entryMode === "lightning" && " · 閃電"}
-                        </small>
-                      </th>
-                      <td data-label="方向 / 張數" className={`sim-${item.side}`}>
-                        {item.side === "buy" ? "買進" : "賣出"} {item.shares / 1000} 張
-                      </td>
-                      <td data-label="委託價">
-                        {item.limitPrice === undefined ? "市價" : formatPrice(item.limitPrice)}
-                      </td>
-                      <td data-label="成交價">
-                        {item.price === undefined ? "—" : formatPrice(item.price)}
-                      </td>
-                      <td data-label="委託狀態">
-                        <span className="sim-status" data-status={item.status}>
-                          {ORDER_STATUS[item.status]}
-                        </span>
-                        {item.status === "pending" && !session.completed && (
-                          <button
-                            type="button"
-                            className="sim-cancel"
-                            disabled={busy}
-                            onClick={() => void onCancel(item.id)}
-                          >
-                            撤回委託
-                          </button>
-                        )}
-                        {item.reason && <small className="sim-record-reason">{item.reason}</small>}
-                      </td>
-                    </tr>
                   ))}
-              {pane === "fills" &&
-                session.fills
-                  .slice()
-                  .reverse()
-                  .map((fill) => (
-                    <tr key={fill.id}>
-                      <th scope="row">
-                        <strong>{name(fill.code)}</strong>
-                        <small>
-                          {fill.code} · {formatTime(fill.t).slice(0, 5)}
-                        </small>
-                      </th>
-                      <td data-label="方向 / 張數" className={`sim-${fill.side}`}>
-                        {fill.side === "buy" ? "買進" : "賣出"} {fill.shares / 1000} 張
-                      </td>
-                      <td data-label="成交價">{formatPrice(fill.price)}</td>
-                      <td data-label="手續費 / 稅費">
-                        {formatMoney(fill.fee, 0)} / {formatMoney(fill.tax, 0)}
-                      </td>
-                    </tr>
-                  ))}
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
       </div>
     </section>
   );
+}
+
+type LedgerCell = { label: string; value: ReactNode; tone?: string; className?: string };
+type LedgerRecord = { key: string; name: string; sub: string; cells: LedgerCell[] };
+
+/** One row per position, order or fill; the desk shows them as a table, phones as cards. */
+function ledgerRecords(
+  pane: LedgerPane,
+  session: MorningState,
+  name: (code: string) => string,
+  busy: boolean,
+  onCancel: (id: string) => Promise<void>,
+): LedgerRecord[] {
+  if (pane === "positions")
+    return session.positions.map((item) => {
+      const lastClose = session.bars[item.code]?.at(-1)?.c;
+      const mark = positionMark(item, lastClose);
+      return {
+        key: item.code,
+        name: name(item.code),
+        sub: item.code,
+        cells: [
+          { label: "持有張數", value: `${item.shares / 1000} 張` },
+          {
+            label: "平均成本（未含費）",
+            value: item.averageCost.toLocaleString("zh-TW", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }),
+          },
+          { label: "已揭露收盤價", value: lastClose === undefined ? "—" : formatPrice(lastClose) },
+          {
+            label: "參考損益（未含費稅）",
+            value:
+              mark.value === null
+                ? "—"
+                : `${mark.value > 0 ? "+" : ""}${formatMoney(mark.value, 0)}`,
+            tone: mark.tone,
+            className: "sim-mark",
+          },
+        ],
+      };
+    });
+  if (pane === "orders")
+    return session.orders
+      .slice()
+      .reverse()
+      .map((item) => ({
+        key: item.id,
+        name: name(item.code),
+        sub: `${item.code} · ${formatTime(item.submittedCursor * 60).slice(0, 5)}${item.entryMode === "lightning" ? " · 閃電" : ""}`,
+        cells: [
+          {
+            label: "方向 / 張數",
+            value: `${item.side === "buy" ? "買進" : "賣出"} ${item.shares / 1000} 張`,
+            className: `sim-${item.side}`,
+          },
+          {
+            label: "委託價",
+            value: item.limitPrice === undefined ? "市價" : formatPrice(item.limitPrice),
+          },
+          { label: "成交價", value: item.price === undefined ? "—" : formatPrice(item.price) },
+          {
+            label: "狀態",
+            value: (
+              <>
+                <span className="sim-status" data-status={item.status}>
+                  {ORDER_STATUS[item.status]}
+                </span>
+                {item.status === "pending" && !session.completed && (
+                  <button
+                    type="button"
+                    className="sim-cancel"
+                    disabled={busy}
+                    onClick={() => void onCancel(item.id)}
+                  >
+                    撤回委託
+                  </button>
+                )}
+                {item.reason && <small className="sim-record-reason">{item.reason}</small>}
+              </>
+            ),
+          },
+        ],
+      }));
+  return session.fills
+    .slice()
+    .reverse()
+    .map((fill) => ({
+      key: fill.id,
+      name: name(fill.code),
+      sub: `${fill.code} · ${formatTime(fill.t).slice(0, 5)}`,
+      cells: [
+        {
+          label: "方向 / 張數",
+          value: `${fill.side === "buy" ? "買進" : "賣出"} ${fill.shares / 1000} 張`,
+          className: `sim-${fill.side}`,
+        },
+        { label: "成交價", value: formatPrice(fill.price) },
+        {
+          label: "手續費 / 稅費",
+          value: `${formatMoney(fill.fee, 0)} / ${formatMoney(fill.tax, 0)}`,
+        },
+      ],
+    }));
 }

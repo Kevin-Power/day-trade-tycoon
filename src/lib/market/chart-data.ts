@@ -241,6 +241,19 @@ export function formatPercentChange(price: number, previous: number): string {
   return `${rounded > 0 ? "+" : ""}${rounded.toFixed(2)}%`;
 }
 
+/**
+ * Whether a right-gutter label centred at `labelY` stays clear of the last-price tag centred at
+ * `tagY`; a label the tag would half-cover is skipped instead of drawn underneath it.
+ */
+export function clearsPriceTag(
+  labelY: number,
+  tagY: number,
+  tagHeight: number,
+  labelHeight: number,
+): boolean {
+  return Math.abs(labelY - tagY) >= (tagHeight + labelHeight) / 2;
+}
+
 /** Highest high and lowest low among the given bars; the first occurrence wins. */
 export function sessionExtremes(bars: readonly Bar[]): { high: TickPt; low: TickPt } | null {
   let high: TickPt | null = null;

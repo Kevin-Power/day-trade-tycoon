@@ -1,0 +1,5 @@
+
+> check:symbols
+> node scripts/check-symbols.mjs
+
+標的 SSOT 通過：歷史封存 24 檔；可用真實分鐘教材 5 檔，目錄與行情一致

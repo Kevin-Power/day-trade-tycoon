@@ -1,0 +1,34 @@
+﻿✔ real HTTP standalone auth, owner bootstrap, role isolation and durable restart (5450.4311ms)
+ℹ HTTP public trial: readable without admission; classroom APIs and downloads remain gated
+ℹ HTTP gate: incorrect password, forged cookie and foreign origin rejected
+ℹ HTTP owner bootstrap: reserved signup rejected; setup single-use; verified owner signs in and reads own roster
+ℹ HTTP student: claiming verified status or teacher code cannot grant teacher privilege
+ℹ HTTP teacher review: first-trade plan, TIF and unclosed-position snapshot survive student save and same-class teacher read; unverified student and gate-only visitor denied
+ℹ HTTP inquiries: anonymous same-origin submit; validation and spam rejection; retry without duplicates; owner-only inbox, pagination and handling status; no admission or messages granted
+ℹ HTTP feedback denial: no-gate GET/POST return 403; all rejected writes leave the feedback list empty
+ℹ HTTP feedback: teacher writes; student reads; student/visitor writes, visitor reads, forged author/role, invalid content and foreign origin rejected; retries keep one immutable note and preserve the review
+ℹ HTTP restart: prior session, password login, teacher identity and consumed bootstrap marker survived
+ℹ HTTP feedback restart: teacher/student reads, feedback indexes and same-request retry recover the exact original note; review remains unchanged
+ℹ HTTP inquiry restart: original submission and handling status persist; public retry returns only receipt id
+✔ real HTTP daily question: gate, no answer before answering, one answer each, class counts (3566.1522ms)
+ℹ daily question: gate required; the answer is not in the response before answering
+ℹ daily answers: stop required to enter, one answer each, counts shared
+✔ real HTTP guest flow: gate-only guest accounts, start-to-consent, practice moves into the new account (5699.0691ms)
+ℹ guest accounts: refused without the gate, named 訪客, one per browser, can read the lesson
+ℹ guest practice: start refused until the statement is accepted, then orders fill normally; no classroom profile
+ℹ linking: practice moved, profile step still required, guest deleted
+ℹ conflict: the account run is kept and the learner is told once
+✔ real HTTP morning replay: private completed bars, durable cursor and exactly-once paper orders (9437.3155ms)
+ℹ HTTP morning: gate/session/consent and exact origin required; no future bars or foreign state; start plan immutable, one concurrent advance, server pace enforced
+ℹ HTTP morning lessons: exact approved query only, safe metadata, original default unchanged, source-bound retries and independently owned progress; exercise immutable
+ℹ HTTP morning orders: pending until next minute OPEN, long-only lots enforced, exact paper costs, cancel and finish keep holdings without forced liquidation
+ℹ HTTP lightning limits: legal price required, concurrent duplicate sends create one order, changed-price retries rejected, pending limit survives restart, missed OPEN leaves order pending, cancel preserves cash, favorable OPEN fills once
+ℹ HTTP morning restart: identity, completed cursor, positions, plan/reflection and request ledger survive; new run starts separately
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9574.6497

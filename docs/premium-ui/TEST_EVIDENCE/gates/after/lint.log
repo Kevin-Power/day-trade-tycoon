@@ -1,0 +1,39 @@
+
+> lint
+> eslint .
+
+
+C:\Users\kevin\Documents\ChatGPT\當沖大富翁\.worktrees\premium-ui\research\daily-market\2026-10-06-collection\intraday\collect.mjs
+  27:62  error  Empty block statement  no-empty
+
+C:\Users\kevin\Documents\ChatGPT\當沖大富翁\.worktrees\premium-ui\research\daily-market\2026-10-06-collection\taiwan\collect-extra.mjs
+  16:77  error  Empty block statement  no-empty
+
+C:\Users\kevin\Documents\ChatGPT\當沖大富翁\.worktrees\premium-ui\research\daily-market\2026-10-06-collection\taiwan\collect.mjs
+  23:64  error  Empty block statement  no-empty
+
+C:\Users\kevin\Documents\ChatGPT\當沖大富翁\.worktrees\premium-ui\research\daily-market\2026-10-06-collection\us-indices\validate.mjs
+  13:41  error  Spaces are hard to count. Use {2}  no-regex-spaces
+
+C:\Users\kevin\Documents\ChatGPT\當沖大富翁\.worktrees\premium-ui\scripts\hosting\daily-integration.test.mjs
+  121:9  warning  'post' is assigned a value but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+  122:9  warning  'nextAction' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  123:9  warning  'ready' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  124:9  warning  'session' is assigned a value but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+
+C:\Users\kevin\Documents\ChatGPT\當沖大富翁\.worktrees\premium-ui\src\components\pwa-effect.tsx
+  11:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\kevin\Documents\ChatGPT\當沖大富翁\.worktrees\premium-ui\src\components\signed.tsx
+  4:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\kevin\Documents\ChatGPT\當沖大富翁\.worktrees\premium-ui\src\lib\gate\context.tsx
+  9:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\kevin\Documents\ChatGPT\當沖大富翁\.worktrees\premium-ui\src\offline\main.tsx
+  31:10  warning  Fast refresh only works when a file has exports. Move your component(s) to a separate file  react-refresh/only-export-components
+  58:10  warning  Fast refresh only works when a file has exports. Move your component(s) to a separate file  react-refresh/only-export-components
+
+✖ 13 problems (4 errors, 9 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

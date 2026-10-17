@@ -1,0 +1,10 @@
+$ node scripts/check-auth-invariant.mjs --dev-url http://127.0.0.1:18790   (npm run dev listens on 18790 on this branch)
+[auth-invariant] could not read the dev server's resolved VITE_AUTH_ENABLED
+exit 2
+
+$ curl -s http://127.0.0.1:18790/__app-env | head -c 100   (returns the app's HTML: the dev-only endpoint is gone)
+<!DOCTYPE html><html lang="zh-Hant"><head><meta charSet="utf-8"/><meta name="viewport" content="widt
+
+$ git log --oneline -S appEnvPlugin -- vite.config.ts
+3de5eb3 Host standalone classroom with secure accounts and durable local service
+57b2286 feat: 教室授權說明頁（P1 文案，不接金流） (#7)

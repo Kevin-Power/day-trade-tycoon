@@ -41,7 +41,9 @@ export function MorningOrderBook({
   return (
     <div className="td-book" data-flash={flash}>
       <div className="td-book-head">
-        <span className="td-chip">教學模擬五檔</span>
+        <span className="td-chip" data-kind="sim">
+          教學模擬五檔
+        </span>
         <span>
           可賣 <b className="td-num">{holdingLots}</b> 張
         </span>

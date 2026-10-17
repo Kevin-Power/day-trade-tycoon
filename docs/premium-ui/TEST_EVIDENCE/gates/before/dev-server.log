@@ -1,0 +1,9 @@
+
+> dev
+> node scripts/run-vite.mjs dev
+
+
+  [32m[1mVITE[22m v8.1.5[39m  [2mready in [0m[1m789[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m18790[22m/[39m
+[2m下午11:50:55[22m [36m[1m[vite][22m[39m [34m[2m(ssr)[22m[39m connected.

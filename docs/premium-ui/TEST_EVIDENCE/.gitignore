@@ -1,0 +1,3 @@
+# Raw screenshots stay local (about 20 MB); the side-by-side comparisons are committed.
+*.png
+!compare/*.png

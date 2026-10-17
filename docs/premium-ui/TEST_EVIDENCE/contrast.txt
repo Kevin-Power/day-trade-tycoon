@@ -1,0 +1,14 @@
+pair | bg #070a0f | panel #0d131b | raised #131c27
+fg #f3f6f9 | 18.28 | 17.19 | 15.83
+muted #9eacb9 | 8.55 | 8.04 | 7.40
+up #ff5468 | 6.34 | 5.97 | 5.49
+down #1cd78a | 10.51 | 9.89 | 9.11
+prev #e6c25a | 11.54 | 10.86 | 10.00
+accent #4ba5f1 | 7.51 | 7.06 | 6.50
+warn #e6b86e | 10.80 | 10.16 | 9.36
+alert #ff97a3 | 9.64 | 9.06 | 8.35
+old muted #8a9bb6 on old panel #0b111b: 6.71  old up #ff3b3b on #0b111b: 5.35
+white on up button #ff5468: 3.12  #04120a on down #1cd78a: 10.16  white on accent #4ba5f1: 2.64
+tinted selected states (second pass, ddbf9ee):
+select #d4ebff on #15314a: 10.91 | buy #ffd3d8 on #45202a: 10.42 | sell #b9ffe0 on #0f3a2a: 11.12
+solid fills kept: white on --td-up-fill #d92d45: 4.76 | white on --td-accent-fill #2a74d1: 4.65
