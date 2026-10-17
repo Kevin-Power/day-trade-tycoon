@@ -2386,11 +2386,30 @@
   height: 44px;
 }
 .trading-desk[data-layout="tablet"] .td-level {
-  min-height: 40px;
+  min-height: 44px;
 }
 .trading-desk[data-layout="tablet"] :is(.sim-stepper, .morning-limit-field > div) {
   grid-template-columns: 44px minmax(0, 1fr) 44px;
   min-height: 44px;
+}
+.trading-desk[data-layout="tablet"]
+  :is(
+    .sim-stepper button,
+    .morning-limit-field button,
+    .sim-ledger-header nav button,
+    .sim-ledger-toggle,
+    .sim-order-help summary,
+    .sim-cancel,
+    .sim-back,
+    .sim-prepare,
+    .sim-pending-actions button,
+    .td-section > summary
+  ) {
+  min-height: 44px;
+}
+.trading-desk[data-layout="tablet"] .sim-order-help summary {
+  display: flex;
+  align-items: center;
 }
 .trading-desk[data-layout="tablet"] .td-hero {
   grid-template-areas:
@@ -2405,6 +2424,14 @@
   gap: 8px;
   padding-top: 6px;
   border-top: var(--td-hairline) solid var(--td-line);
+}
+.trading-desk[data-layout="tablet"] .td-hero-stats div {
+  justify-content: flex-start;
+  gap: 8px;
+}
+.trading-desk[data-layout="tablet"] .td-hero-stats dd {
+  min-width: 0;
+  text-align: left;
 }
 
 /* Senior mode and very narrow phones: replay controls on two rows so 2x and 復盤 are not cut. */

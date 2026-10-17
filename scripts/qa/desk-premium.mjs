@@ -138,7 +138,9 @@ for (const item of cases) {
     rows.push({ case: item.name, screen: "market", ...first });
     if (first.small.length) fail(`${first.small.length} texts below 11px (${first.small.slice(0, 3).join(" | ")})`);
     if (first.offscreen.length || first.overflowX > 0) fail(`horizontal overflow (${first.offscreen.slice(0, 3).join(" | ")})`);
-    if (phone && first.targets.length) fail(`controls below ${item.senior ? 56 : 44}px (${first.targets.slice(0, 4).join(" | ")})`);
+    // Touch layouts (phones, tablets, large text) need 44px targets (56px in large text).
+    if (item.width < 1200 || item.senior)
+      if (first.targets.length) fail(`controls below ${item.senior ? 56 : 44}px (${first.targets.slice(0, 4).join(" | ")})`);
     if (first.lowContrast.length) fail(`low contrast text (${first.lowContrast.slice(0, 4).join(" | ")})`);
     if (first.signedZero.length) fail(`signed zero shown (${first.signedZero.join(" | ")})`);
     if (first.numbers.length) fail(`prices not in the monospaced face (${first.numbers.slice(0, 3).join(" | ")})`);

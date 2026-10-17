@@ -151,7 +151,8 @@ for (const row of rows) {
   if (!row.senior && row.width >= 1200 && !(row.sparkSize && row.sparkSize[0] >= 200 && row.sparkSize[1] >= 48))
     failures.push(`${row.name}: sparkline ${JSON.stringify(row.sparkSize)}, needs 200x48`);
   if (!row.senior && row.width >= 768) {
-    if (row.ledgerExpanded !== "false" || row.ledgerHeight > 40)
+    // One compact row when collapsed; tablets get 44px touch targets in that row.
+    if (row.ledgerExpanded !== "false" || row.ledgerHeight > (row.width < 1200 ? 48 : 40))
       failures.push(`${row.name}: ledger not collapsed by default (${row.ledgerExpanded}, ${row.ledgerHeight}px)`);
     if (row.ledgerToggle?.expanded !== "true" || row.ledgerToggle.height < 150)
       failures.push(`${row.name}: ledger did not expand (${JSON.stringify(row.ledgerToggle)})`);
