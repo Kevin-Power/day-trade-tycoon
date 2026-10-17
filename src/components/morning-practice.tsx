@@ -6,7 +6,6 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { Link } from "@tanstack/react-router";
 import {
   BookOpen,
   Check,
@@ -25,11 +24,11 @@ import {
   type MorningOrderOptions,
 } from "@/components/morning-trading";
 import { MorningSparkline } from "@/components/morning-quotes";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { authClient, authEnabled } from "@/lib/auth/client";
+import { useGuestBootstrap } from "@/components/use-guest-bootstrap";
+import { AccessCard } from "@/components/access-card";
 import { GuestBanner, GuestSaveCard, LinkNoticeBanner } from "@/components/guest-prompts";
 import { clearLinkNoticeCookie, readLinkNotice, type LinkNotice } from "@/lib/guest-link";
-import { describeAccessProblem, PRACTICE_PATH } from "@/lib/morning-access";
+import { describeAccessProblem } from "@/lib/morning-access";
 import { PlanForm } from "@/components/morning-plan-form";
 import { CARD, INPUT, PRIMARY, SECONDARY } from "@/components/morning-styles";
 import { CoachMarks } from "@/components/coach-marks";
@@ -38,7 +37,6 @@ import { browserStorage } from "@/lib/device-storage";
 import { useSay } from "@/components/use-speech";
 import { fillAnnouncement, SPEECH_TEXT } from "@/lib/speech";
 import { openingRevealDelay } from "@/lib/opening-reveal";
-import { loginHref } from "@/lib/safe-next";
 import { useDisplayPreferences } from "@/lib/display-preferences";
 import { useLedgerPreferences } from "@/lib/ledger-preferences";
 import { useTerminalLayout, type TerminalLayout } from "@/lib/use-terminal-layout";
@@ -235,32 +233,11 @@ export function MorningPractice({
   fresh?: boolean;
   onLessonChange: (lessonId: string) => void;
 }) {
-  const { user, guest, isPending } = useCurrentUserState();
+  const { user, guest, isPending, status, retry } = useGuestBootstrap();
   const [selectedExercise, setSelectedExercise] = useState(
     () => getMorningExercise(exerciseId)?.id ?? MORNING_EXERCISES[0].id,
   );
-  const [guestStart, setGuestStart] = useState<"idle" | "pending" | "failed">("idle");
-  const guestAttempt = useRef(false);
-  const needsGuest = authEnabled && !isPending && !user && !guest;
-  useEffect(() => {
-    if (!needsGuest || guestAttempt.current) return;
-    guestAttempt.current = true;
-    setGuestStart("pending");
-    // Practice first, account later: a guest account is created right after classroom entry.
-    void authClient.signIn
-      .anonymous()
-      .then(async ({ error }) => {
-        if (!error) return setGuestStart("idle");
-        // 400: this browser already holds a guest session; refresh it instead of failing.
-        if (error.status === 400) {
-          await authClient.getSession();
-          return setGuestStart("idle");
-        }
-        setGuestStart("failed");
-      })
-      .catch(() => setGuestStart("failed"));
-  }, [needsGuest]);
-  if (isPending || (needsGuest && guestStart !== "failed"))
+  if (status === "pending")
     return (
       <PageFrame>
         <p role="status" className={CARD}>
@@ -268,17 +245,10 @@ export function MorningPractice({
         </p>
       </PageFrame>
     );
-  if (needsGuest)
+  if (status === "failed")
     return (
       <PageFrame>
-        <AccessCard
-          problem={describeAccessProblem(401, "")}
-          busy={false}
-          onRetry={() => {
-            guestAttempt.current = false;
-            setGuestStart("idle");
-          }}
-        />
+        <AccessCard problem={describeAccessProblem(401, "")} busy={false} onRetry={retry} />
       </PageFrame>
     );
   return (
@@ -1048,47 +1018,6 @@ function MorningLesson({
         </>
       )}
     </PageFrame>
-  );
-}
-
-function AccessCard({
-  problem,
-  busy,
-  onRetry,
-}: {
-  problem: ReturnType<typeof describeAccessProblem>;
-  busy: boolean;
-  onRetry: () => void;
-}) {
-  return (
-    <section className={CARD} aria-labelledby="morning-access-title">
-      <h1 id="morning-access-title" className="text-xl font-semibold">
-        {problem.title}
-      </h1>
-      <p className="mt-3 text-muted">{problem.body}</p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {problem.kind === "guest-start" && (
-          <>
-            <button type="button" disabled={busy} onClick={onRetry} className={PRIMARY}>
-              再試一次
-            </button>
-            <a href={loginHref({ next: PRACTICE_PATH, mode: "up" })} className={SECONDARY}>
-              登入／建立帳號
-            </a>
-          </>
-        )}
-        {problem.kind === "profile" && (
-          <a href={loginHref({ next: PRACTICE_PATH })} className={PRIMARY}>
-            完成學員資料
-          </a>
-        )}
-        {problem.kind === "gate" && (
-          <Link to="/" className={PRIMARY}>
-            回大廳
-          </Link>
-        )}
-      </div>
-    </section>
   );
 }
 

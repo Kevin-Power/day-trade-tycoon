@@ -491,6 +491,27 @@ export type PlacedChartLabel = {
 };
 export const LABEL_PADDING = 4;
 
+/** Labels for extra horizontal levels (e.g. 昨高): at the right edge, just above the line, or below it near the top. */
+export function levelChartLabels(
+  levels: readonly { price: number; label: string }[],
+  place: { x: number; top: number; lineHeight: number; color: string; yOf: (price: number) => number; priceText: (price: number) => string },
+): ChartLabel[] {
+  return levels.map((level, index) => {
+    const y = place.yOf(level.price);
+    const above = y - place.top >= place.lineHeight;
+    return {
+      key: `level-${index}`,
+      text: level.label,
+      price: level.price,
+      priceText: place.priceText(level.price),
+      color: place.color,
+      x: place.x,
+      anchor: "end",
+      y: above ? y - place.lineHeight / 2 - 1 : y + place.lineHeight / 2 + 1,
+    };
+  });
+}
+
 export function chartLabelText(label: Pick<PlacedChartLabel, "parts" | "priceText">): string {
   return `${label.parts.map((part) => part.text).join("・")} ${label.priceText}`;
 }

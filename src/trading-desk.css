@@ -2201,3 +2201,299 @@
 .trading-desk[data-layout="senior"] .display-size-option {
   min-height: 56px;
 }
+
+/* Daily question page: one calm column, phone first */
+.trading-desk.td-daily {
+  height: auto;
+  min-height: 100dvh;
+}
+.trading-desk .td-daily-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--td-title);
+  border-bottom: 1px solid var(--td-title-line);
+}
+.trading-desk .td-daily-head .td-home {
+  min-height: 44px;
+  text-decoration: none;
+}
+.trading-desk .td-daily-title {
+  flex: 1;
+  min-width: 0;
+}
+.trading-desk .td-daily-title h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+.trading-desk .td-daily-title p {
+  margin: 0;
+  color: var(--td-muted);
+  font-size: 13px;
+}
+.trading-desk .td-daily-main {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 12px 16px 40px;
+}
+.trading-desk :is(.td-daily-card, .td-daily-question, .td-daily-answer, .td-daily-reveal) {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  background: var(--td-panel);
+  border: 1px solid var(--td-line);
+  border-radius: 8px;
+}
+.trading-desk .td-daily-card h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.trading-desk .td-daily-card .td-button {
+  justify-self: start;
+  min-height: 44px;
+  text-decoration: none;
+}
+.trading-desk .td-daily-stock {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+}
+.trading-desk .td-daily-stock strong {
+  font-size: 18px;
+}
+.trading-desk .td-daily-stock span {
+  color: var(--td-muted);
+}
+.trading-desk .td-daily-question h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.trading-desk .td-daily-chart {
+  height: 220px;
+  overflow: hidden;
+  background: var(--td-panel);
+  border: 1px solid var(--td-line);
+  border-radius: 8px;
+}
+.trading-desk .td-daily-chart[data-revealed="true"] {
+  height: 300px;
+  animation: td-daily-in 0.6s ease-out;
+}
+.trading-desk .td-daily-choices,
+.trading-desk .td-daily-stops {
+  display: grid;
+  gap: 8px;
+}
+.trading-desk :is(.td-daily-choice, .td-daily-option) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 64px;
+  padding: 10px 14px;
+  color: var(--td-fg);
+  text-align: left;
+  background: var(--td-raised);
+  border: 1px solid var(--td-line-strong);
+  border-radius: 8px;
+}
+.trading-desk .td-daily-option {
+  min-height: 48px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.trading-desk .td-daily-choice strong {
+  font-size: 18px;
+}
+.trading-desk .td-daily-choice span {
+  color: var(--td-muted);
+  font-size: 13px;
+}
+.trading-desk :is(.td-daily-choice, .td-daily-option)[aria-checked="true"] {
+  background: var(--td-accent-wash);
+  border-color: var(--td-accent);
+  box-shadow: inset 4px 0 0 var(--td-accent);
+}
+.trading-desk .td-daily-stepper {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 56px;
+  align-items: center;
+  min-height: 48px;
+  border: 1px solid var(--td-line-strong);
+  border-radius: 8px;
+}
+.trading-desk .td-daily-stepper button {
+  min-height: 48px;
+  color: var(--td-fg);
+  background: var(--td-raised);
+  font-size: 20px;
+}
+.trading-desk .td-daily-stepper output {
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+.trading-desk .td-daily-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.trading-desk .td-daily-chip {
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--td-fg);
+  background: transparent;
+  border: 1px solid var(--td-line-strong);
+  border-radius: 999px;
+}
+.trading-desk .td-daily-chip[aria-pressed="true"] {
+  background: var(--td-accent-wash);
+  border-color: var(--td-accent);
+}
+.trading-desk .td-daily-hint {
+  margin: 0;
+  color: var(--td-prev);
+}
+.trading-desk .td-daily-error {
+  margin: 0;
+  color: var(--td-up);
+}
+.trading-desk .td-daily-notice {
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--td-raised);
+  border-left: 3px solid var(--td-prev);
+}
+.trading-desk .td-daily-send {
+  width: 100%;
+  min-height: 52px;
+  font-size: 17px;
+}
+.trading-desk .td-daily-send:disabled {
+  opacity: 0.45;
+}
+.trading-desk .td-daily-reveal {
+  animation: td-daily-in 0.6s ease-out;
+}
+.trading-desk .td-daily-reveal h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+.trading-desk .td-daily-facts {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.trading-desk .td-daily-lessons {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--td-raised);
+  border-left: 3px solid var(--td-prev);
+  border-radius: 4px;
+}
+.trading-desk .td-daily-lessons h3 {
+  margin: 0;
+  color: var(--td-prev);
+  font-size: 14px;
+}
+.trading-desk .td-daily-lessons p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.trading-desk .td-daily-split p {
+  margin: 0 0 6px;
+}
+.trading-desk .td-daily-bar {
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  background: var(--td-raised);
+  border-radius: 999px;
+}
+.trading-desk .td-daily-bar [data-choice="enter"] {
+  background: var(--td-accent);
+}
+.trading-desk .td-daily-bar [data-choice="watch"] {
+  background: var(--td-prev);
+}
+.trading-desk .td-daily-bar [data-choice="skip"] {
+  background: var(--td-muted);
+}
+.trading-desk .td-daily-progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.trading-desk .td-daily-progress svg {
+  color: var(--td-prev);
+}
+.trading-desk .td-daily-next {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.trading-desk .td-daily-next .td-button {
+  flex: 1 1 140px;
+  min-height: 48px;
+  text-decoration: none;
+}
+@media (min-width: 768px) {
+  .trading-desk .td-daily-choices {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .trading-desk .td-daily-chart {
+    height: 320px;
+  }
+  .trading-desk .td-daily-chart[data-revealed="true"] {
+    height: 400px;
+  }
+}
+.trading-desk[data-layout="senior"] .td-daily-chart {
+  height: 240px;
+}
+.trading-desk[data-layout="senior"] .td-daily-choice {
+  min-height: 72px;
+}
+.trading-desk[data-layout="senior"] .td-daily-choice strong {
+  font-size: 20px;
+}
+.trading-desk[data-layout="senior"] :is(.td-daily-choice span, .td-daily-question h2, .td-daily-title p, .td-daily-hint) {
+  font-size: 16px;
+}
+.trading-desk[data-layout="senior"] :is(.td-daily-option, .td-daily-chip, .td-daily-send, .td-daily-next .td-button, .td-daily-stepper button) {
+  min-height: 56px;
+  font-size: 18px;
+}
+.trading-desk[data-layout="senior"] :is(.td-daily-facts, .td-daily-lessons p) {
+  font-size: 17px;
+}
+@keyframes td-daily-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trading-desk :is(.td-daily-chart, .td-daily-reveal) {
+    animation: none;
+  }
+}

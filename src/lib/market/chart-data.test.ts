@@ -29,6 +29,7 @@ import {
   volumeTone,
   wrapReadout,
   type ChartLabel,
+  levelChartLabels,
 } from "./chart-data.ts";
 import type { Bar } from "../game/types.ts";
 
@@ -552,4 +553,18 @@ test("wrapReadout gives a field wider than the strip its own line instead of dro
   const fields = readout("09:26–09:27", "價 2580");
   assert.deepEqual(wrapReadout(fields, measure, 50, 14).map((line) => line.length), [1, 1]);
   assert.deepEqual(wrapReadout([], measure, 50, 14), []);
+});
+
+test("a labelled level sits just above its line at the right edge", () => {
+  const labels = levelChartLabels([{ price: 100, label: "昨高" }], {
+    x: 300, top: 10, lineHeight: 16, color: "#e7b549", yOf: (price) => 200 - price, priceText: String,
+  });
+  assert.deepEqual(labels, [{ key: "level-0", text: "昨高", price: 100, priceText: "100", color: "#e7b549", x: 300, anchor: "end", y: 91 }]);
+});
+
+test("a level label too close to the top goes below its line", () => {
+  const [label] = levelChartLabels([{ price: 185, label: "昨高" }], {
+    x: 300, top: 10, lineHeight: 16, color: "#e7b549", yOf: (price) => 200 - price, priceText: String,
+  });
+  assert.equal(label!.y, 24);
 });

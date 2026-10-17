@@ -32,6 +32,13 @@ export function priceText(price: number): string {
   return price.toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
 
+const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
+/** "2026-10-14" → "10/14（三）". */
+export function dataDateText(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return `${month}/${day}（${WEEKDAYS[new Date(Date.UTC(year!, month! - 1, day!)).getUTCDay()]}）`;
+}
+
 export function timeText(t: number): string {
   const minutes = 9 * 60 + Math.floor(t / 60);
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;

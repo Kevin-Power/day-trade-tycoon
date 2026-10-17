@@ -4,6 +4,7 @@ import { useDeviceCanvas } from "@/components/use-device-canvas";
 import {
   LABEL_PADDING,
   candleBodyWidth,
+  levelChartLabels,
   candlePriceRange,
   chartLinePoints,
   chartWindow,
@@ -66,6 +67,10 @@ export type TapeChartProps = {
   interactive?: boolean;
   ariaLabel?: string;
   swingHighs?: SwingHighResult["confirmed"];
+  /** Extra labelled dashed levels, e.g. yesterday's high (昨高). */
+  levels?: { price: number; label: string }[];
+  /** Outlines the candle of this minute (the daily question's moment). */
+  markT?: number;
 };
 
 function tokens(canvas: HTMLCanvasElement) {
@@ -297,6 +302,7 @@ function paint(
     ...(opt.variant === "jiangbo" && !opt.range ? [opt.high, opt.low] : []),
     ...bars.flatMap((bar) => [bar.h, bar.l]),
     ...points.map((point) => point.p),
+    ...(opt.levels ?? []).map((level) => level.price),
     ...(deskChart && opt.showAverage ? bars.map((bar) => bar.a) : []),
   ].filter((price): price is number => price !== undefined && Number.isFinite(price) && price > 0);
   const high = Math.max(...values);
@@ -463,6 +469,22 @@ function paint(
         ctx.fillRect(column.left, top, column.width, Math.max(minHeight, bottom - top));
       }
     }
+    const marked = opt.markT === undefined ? undefined : bars.find((bar) => bar.t === opt.markT);
+    if (marked) {
+      // The daily question's moment: a thin frame around that one candle.
+      const column = snapColumn(xOf(candleTime(marked)), barWidth, sx, hairline);
+      const gap = 3;
+      const left = snapEdge(column.left - gap, sx);
+      const right = snapEdge(column.left + column.width + gap, sx);
+      const top = snapEdge(yOf(marked.h) - gap, sy);
+      const bottom = snapEdge(yOf(marked.l) + gap, sy);
+      ctx.save();
+      ctx.strokeStyle = c.fg;
+      ctx.lineWidth = cssPixels(hairline);
+      ctx.setLineDash([]);
+      ctx.strokeRect(left, top, right - left, bottom - top);
+      ctx.restore();
+    }
   } else {
     const runs = isIndex ? [{ above: true, points }] : splitPriceLine(points, opt.prev, interval);
     if (terminal && !isIndex) {
@@ -514,6 +536,21 @@ function paint(
     ctx.lineTo(x + 4, y + dir * 7);
     ctx.closePath();
     ctx.fill();
+  }
+  if (terminal) {
+    for (const level of opt.levels ?? []) {
+      const y = hRule(yOf(level.price));
+      ctx.save();
+      ctx.lineCap = "butt";
+      ctx.strokeStyle = c.warn;
+      ctx.lineWidth = cssPixels(hairline);
+      ctx.setLineDash(deviceDashPattern([5, 4], sx));
+      ctx.beginPath();
+      ctx.moveTo(snapEdge(padL, sx), y);
+      ctx.lineTo(gridRight, y);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
   // These are minute-high intervals; the exact trade second is not in a Bar.
   for (const [index, highPoint] of (opt.swingHighs ?? []).entries()) {
@@ -604,6 +641,11 @@ function paint(
         const above = y - padT >= lineHeight;
         labels.push({ key: `swing-${index}`, text: "前高", price: point.p, priceText: label(point.p), color: c.warn, x: w - padR - 4, anchor: "end", y: above ? y - lineHeight / 2 - 1 : y + lineHeight / 2 + 1 });
       });
+    labels.push(
+      ...levelChartLabels(opt.levels ?? [], {
+        x: w - padR - 4, top: padT, lineHeight, color: c.warn, yOf, priceText: label,
+      }),
+    );
     ctx.save();
     ctx.font = font;
     ctx.textAlign = "left";

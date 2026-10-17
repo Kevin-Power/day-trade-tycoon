@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Bar } from "../game/types.ts";
-import { entryResult, priceText, questionText, revealCopy, timeText } from "./reveal.ts";
+import { dataDateText, entryResult, priceText, questionText, revealCopy, timeText } from "./reveal.ts";
 import type { DailyOutcome } from "./types.ts";
 
 const bar = (t: number, o: number, h: number, l: number, c: number): Bar => ({ t, o, h, l, c, v: 1 });
@@ -63,4 +63,9 @@ test("the question sentence names the kind of high", () => {
     "台積電（2330）10:12 回到前高 2,590 附近。接下來你會怎麼做？");
   assert.equal(questionText({ name: "鴻海", code: "2317", kind: "previous-high", questionT: 600, level: 247 }),
     "鴻海（2317）09:10 漲到昨天最高價 247 附近。接下來你會怎麼做？");
+});
+
+test("the data day reads as month/day and weekday", () => {
+  assert.equal(dataDateText("2026-10-14"), "10/14（三）");
+  assert.equal(dataDateText("2026-10-19"), "10/19（一）");
 });
