@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Bar } from "../game/types.ts";
-import { deriveSwingHighs } from "./swing-highs.ts";
+import { confirmedHighIndexes, deriveSwingHighs } from "./swing-highs.ts";
 
 function minuteBars(highs: readonly number[], start = 0): Bar[] {
   return highs.map((h, index) => ({ t: start + index * 60, o: h, h, l: h, c: h, v: 1 }));
@@ -131,4 +131,18 @@ test("invalid values fail closed without changing input arrays or bars", () => {
   assert.deepEqual(deriveSwingHighs(bars, 300, 600, 0), { confirmed: [], comparison: null });
   const invalid = bars.map((bar, index) => ({ ...bar, h: index === 1 ? NaN : bar.h }));
   assert.equal(deriveSwingHighs(invalid, 600, 0, 600).confirmed.length, 0);
+});
+
+test("all confirmed highs of a day follow the same rule as the chart", () => {
+  const bars = minuteBars([100, 101, 105, 103, 102, 104, 108, 106, 104, 104, 104, 103]);
+  const indexes = confirmedHighIndexes(bars);
+  assert.deepEqual(indexes.map((index) => bars[index]!.t), deriveSwingHighs(bars, 99_999, 0, 99_999).confirmed.map((high) => high.t));
+  assert.deepEqual(indexes, [2, 6]);
+});
+
+test("plateaus and gaps are never confirmed by the day scan either", () => {
+  assert.deepEqual(confirmedHighIndexes(minuteBars([100, 101, 103, 103, 101, 100])), []);
+  const gap = minuteBars([100, 101, 105, 103, 102]);
+  gap[3] = { ...gap[3]!, t: gap[3]!.t + 60 };
+  assert.deepEqual(confirmedHighIndexes(gap), []);
 });

@@ -26,6 +26,25 @@ export type SwingHighResult = {
  * Even candidates use completed bars only. A caller may supply a full historical
  * bar for the current minute, so its eventual high is unsafe to inspect at now.
  */
+const OFFSETS = [-2, -1, 1, 2] as const;
+
+/** Strictly above two contiguous one-minute bars on each side: the one rule for a confirmed high. */
+function isConfirmedAt(bars: readonly Bar[], index: number): boolean {
+  const middle = bars[index];
+  if (!middle) return false;
+  return OFFSETS.every((offset) => {
+    const neighbor = bars[index + offset];
+    return !!neighbor && neighbor.t === middle.t + offset * 60 && neighbor.h < middle.h;
+  });
+}
+
+/** Every confirmed high of a whole (historical) day, by index, using the chart's rule. */
+export function confirmedHighIndexes(bars: readonly Bar[]): number[] {
+  const indexes: number[] = [];
+  for (let index = 2; index < bars.length - 2; index++) if (isConfirmedAt(bars, index)) indexes.push(index);
+  return indexes;
+}
+
 export function deriveSwingHighs(
   bars: readonly Bar[],
   now: number,
@@ -57,13 +76,7 @@ export function deriveSwingHighs(
   let lastConfirmedIndex = -1;
   for (let index = 2; index < completed.length - 2; index++) {
     const middle = completed[index]!;
-    const offsets = [-2, -1, 1, 2];
-    if (
-      offsets.every((offset) => {
-        const neighbor = completed[index + offset]!;
-        return neighbor.t === middle.t + offset * 60 && neighbor.h < middle.h;
-      })
-    ) {
+    if (isConfirmedAt(completed, index)) {
       allConfirmed.push({ t: middle.t, p: middle.h, confirmedAt: middle.t + 180 });
       lastConfirmedIndex = index;
     }
