@@ -75,6 +75,9 @@ export function timeAxisTicks(
   return result.length ? result : [start];
 }
 
+const MAX_CANVAS_RATIO = 4;
+const MAX_BACKING_PIXELS = 16_000_000;
+
 /**
  * Backing-store size for a canvas shown at `width` x `height` CSS pixels. `deviceBox` is the exact
  * number of device pixels the browser gives the canvas (ResizeObserver's devicePixelContentBoxSize);
@@ -87,19 +90,22 @@ export function canvasResolution(
   deviceBox?: { width: number; height: number },
 ) {
   const requested = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
-  const dpr = Math.min(3, requested);
-  // Only trust the box when it agrees with the ratio to within one device pixel (snapping), and
-  // stays inside the three-times cap; some engines report CSS pixels here.
+  // Four times covers every phone (3.5x Android flagships); the area cap bounds memory on any screen.
+  const areaCap = Math.sqrt(MAX_BACKING_PIXELS / Math.max(1, width * height));
+  const dpr = Math.min(MAX_CANVAS_RATIO, requested, areaCap);
+  // Only trust the box when the ratio is used as it is and the box agrees with it to within one
+  // device pixel (snapping, which can round either way); some engines report CSS pixels here.
   const exact =
+    dpr === requested &&
     deviceBox &&
     deviceBox.width >= 1 &&
     deviceBox.height >= 1 &&
-    deviceBox.width <= width * 3 &&
-    deviceBox.height <= height * 3 &&
     Math.abs(deviceBox.width - width * requested) <= 1 &&
     Math.abs(deviceBox.height - height * requested) <= 1;
-  const pixelWidth = Math.max(1, exact ? deviceBox.width : Math.round(width * dpr));
-  const pixelHeight = Math.max(1, exact ? deviceBox.height : Math.round(height * dpr));
+  // Under the area cap, round down so the backing store stays inside it.
+  const toPixels = dpr < Math.min(MAX_CANVAS_RATIO, requested) ? Math.floor : Math.round;
+  const pixelWidth = Math.max(1, exact ? deviceBox.width : toPixels(width * dpr));
+  const pixelHeight = Math.max(1, exact ? deviceBox.height : toPixels(height * dpr));
   return {
     width: pixelWidth,
     height: pixelHeight,

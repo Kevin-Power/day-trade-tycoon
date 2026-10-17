@@ -79,10 +79,11 @@ test("time labels stay apart at phone widths and large font sizes", () => {
     }
 });
 
-test("canvas scales its backing pixels exactly, caps DPR at three, and responds to zoom", () => {
+test("canvas scales its backing pixels exactly, caps DPR at four, and responds to zoom", () => {
+  // Ratios up to four (3.5x Android flagships) are used as they are.
   const high = canvasResolution(311.5, 220.25, 4);
-  assert.equal(high.width, 935);
-  assert.equal(high.height, 661);
+  assert.equal(high.width, 1246);
+  assert.equal(high.height, 881);
   assert.equal(high.scaleX, high.width / 311.5);
   assert.equal(high.scaleY, high.height / 220.25);
   assert.equal(canvasResolution(300, 200, 1.25).width, 375);
@@ -109,10 +110,33 @@ test("canvas backing size follows the browser's own device-pixel box when it is 
   assert.equal(canvasResolution(733, 300, 1.5, { width: 733, height: 300 }).width, 1100);
   assert.equal(canvasResolution(733, 300, 1.5, { width: 733, height: 300 }).height, 450);
   assert.equal(canvasResolution(733, 300, 1.5, { width: 1100, height: 300 }).height, 450);
-  // A huge device box (extreme zoom) is still capped at three times the CSS size.
+  // A huge device box (extreme zoom) is still capped at four times the CSS size.
   const capped = canvasResolution(300, 200, 5, { width: 1500, height: 1000 });
-  assert.equal(capped.width, 900);
-  assert.equal(capped.height, 600);
+  assert.equal(capped.width, 1200);
+  assert.equal(capped.height, 800);
+});
+
+test("a 3x phone box one pixel above height x 3 is still the browser's own box", () => {
+  // Fable audit P1: 358.797 CSS px at 3x is 1076.39; the browser paints 1077 rows. Rejecting the
+  // box drew a 1076-row canvas that the browser stretched, smearing every grid line.
+  const phone = canvasResolution(390, 358.797, 3, { width: 1170, height: 1077 });
+  assert.equal(phone.width, 1170);
+  assert.equal(phone.height, 1077);
+});
+
+test("phones above 3x get their full resolution instead of a stretched 3x canvas", () => {
+  // Fable audit P2: a 412 x 410.29 CSS px chart at 3.5x is 1442 x 1436 device px.
+  const flagship = canvasResolution(412, 410.2857, 3.5, { width: 1442, height: 1436 });
+  assert.equal(flagship.width, 1442);
+  assert.equal(flagship.height, 1436);
+  assert.equal(canvasResolution(114.6, 40, 3.5).width, 401);
+});
+
+test("a backing store never exceeds 16 million pixels, whatever the ratio", () => {
+  const huge = canvasResolution(2000, 1500, 4, { width: 8000, height: 6000 });
+  assert.ok(huge.width * huge.height <= 16_000_000, `${huge.width} x ${huge.height}`);
+  assert.ok(huge.width * huge.height > 15_000_000, `${huge.width} x ${huge.height}`);
+  assert.equal(huge.scaleX, huge.width / 2000);
 });
 
 test("hairlines are about one CSS pixel thick but never thinner than one device pixel", () => {
