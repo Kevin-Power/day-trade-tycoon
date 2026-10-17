@@ -10,6 +10,7 @@ import {
   chartWindow,
   completedBarsInWindow,
   deviceDashPattern,
+  clearsPriceTag,
   formatPercentChange,
   hairlineDevicePixels,
   inChartWindow,
@@ -319,6 +320,9 @@ function paint(
   const xOf = (time: number) => padL + ((time - window.start) / timeSpan) * plotW;
   const candleTime = (bar: Bar) => bar.t + (interval ? interval / 2 : 0);
   const plotBottom = padT + plotH;
+  // The last-price tag sits in the right gutter; percent labels it would cover are skipped.
+  const tagHeight = c.fontSize + 8;
+  const tagY = Math.min(plotBottom - tagHeight / 2, Math.max(padT + tagHeight / 2, yOf(current)));
   ctx.font = font;
   ctx.lineWidth = cssPixels(gridPixels);
   ctx.strokeStyle = c.grid;
@@ -340,7 +344,7 @@ function paint(
     ctx.lineTo(gridRight, hRule(y, gridPixels));
     ctx.stroke();
     ctx.fillText(label(price), snapEdge(padL - 7, sx), snapEdge(y, sy));
-    if (terminal) {
+    if (terminal && clearsPriceTag(y, tagY, tagHeight, c.fontSize)) {
       ctx.textAlign = "left";
       ctx.fillText(formatPercentChange(price, opt.prev), snapEdge(w - padR + 8, sx), snapEdge(y, sy));
       ctx.textAlign = "right";
@@ -712,8 +716,6 @@ function paint(
   ctx.font = font;
   ctx.textBaseline = "middle";
   ctx.textAlign = "center";
-  const tagHeight = c.fontSize + 8;
-  const tagY = Math.min(plotBottom - tagHeight / 2, Math.max(padT + tagHeight / 2, yOf(current)));
   ctx.fillStyle = current >= opt.prev ? c.up : c.down;
   const tagLeft = snapEdge(w - padR + 3, sx);
   const tagTop = snapEdge(tagY - tagHeight / 2, sy);

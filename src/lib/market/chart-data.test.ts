@@ -8,6 +8,7 @@ import {
   chartLabelText,
   chartLinePoints,
   chartWindow,
+  clearsPriceTag,
   completedBarsInWindow,
   deviceDashPattern,
   formatPercentChange,
@@ -567,4 +568,13 @@ test("a level label too close to the top goes below its line", () => {
     x: 300, top: 10, lineHeight: 16, color: "#e7b549", yOf: (price) => 200 - price, priceText: String,
   });
   assert.equal(label!.y, 24);
+});
+
+test("a right-axis percent label under the last-price tag is skipped, one clear of it is drawn", () => {
+  // Tag centred at y=100, 20px tall; labels are 12px tall, so they collide within 16px.
+  assert.equal(clearsPriceTag(100, 100, 20, 12), false);
+  assert.equal(clearsPriceTag(90, 100, 20, 12), false);
+  assert.equal(clearsPriceTag(115, 100, 20, 12), false);
+  assert.equal(clearsPriceTag(84, 100, 20, 12), true);
+  assert.equal(clearsPriceTag(116, 100, 20, 12), true);
 });
