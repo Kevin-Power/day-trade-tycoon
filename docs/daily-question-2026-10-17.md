@@ -1,6 +1,6 @@
 # 每日一題完成紀錄（好玩計畫 子專案 B）— 2026-10-17
 
-依 `docs/superpowers/specs/2026-10-17-daily-question-design.md` 與計畫 `docs/superpowers/plans/2026-10-17-daily-question.md` 實作。尚未部署到正式站。
+依 `docs/superpowers/specs/2026-10-17-daily-question-design.md` 與計畫 `docs/superpowers/plans/2026-10-17-daily-question.md` 實作。2026-10-18 已部署到正式站，見「正式站發布」。
 
 ## 完成的功能
 
@@ -139,6 +139,46 @@
 - 網站啟動時會自動套用遷移 `0009_daily_questions.sql`，新增 `daily_questions` 與 `daily_answers` 兩個表。
 - 正式站已經有 `MARKET_DATA_DIR`，不需要新的設定；正式站不要設定 `DAILY_NOW_ISO`。
 - 回退：舊版不讀這兩個表，可以直接把 `appEntry` 指回前一版。子專案 A 的訪客 session 回退注意事項仍然適用。
+
+## 正式站發布（2026-10-18）
+
+時間都是台北時間。
+
+- **發布內容**：
+  - 提交 `df969f3`，已推送到 `codex/course-handover`。
+  - 建置為不可變 release `20261017T222859002Z`，211 個檔案。
+  - 只有每日一題與它的審查修正；交易畫面改版（`claude/premium-trading-ui`）不在這次發布裡。
+- **發布前驗證**：
+  - `npm test` 722 個，718 通過、0 失敗、4 略過；typecheck、`eslint src` 通過。
+  - 隔離整合測試 4/4 通過（auth、morning、guest、daily），測試對象是這個 release。
+  - 在這個 release 上，`desk-layout --strict`、`desk-orders`、`desk-guest`、`desk-daily` 全部通過。
+  - **週一預演**：拋棄式測試伺服器，使用真實市場資料（唯讀），時鐘固定在 10/19 07:00；只設定在測試伺服器上。
+    - 題目是致茂（2360），09:40 回到前高 2,035 附近。
+    - 揭曉「沒有突破前高」，收盤 2,000。
+    - 大字模式圖表標籤沒有重疊；`desk-daily` 通過。
+- **停機與備份**：
+  - 06:32:47 正常停機，`lastCleanShutdown=true`。
+  - 一致備份 `backups/2026-10-17T22-32-51-746Z`，1,049 個檔案逐檔核對通過。
+- **切換與啟動**：
+  - 06:32:57 只修改 `appEntry`：從 `20261017T011132536Z` 改為 `20261017T222859002Z`。
+  - 06:33:14 健康檢查通過，停機約 **27 秒**。
+  - 健康檢查會查詢資料庫，所以遷移 `0009` 已在啟動時套用。
+- **發布後檢查**：
+  - 公開 JS/CSS 共 57 個檔案的 SHA-256 與 release 一致；三個秘密檔案不變；設定除 `appEntry` 外不變；前一版保留。
+  - `/`、`/daily`、`/teacher`、`/morning?panel=trade`、`/try`、`/sw.js`、`/manifest.webmanifest` 與圖示都回覆 200。
+  - 沒有入場碼時，`/api/daily`（GET 與 POST）、`/api/morning`、建立訪客都回覆 403。
+  - `/server/index.mjs` 回覆 404；8790 只綁定 `127.0.0.1`。
+  - **正式站沒有 `DAILY_NOW_ISO`**：`secrets/app.env` 與 `hosting.json` 都沒有這個鍵（只計數，沒有讀出內容），supervisor 只傳入系統必要變數與 `app.env`。
+  - **`MARKET_DATA_DIR`**：由 supervisor 設為 `<runtime>/market-data`（`scripts/hosting/app-paths.mjs`）。
+- **第一題什麼時候出現**：
+  - 今天是週日，目前的發題日算是週五 10/16；它需要 10/16 以前的全市場資料，但目前沒有，所以週五顯示「休」。
+  - 10/19（週一）06:00 之後，第一個打開大廳或 `/daily` 的人會觸發發題，用 10/16 的資料，題目是致茂（2360）。
+- **回退**：
+  1. 停機。
+  2. 把 `appEntry` 指回 `20261017T011132536Z`。舊版不讀 `daily_questions`、`daily_answers` 兩個新表，留著無害。
+  3. 啟動。
+- **發布紀錄**：`artifacts/deploy-20261018-daily-question/`（被 git 忽略）。
+- **尚待確認**：週一早上用手機作答一次；講師頁看分布與名單。
 
 ## 實作期間的決定與暫緩項目（2026-10-18 整理）
 
