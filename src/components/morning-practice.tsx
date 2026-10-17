@@ -1,18 +1,13 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   BookOpen,
-  Check,
-  ChevronLeft,
-  ChevronRight,
   CandlestickChart,
+  Check,
+  ChartCandlestick,
+  ListOrdered,
   RotateCcw,
+  Star,
+  Wallet,
 } from "lucide-react";
 import { TapeChart } from "@/components/charts";
 import { DeskBar, HintBar, StatusBar } from "@/components/morning-desk-bar";
@@ -24,6 +19,7 @@ import {
   type MorningOrderOptions,
 } from "@/components/morning-trading";
 import { MorningSparkline } from "@/components/morning-quotes";
+import { ChartToolbar, QuoteHero, QuoteLine } from "@/components/quote-hero";
 import { useGuestBootstrap } from "@/components/use-guest-bootstrap";
 import { AccessCard } from "@/components/access-card";
 import { GuestBanner, GuestSaveCard, LinkNoticeBanner } from "@/components/guest-prompts";
@@ -50,7 +46,8 @@ import type {
 } from "@/lib/morning";
 import { cn, formatTime } from "@/lib/utils";
 import { formatPrice } from "@/lib/market/ticks";
-import { candleWindow, formatPercentChange, showVolumeAndAverage } from "@/lib/market/chart-data";
+import { candleWindow, showVolumeAndAverage } from "@/lib/market/chart-data";
+import { quoteSummary } from "@/lib/morning-quote";
 import { deriveSwingHighs } from "@/lib/market/swing-highs";
 import {
   MORNING_EXERCISES,
@@ -58,8 +55,9 @@ import {
   type MorningExercise,
 } from "@/lib/morning-exercises";
 
-type MorningPane = "quote" | "chart" | "watch" | "trade" | "positions";
-
+/** Phone and large-text tabs; the chart mode (分時／K線) is separate and shared by every layout. */
+type MorningPane = "market" | "watch" | "trade" | "positions";
+type ChartMode = "quote" | "chart";
 
 function readResponse(value: unknown): MorningResponse {
   if (!value || typeof value !== "object" || !("catalog" in value) || !("state" in value)) {
@@ -76,11 +74,18 @@ async function readJsonResponse(response: Response): Promise<unknown> {
   }
 }
 
-async function readAccessProblem(response: Response): Promise<{ status: 401 | 403; message: string }> {
+async function readAccessProblem(
+  response: Response,
+): Promise<{ status: 401 | 403; message: string }> {
   let message = "";
   try {
     const payload: unknown = await response.json();
-    if (payload && typeof payload === "object" && "message" in payload && typeof payload.message === "string")
+    if (
+      payload &&
+      typeof payload === "object" &&
+      "message" in payload &&
+      typeof payload.message === "string"
+    )
       message = payload.message;
   } catch {
     /* The status alone decides the card. */
@@ -297,7 +302,8 @@ function MorningLesson({
   const mode = useDisplayPreferences((value) => value.mode);
   const layout = useTerminalLayout(mode === "senior");
   const [selected, setSelected] = useState("");
-  const [activePane, setActivePane] = useState<MorningPane>(initialPane ?? "chart");
+  const [activePane, setActivePane] = useState<MorningPane>(initialPane ?? "market");
+  const [chartMode, setChartMode] = useState<ChartMode>("chart");
   const [auto, setAuto] = useState(false);
   const [extended, setExtended] = useState(false);
   const [newPlan, setNewPlan] = useState(false);
@@ -416,7 +422,12 @@ function MorningLesson({
     heardFills.current = { id: run.id, count: run.fills.length };
     if (!previous || previous.id !== run.id || run.fills.length <= previous.count) return;
     const fill = run.fills[run.fills.length - 1];
-    say(fillAnnouncement(fill, catalog.symbols.find((symbol) => symbol.code === fill.code)?.name ?? fill.code));
+    say(
+      fillAnnouncement(
+        fill,
+        catalog.symbols.find((symbol) => symbol.code === fill.code)?.name ?? fill.code,
+      ),
+    );
   }, [data?.state, catalog, say]);
 
   const activeRun = Boolean(data?.state && !data.state.completed);
@@ -424,7 +435,7 @@ function MorningLesson({
     if (!coachPending.current || !activeRun || (data?.state?.cursor ?? 0) === 0) return;
     coachPending.current = false;
     // Step 1 talks about the chart; on one-pane layouts it must be the visible pane.
-    setActivePane("chart");
+    setActivePane("market");
     setCoachOpen(true);
   }, [activeRun, data?.state?.cursor]);
   function closeCoach() {
@@ -494,7 +505,7 @@ function MorningLesson({
       setSelected(plan.focusCode);
       setPlanOpen(false);
       // Show the chart, then reveal 09:00 by itself; playing on stays the learner's choice.
-      setActivePane("chart");
+      setActivePane("market");
       if (!readCoachSeen(browserStorage())) coachPending.current = true;
       window.requestAnimationFrame(() => {
         practiceHeading.current?.focus({ preventScroll: true });
@@ -590,13 +601,15 @@ function MorningLesson({
       onCancel={cancel}
     />
   ) : null;
-  const paneNav = (
-    <MorningTerminalNav
-      active={singlePane || activePane === "quote" ? activePane : "chart"}
-      onSelect={setActivePane}
-      singlePane={singlePane}
+  const chartBar = catalog ? (
+    <ChartToolbar
+      catalog={catalog}
+      code={code}
+      mode={chartMode}
+      onMode={setChartMode}
+      onSelect={setSelected}
     />
-  );
+  ) : null;
   const alerts = catalog && marketSession ? deriveMorningAlerts(catalog, marketSession) : [];
   const latestAlert = alerts.at(-1);
   const latestFill = [...alerts].reverse().find((alert) => alert.kind === "fill");
@@ -672,7 +685,8 @@ function MorningLesson({
             )}
             {atEnd && !completed && !showPlan && (
               <p role="status" className="td-banner">
-                已到 {catalog.end}，本課沒有下一分鐘。請核對委託與剩餘庫存，再保存復盤；系統不會自動平倉。
+                已到 {catalog.end}
+                ，本課沒有下一分鐘。請核對委託與剩餘庫存，再保存復盤；系統不會自動平倉。
               </p>
             )}
           </HintBar>
@@ -753,10 +767,7 @@ function MorningLesson({
                       session={marketSession ?? null}
                       code={code}
                       compact={layout === "tablet"}
-                      onSelect={(next) => {
-                        setSelected(next);
-                        setActivePane("chart");
-                      }}
+                      onSelect={setSelected}
                     />
                     {layout === "desktop" && marketSession && (
                       <div className="td-plan-note">
@@ -778,30 +789,29 @@ function MorningLesson({
                   </aside>
                 )}
                 <div className="td-center">
-                  {singlePane && (activePane === "trade" || activePane === "positions") && (
+                  {singlePane && activePane !== "market" && (
                     <h1 className="sr-only" ref={practiceHeading} tabIndex={-1}>
                       真實歷史行情・模擬交易工作台
                     </h1>
                   )}
-                  {!(singlePane && (activePane === "trade" || activePane === "positions")) && (
-                    <MorningQuote
-                      catalog={catalog}
-                      session={marketSession ?? null}
-                      code={code}
-                      onSelect={setSelected}
-                      titleRef={practiceHeading}
-                      nav={singlePane ? undefined : paneNav}
-                      source={activePane === "quote" ? "分時・分鐘收價" : "真實 1 分 K"}
-                    />
+                  {(!singlePane || activePane === "market") && (
+                    <>
+                      <QuoteHero
+                        catalog={catalog}
+                        session={marketSession ?? null}
+                        code={code}
+                        titleRef={practiceHeading}
+                      />
+                      {chartBar}
+                    </>
                   )}
-                  {singlePane && paneNav}
                   <div className="td-pane">
-                    {(!singlePane || activePane === "quote" || activePane === "chart") && (
+                    {(!singlePane || activePane === "market") && (
                       <MorningChart
                         catalog={catalog}
                         session={marketSession ?? null}
                         code={code}
-                        candles={activePane !== "quote"}
+                        candles={chartMode === "chart"}
                       />
                     )}
                     {singlePane && activePane === "watch" && (
@@ -811,12 +821,15 @@ function MorningLesson({
                         code={code}
                         onSelect={(next) => {
                           setSelected(next);
-                          setActivePane("quote");
+                          setActivePane("market");
                         }}
                       />
                     )}
                     {singlePane && activePane === "trade" && (
-                      <div className="td-mobile-ticket">{orderTicket}</div>
+                      <div className="td-mobile-ticket">
+                        <QuoteLine catalog={catalog} session={marketSession ?? null} code={code} />
+                        {orderTicket}
+                      </div>
                     )}
                     {singlePane &&
                       activePane === "positions" &&
@@ -828,15 +841,13 @@ function MorningLesson({
                             session={marketSession}
                             busy={Boolean(busy)}
                             onCancel={cancel}
+                            cards
                           />
                         </div>
                       ) : (
-                        <p className="td-empty">
-                          練習開始後，庫存、委託與成交會記錄在這裡。
-                        </p>
+                        <p className="td-empty">練習開始後，庫存、委託與成交會記錄在這裡。</p>
                       ))}
                   </div>
-
                 </div>
                 {!singlePane && (
                   <aside className="td-trade" data-coach="ticket">
@@ -884,6 +895,15 @@ function MorningLesson({
                   </div>
                 )}
               </section>
+              {singlePane && (
+                <MobileDock
+                  active={activePane}
+                  pending={
+                    marketSession?.orders.filter((item) => item.status === "pending").length ?? 0
+                  }
+                  onSelect={setActivePane}
+                />
+              )}
               {coachOpen && session && !completed && (
                 <CoachMarks
                   layout={layout}
@@ -938,14 +958,29 @@ function MorningLesson({
                   <h2 id="td-resources-title" ref={resourcesHeading} tabIndex={-1}>
                     教材與資料
                   </h2>
-                  <button
-                    type="button"
-                    className="td-tool"
-                    onClick={() => setResourcesOpen(false)}
-                  >
+                  <button type="button" className="td-tool" onClick={() => setResourcesOpen(false)}>
                     關閉
                   </button>
                 </header>
+                {singlePane && (
+                  <label className="td-section td-drawer-lesson">
+                    <span>教材交易日</span>
+                    <select
+                      value={catalog.lessonId}
+                      disabled={Boolean(busy)}
+                      onChange={(event) => {
+                        setAuto(false);
+                        onLessonChange(event.target.value);
+                      }}
+                    >
+                      {(data.lessons ?? [catalog]).map((lesson) => (
+                        <option key={lesson.lessonId} value={lesson.lessonId}>
+                          {lesson.date} · {lesson.symbols.length} 檔
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <details className="td-section">
                   <summary id="morning-lesson-picker">
                     教材與練習 · {catalog.date} · {exercise?.no ?? "自由練習"}
@@ -1041,133 +1076,45 @@ function PageFrame({
   );
 }
 
-function MorningQuote({
-  catalog,
-  session,
-  code,
-  onSelect,
-  titleRef,
-  nav,
-  source,
-}: {
-  catalog: MorningCatalog;
-  session: MorningState | null;
-  code: string;
-  onSelect: (code: string) => void;
-  titleRef: RefObject<HTMLHeadingElement | null>;
-  nav?: ReactNode;
-  /** Data label for the active chart, e.g. 分時・分鐘收價 or 真實 1 分 K. */
-  source: string;
-}) {
-  const symbol = catalog.symbols.find((item) => item.code === code) ?? catalog.symbols[0];
-  if (!symbol) return null;
-  const index = catalog.symbols.findIndex((item) => item.code === symbol.code);
-  const revealed = session?.bars[symbol.code] ?? [];
-  const last = revealed.at(-1);
-  const change = last ? last.c - symbol.previousClose : null;
-  const tone = change === null || change === 0 ? "flat" : change > 0 ? "up" : "down";
-  const move = (step: number) =>
-    onSelect(
-      catalog.symbols[(index + step + catalog.symbols.length) % catalog.symbols.length].code,
-    );
-  return (
-    <>
-      <header className="td-quote" data-tone={tone}>
-        <div className="td-quote-id">
-          <h1 ref={titleRef} tabIndex={-1} id="morning-practice-title">
-            {symbol.name}
-            <small>{symbol.code}</small>
-          </h1>
-          <select
-            aria-label="選擇股票"
-            value={symbol.code}
-            onChange={(event) => onSelect(event.target.value)}
-          >
-            {catalog.symbols.map((item) => (
-              <option key={item.code} value={item.code}>
-                {item.code} {item.name}
-              </option>
-            ))}
-          </select>
-          <div className="td-quote-arrows">
-            <button type="button" onClick={() => move(-1)} aria-label="上一檔股票">
-              <ChevronLeft aria-hidden />
-            </button>
-            <button type="button" onClick={() => move(1)} aria-label="下一檔股票">
-              <ChevronRight aria-hidden />
-            </button>
-          </div>
-        </div>
-        {nav}
-        <p className="td-quote-price" title="最新完整分鐘收價">
-          <strong>{last ? formatPrice(last.c) : "—"}</strong>
-          {change !== null && last ? (
-            <>
-              <span>
-                {change > 0 ? "▲" : change < 0 ? "▼" : ""}
-                {Math.abs(change).toLocaleString("zh-TW", { maximumFractionDigits: 2 })}
-              </span>
-              <span>{formatPercentChange(last.c, symbol.previousClose)}</span>
-            </>
-          ) : (
-            <span>待揭露第一分鐘</span>
-          )}
-        </p>
-      </header>
-      <div className="td-quote-info">
-        <dl className="td-quote-stats" aria-label="已揭露行情摘要">
-          {[
-            ["昨收", symbol.previousClose],
-            ["開盤", revealed[0]?.o],
-            ["最高", revealed.length ? Math.max(...revealed.map((bar) => bar.h)) : undefined],
-            ["最低", revealed.length ? Math.min(...revealed.map((bar) => bar.l)) : undefined],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{typeof value === "number" ? formatPrice(value) : "—"}</dd>
-            </div>
-          ))}
-        </dl>
-        <p className="td-chart-source">
-          <span className="td-chip">{source}</span>
-          <span>{catalog.date} 台北時間</span>
-        </p>
-      </div>
-    </>
-  );
-}
-function MorningTerminalNav({
+/** Phone and large-text bottom tabs, within thumb reach: 自選／行情／下單／庫存. */
+function MobileDock({
   active,
+  pending,
   onSelect,
-  singlePane,
 }: {
   active: MorningPane;
+  pending: number;
   onSelect: (pane: MorningPane) => void;
-  singlePane: boolean;
 }) {
-  const items: [MorningPane, string][] = singlePane
-    ? [
-        ["quote", "分時"],
-        ["chart", "K線"],
-        ["watch", "自選"],
-        ["trade", "下單"],
-        ["positions", "庫存"],
-      ]
-    : [
-        ["quote", "分時"],
-        ["chart", "K線"],
-      ];
+  const items = [
+    { pane: "watch", label: "自選", Icon: Star },
+    { pane: "market", label: "行情", Icon: ChartCandlestick },
+    { pane: "trade", label: "下單", Icon: ListOrdered },
+    { pane: "positions", label: "庫存", Icon: Wallet },
+  ] as const;
   return (
-    <nav aria-label="看盤分頁" className="td-tabs" data-variant={singlePane ? "panes" : "chart"}>
-      {items.map(([pane, label]) => (
+    <nav aria-label="主要分頁" className="td-dock">
+      {items.map(({ pane, label, Icon }) => (
         <button
           key={pane}
           type="button"
           aria-pressed={active === pane}
+          aria-label={
+            pane === "positions" && pending > 0 ? `${label}，${pending} 筆待成交` : undefined
+          }
           data-coach={`tab-${pane}`}
-          onClick={() => onSelect(pane)}
+          onClick={() => {
+            onSelect(pane);
+            window.scrollTo({ top: 0, behavior: "auto" });
+          }}
         >
-          {label}
+          <Icon aria-hidden />
+          <span>{label}</span>
+          {pane === "positions" && pending > 0 && (
+            <em className="td-dock-badge" aria-hidden>
+              {pending}
+            </em>
+          )}
         </button>
       ))}
     </nav>
@@ -1197,15 +1144,13 @@ function MorningWatchlist({
       </div>
       <div className="td-watch-list" role="group" aria-label="選擇重播商品">
         {catalog.symbols.map((symbol) => {
-          const last = session?.bars[symbol.code]?.at(-1);
-          const change = last ? last.c - symbol.previousClose : null;
-          const tone = change === null || change === 0 ? "flat" : change > 0 ? "up" : "down";
+          const quote = quoteSummary(session?.bars[symbol.code] ?? [], symbol.previousClose);
           return (
             <button
               type="button"
               key={symbol.code}
               className="td-watch-item"
-              data-tone={tone}
+              data-tone={quote.tone}
               aria-pressed={code === symbol.code}
               onClick={() => onSelect(symbol.code)}
             >
@@ -1213,11 +1158,21 @@ function MorningWatchlist({
                 <span>{symbol.name}</span>
                 <small>{symbol.code}</small>
               </span>
-              <strong className="td-watch-price">{last ? formatPrice(last.c) : "—"}</strong>
+              <strong className="td-watch-price">
+                {quote.last === null ? "—" : formatPrice(quote.last)}
+              </strong>
               <span className="td-watch-change">
-                {change === null || !last
-                  ? "尚未揭露"
-                  : `${change > 0 ? "▲" : change < 0 ? "▼" : "—"} ${Math.abs(change).toLocaleString("zh-TW", { maximumFractionDigits: 2 })}  ${formatPercentChange(last.c, symbol.previousClose)}`}
+                {quote.last === null ? (
+                  "尚未揭露"
+                ) : (
+                  <>
+                    <span>
+                      {quote.tone === "up" ? "▲" : quote.tone === "down" ? "▼" : "—"}
+                      {quote.changeText}
+                    </span>
+                    <span>{quote.percentText}</span>
+                  </>
+                )}
               </span>
               {!compact && (
                 <MorningSparkline
@@ -1452,10 +1407,15 @@ function MorningDataDetails({
           </div>
         )}
         <p>
-          K 線直接使用來源開高低收，該分鐘完成後才揭露整根。分時只連接各分鐘收價，點位標在分鐘結束時間，不代表分鐘內逐筆路徑；缺漏區間保留斷線。點按圖表或用左右方向鍵查看資料。
+          K
+          線直接使用來源開高低收，該分鐘完成後才揭露整根。分時只連接各分鐘收價，點位標在分鐘結束時間，不代表分鐘內逐筆路徑；缺漏區間保留斷線。點按圖表或用左右方向鍵查看資料。
         </p>
-        <p>來源：Yahoo Finance 歷史 1 分鐘 OHLC。這是真實歷史分鐘 K，尚非富邦即時或逐筆江波行情。</p>
-        <p>分鐘量尚未核對，不顯示量柱、均價或量能訊號；沒有真實五檔。資料缺漏不會以生成價格補齊。</p>
+        <p>
+          來源：Yahoo Finance 歷史 1 分鐘 OHLC。這是真實歷史分鐘 K，尚非富邦即時或逐筆江波行情。
+        </p>
+        <p>
+          分鐘量尚未核對，不顯示量柱、均價或量能訊號；沒有真實五檔。資料缺漏不會以生成價格補齊。
+        </p>
       </div>
     </details>
   );

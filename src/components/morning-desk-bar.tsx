@@ -166,12 +166,13 @@ export function StatusBar({
       <button
         type="button"
         className="td-tool"
+        aria-label="教材"
         aria-expanded={resourcesOpen}
         aria-controls="td-resources"
         onClick={onResources}
       >
         <BookOpen aria-hidden />
-        教材
+        <span>教材</span>
       </button>
     </DeskBar>
   );
