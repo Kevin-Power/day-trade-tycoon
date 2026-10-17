@@ -163,9 +163,9 @@
         "noBroker": true
       },
       "dock": null,
-      "heroBookBottom": 321,
-      "chartHeight": 980,
-      "pageScroll": 461
+      "heroBookBottom": 325,
+      "chartHeight": 992,
+      "pageScroll": 477
     },
     {
       "case": "390x844",
@@ -197,9 +197,9 @@
         ],
         "narrowest": 98
       },
-      "heroBookBottom": 353,
+      "heroBookBottom": 357,
       "chartHeight": 388,
-      "pageScroll": 133
+      "pageScroll": 137
     },
     {
       "case": "390x844",
@@ -233,7 +233,7 @@
       },
       "heroBookBottom": null,
       "chartHeight": 0,
-      "pageScroll": 715
+      "pageScroll": 730
     },
     {
       "case": "390x844",
@@ -299,9 +299,9 @@
         ],
         "narrowest": 90
       },
-      "heroBookBottom": 349,
+      "heroBookBottom": 353,
       "chartHeight": 340,
-      "pageScroll": 186
+      "pageScroll": 190
     },
     {
       "case": "360x740",
@@ -335,7 +335,7 @@
       },
       "heroBookBottom": null,
       "chartHeight": 0,
-      "pageScroll": 819
+      "pageScroll": 834
     },
     {
       "case": "360x740",
@@ -437,7 +437,7 @@
       },
       "heroBookBottom": null,
       "chartHeight": 0,
-      "pageScroll": 1187
+      "pageScroll": 1196
     },
     {
       "case": "375x812-large",
@@ -539,7 +539,7 @@
       },
       "heroBookBottom": null,
       "chartHeight": 0,
-      "pageScroll": 993
+      "pageScroll": 1002
     },
     {
       "case": "1366x900-large",

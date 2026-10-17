@@ -1,7 +1,7 @@
 [
   {
     "command": "npm ci",
-    "seconds": 11.8,
+    "seconds": 11.7,
     "exitCode": 0,
     "log": "ci.log",
     "tail": "Run `npm audit` for details. | npm warn deprecated recharts@2.15.4: 1.x and 2.x branches are no longer active. Bump to Recharts v3 to receive latest features and bugfixes. See https://github.com/recharts/recharts/wiki/3.0-migration-guide | npm warn deprecated eslint@9.39.5: This version is no longer"
@@ -22,14 +22,14 @@
   },
   {
     "command": "npm run test",
-    "seconds": 70.4,
+    "seconds": 69.8,
     "exitCode": 0,
     "log": "test.log",
-    "tail": "ℹ skipped 4 | ℹ todo 0 | ℹ duration_ms 69992.8626"
+    "tail": "ℹ skipped 4 | ℹ todo 0 | ℹ duration_ms 69412.1102"
   },
   {
     "command": "npm run typecheck",
-    "seconds": 6.3,
+    "seconds": 6.4,
     "exitCode": 0,
     "log": "typecheck.log",
     "tail": "> typecheck | > tsc --noEmit"

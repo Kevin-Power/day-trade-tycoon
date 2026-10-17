@@ -20,17 +20,21 @@
 | | `c770cc8` 畫面檢視後的修正 |
 | | `69167c8` 對比修正 |
 | | `9171b0b` 平板觸控 |
-| | 另有一個報告 commit |
+| | `c702d95` 報告與證據 |
+| | `ddbf9ee` 安靜的控制項（精品精修） |
+| | `a6ff145` 最新價標籤不蓋住刻度 |
+| | `de136fc` 手機分頁不透明 |
+| | 另有一個報告更新 commit |
 | 與 B 的修正 | `codex/course-handover` 之後多了每日一題的審查修正（到 `df969f3`）。兩邊合併沒有衝突 |
 
-## 8 項指令（最終 commit `9171b0b`，紀錄在 `TEST_EVIDENCE/gates/`）
+## 8 項指令（最終 commit `de136fc`，紀錄在 `TEST_EVIDENCE/gates/`）
 
-| 指令 | 改版前 `071aad0` | 改版後 `9171b0b` | 說明 |
+| 指令 | 改版前 `071aad0` | 改版後 `de136fc` | 說明 |
 |---|---|---|---|
 | `npm ci` | 通過（11s） | 通過（12s） | |
 | `npm run check:auth` | **exit 2** | **exit 2** | 無法觀察，不是兩邊不一致。這個分支在 `3de5eb3` 移除了開發伺服器的 `/__app-env`，對開發伺服器（18790）實測也一樣是 2（`check-auth-with-dev.log`）。**阻塞，但不是本次造成的** |
 | `npm run check:symbols` | 通過 | 通過 | 歷史封存 24 檔；可用真實分鐘教材 5 檔 |
-| `npm run test` | 通過：708 個，704 過、4 略過* | 通過：713 個，709 過、4 略過* | 多出的 5 個是新的報價函式測試。*4 個整合測試需要指定建置，已另外執行：4／4 通過 |
+| `npm run test` | 通過：708 個，704 過、4 略過* | 通過：714 個，710 過、4 略過* | 多出的 6 個是新的報價函式與標籤避讓測試。*4 個整合測試需要指定建置，已另外執行：4／4 通過 |
 | `npm run typecheck` | 通過 | 通過 | |
 | `npm run lint` | **exit 1** | **exit 1** | 4 個錯誤全在 `research/` 舊研究腳本，前後輸出完全相同；`npx eslint src` 0 錯誤。**不是本次造成的** |
 | `npm run build` | 通過 | 通過 | |
@@ -53,9 +57,9 @@
 ## 與子專案 B 修正合併後的驗收
 
 - **怎麼驗**：用暫時的本機 worktree 測試合併結果，測完已刪除，也沒有建立任何分支；紀錄在 `TEST_EVIDENCE/merge-check/`。
-- **合併來源**：`9171b0b` 與 `df969f3`，git 判斷沒有衝突。
+- **合併來源**：`de136fc` 與 `df969f3`，git 判斷沒有衝突。
 - **結果**：
-  - `npm test`：727 個，723 過、4 略過、0 失敗。
+  - `npm test`：728 個，724 過、4 略過、0 失敗。
   - typecheck、`eslint src`、build 都通過。
   - `desk-premium`、`desk-layout --strict`、`desk-sharpness`、`desk-orders`、`desk-guest`、`desk-daily` 都通過。
   - 整合測試 4／4 通過。
@@ -64,7 +68,7 @@
 
 | 界線 | 狀態 |
 |---|---|
-| 不動模擬撮合、風控、費稅、時序、課綱、帳戶、資料來源、委託 API | 沒有改。`git diff 071aad0..9171b0b --stat` 只有 UI 元件、`trading-desk.css`、新的顯示用函式與 QA 腳本 |
+| 不動模擬撮合、風控、費稅、時序、課綱、帳戶、資料來源、委託 API | 沒有改。`git diff 071aad0..de136fc --stat` 只有 UI 元件、`trading-desk.css`、`charts.tsx` 的一處標籤避讓、新的顯示用函式與 QA 腳本 |
 | 不啟用實盤 | `/api/broker/order` 沒動，仍回 501；`desk-premium` 確認畫面沒有送出 `/api/broker` 請求 |
 | 委託類型 | `/morning` 只有市價／限價，沒有新增任何類型 |
 | 閃電下單、撤單、離開確認、結算 | `desk-orders`、`desk-guest` 通過 |

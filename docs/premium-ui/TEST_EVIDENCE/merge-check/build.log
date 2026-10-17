@@ -132,7 +132,7 @@ computing gzip size...
 .output/public/assets/ibm-plex-mono-latin-500-normal-DSY6xOcd.woff2   14.88 kB
 .output/public/assets/ibm-plex-mono-latin-600-normal-BgSNZQsw.woff2   15.62 kB
 .output/public/assets/session-feedback-D7nun_3S.css                    0.88 kB │ gzip:   0.31 kB
-.output/public/assets/styles-C-XVwvFo.css                            168.71 kB │ gzip:  30.99 kB
+.output/public/assets/styles-Dtm4Fv-p.css                            169.55 kB │ gzip:  31.21 kB
 .output/public/assets/invariant-DEEwAagU.js                            0.06 kB │ gzip:   0.08 kB
 .output/public/assets/check-Cb2uYFYi.js                                0.12 kB │ gzip:   0.14 kB
 .output/public/assets/chevron-left-BM1osahW.js                         0.13 kB │ gzip:   0.14 kB
@@ -159,37 +159,37 @@ computing gzip size...
 .output/public/assets/coach-steps-KkbMx1kW.js                          1.10 kB │ gzip:   0.73 kB
 .output/public/assets/preload-helper-Czpn1I53.js                       1.19 kB │ gzip:   0.67 kB
 .output/public/assets/course-inquiries-Bp_Q0rUG.js                     1.25 kB │ gzip:   0.80 kB
-.output/public/assets/teacher-review._id-CdRir3ic.js                   1.61 kB │ gzip:   0.97 kB
+.output/public/assets/teacher-review._id-Bptldm7k.js                   1.61 kB │ gzip:   0.97 kB
 .output/public/assets/ticks-DigrdK21.js                                1.69 kB │ gzip:   0.74 kB
 .output/public/assets/button-CQ_zlnim.js                               2.07 kB │ gzip:   1.07 kB
 .output/public/assets/dist-BS1Zn5b8.js                                 2.88 kB │ gzip:   1.27 kB
 .output/public/assets/reveal-DeY1l74L.js                               3.37 kB │ gzip:   1.77 kB
-.output/public/assets/session._id.review-7jlvSRDP.js                   3.38 kB │ gzip:   1.71 kB
+.output/public/assets/session._id.review-BANwoz4-.js                   3.38 kB │ gzip:   1.71 kB
 .output/public/assets/morning-exercises-DpsG8Tp8.js                    3.50 kB │ gzip:   1.72 kB
 .output/public/assets/lazyRouteComponent-CcBJq7NX.js                   3.93 kB │ gzip:   1.33 kB
 .output/public/assets/classroom-db-CKFnxFfL.js                         6.26 kB │ gzip:   2.71 kB
-.output/public/assets/setup-CH9kc-Mj.js                                6.89 kB │ gzip:   2.89 kB
-.output/public/assets/daily-B6bpFmI_.js                                9.42 kB │ gzip:   3.89 kB
-.output/public/assets/login-B5CmKThL.js                               11.16 kB │ gzip:   4.21 kB
+.output/public/assets/setup-C8Zg1zeh.js                                6.89 kB │ gzip:   2.89 kB
+.output/public/assets/daily-CnRD3qgJ.js                                9.42 kB │ gzip:   3.89 kB
+.output/public/assets/login-aFm8URA_.js                               11.16 kB │ gzip:   4.21 kB
 .output/public/assets/learning-path-CuRu7pQe.js                       13.68 kB │ gzip:   4.91 kB
-.output/public/assets/try-BkrHZ4LJ.js                                 13.82 kB │ gzip:   4.95 kB
-.output/public/assets/manual-BlySEbCF.js                              19.27 kB │ gzip:   7.25 kB
-.output/public/assets/use-terminal-layout-Bg7NmUDb.js                 25.76 kB │ gzip:  10.57 kB
+.output/public/assets/try-CgZxgScp.js                                 13.82 kB │ gzip:   4.95 kB
+.output/public/assets/manual-CD6pRenh.js                              19.27 kB │ gzip:   7.24 kB
+.output/public/assets/use-terminal-layout-DC0J9C6G.js                 25.83 kB │ gzip:  10.60 kB
 .output/public/assets/use-current-user-D41IIDGY.js                    30.30 kB │ gzip:  11.58 kB
-.output/public/assets/license-DrD2V_4z.js                             33.26 kB │ gzip:  10.77 kB
+.output/public/assets/license-ClsHvtVR.js                             33.26 kB │ gzip:  10.77 kB
 .output/public/assets/createClientRpc-BvlPR4v4.js                     34.00 kB │ gzip:  10.43 kB
-.output/public/assets/dist-CtZBjcoK.js                                35.82 kB │ gzip:  12.27 kB
-.output/public/assets/teacher-BHXt_mE7.js                             39.91 kB │ gzip:  12.42 kB
-.output/public/assets/routes-Cay9XeC_.js                              41.41 kB │ gzip:  12.51 kB
+.output/public/assets/dist-D_nbvwyf.js                                35.82 kB │ gzip:  12.27 kB
+.output/public/assets/teacher-CQol6a8Z.js                             39.91 kB │ gzip:  12.42 kB
+.output/public/assets/routes-CdvkCXGn.js                              41.41 kB │ gzip:  12.50 kB
 .output/public/assets/display-controls-DQiUcALq.js                    65.05 kB │ gzip:  22.95 kB
 .output/public/assets/schemas-CqukMD_3.js                             70.36 kB │ gzip:  18.76 kB
-.output/public/assets/morning-CFs8qoBE.js                             81.05 kB │ gzip:  26.18 kB
-.output/public/assets/practice-goal-ZBYxoEEI.js                      163.16 kB │ gzip:  46.19 kB
-.output/public/assets/index-Dj3jo70R.js                              269.22 kB │ gzip:  88.64 kB
+.output/public/assets/morning-Cfwr6aWg.js                             81.05 kB │ gzip:  26.18 kB
+.output/public/assets/practice-goal-AGxt-DQ6.js                      163.16 kB │ gzip:  46.20 kB
+.output/public/assets/index-CSr2DL_L.js                              269.22 kB │ gzip:  88.63 kB
 .output/public/assets/week-Zy6xVKVG.js                               332.14 kB │ gzip: 107.49 kB
-.output/public/assets/session-feedback-D5NTLQUJ.js                   413.53 kB │ gzip: 111.24 kB
+.output/public/assets/session-feedback-DHdvYPGL.js                   413.53 kB │ gzip: 111.23 kB
 
-[32m✓ built in 824ms[39m
+[32m✓ built in 828ms[39m
 [36mvite v8.1.5 [32mbuilding ssr environment for production...[36m[39m
 [2Ktransforming...[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/merge-check/src/lib/classroom-db.ts?tss-serverfn-split:30:32 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
 [33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/merge-check/src/lib/classroom-db.ts?tss-serverfn-split:81:37 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
@@ -215,7 +215,7 @@ node_modules/.nitro/vite/services/ssr/assets/ibm-plex-mono-latin-400-normal-DMJ8
 node_modules/.nitro/vite/services/ssr/assets/ibm-plex-mono-latin-500-normal-DSY6xOcd.woff2   14.88 kB
 node_modules/.nitro/vite/services/ssr/assets/ibm-plex-mono-latin-600-normal-BgSNZQsw.woff2   15.62 kB
 node_modules/.nitro/vite/services/ssr/assets/session-feedback-D7nun_3S.css                    0.88 kB │ gzip:   0.31 kB
-node_modules/.nitro/vite/services/ssr/assets/styles-C-XVwvFo.css                            168.71 kB │ gzip:  30.99 kB
+node_modules/.nitro/vite/services/ssr/assets/styles-Dtm4Fv-p.css                            169.55 kB │ gzip:  31.21 kB
 node_modules/.nitro/vite/services/ssr/assets/kysely-adapter-Cj_QZw5p.js                       0.05 kB │ gzip:   0.07 kB
 node_modules/.nitro/vite/services/ssr/assets/start-5Z2QO8AU.js                                0.14 kB │ gzip:   0.13 kB
 node_modules/.nitro/vite/services/ssr/assets/empty-plugin-adapters-D9UWiqvJ.js                0.22 kB │ gzip:   0.16 kB
@@ -226,14 +226,14 @@ node_modules/.nitro/vite/services/ssr/assets/createServerRpc-CN-evIEF.js        
 node_modules/.nitro/vite/services/ssr/assets/morning-BOWIS1hC.js                              0.45 kB │ gzip:   0.27 kB
 node_modules/.nitro/vite/services/ssr/assets/login-DAogis7T.js                                0.56 kB │ gzip:   0.33 kB
 node_modules/.nitro/vite/services/ssr/assets/guest-link-99BndJZT.js                           0.63 kB │ gzip:   0.38 kB
-node_modules/.nitro/vite/services/ssr/assets/daily-DZaia67u.js                                0.63 kB │ gzip:   0.47 kB
+node_modules/.nitro/vite/services/ssr/assets/daily-Pjyq-N-o.js                                0.63 kB │ gzip:   0.47 kB
 node_modules/.nitro/vite/services/ssr/assets/classroom-feedback-DngcO04K.js                   0.64 kB │ gzip:   0.29 kB
 node_modules/.nitro/vite/services/ssr/assets/middleware-B_Z7AHuz.js                           0.74 kB │ gzip:   0.38 kB
 node_modules/.nitro/vite/services/ssr/assets/verify.server-305rE-b6.js                        0.84 kB │ gzip:   0.43 kB
 node_modules/.nitro/vite/services/ssr/assets/copy-B43RfxZO.js                                 0.91 kB │ gzip:   0.59 kB
 node_modules/.nitro/vite/services/ssr/assets/safe-next-CSciXuiB.js                            0.96 kB │ gzip:   0.50 kB
 node_modules/.nitro/vite/services/ssr/assets/classroom-policy-CrA-uKbz.js                     1.06 kB │ gzip:   0.60 kB
-node_modules/.nitro/vite/services/ssr/assets/morning-DKMsC_LU.js                              1.17 kB │ gzip:   0.72 kB
+node_modules/.nitro/vite/services/ssr/assets/morning-myZT0MBr.js                              1.17 kB │ gzip:   0.71 kB
 node_modules/.nitro/vite/services/ssr/assets/gates-CUxTjxua.js                                1.19 kB │ gzip:   0.71 kB
 node_modules/.nitro/vite/services/ssr/assets/classroom-review.server-Dxo8JYci.js              1.26 kB │ gzip:   0.68 kB
 node_modules/.nitro/vite/services/ssr/assets/brand-mark-CfUvJcQV.js                           1.35 kB │ gzip:   0.62 kB
@@ -261,7 +261,7 @@ node_modules/.nitro/vite/services/ssr/assets/session.server-CQoQB5hl.js         
 node_modules/.nitro/vite/services/ssr/assets/morning-session.server-C6wWu5f-.js               5.00 kB │ gzip:   1.92 kB
 node_modules/.nitro/vite/services/ssr/assets/session._id.review-DhgCobcl.js                   5.90 kB │ gzip:   2.21 kB
 node_modules/.nitro/vite/services/ssr/assets/reveal-tcdcMqgR.js                               6.16 kB │ gzip:   2.78 kB
-node_modules/.nitro/vite/services/ssr/assets/_tanstack-start-manifest_v-CA6DEzYV.js           6.36 kB │ gzip:   1.49 kB
+node_modules/.nitro/vite/services/ssr/assets/_tanstack-start-manifest_v-CKzF7xPG.js           6.36 kB │ gzip:   1.48 kB
 node_modules/.nitro/vite/services/ssr/assets/setup-DCOXSvpV.js                                9.72 kB │ gzip:   3.26 kB
 node_modules/.nitro/vite/services/ssr/assets/classroom-auth-layout-jW8SnouF.js                9.88 kB │ gzip:   3.05 kB
 node_modules/.nitro/vite/services/ssr/assets/display-controls-BUc_GDwX.js                    10.94 kB │ gzip:   3.91 kB
@@ -269,7 +269,7 @@ node_modules/.nitro/vite/services/ssr/assets/morning-engine-U5Djryfo.js         
 node_modules/.nitro/vite/services/ssr/assets/context-DgIuQe6I.js                             12.31 kB │ gzip:   5.08 kB
 node_modules/.nitro/vite/services/ssr/assets/classroom-db-Bh8Z5FHq.js                        13.32 kB │ gzip:   3.12 kB
 node_modules/.nitro/vite/services/ssr/assets/error-codes-B--KW6Z2.js                         15.75 kB │ gzip:   4.94 kB
-node_modules/.nitro/vite/services/ssr/assets/daily-CLwVD7r6.js                               15.97 kB │ gzip:   5.09 kB
+node_modules/.nitro/vite/services/ssr/assets/daily-CfLyv1kQ.js                               15.97 kB │ gzip:   5.09 kB
 node_modules/.nitro/vite/services/ssr/assets/learning-path-C3boc1Z-.js                       16.00 kB │ gzip:   5.18 kB
 node_modules/.nitro/vite/services/ssr/assets/login-CPw9O3nK.js                               16.61 kB │ gzip:   4.91 kB
 node_modules/.nitro/vite/services/ssr/assets/db-CDa5-sX8.js                                  20.85 kB │ gzip:   6.23 kB
@@ -277,20 +277,20 @@ node_modules/.nitro/vite/services/ssr/assets/try-BAyAbH0j.js                    
 node_modules/.nitro/vite/services/ssr/assets/daily-question.server-BqDKUU8-.js               21.53 kB │ gzip:   7.37 kB
 node_modules/.nitro/vite/services/ssr/assets/manual-mUGgk6zC.js                              25.12 kB │ gzip:   8.05 kB
 node_modules/.nitro/vite/services/ssr/assets/use-current-user-C34gi9Ga.js                    26.83 kB │ gzip:   7.88 kB
-node_modules/.nitro/vite/services/ssr/assets/router-CT7O1gQT.js                              36.72 kB │ gzip:  10.84 kB
+node_modules/.nitro/vite/services/ssr/assets/router-oe9zznWB.js                              36.72 kB │ gzip:  10.84 kB
 node_modules/.nitro/vite/services/ssr/assets/license-ziq-VCRX.js                             47.00 kB │ gzip:  12.36 kB
 node_modules/.nitro/vite/services/ssr/assets/session-feedback-D5ysAb-5.js                    50.81 kB │ gzip:  12.95 kB
-node_modules/.nitro/vite/services/ssr/assets/use-terminal-layout-DQcUcAT3.js                 53.66 kB │ gzip:  16.75 kB
+node_modules/.nitro/vite/services/ssr/assets/use-terminal-layout-ChCXUo9k.js                 54.04 kB │ gzip:  16.90 kB
 node_modules/.nitro/vite/services/ssr/assets/routes-DdNd1rkI.js                              61.09 kB │ gzip:  15.46 kB
 node_modules/.nitro/vite/services/ssr/assets/teacher-DHcgGGC0.js                             62.27 kB │ gzip:  15.45 kB
 node_modules/.nitro/vite/services/ssr/index.js                                               69.04 kB │ gzip:  17.89 kB
 node_modules/.nitro/vite/services/ssr/assets/morning-data.server-DkJgxIEC.js                 88.20 kB │ gzip:  16.38 kB
-node_modules/.nitro/vite/services/ssr/assets/morning-DuY4Tzrw.js                            129.84 kB │ gzip:  33.65 kB
+node_modules/.nitro/vite/services/ssr/assets/morning-BQlJ9O_c.js                            129.84 kB │ gzip:  33.65 kB
 node_modules/.nitro/vite/services/ssr/assets/practice-goal-DGUwmadd.js                      205.41 kB │ gzip:  41.05 kB
 node_modules/.nitro/vite/services/ssr/assets/server-DuQm0RNR.js                             313.20 kB │ gzip:  72.56 kB
 node_modules/.nitro/vite/services/ssr/assets/week-BAQw7oN9.js                               355.88 kB │ gzip: 109.94 kB
 
-[32m✓ built in 594ms[39m
+[32m✓ built in 610ms[39m
 
 [90m[[90mnitro[90m][39m [35m◐[39m Building [[35mNitro[39m] [2m(preset: [36mnode-server[39m, compatibility: [36m2026-10-18[39m)[22m
 [90m[[90mnitro[90m][39m [32m✔[39m Generated public [36m.output/public[39m
@@ -298,7 +298,7 @@ node_modules/.nitro/vite/services/ssr/assets/week-BAQw7oN9.js                   
 [2Ktransforming...✓ 3084 modules transformed.
 [36mℹ[39m Tracing dependencies:
 - [36mtslib[39m (2.8.1)
-[32m✔[39m Traced 1 dependencies (4 files) in 29ms.
+[32m✔[39m Traced 1 dependencies (4 files) in 31ms.
 [36mℹ[39m Ensure your production environment matches the builder OS and architecture ([36mwin32-x64[39m) to avoid native module issues.
 rendering chunks...
 computing gzip size...
@@ -314,7 +314,7 @@ computing gzip size...
 .output/server/_ssr/morning-BOWIS1hC.mjs                       0.50 kB │ gzip:   0.31 kB
 .output/server/_ssr/login-DAogis7T.mjs                         0.63 kB │ gzip:   0.39 kB
 .output/server/_ssr/guest-link-99BndJZT.mjs                    0.68 kB │ gzip:   0.42 kB
-.output/server/_ssr/daily-DZaia67u.mjs                         0.71 kB │ gzip:   0.52 kB
+.output/server/_ssr/daily-Pjyq-N-o.mjs                         0.71 kB │ gzip:   0.52 kB
 .output/server/_ssr/classroom-feedback-DngcO04K.mjs            0.71 kB │ gzip:   0.38 kB
 .output/server/_ssr/middleware-B_Z7AHuz.mjs                    0.82 kB │ gzip:   0.41 kB
 .output/server/_ssr/verify.server-305rE-b6.mjs                 0.88 kB │ gzip:   0.46 kB
@@ -322,7 +322,7 @@ computing gzip size...
 .output/server/_chunks/ssr-renderer.mjs                        0.96 kB │ gzip:   0.49 kB
 .output/server/_ssr/safe-next-CSciXuiB.mjs                     1.00 kB │ gzip:   0.53 kB
 .output/server/_ssr/classroom-policy-CrA-uKbz.mjs              1.11 kB │ gzip:   0.63 kB
-.output/server/_ssr/morning-DKMsC_LU.mjs                       1.24 kB │ gzip:   0.77 kB
+.output/server/_ssr/morning-myZT0MBr.mjs                       1.24 kB │ gzip:   0.77 kB
 .output/server/_ssr/classroom-review.server-Dxo8JYci.mjs       1.31 kB │ gzip:   0.71 kB
 .output/server/_libs/defu.mjs                                  1.41 kB │ gzip:   0.58 kB
 .output/server/_ssr/gates-CUxTjxua.mjs                         1.41 kB │ gzip:   0.78 kB
@@ -362,7 +362,7 @@ computing gzip size...
 .output/server/_libs/nanostores.mjs                            5.53 kB │ gzip:   1.80 kB
 .output/server/_libs/radix-ui__react-context+react.mjs         5.74 kB │ gzip:   1.67 kB
 .output/server/_ssr/reveal-tcdcMqgR.mjs                        6.20 kB │ gzip:   2.82 kB
-.output/server/_tanstack-start-manifest_v-CA6DEzYV.mjs         6.41 kB │ gzip:   1.52 kB
+.output/server/_tanstack-start-manifest_v-CKzF7xPG.mjs         6.41 kB │ gzip:   1.52 kB
 .output/server/_ssr/session._id.review-DhgCobcl.mjs            6.80 kB │ gzip:   2.34 kB
 .output/server/_libs/d3-array.mjs                              8.05 kB │ gzip:   2.25 kB
 .output/server/_libs/eventemitter3.mjs                         8.31 kB │ gzip:   2.05 kB
@@ -382,7 +382,7 @@ computing gzip size...
 .output/server/_libs/@radix-ui/react-compose-refs+[...].mjs   16.79 kB │ gzip:   4.66 kB
 .output/server/_libs/@better-auth/telemetry+[...].mjs         17.53 kB │ gzip:   4.91 kB
 .output/server/_libs/h3-v2+rou3.mjs                           17.58 kB │ gzip:   5.16 kB
-.output/server/_ssr/daily-CLwVD7r6.mjs                        18.02 kB │ gzip:   5.24 kB
+.output/server/_ssr/daily-CfLyv1kQ.mjs                        18.02 kB │ gzip:   5.23 kB
 .output/server/_ssr/login-CPw9O3nK.mjs                        18.93 kB │ gzip:   5.10 kB
 .output/server/_ssr/db-CDa5-sX8.mjs                           20.71 kB │ gzip:   6.31 kB
 .output/server/_ssr/daily-question.server-BqDKUU8-.mjs        21.38 kB │ gzip:   7.37 kB
@@ -394,14 +394,14 @@ computing gzip size...
 .output/server/_ssr/manual-mUGgk6zC.mjs                       28.98 kB │ gzip:   8.19 kB
 .output/server/_libs/lucide-react.mjs                         30.81 kB │ gzip:   6.17 kB
 .output/server/index.mjs                                      34.47 kB │ gzip:   9.75 kB
-.output/server/_ssr/router-CT7O1gQT.mjs                       36.32 kB │ gzip:  10.80 kB
+.output/server/_ssr/router-oe9zznWB.mjs                       36.32 kB │ gzip:  10.80 kB
 .output/server/_libs/react-smooth.mjs                         37.83 kB │ gzip:   8.15 kB
 .output/server/_libs/jose.mjs                                 38.58 kB │ gzip:   8.59 kB
 .output/server/_libs/h3+rou3+srvx.mjs                         46.00 kB │ gzip:  12.36 kB
 .output/server/_libs/noble__ciphers.mjs                       46.58 kB │ gzip:  14.45 kB
 .output/server/_ssr/license-ziq-VCRX.mjs                      53.36 kB │ gzip:  12.62 kB
 .output/server/_libs/sonner.mjs                               53.64 kB │ gzip:  12.12 kB
-.output/server/_ssr/use-terminal-layout-DQcUcAT3.mjs          53.91 kB │ gzip:  16.64 kB
+.output/server/_ssr/use-terminal-layout-ChCXUo9k.mjs          54.28 kB │ gzip:  16.79 kB
 .output/server/_ssr/session-feedback-D5ysAb-5.mjs             57.68 kB │ gzip:  13.26 kB
 .output/server/_libs/d3-scale+[...].mjs                       58.25 kB │ gzip:  12.11 kB
 .output/server/_ssr/ssr.mjs                                   67.37 kB │ gzip:  17.82 kB
@@ -411,7 +411,7 @@ computing gzip size...
 .output/server/_libs/tailwind-merge.mjs                       88.13 kB │ gzip:  15.66 kB
 .output/server/_ssr/morning-data.server-DkJgxIEC.mjs          88.24 kB │ gzip:  16.42 kB
 .output/server/_libs/@tanstack/router-core+[...].mjs         122.92 kB │ gzip:  25.89 kB
-.output/server/_ssr/morning-DuY4Tzrw.mjs                     145.80 kB │ gzip:  34.23 kB
+.output/server/_ssr/morning-BQlJ9O_c.mjs                     145.80 kB │ gzip:  34.23 kB
 .output/server/_libs/pg.mjs                                  148.50 kB │ gzip:  34.36 kB
 .output/server/_libs/lodash.mjs                              161.63 kB │ gzip:  29.39 kB
 .output/server/_ssr/practice-goal-DGUwmadd.mjs               206.58 kB │ gzip:  41.09 kB
@@ -423,7 +423,7 @@ computing gzip size...
 .output/server/_libs/electric-sql__pglite.mjs                752.14 kB │ gzip: 153.33 kB
 .output/server/_libs/@better-auth/core+[...].mjs             764.64 kB │ gzip: 146.32 kB
 
-[32m✓ built in 506ms[39m
+[32m✓ built in 515ms[39m
 [36mℹ[39m Generated [36m.output/nitro.json[39m
 
 [90m[[90mnitro[90m][39m [32m✔[39m You can preview this build using [36mnpx vite preview[39m

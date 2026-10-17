@@ -1,10 +1,10 @@
 seed exit=0 28s
-shots exit=0 15s
+shots exit=0 16s
 premium exit=0 18s
-layout-strict exit=0 53s
+layout-strict exit=0 52s
 sharpness exit=0 15s
-states exit=0 4s
+states exit=0 5s
 orders exit=0 2s
-premium-flat exit=0 18s
-guest exit=0 30s
-daily exit=0 16s
+premium-flat exit=0 17s
+guest exit=0 31s
+daily exit=0 15s

@@ -33,7 +33,7 @@
 | `terminal.tsx`（版面、手機分頁） | `morning-practice.tsx`（`MorningLesson` 版面、手機底部分頁 `MobileDock`）＋新 `quote-hero.tsx` |
 | `quote-book.tsx`（五檔） | `morning-order-book.tsx`、`morning-quotes.tsx`（`MorningQuoteDetail`） |
 | `watchlist.tsx` | `morning-practice.tsx` 內的 `MorningWatchlist` |
-| `charts.tsx`（`TapeChart`） | 同一個 `charts.tsx`（本次**沒有改程式**，顏色由 CSS token 帶入） |
+| `charts.tsx`（`TapeChart`） | 同一個 `charts.tsx`（顏色由 CSS token 帶入；只加了「最新價標籤不蓋住百分比刻度」的避讓） |
 | `order-ticket.tsx` | `morning-trading.tsx` 的 `PaperOrder` |
 | `positions.tsx` | `morning-trading.tsx` 的 `Ledger`、`AccountSummary` |
 | `styles.css` | `src/trading-desk.css`（交易畫面唯一的樣式表，根節點 `.trading-desk`） |
