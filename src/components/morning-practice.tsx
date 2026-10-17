@@ -1167,7 +1167,7 @@ function MorningWatchlist({
                 ) : (
                   <>
                     <span>
-                      {quote.tone === "up" ? "▲" : quote.tone === "down" ? "▼" : "—"}
+                      {quote.tone === "up" ? "▲" : quote.tone === "down" ? "▼" : ""}
                       {quote.changeText}
                     </span>
                     <span>{quote.percentText}</span>

@@ -15,6 +15,7 @@ const cases = [
   { name: "390x844", width: 390, height: 844 },
   { name: "360x740", width: 360, height: 740 },
   { name: "375x812-large", width: 375, height: 812, senior: true },
+  { name: "1366x900-large", width: 1366, height: 900, senior: true },
 ];
 
 const scan = (senior) => {
@@ -52,6 +53,10 @@ const scan = (senior) => {
     const style = getComputedStyle(el);
     if (!/IBM Plex Mono/.test(style.fontFamily)) numbers.push(id(el));
   }
+  // An unchanged price is "0", never a signed or dashed zero such as "−0" or "-0.00%".
+  const signedZero = [...document.querySelectorAll(".trading-desk :is(.td-watch-change, .td-hero-change, .td-quote-line) span")]
+    .filter((el) => visible(el) && /(^|\s)[-−—]0(?:\.0+)?(?=\s|%|$)/.test(el.textContent.trim()))
+    .map(id);
   const text = (selector) => document.querySelector(selector)?.textContent?.trim() ?? null;
   const shown = (selector) => [...document.querySelectorAll(selector)].some(visible);
   const dock = document.querySelector(".td-dock");
@@ -61,6 +66,7 @@ const scan = (senior) => {
     offscreen,
     targets,
     numbers,
+    signedZero,
     overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     hero: text(".td-hero h1"),
     heroBid: text('.td-hero-book [data-side="bid"] dd'),
@@ -76,6 +82,7 @@ const scan = (senior) => {
       ? {
           bottom: Math.round(dock.getBoundingClientRect().bottom),
           buttons: [...dock.querySelectorAll("button")].map((el) => el.textContent.trim()),
+          narrowest: Math.round(Math.min(...[...dock.querySelectorAll("button")].map((el) => el.getBoundingClientRect().width))),
         }
       : null,
     heroBookBottom: book ? Math.round(book.bottom) : null,
@@ -108,6 +115,7 @@ for (const item of cases) {
     if (first.small.length) fail(`${first.small.length} texts below 11px (${first.small.slice(0, 3).join(" | ")})`);
     if (first.offscreen.length || first.overflowX > 0) fail(`horizontal overflow (${first.offscreen.slice(0, 3).join(" | ")})`);
     if (phone && first.targets.length) fail(`controls below ${item.senior ? 56 : 44}px (${first.targets.slice(0, 4).join(" | ")})`);
+    if (first.signedZero.length) fail(`signed zero shown (${first.signedZero.join(" | ")})`);
     if (first.numbers.length) fail(`prices not in the monospaced face (${first.numbers.slice(0, 3).join(" | ")})`);
     if (!first.labels.real) fail("real-history data label not visible");
     if (!first.labels.heroSim) fail("買價／賣價 not labelled 模擬");
@@ -118,7 +126,12 @@ for (const item of cases) {
       if (!first.labels.bookSim || !first.labels.paper || !first.labels.noBroker) fail(`order-side labels missing ${JSON.stringify(first.labels)}`);
     }
     if (phone) {
-      if (!first.dock || first.dock.bottom !== item.height || first.dock.buttons.join() !== "自選,行情,下單,庫存")
+      if (
+        !first.dock ||
+        first.dock.bottom !== item.height ||
+        first.dock.buttons.join() !== "自選,行情,下單,庫存" ||
+        first.dock.narrowest < 72
+      )
         fail(`bottom tabs wrong ${JSON.stringify(first.dock)}`);
       if (!item.senior && first.heroBookBottom > item.height - 60)
         fail(`買價／賣價 end at ${first.heroBookBottom}px, below the first screen`);

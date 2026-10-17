@@ -995,7 +995,8 @@
   align-items: center;
   gap: 6px;
   margin: 0;
-  font: 600 15px/1.4 var(--font-mono);
+  font: 600 16px/1.4 var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 .trading-desk .sim-card dd.sim-mark {
   color: var(--td-tone);
@@ -2109,7 +2110,9 @@
   display: flex;
   flex-direction: column;
 }
+/* Full-screen on phones, above the bottom tabs so they cannot change the pane underneath. */
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-resources {
+  z-index: 50;
   inset: 0;
   width: 100vw;
 }
@@ -2120,8 +2123,30 @@
   grid-template-columns: 44px minmax(0, 1fr) 44px;
   min-height: 44px;
 }
-.trading-desk[data-layout="phone"] .td-watch-item {
-  min-height: 64px;
+/* Phone watchlist: one compact row per stock — name, sparkline, price and change. */
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-item {
+  grid-template-areas:
+    "name spark price"
+    "name spark change";
+  grid-template-columns: minmax(0, 1fr) minmax(72px, 30%) auto;
+  column-gap: 14px;
+  min-height: 68px;
+  padding: 10px 14px 10px 13px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-name {
+  align-self: center;
+  font-size: 16px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-name small {
+  font-size: 12px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-item .td-spark {
+  align-self: center;
+  height: 40px;
+  margin-top: 0;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-price {
+  font-size: 22px;
 }
 
 /* Bottom tabs (phone and large text): 自選／行情／下單／庫存, within thumb reach */
@@ -2190,6 +2215,29 @@
 .trading-desk[data-layout="senior"] .td-main {
   padding-bottom: calc(84px + env(safe-area-inset-bottom));
 }
+/* Large text on a wide screen: one readable centred column instead of full-width rows. */
+@media (min-width: 800px) {
+  .trading-desk[data-layout="senior"] .td-workbench {
+    width: 100%;
+    max-width: 760px;
+    margin-inline: auto;
+    border-inline: var(--td-hairline) solid var(--td-line);
+  }
+  .trading-desk[data-layout="senior"] :is(.td-bar, .td-hints) {
+    padding-inline: calc((100% - 760px) / 2 + 12px);
+  }
+  .trading-desk[data-layout="senior"] .td-dock {
+    max-width: 760px;
+    margin-inline: auto;
+    border-inline: var(--td-hairline) solid var(--td-line-strong);
+  }
+  .trading-desk[data-layout="senior"]
+    .td-main
+    > :not(.td-workbench, .td-dock, .td-coach, .td-resources) {
+    max-width: 736px;
+    margin-inline: auto;
+  }
+}
 
 /* Senior mode: larger type; global rules already give buttons 56px */
 .trading-desk[data-layout="senior"] {
@@ -2215,8 +2263,9 @@
 .trading-desk[data-layout="senior"] .td-watch-price {
   font-size: 28px;
 }
-.trading-desk[data-layout="senior"] .td-spark {
-  height: 64px;
+.trading-desk[data-layout="senior"] .td-spark,
+.trading-desk[data-layout="senior"] .td-watch-item .td-spark {
+  height: 52px;
 }
 .trading-desk[data-layout="senior"] :is(.td-hints, .td-hero-stats, .sim-order-facts dt, .td-book-hint, .td-book-source, .terminal-data-status, .td-chartbar-source, .td-level-rank) {
   font-size: 15px;
@@ -2307,6 +2356,51 @@
 }
 .trading-desk[data-layout="tablet"] .td-replay {
   margin-left: 0;
+}
+
+/* Tablet: touch-sized controls (the collapsed ledger row keeps its desk height), and the
+   day's 昨收／開／高／低 return as a row under the price. */
+.trading-desk[data-layout="tablet"]
+  :is(
+    .td-bar :is(button, select, a),
+    .td-replay :is(button, .td-speed),
+    .td-stepper :is(button, select),
+    .td-segment button,
+    .terminal-pane-bar :is(nav button, select),
+    .td-lots button,
+    .morning-order-type button,
+    .sim-side-switch button,
+    .td-switch
+  ) {
+  min-height: 44px;
+}
+.trading-desk[data-layout="tablet"] .td-stepper button {
+  width: 44px;
+  height: 44px;
+}
+.trading-desk[data-layout="tablet"] .td-stepper select {
+  height: 44px;
+}
+.trading-desk[data-layout="tablet"] .td-level {
+  min-height: 40px;
+}
+.trading-desk[data-layout="tablet"] :is(.sim-stepper, .morning-limit-field > div) {
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  min-height: 44px;
+}
+.trading-desk[data-layout="tablet"] .td-hero {
+  grid-template-areas:
+    "id book"
+    "price book"
+    "stats stats";
+}
+.trading-desk[data-layout="tablet"] .td-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  justify-content: stretch;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: var(--td-hairline) solid var(--td-line);
 }
 
 /* Senior mode and very narrow phones: replay controls on two rows so 2x and 復盤 are not cut. */
