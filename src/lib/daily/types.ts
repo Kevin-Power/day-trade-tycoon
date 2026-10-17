@@ -3,8 +3,13 @@ import type { Bar } from "../game/types.ts";
 export type DailyKind = "intraday-high" | "previous-high";
 export type DailyChoice = "enter" | "watch" | "skip";
 export type DailyOutcome = {
-  /** A later confirmed high above the level (the chart's rule), not a single poke. */
+  /**
+   * A later confirmed high (the chart's rule) at least two ticks above the level, or a close two ticks
+   * above it; one tick and back is not. Questions stored before this rule used "any confirmed high
+   * above the level", so the reveal reads them by the same rule from `maxAfter` and `close`.
+   */
   higherHigh: boolean;
+  /** The confirmed high's minute, or for a breakout held into the close the first minute two ticks above. */
   higherHighT: number | null;
   /** First later bar whose high is above the level. */
   firstBreakT: number | null;

@@ -54,13 +54,39 @@ test("a question too late in the day or without 30 minutes left is not used", ()
 });
 
 test("a higher high needs a new confirmed high above the level, not one tick", () => {
+  // The level 100 trades in 0.5 ticks: 100.5 is one tick above, 101 is two.
+  assert.equal(intradayCandidate(sym("1"), afterRetest([100.5, 99.9, 99.8]), 0.003)!.outcome.higherHigh, false);
   assert.equal(intradayCandidate(sym("1"), afterRetest([100.5, 100.5, 99.6, 99.5]), 0.003)!.outcome.higherHigh, false);
-  const broke = intradayCandidate(sym("1"), afterRetest([100.2, 100.8, 100.3, 100.1]), 0.003)!;
+  const broke = intradayCandidate(sym("1"), afterRetest([100.5, 101, 100.5, 100.1]), 0.003)!;
   assert.equal(broke.outcome.higherHigh, true);
   assert.equal(broke.outcome.higherHighT, 14 * 60);
   assert.equal(broke.outcome.firstBreakT, 13 * 60);
-  assert.equal(broke.outcome.firstBreakPrice, 100.2);
-  assert.equal(broke.outcome.maxAfter, 100.8);
+  assert.equal(broke.outcome.firstBreakPrice, 100.5);
+  assert.equal(broke.outcome.maxAfter, 101);
+});
+
+test("a confirmed high one tick above that closes one tick above is not a higher high", () => {
+  // Like 中鋼 on 2026-10-16: 19.5 → 19.55, closing at 19.55.
+  const flat = Array.from({ length: 36 }, () => [100.5, 100, 100.5] as [number, number, number]);
+  const bars = minutes([...RETEST, [100.5, 99.9, 100.2], [100, 99.8, 99.9], [99.9, 99.7, 99.8], ...flat]);
+  const outcome = intradayCandidate(sym("1"), bars, 0.003)!.outcome;
+  assert.equal(outcome.close, 100.5);
+  assert.equal(outcome.higherHigh, false);
+});
+
+test("a breakout that holds into the close is a higher high without a confirmed high", () => {
+  // A limit-up lock is a plateau, which never confirms (like 台虹 on 2026-10-16).
+  const lock = minutes([...RETEST, [102, 99.8, 102], ...Array.from({ length: 39 }, () => [102, 102, 102] as [number, number, number])]);
+  const locked = intradayCandidate(sym("1"), lock, 0.003)!.outcome;
+  assert.equal(locked.higherHigh, true);
+  assert.equal(locked.higherHighT, 13 * 60);
+  assert.equal(locked.close, 102);
+  // A steady rise into the close never has two lower minutes on its right either.
+  const rise = minutes([...RETEST, ...Array.from({ length: 40 }, (_, index) => {
+    const high = 99.9 + index / 10;
+    return [high, high - 0.3, high - 0.1] as [number, number, number];
+  })]);
+  assert.equal(intradayCandidate(sym("1"), rise, 0.003)!.outcome.higherHigh, true);
 });
 
 test("previous-high questions need the reference price to equal yesterday's close", () => {

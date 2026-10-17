@@ -3,6 +3,7 @@ import type { Bar } from "../game/types.ts";
 import type { DaySymbol } from "../market-days.server.ts";
 import { confirmedHighIndexes } from "../market/swing-highs.ts";
 import { stepTick, tickSize } from "../market/ticks.ts";
+import { breakoutPrice } from "./reveal.ts";
 import type { DailyCandidate, DailyOutcome, DailyQuestionPayload } from "./types.ts";
 
 const POOL_SIZE = 50;
@@ -44,17 +45,26 @@ export function suggestedStops(level: number, pullbackLow: number, close: number
   return { pullback: belowClose(pullbackLow, close), belowLevel: belowClose(floorToTick(level * 0.99), close) };
 }
 
+/**
+ * 做出後高 after the question minute: a confirmed high at least two ticks above the level (one tick
+ * and back does not count, spec §2), or a close two ticks above it. A breakout that holds into the
+ * close, such as a limit-up lock or a steady rise, never confirms a high.
+ */
 function outcomeAfter(bars: readonly Bar[], questionIndex: number, level: number): DailyOutcome {
   const after = bars.slice(questionIndex + 1);
-  const confirmed = confirmedHighIndexes(bars).find((index) => index > questionIndex && bars[index]!.h > level);
+  const breakout = cents(breakoutPrice(level));
+  const reaches = (price: number) => cents(price) >= breakout;
+  const confirmed = confirmedHighIndexes(bars).find((index) => index > questionIndex && reaches(bars[index]!.h));
+  const close = bars.at(-1)!.c;
+  const held = reaches(close) ? after.find((bar) => reaches(bar.h)) : undefined;
   const firstBreak = after.find((bar) => bar.h > level);
   return {
-    higherHigh: confirmed !== undefined,
-    higherHighT: confirmed === undefined ? null : bars[confirmed]!.t,
+    higherHigh: confirmed !== undefined || held !== undefined,
+    higherHighT: confirmed !== undefined ? bars[confirmed]!.t : (held?.t ?? null),
     firstBreakT: firstBreak?.t ?? null,
     firstBreakPrice: firstBreak?.h ?? null,
     maxAfter: Math.max(...after.map((bar) => bar.h)),
-    close: bars.at(-1)!.c,
+    close,
   };
 }
 
