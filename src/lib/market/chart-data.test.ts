@@ -526,6 +526,46 @@ test("a crowded tiny plot still finishes with every label inside it", () => {
   for (const item of placed) assert.ok(item.y >= 8 && item.y <= 52, `y ${item.y}`);
 });
 
+const overlap = (a: { left: number; width: number; y: number }, b: { left: number; width: number; y: number }, lineHeight: number) =>
+  a.left < b.left + b.width && b.left < a.left + a.width && Math.abs(a.y - b.y) < lineHeight;
+
+test("with a shift limit, a label that cannot sit near its price is left out instead of overlapping", () => {
+  const crowded = Array.from({ length: 8 }, (_, i) => label(`k${i}`, "高", 100 + i, 300, 50, "center"));
+  const tiny = { left: 0, right: 600, top: 0, bottom: 60 };
+  const placed = resolveChartLabels(crowded, tiny, measure, 16, { maxShiftLines: 1 });
+  assert.ok(placed.length >= 2 && placed.length < 8, `placed ${placed.length}`);
+  assert.equal(placed[0]!.keys[0], "k0");
+  for (const [index, item] of placed.entries()) {
+    assert.ok(Math.abs(item.y - 50) <= 16, `${item.keys[0]} moved to ${item.y}`);
+    for (const other of placed.slice(index + 1)) assert.equal(overlap(item, other, 16), false, `${item.keys[0]} / ${other.keys[0]}`);
+  }
+});
+
+test("a phone large-text question chart keeps the level and never moves 昨 onto another price", () => {
+  // 375 大字, 友達 2026-10-16 (artifacts/.../375-large-question.png): an 80 px plot from 34.75 to 36.90,
+  // where 昨 34.90 used to be pushed up onto 高 36.75. Labels are listed by importance.
+  const yOf = (price: number) => 270 + ((36.9 - price) / 2.15) * 80;
+  const xOf = (minute: number) => 60 + ((minute + 0.5) / 60) * 206;
+  const plot = { left: 62, right: 264, top: 270, bottom: 350 };
+  // A 16 px monospace font: CJK characters are 16 px wide, the rest 9.6 px.
+  const wide = (text: string) => [...text].reduce((sum, char) => sum + (char.charCodeAt(0) >= 0x3000 ? 16 : 9.6), 0);
+  const labels = [
+    label("swing-0", "前高", 36.75, 262, yOf(36.75) + 11, "end"),
+    label("prev", "昨", 34.9, 64, yOf(34.9)),
+    label("high", "高", 36.75, xOf(7), yOf(36.75) - 20, "center"),
+    label("low", "低", 35.55, xOf(15), yOf(35.55) + 20, "center"),
+    label("open", "開", 35.65, 64, yOf(35.65)),
+  ];
+  const placed = resolveChartLabels(labels, plot, wide, 20, { maxShiftLines: 1 });
+  for (const [index, item] of placed.entries()) {
+    const own = labels.find((value) => value.key === item.keys[0])!;
+    const wanted = Math.min(plot.bottom - 10, Math.max(plot.top + 10, own.y));
+    assert.ok(Math.abs(item.y - wanted) <= 20, `${own.text} moved from ${wanted} to ${item.y}`);
+    for (const other of placed.slice(index + 1)) assert.equal(overlap(item, other, 20), false, `${item.keys} / ${other.keys}`);
+  }
+  assert.equal(placed[0]!.keys[0], "swing-0");
+});
+
 test("labels with non-finite positions are skipped", () => {
   assert.equal(resolveChartLabels([label("x", "昨", Number.NaN, 60, 100)], bounds, measure, 16).length, 0);
 });

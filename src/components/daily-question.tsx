@@ -107,6 +107,11 @@ export function DailyQuestionPage({ teacher = false }: { teacher?: boolean }) {
 }
 
 function DailyChart({ question, bars, revealed }: { question: DailyQuestionView; bars: Bar[]; revealed: boolean }) {
+  const mode = useDisplayPreferences((state) => state.mode);
+  const layout = useTerminalLayout(mode === "senior");
+  // Before answering on a phone or in 大字 the price area is small: the volume pane and its readout
+  // give their room to the prices and the 前高 line the question is about.
+  const volume = revealed || (layout !== "phone" && layout !== "senior");
   const last = bars.at(-1)!;
   const endT = revealed ? last.t + 60 : Math.max(question.questionT + 1800, 3600);
   return (
@@ -128,11 +133,12 @@ function DailyChart({ question, bars, revealed }: { question: DailyQuestionView;
         markT={question.questionT}
         variant="candles"
         presentation="terminal"
-        showVolume
+        showVolume={volume}
         showAverage={false}
-        showVolumeReadout
+        showVolumeReadout={volume}
         appendCurrentQuote={false}
         completedBarSeconds={60}
+        fitLabels
         ariaLabel={`${question.name} ${question.code} 一分鐘K線，${revealed ? "整天走勢" : `到 ${timeText(question.questionT)} 為止`}`}
       />
     </div>

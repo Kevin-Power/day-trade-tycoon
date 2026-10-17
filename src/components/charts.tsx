@@ -71,6 +71,11 @@ export type TapeChartProps = {
   levels?: { price: number; label: string }[];
   /** Outlines the candle of this minute (the daily question's moment). */
   markT?: number;
+  /**
+   * Cramped charts: keep each in-plot label within one line of its price, the key levels (前高,
+   * 昨高) first, and leave out a label that cannot fit there instead of overlapping another.
+   */
+  fitLabels?: boolean;
 };
 
 function tokens(canvas: HTMLCanvasElement) {
@@ -650,11 +655,14 @@ function paint(
     ctx.font = font;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
+    const importance = (key: string) =>
+      key.startsWith("swing-") || key.startsWith("level-") ? 0 : ["prev", "high", "low", "open", "average"].indexOf(key) + 1;
     const placed = resolveChartLabels(
-      labels,
+      opt.fitLabels ? [...labels].sort((a, b) => importance(a.key) - importance(b.key)) : labels,
       { left: padL + 2, right: w - padR - 2, top: padT, bottom: plotBottom },
       (text) => ctx.measureText(text).width,
       lineHeight,
+      opt.fitLabels ? { maxShiftLines: 1 } : {},
     );
     for (const item of placed) {
       const left = snapEdge(item.left, sx);

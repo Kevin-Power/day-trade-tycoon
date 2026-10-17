@@ -520,12 +520,18 @@ export function chartLabelText(label: Pick<PlacedChartLabel, "parts" | "priceTex
  * Places the desk chart's in-plot labels so none overlaps another. Labels at the same price that
  * would touch merge into one ("昨・開・低 2575"); others that would overlap move down by one line,
  * or up when there is no room below. Every label stays inside `bounds`.
+ *
+ * With `maxShiftLines` (cramped charts, e.g. the daily question on a phone or in 大字), labels are
+ * placed in the order given, most important first, each at most that many lines from its own
+ * price; one that cannot be placed there without overlapping is left out rather than drawn on
+ * another label or beside another price's line.
  */
 export function resolveChartLabels(
   labels: readonly ChartLabel[],
   bounds: { left: number; right: number; top: number; bottom: number },
   measure: (text: string) => number,
   lineHeight: number,
+  options: { maxShiftLines?: number } = {},
 ): PlacedChartLabel[] {
   const widthOf = (label: Pick<PlacedChartLabel, "parts" | "priceText">) =>
     measure(chartLabelText(label)) + LABEL_PADDING * 2;
@@ -567,6 +573,29 @@ export function resolveChartLabels(
   const half = lineHeight / 2;
   const clampY = (y: number) => Math.min(bounds.bottom - half, Math.max(bounds.top + half, y));
   const settled: PlacedChartLabel[] = [];
+  const limit = options.maxShiftLines;
+  if (limit !== undefined) {
+    for (const label of placed) {
+      const wanted = clampY(label.y);
+      const offsets = [0, ...Array.from({ length: Math.max(0, Math.floor(limit)) }, (_, i) => [i + 1, -(i + 1)]).flat()];
+      const y = offsets
+        .map((offset) => wanted + offset * lineHeight)
+        .find(
+          (slot) =>
+            slot === clampY(slot) &&
+            !settled.some(
+              (other) =>
+                label.left < other.left + other.width &&
+                other.left < label.left + label.width &&
+                Math.abs(other.y - slot) < lineHeight,
+            ),
+        );
+      if (y === undefined) continue;
+      label.y = y;
+      settled.push(label);
+    }
+    return settled;
+  }
   for (const label of [...placed].sort((a, b) => a.y - b.y)) {
     const overlapping = (y: number) =>
       settled.find(
