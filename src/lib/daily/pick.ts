@@ -39,6 +39,11 @@ function belowClose(stop: number, close: number): number {
   return value;
 }
 
+/** The two stop suggestions: the pullback low and 1% under the level, both legal ticks below the close. */
+export function suggestedStops(level: number, pullbackLow: number, close: number): { pullback: number; belowLevel: number } {
+  return { pullback: belowClose(pullbackLow, close), belowLevel: belowClose(floorToTick(level * 0.99), close) };
+}
+
 function outcomeAfter(bars: readonly Bar[], questionIndex: number, level: number): DailyOutcome {
   const after = bars.slice(questionIndex + 1);
   const confirmed = confirmedHighIndexes(bars).find((index) => index > questionIndex && bars[index]!.h > level);
@@ -71,10 +76,7 @@ function finish(symbol: DaySymbol, bars: Bar[], fields: Pick<DailyCandidate, "ki
     questionT: bars[fields.questionIndex]!.t,
     referencePrice: symbol.referencePrice,
     pullbackLow: fields.pullbackLow,
-    stops: {
-      pullback: belowClose(fields.pullbackLow, close),
-      belowLevel: belowClose(floorToTick(fields.level * 0.99), close),
-    },
+    stops: suggestedStops(fields.level, fields.pullbackLow, close),
     bars,
     outcome: outcomeAfter(bars, fields.questionIndex, fields.level),
     tradeValue: symbol.tradeValue,
