@@ -27,7 +27,7 @@ async function fixture(run: (tools: {
   const directory = await mkdtemp(join(tmpdir(), "guest-link-test-"));
   const db = new PGlite({ dataDir: join(directory, "pglite") });
   try {
-    for (const migration of ["0001_auth.sql", "0003_classroom.sql", "0007_morning_replay.sql", "0008_anonymous_users.sql"])
+    for (const migration of ["0001_auth.sql", "0003_classroom.sql", "0007_morning_replay.sql", "0008_anonymous_users.sql", "0009_daily_questions.sql"])
       await db.exec(await readFile(new URL("../../migrations/" + migration, import.meta.url), "utf8"));
     await run({
       db,
@@ -140,4 +140,17 @@ test("purges only anonymous users older than 30 days, at most the limit", () => 
   assert.equal(await count(`SELECT count(*) FROM "user" WHERE id IN ('fresh','oldMember')`), 2);
   assert.equal(await count(`SELECT count(*) FROM "user" WHERE id IN ('old1','old2')`), 0);
   assert.equal(await count("SELECT count(*) FROM morning_sessions WHERE user_id IN ('old1','old2')"), 0);
+}));
+
+test("guest daily answers move to the account unless it already answered", () => fixture(async ({ db, link, addUser }) => {
+  await addUser("guest", true);
+  await addUser("acct", false);
+  await db.exec(`INSERT INTO daily_questions(id, issue_date, payload) VALUES
+    ('2026-10-14', '2026-10-19', '{}'::jsonb), ('2026-10-15', '2026-10-20', '{}'::jsonb)`);
+  await db.exec(`INSERT INTO daily_answers(user_id, question_id, choice) VALUES
+    ('guest', '2026-10-14', 'watch'), ('guest', '2026-10-15', 'skip'), ('acct', '2026-10-15', 'watch')`);
+  assert.equal((await link("guest", "acct")).linked, true);
+  const rows = (await db.query<{ question_id: string; choice: string }>(
+    "SELECT question_id, choice FROM daily_answers WHERE user_id = 'acct' ORDER BY question_id")).rows;
+  assert.deepEqual(rows.map((row) => [row.question_id, row.choice]), [["2026-10-14", "watch"], ["2026-10-15", "watch"]]);
 }));

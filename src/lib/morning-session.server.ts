@@ -8,13 +8,13 @@ type SessionRow = { id: string; state_json: MorningStoredState | string };
 function stored(row: SessionRow): MorningStoredState {
   return typeof row.state_json === "string" ? JSON.parse(row.state_json) : row.state_json;
 }
-type PracticeAccess = { kind: "member" } | { kind: "guest"; consented: boolean };
+export type PracticeAccess = { kind: "member" } | { kind: "guest"; consented: boolean };
 /**
  * Members need an accepted classroom profile; guests (anonymous accounts) never get one and
  * accept the teaching statement by pressing start. The row lock serializes concurrent starts
  * and keeps request idempotency per owner.
  */
-async function requirePracticeAccess(sql: Sql, userId: string): Promise<PracticeAccess> {
+export async function requirePracticeAccess(sql: Sql, userId: string): Promise<PracticeAccess> {
   const profile = await sql<{ tos_accepted_at: unknown }>`
     SELECT tos_accepted_at FROM classroom_profiles WHERE user_id = ${userId} FOR UPDATE`;
   if (profile[0]?.tos_accepted_at) return { kind: "member" };

@@ -25,6 +25,10 @@ export async function linkGuestRecords(sql: Sql, guestId: string, accountId: str
     RETURNING id`;
   const moved = await sql<{ id: string }>`
     UPDATE morning_sessions SET user_id = ${accountId}, updated_at = NOW() WHERE user_id = ${guestId} RETURNING id`;
+  // Daily answers: the account keeps its own answer to a question both answered.
+  await sql`DELETE FROM daily_answers g WHERE g.user_id = ${guestId} AND EXISTS (
+    SELECT 1 FROM daily_answers a WHERE a.user_id = ${accountId} AND a.question_id = g.question_id)`;
+  await sql`UPDATE daily_answers SET user_id = ${accountId} WHERE user_id = ${guestId}`;
   await sql`DELETE FROM "user" WHERE id = ${guestId} AND "isAnonymous"`;
   return { linked: true, moved: moved.length, skipped: dropped.length > 0 };
 }
