@@ -14,6 +14,9 @@
   --td-down: #1cd78a;
   --td-prev: #e6c25a;
   --td-accent: #4ba5f1;
+  /* Filled controls carry white text, so they use deeper fills (white ≥ 4.5:1). */
+  --td-up-fill: #d92d45;
+  --td-accent-fill: #2a74d1;
   --td-warn: #e6b86e;
   --td-alert-bg: #2a0f15;
   --td-alert-fg: #ff97a3;
@@ -118,8 +121,8 @@
 }
 .trading-desk .td-button[data-variant="primary"] {
   color: #ffffff;
-  background: var(--td-accent);
-  border-color: var(--td-accent);
+  background: var(--td-accent-fill);
+  border-color: var(--td-accent-fill);
 }
 .trading-desk .td-chip {
   display: inline-flex;
@@ -188,8 +191,8 @@
 }
 .trading-desk .td-tool:is([aria-expanded="true"], [aria-pressed="true"]) {
   color: #ffffff;
-  background: var(--td-accent);
-  border-color: var(--td-accent);
+  background: var(--td-accent-fill);
+  border-color: var(--td-accent-fill);
 }
 .trading-desk .td-brand {
   display: inline-flex;
@@ -296,8 +299,8 @@
 }
 .trading-desk :is(.td-play[data-running="true"], .td-start) {
   color: #ffffff;
-  background: var(--td-up);
-  border-color: var(--td-up);
+  background: var(--td-up-fill);
+  border-color: var(--td-up-fill);
 }
 .trading-desk .td-speed {
   display: inline-flex;
@@ -312,7 +315,8 @@
   font-family: var(--font-mono);
 }
 .trading-desk .td-replay .td-speed button[aria-pressed="true"] {
-  background: var(--td-accent);
+  color: #ffffff;
+  background: var(--td-accent-fill);
 }
 
 /* Hint row */
@@ -356,7 +360,7 @@
 }
 .trading-desk .td-alert > span:first-child {
   color: #ffffff;
-  background: var(--td-up);
+  background: var(--td-up-fill);
 }
 .trading-desk .td-feedback {
   color: #9ce6ce;
@@ -1677,8 +1681,8 @@
 }
 .trading-desk .sim-side-switch button[data-side="buy"][aria-pressed="true"] {
   color: #ffffff;
-  background: var(--td-up);
-  border-color: var(--td-up);
+  background: var(--td-up-fill);
+  border-color: var(--td-up-fill);
 }
 .trading-desk .sim-side-switch button[data-side="sell"][aria-pressed="true"] {
   color: #04120a;
@@ -1712,7 +1716,7 @@
 }
 .trading-desk .morning-order-type button[aria-pressed="true"] {
   color: #ffffff;
-  background: var(--td-accent);
+  background: var(--td-accent-fill);
 }
 .trading-desk .morning-limit-field {
   display: grid;
@@ -1807,7 +1811,7 @@
   gap: 10px;
   min-height: 44px;
   color: #ffffff;
-  background: var(--td-up);
+  background: var(--td-up-fill);
   border: 0;
   border-radius: 4px;
   font-size: 16px;
@@ -1841,8 +1845,8 @@
 .trading-desk .sim-prepare {
   width: 100%;
   color: #ffffff;
-  background: var(--td-accent);
-  border-color: var(--td-accent);
+  background: var(--td-accent-fill);
+  border-color: var(--td-accent-fill);
 }
 .trading-desk .sim-ticket-message {
   margin: 0;
@@ -2678,7 +2682,7 @@
 }
 .trading-desk .display-size-option[aria-checked="true"] {
   color: #ffffff;
-  background: var(--td-accent);
+  background: var(--td-accent-fill);
 }
 
 /* Text size switch: touch-sized on tablets, large in large-text mode (the desk bar keeps 28px elsewhere) */

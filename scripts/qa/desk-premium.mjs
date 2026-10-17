@@ -57,6 +57,27 @@ const scan = (senior) => {
   const signedZero = [...document.querySelectorAll(".trading-desk :is(.td-watch-change, .td-hero-change, .td-quote-line) span")]
     .filter((el) => visible(el) && /(^|\s)[-−—]0(?:\.0+)?(?=\s|%|$)/.test(el.textContent.trim()))
     .map(id);
+  // Text on an opaque filled background meets WCAG AA: 4.5:1, or 3:1 for large text.
+  const rgb = (value) => value.match(/[\d.]+/g)?.map(Number) ?? [];
+  const luminance = ([r, g, b]) =>
+    [r, g, b]
+      .map((c) => c / 255)
+      .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+      .reduce((sum, c, i) => sum + c * [0.2126, 0.7152, 0.0722][i], 0);
+  const lowContrast = [];
+  for (const el of document.querySelectorAll(".trading-desk :is(button, span, strong, em, small)")) {
+    if (el.closest(".sr-only, [hidden]") || !visible(el)) continue;
+    if (![...el.childNodes].some((node) => node.nodeType === 3 && node.textContent.trim())) continue;
+    const style = getComputedStyle(el);
+    const bg = rgb(style.backgroundColor);
+    if (bg.length < 3 || (bg.length === 4 && bg[3] < 1)) continue;
+    const fg = rgb(style.color);
+    const [a, b] = [luminance(fg), luminance(bg)];
+    const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    const size = parseFloat(style.fontSize);
+    const large = size >= 24 || (size >= 18.66 && Number(style.fontWeight) >= 700);
+    if (ratio < (large ? 3 : 4.5)) lowContrast.push(`${ratio.toFixed(2)} ${id(el)}`);
+  }
   const text = (selector) => document.querySelector(selector)?.textContent?.trim() ?? null;
   const shown = (selector) => [...document.querySelectorAll(selector)].some(visible);
   const dock = document.querySelector(".td-dock");
@@ -67,6 +88,7 @@ const scan = (senior) => {
     targets,
     numbers,
     signedZero,
+    lowContrast,
     overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     hero: text(".td-hero h1"),
     heroBid: text('.td-hero-book [data-side="bid"] dd'),
@@ -108,6 +130,8 @@ for (const item of cases) {
   try {
     await page.goto(`${base}/morning`, { waitUntil: "domcontentloaded" });
     await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 });
+    // QA_EXTRA_CSS lets a reviewer prove a check fails, e.g. by restoring old colours.
+    if (process.env.QA_EXTRA_CSS) await page.addStyleTag({ content: process.env.QA_EXTRA_CSS });
     await page.waitForTimeout(800);
     const first = await page.evaluate(scan, Boolean(item.senior));
     await page.screenshot({ path: `${out}/${item.name}-market.png` });
@@ -115,6 +139,7 @@ for (const item of cases) {
     if (first.small.length) fail(`${first.small.length} texts below 11px (${first.small.slice(0, 3).join(" | ")})`);
     if (first.offscreen.length || first.overflowX > 0) fail(`horizontal overflow (${first.offscreen.slice(0, 3).join(" | ")})`);
     if (phone && first.targets.length) fail(`controls below ${item.senior ? 56 : 44}px (${first.targets.slice(0, 4).join(" | ")})`);
+    if (first.lowContrast.length) fail(`low contrast text (${first.lowContrast.slice(0, 4).join(" | ")})`);
     if (first.signedZero.length) fail(`signed zero shown (${first.signedZero.join(" | ")})`);
     if (first.numbers.length) fail(`prices not in the monospaced face (${first.numbers.slice(0, 3).join(" | ")})`);
     if (!first.labels.real) fail("real-history data label not visible");
@@ -151,6 +176,7 @@ for (const item of cases) {
       rows.push({ case: item.name, screen: "trade", ...trade });
       if (trade.offscreen.length || trade.overflowX > 0) fail(`trade tab overflow (${trade.offscreen.slice(0, 3).join(" | ")})`);
       if (trade.small.length) fail(`trade tab: ${trade.small.length} texts below 11px`);
+      if (trade.lowContrast.length) fail(`trade tab low contrast (${trade.lowContrast.slice(0, 4).join(" | ")})`);
       if (trade.targets.length) fail(`trade tab controls below floor (${trade.targets.slice(0, 4).join(" | ")})`);
       if (!trade.labels.bookSim || !trade.labels.paper || !trade.labels.noBroker) fail(`trade tab labels missing ${JSON.stringify(trade.labels)}`);
       await page.getByRole("button", { name: /^庫存/ }).click();
