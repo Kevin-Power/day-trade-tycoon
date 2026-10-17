@@ -174,12 +174,17 @@ export function buildQuestion(input: {
   const pool = poolSymbols(input.symbols);
   const scan = (nearPct: number) =>
     pool.flatMap((symbol) => {
-      const bars = input.barsOf(symbol.code);
-      if (!bars || bars.length < 5) return [];
-      const found = [intradayCandidate(symbol, bars, nearPct), previousHighCandidate(symbol, bars, input.previousOf(symbol.code), nearPct)]
-        .filter((candidate): candidate is DailyCandidate => candidate !== null)
-        .sort((a, b) => a.questionT - b.questionT);
-      return found.slice(0, 1);
+      try {
+        const bars = input.barsOf(symbol.code);
+        if (!bars || bars.length < 5) return [];
+        const found = [intradayCandidate(symbol, bars, nearPct), previousHighCandidate(symbol, bars, input.previousOf(symbol.code), nearPct)]
+          .filter((candidate): candidate is DailyCandidate => candidate !== null)
+          .sort((a, b) => a.questionT - b.questionT);
+        return found.slice(0, 1);
+      } catch {
+        // One symbol's unexpected data is skipped; it must not cost the whole class its question.
+        return [];
+      }
     });
   const candidates = scan(NEAR);
   const picked = pickQuestion(input.dataDate, candidates.length ? candidates : scan(WIDE_NEAR));

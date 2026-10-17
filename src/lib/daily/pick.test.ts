@@ -160,3 +160,10 @@ test("a missing or broken symbol is skipped", () => {
     barsOf: (code) => (code === "2330" ? null : afterRetest([])), previousOf: () => null });
   assert.equal(question?.code, "2317");
 });
+
+test("a symbol whose bars cannot be scanned is skipped, not fatal for the day", () => {
+  const question = buildQuestion({ dataDate: "2026-10-16", symbols: [sym("2330"), sym("2317")],
+    barsOf: (code) => (code === "2330" ? ([null, null, null, null, null] as unknown as Bar[]) : afterRetest([])),
+    previousOf: (code) => (code === "2330" ? { high: 100, close: 98 } : null) });
+  assert.equal(question?.code, "2317");
+});

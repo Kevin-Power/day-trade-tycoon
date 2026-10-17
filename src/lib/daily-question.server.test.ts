@@ -142,6 +142,43 @@ test("a data day without a candidate is remembered and never retried", () => fix
   assert.equal(await count(db, "SELECT count(*)::int AS count FROM daily_questions WHERE id = '2026-10-20' AND payload IS NULL AND issue_date IS NULL"), 1);
 }));
 
+test("one malformed bars file is skipped and the question comes from the other symbols", () => fixture(async ({ db, dir, tx }) => {
+  const day = join(dir, "days", "2026-10-14");
+  const index = JSON.parse(await readFile(join(day, "index.json"), "utf8"));
+  index.symbols.push({ ...index.symbols[0], code: "2317", name: "鴻海", tradeValue: 9.5e9 });
+  await writeFile(join(day, "index.json"), JSON.stringify(index));
+  // Valid gzip, wrong shape: densifying it used to throw and fail every request.
+  await writeFile(join(day, "symbols", "2317.json.gz"), gzipSync(JSON.stringify({ schema: 1, code: "2317", bars: [null, { t: 0 }] })));
+  const current = await tx((sql) => ensureCurrentQuestion(sql, dir, MON_0700));
+  assert.deepEqual([current!.id, current!.payload.code], ["2026-10-14", "2330"]);
+  assert.equal(await count(db, "SELECT count(*)::int AS count FROM daily_questions WHERE payload IS NOT NULL"), 1);
+}));
+
+test("a data day that cannot be read is never stored as no question and is retried after a pause", () => fixture(async ({ db, dir, tx }) => {
+  await tx((sql) => answerDaily(sql, "alice", { questionId: "2026-10-14", choice: "watch" }, dir, MON_0700));
+  const dayIndex = join(dir, "days", "2026-10-19", "index.json");
+  const saved = await readFile(dayIndex, "utf8");
+  await writeFile(dayIndex, "{ not json");
+  const tuesday = await tx((sql) => loadDaily(sql, "alice", dir, TUE_0601));
+  // Served as if nothing was issued yet today: the previous question, its answer and the streak.
+  assert.equal(tuesday.question!.dataDate, "2026-10-14");
+  assert.equal(tuesday.answer!.choice, "watch");
+  assert.equal(tuesday.progress.streak, 1);
+  const stored = "SELECT count(*)::int AS count FROM daily_questions WHERE id = '2026-10-19'";
+  assert.equal(await count(db, stored), 0);
+  await writeFile(dayIndex, saved);
+  // At most one attempt per ten minutes: the repaired file is not read again right away.
+  assert.equal((await tx((sql) => ensureCurrentQuestion(sql, dir, TUE_0601 + 5 * 60_000)))!.id, "2026-10-14");
+  assert.equal(await count(db, stored), 0);
+  assert.equal((await tx((sql) => ensureCurrentQuestion(sql, dir, TUE_0601 + 10 * 60_000)))!.id, "2026-10-19");
+}));
+
+test("a day whose bars files are all unreadable is a read failure, not a day without a question", () => fixture(async ({ db, dir, tx }) => {
+  await writeFile(join(dir, "days", "2026-10-14", "symbols", "2330.json.gz"), "not gzip");
+  assert.equal(await tx((sql) => ensureCurrentQuestion(sql, dir, MON_0700)), null);
+  assert.equal(await count(db, "SELECT count(*)::int AS count FROM daily_questions"), 0);
+}));
+
 test("progress counts by issue day", () => fixture(async ({ dir, tx }) => {
   await tx((sql) => answerDaily(sql, "alice", { questionId: "2026-10-14", choice: "watch" }, dir, MON_0700));
   const tuesday = await tx((sql) => loadDaily(sql, "alice", dir, TUE_0601));

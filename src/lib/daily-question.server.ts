@@ -31,26 +31,35 @@ type Current = { id: string; issueDate: string; payload: DailyQuestionPayload };
 const parsePayload = (value: unknown): DailyQuestionPayload =>
   (typeof value === "string" ? JSON.parse(value) : value) as DailyQuestionPayload;
 
-/** Loads the data day's pool (and the previous full-market day for 昨高) and picks the question. */
+/**
+ * Loads the data day's pool (and the previous full-market day for 昨高) and picks the question.
+ * Resolves to null only when the day was read and has no candidate; a day that cannot be read throws.
+ */
 async function generate(dir: string, days: readonly PublishedDay[], dataDay: string): Promise<DailyQuestionPayload | null> {
   const symbols = await readDaySymbols(dir, dataDay);
-  if (!symbols) return null;
+  if (!symbols) throw new Error("The data day's symbol list cannot be read");
   const pool = poolSymbols(symbols);
   const previousDay = days.filter((day) => day.coverage === "full-market" && day.date < dataDay).at(-1)?.date;
+  // Without a readable previous day only intraday questions are made, as when there is none (spec §2).
   const previousSymbols = previousDay ? await readDaySymbols(dir, previousDay) : null;
   const bars = new Map<string, Bar[]>();
   const previous = new Map<string, { high: number; close: number }>();
   await Promise.all(
     pool.map(async (symbol) => {
-      const rows = await readSymbolBars(dir, dataDay, symbol.code);
-      if (rows?.length) bars.set(symbol.code, densifyBars(rows));
-      const before = previousSymbols?.find((item) => item.code === symbol.code);
-      if (previousDay && before) {
-        const earlier = await readSymbolBars(dir, previousDay, symbol.code);
-        if (earlier?.length) previous.set(symbol.code, { high: Math.max(...earlier.map((row) => row[2])), close: before.close });
+      try {
+        const rows = await readSymbolBars(dir, dataDay, symbol.code);
+        if (rows?.length) bars.set(symbol.code, densifyBars(rows));
+        const before = previousSymbols?.find((item) => item.code === symbol.code);
+        if (previousDay && before) {
+          const earlier = await readSymbolBars(dir, previousDay, symbol.code);
+          if (earlier?.length) previous.set(symbol.code, { high: Math.max(...earlier.map((row) => row[2])), close: before.close });
+        }
+      } catch {
+        // One bad symbol is skipped, not fatal for the day.
       }
     }),
   );
+  if (pool.length && !bars.size) throw new Error("No bars file of the data day can be read");
   return buildQuestion({
     dataDate: dataDay,
     symbols: pool,
@@ -58,6 +67,11 @@ async function generate(dir: string, days: readonly PublishedDay[], dataDay: str
     previousOf: (code) => previous.get(code) ?? null,
   });
 }
+
+/** A failed build is retried at most this often per issue day, so requests do not re-read every file. */
+const RETRY_MS = 10 * 60_000;
+/** Last failed build per data folder and issue day; in memory, so a restart retries at once. */
+const failedAt = new Map<string, number>();
 
 /** Issues the question on the first request after a weekday's 06:00, then returns the current one. */
 export async function ensureCurrentQuestion(sql: Sql, dir: string, now: number): Promise<Current | null> {
@@ -67,11 +81,22 @@ export async function ensureCurrentQuestion(sql: Sql, dir: string, now: number):
   const dataDay = dataDayForIssue(days, issueDay);
   if (dataDay) {
     const existing = await sql<{ id: string }>`SELECT id FROM daily_questions WHERE id = ${dataDay}`;
-    if (!existing[0]) {
-      const payload = await generate(dir, days, dataDay);
-      await sql`INSERT INTO daily_questions (id, issue_date, payload)
-        VALUES (${dataDay}, ${payload ? issueDay : null}, ${payload ? JSON.stringify(payload) : null}::jsonb)
-        ON CONFLICT DO NOTHING`;
+    const key = `${dir}\n${issueDay}`;
+    const failed = failedAt.get(key);
+    if (!existing[0] && (failed === undefined || now - failed >= RETRY_MS)) {
+      let payload: DailyQuestionPayload | null | undefined;
+      try {
+        payload = await generate(dir, days, dataDay);
+        failedAt.delete(key);
+      } catch {
+        // Unreadable data or an error is not "no question that day": nothing is stored, the previous
+        // question stays current, and a later request tries again.
+        failedAt.set(key, now);
+      }
+      if (payload !== undefined)
+        await sql`INSERT INTO daily_questions (id, issue_date, payload)
+          VALUES (${dataDay}, ${payload ? issueDay : null}, ${payload ? JSON.stringify(payload) : null}::jsonb)
+          ON CONFLICT DO NOTHING`;
     }
   }
   const rows = await sql<{ id: string; issue_date: string; payload: unknown }>`

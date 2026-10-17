@@ -36,6 +36,32 @@ test("missing or broken files read as no data, never as an error", () => fixture
   assert.equal(await readSymbolBars(dir, "2026-10-14", "2330"), null);
 }));
 
+test("a bars file with any malformed row reads as no data", () => fixture(async (dir) => {
+  await mkdir(join(dir, "days/2026-10-14/symbols"), { recursive: true });
+  const good = [0, 100, 101, 99, 100.5, 10, 100.2];
+  const write = (bars: unknown) => writeFile(join(dir, "days/2026-10-14/symbols/2330.json.gz"), gzipSync(JSON.stringify({ schema: 1, code: "2330", bars })));
+  for (const bars of [[null], [{ t: 0 }], [good, [60, 100, 101, 99]], [good, [60, 100, "101", 99, 100, 1, 100]], [good, [60, 100, 101, 99, 100, null, 100]], "bars"]) {
+    await write(bars);
+    assert.equal(await readSymbolBars(dir, "2026-10-14", "2330"), null, JSON.stringify(bars));
+  }
+  await writeFile(join(dir, "days/2026-10-14/symbols/2330.json.gz"), gzipSync("null"));
+  assert.equal(await readSymbolBars(dir, "2026-10-14", "2330"), null);
+  await write([good, [60, 100.5, 101, 100, 101, 5]]);
+  assert.deepEqual(await readSymbolBars(dir, "2026-10-14", "2330"), [good, [60, 100.5, 101, 100, 101, 5]]);
+}));
+
+test("malformed symbol entries are left out of the day, and a day of only malformed entries is no data", () => fixture(async (dir) => {
+  await mkdir(join(dir, "days/2026-10-14"), { recursive: true });
+  const write = (symbols: unknown[]) => writeFile(join(dir, "days/2026-10-14/index.json"), JSON.stringify({ schema: 1, date: "2026-10-14", symbols }));
+  const broken = [null, "2330", { code: "2317" }, { ...symbol, code: "2303", tradeValue: "9e9" }, { ...symbol, code: "../x" }, { ...symbol, code: "2454", disposition: 0 }];
+  await write([symbol, ...broken]);
+  assert.deepEqual((await readDaySymbols(dir, "2026-10-14"))!.map((value) => value.code), ["2330"]);
+  await write(broken);
+  assert.equal(await readDaySymbols(dir, "2026-10-14"), null);
+  await write([]);
+  assert.deepEqual(await readDaySymbols(dir, "2026-10-14"), []);
+}));
+
 test("dates and codes cannot step outside the data folder", () => fixture(async (dir) => {
   assert.equal(await readSymbolBars(dir, "2026-10-14", "../x"), null);
   assert.equal(await readDaySymbols(dir, "../../etc"), null);
