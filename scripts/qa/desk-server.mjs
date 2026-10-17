@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { randomBytes } from "node:crypto";
+import { writeMarketFixture } from "./make-market-fixture.mjs";
 
 const project = fileURLToPath(new URL("../..", import.meta.url));
 const { initialize, applicationEnvironment } = await import(
@@ -26,11 +27,20 @@ const config = await initialize(root, {
   port: appPort,
 });
 const base = `http://127.0.0.1:${appPort}`;
+// Daily question: a disposable market-data fixture unless MARKET_DATA_DIR points at real data
+// (read only), and a pinned clock so the question is the same on any day of the week.
+const marketData = process.env.MARKET_DATA_DIR ?? join(root, "market-data");
+if (!process.env.MARKET_DATA_DIR) await writeMarketFixture(marketData);
 const app = fork(join(project, "scripts/hosting/app-runner.mjs"), [appEntry], {
   cwd: root,
   windowsHide: true,
   stdio: ["ignore", "pipe", "pipe", "ipc"],
-  env: { ...applicationEnvironment(root, config), CLASSROOM_DOWNLOADS_DIR: downloads },
+  env: {
+    ...applicationEnvironment(root, config),
+    CLASSROOM_DOWNLOADS_DIR: downloads,
+    MARKET_DATA_DIR: marketData,
+    DAILY_NOW_ISO: process.env.DAILY_NOW_ISO ?? "2026-10-19T07:00:00+08:00",
+  },
 });
 let logs = "";
 app.stdout.on("data", (chunk) => (logs += chunk));

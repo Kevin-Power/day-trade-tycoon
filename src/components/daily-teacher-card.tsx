@@ -88,7 +88,9 @@ export function DailyTeacherCard() {
             </div>
           )}
           <p className="text-muted">
-            尚未作答（{waiting.length}）：{waiting.length ? waiting.map((row) => row.name).join("、") : "全班都答了"}
+            {view.rows.length === 0
+              ? "班上還沒有學員資料，作答名單會在學員建立帳號後出現。"
+              : `尚未作答（${waiting.length}）：${waiting.length ? waiting.map((row) => row.name).join("、") : "全班都答了"}`}
           </p>
           <Link to="/daily" search={{ teacher: "1" }} className="academy-button-primary inline-flex min-h-12 items-center px-5">
             看題目與解說

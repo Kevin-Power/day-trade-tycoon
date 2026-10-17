@@ -70,7 +70,7 @@ export function DailyQuestionPage({ teacher = false }: { teacher?: boolean }) {
         </Link>
         <div className="td-daily-title">
           <h1>每日一題</h1>
-          {data?.question && <p>題目取自 {dataDateText(data.question.dataDate)} 真實走勢</p>}
+          {data?.question && <p>取自 {dataDateText(data.question.dataDate)} 真實走勢</p>}
         </div>
         <DisplayControls compact className="td-size" />
       </header>
@@ -221,10 +221,6 @@ function DailyBody({
     <>
       {notice && <p role="status" className="td-daily-notice">{notice}</p>}
       <section className="td-daily-question" aria-labelledby="daily-question-text">
-        <p className="td-daily-stock">
-          <strong>{question.name}</strong>
-          <span>{question.code}</span>
-        </p>
         <h2 id="daily-question-text">{questionText(question)}</h2>
       </section>
       <DailyChart question={question} bars={reveal ? reveal.bars : question.bars} revealed={Boolean(reveal)} />
@@ -257,7 +253,10 @@ function DailyBody({
                 {(
                   [
                     ["pullback", `回檔低點 ${priceText(question.stops.pullback)}`],
-                    ["belowLevel", `${levelName}下方 1%：${priceText(question.stops.belowLevel)}`],
+                    // Two identical prices would be two identical buttons; keep one.
+                    ...(question.stops.belowLevel !== question.stops.pullback
+                      ? ([["belowLevel", `${levelName}下方 1%：${priceText(question.stops.belowLevel)}`]] as const)
+                      : []),
                     ["custom", "自己設"],
                   ] as const
                 ).map(([id, label]) => (

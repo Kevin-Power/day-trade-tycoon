@@ -2258,18 +2258,6 @@
   min-height: 44px;
   text-decoration: none;
 }
-.trading-desk .td-daily-stock {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 0;
-}
-.trading-desk .td-daily-stock strong {
-  font-size: 18px;
-}
-.trading-desk .td-daily-stock span {
-  color: var(--td-muted);
-}
 .trading-desk .td-daily-question h2 {
   margin: 0;
   font-size: 16px;
