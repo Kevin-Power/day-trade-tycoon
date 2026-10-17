@@ -126,7 +126,7 @@ export function Lobby() {
             <BrandMark className="size-10 shrink-0" />
             <span className="min-w-0">
               <span className="block text-sm font-semibold tracking-wide">當沖大富翁</span>
-              <span className="block text-[10px] tracking-[0.14em] text-muted">
+              <span className="block text-[11px] tracking-[0.14em] text-muted">
                 DAY TRADE TYCOON
               </span>
             </span>
@@ -763,7 +763,7 @@ function MarketSnapshot({ id }: { id: (typeof WEEK_ORDER)[number] }) {
         {formatIndex(session.low)}
       </p>
       <ProvenanceMicro
-        className="mt-3 break-words border-0 bg-transparent px-0 text-[10px]"
+        className="mt-3 break-words border-0 bg-transparent px-0 text-[11px]"
         text={`${officialIndexMicro(session.date)} · ${officialTurnoverMicro(session.date)}`}
       />
     </div>

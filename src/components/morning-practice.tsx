@@ -773,7 +773,7 @@ function MorningLesson({
                       <div className="td-plan-note">
                         <span className="terminal-eyebrow">TRADING PLAN</span>
                         <h3>
-                          <BookOpen size={14} aria-hidden /> 本輪作戰計畫
+                          <BookOpen size={16} aria-hidden /> 本輪作戰計畫
                         </h3>
                         <span className="terminal-plan-code">
                           {marketSession.plan.focusCode} ·{" "}
@@ -1138,7 +1138,7 @@ function MorningWatchlist({
     <section className="td-watchlist" data-compact={compact} aria-label="自選行情">
       <div className="td-titlebar td-watch-head">
         <span>
-          <CandlestickChart size={15} aria-hidden /> 自選報價
+          <CandlestickChart size={16} aria-hidden /> 自選報價
         </span>
         <span className="td-num">{catalog.symbols.length}</span>
       </div>

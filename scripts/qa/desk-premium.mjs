@@ -78,6 +78,33 @@ const scan = (senior) => {
     const large = size >= 24 || (size >= 18.66 && Number(style.fontWeight) >= 700);
     if (ratio < (large ? 3 : 4.5)) lowContrast.push(`${ratio.toFixed(2)} ${id(el)}`);
   }
+  // Weights the loaded faces cannot draw are synthesised (faux bold): Plex Mono ships 400-600 and
+  // Noto Sans TC 400-700.
+  const fauxBold = [];
+  for (const el of document.querySelectorAll(".trading-desk *")) {
+    if (el.closest(".sr-only, [hidden]") || !visible(el)) continue;
+    if (![...el.childNodes].some((node) => node.nodeType === 3 && node.textContent.trim())) continue;
+    const style = getComputedStyle(el);
+    const family = style.fontFamily.split(",")[0].replaceAll('"', "").trim();
+    const weight = Number(style.fontWeight);
+    if ((family === "IBM Plex Mono" && weight > 600) || (family === "Noto Sans TC" && weight > 700))
+      fauxBold.push(`${weight} ${id(el)}`);
+  }
+  // The label and the amount of each order fact share one baseline.
+  const factBaselines = [];
+  for (const row of document.querySelectorAll(".sim-order-facts > div")) {
+    if (!visible(row)) continue;
+    const probes = [...row.querySelectorAll(":scope > dt, :scope > dd")].map((cell) => {
+      const probe = document.createElement("span");
+      probe.style.cssText = "display:inline-block;width:0;height:0";
+      cell.prepend(probe);
+      return probe;
+    });
+    const lines = probes.map((probe) => probe.getBoundingClientRect().bottom);
+    for (const probe of probes) probe.remove();
+    if (lines.length === 2 && Math.abs(lines[0] - lines[1]) > 0.5)
+      factBaselines.push(`${Math.abs(lines[0] - lines[1]).toFixed(2)}px ${id(row)}`);
+  }
   const text = (selector) => document.querySelector(selector)?.textContent?.trim() ?? null;
   const shown = (selector) => [...document.querySelectorAll(selector)].some(visible);
   const dock = document.querySelector(".td-dock");
@@ -89,6 +116,8 @@ const scan = (senior) => {
     numbers,
     signedZero,
     lowContrast,
+    fauxBold,
+    factBaselines,
     overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     hero: text(".td-hero h1"),
     heroBid: text('.td-hero-book [data-side="bid"] dd'),
@@ -141,6 +170,20 @@ for (const item of cases) {
     // Touch layouts (phones, tablets, large text) need 44px targets (56px in large text).
     if (item.width < 1200 || item.senior)
       if (first.targets.length) fail(`controls below ${item.senior ? 56 : 44}px (${first.targets.slice(0, 4).join(" | ")})`);
+    // The price font is preloaded, and the preload is the very file the stylesheet uses (fetched once).
+    const fonts = await page.evaluate(() => ({
+      preloads: [...document.querySelectorAll('link[rel="preload"][as="font"]')].map((link) => link.href),
+      fetched: performance
+        .getEntriesByType("resource")
+        .map((entry) => entry.name)
+        .filter((name) => /ibm-plex-mono/.test(name)),
+    }));
+    const preloadedPlex = fonts.preloads.filter((href) => /ibm-plex-mono/.test(href));
+    if (preloadedPlex.length < 3 || preloadedPlex.some((href) => !fonts.fetched.includes(href)) ||
+      new Set(fonts.fetched).size > preloadedPlex.length)
+      fail(`price font not preloaded as used (${JSON.stringify(fonts)})`);
+    if (first.fauxBold.length) fail(`synthesised bold text (${first.fauxBold.slice(0, 3).join(" | ")})`);
+    if (first.factBaselines.length) fail(`order facts off their shared baseline (${first.factBaselines.join(" | ")})`);
     if (first.lowContrast.length) fail(`low contrast text (${first.lowContrast.slice(0, 4).join(" | ")})`);
     if (first.signedZero.length) fail(`signed zero shown (${first.signedZero.join(" | ")})`);
     if (first.numbers.length) fail(`prices not in the monospaced face (${first.numbers.slice(0, 3).join(" | ")})`);
@@ -178,6 +221,8 @@ for (const item of cases) {
       rows.push({ case: item.name, screen: "trade", ...trade });
       if (trade.offscreen.length || trade.overflowX > 0) fail(`trade tab overflow (${trade.offscreen.slice(0, 3).join(" | ")})`);
       if (trade.small.length) fail(`trade tab: ${trade.small.length} texts below 11px`);
+      if (trade.fauxBold.length) fail(`trade tab synthesised bold (${trade.fauxBold.slice(0, 3).join(" | ")})`);
+      if (trade.factBaselines.length) fail(`trade tab order facts off baseline (${trade.factBaselines.join(" | ")})`);
       if (trade.lowContrast.length) fail(`trade tab low contrast (${trade.lowContrast.slice(0, 4).join(" | ")})`);
       if (trade.targets.length) fail(`trade tab controls below floor (${trade.targets.slice(0, 4).join(" | ")})`);
       if (!trade.labels.bookSim || !trade.labels.paper || !trade.labels.noBroker) fail(`trade tab labels missing ${JSON.stringify(trade.labels)}`);
@@ -231,6 +276,27 @@ for (const item of cases) {
   } catch (error) {
     fail(`flow stopped: ${error.message.split("\n")[0]}`);
     await page.screenshot({ path: `${out}/${item.name}-stopped.png` }).catch(() => {});
+  }
+  // The lobby keeps the desk's 11px floor.
+  try {
+    await page.goto(`${base}/`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("main", { timeout: 20000 });
+    await page.waitForTimeout(1200);
+    const lobbySmall = await page.evaluate(() => {
+      const small = [];
+      for (const el of document.body.querySelectorAll("*")) {
+        if (el.closest(".sr-only, [hidden]") || ["SCRIPT", "STYLE"].includes(el.tagName)) continue;
+        const rect = el.getBoundingClientRect();
+        if (!rect.width || !rect.height || getComputedStyle(el).visibility !== "visible") continue;
+        if (![...el.childNodes].some((node) => node.nodeType === 3 && node.textContent.trim())) continue;
+        const size = parseFloat(getComputedStyle(el).fontSize);
+        if (size < 11) small.push(`${size}px ${(el.textContent ?? "").trim().slice(0, 16)}`);
+      }
+      return small;
+    });
+    if (lobbySmall.length) fail(`lobby: ${lobbySmall.length} texts below 11px (${lobbySmall.slice(0, 3).join(" | ")})`);
+  } catch (error) {
+    fail(`lobby check stopped: ${error.message.split("\n")[0]}`);
   }
   if (errors.length) fail(`console/page errors: ${errors.slice(0, 3).join(" | ")}`);
   if (broker.length) fail(`broker requests sent: ${broker.join(", ")}`);

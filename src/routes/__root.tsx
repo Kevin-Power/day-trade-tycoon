@@ -4,6 +4,10 @@ import { GateProvider } from "@/lib/gate/context";
 import { DisplayPreferencesEffect } from "@/components/display-controls";
 import { PwaEffect } from "@/components/pwa-effect";
 import appCss from "../styles.css?url";
+// The same files styles.css loads, so a preload is used instead of fetched twice.
+import plexMono400 from "@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2?url";
+import plexMono500 from "@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2?url";
+import plexMono600 from "@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-600-normal.woff2?url";
 
 const APP_NAME = "當沖大富翁";
 
@@ -25,6 +29,14 @@ export const Route = createRootRoute({
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
+      // Prices use IBM Plex Mono; preloading keeps the big quote from swapping fonts after it shows.
+      ...[plexMono400, plexMono500, plexMono600].map((href) => ({
+        rel: "preload",
+        href,
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous" as const,
+      })),
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },

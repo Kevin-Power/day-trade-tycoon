@@ -111,7 +111,9 @@
   min-height: 34px;
   padding: 0 12px;
   background: var(--td-title);
-  border-bottom: var(--td-hairline) solid var(--td-title-line);
+  /* An inset shadow, not a border: the row keeps its full height for content, so centred icons
+     land on whole pixels instead of half pixels. */
+  box-shadow: inset 0 calc(-1 * var(--td-hairline)) 0 var(--td-title-line);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -166,6 +168,27 @@
   background: rgb(230 184 110 / 0.08);
 }
 
+/* Small icons are 16px with a 1.5 stroke on lucide's 24-unit grid: exactly one CSS pixel, so the
+   lines fill whole pixels on 1x screens instead of 1.17-1.33 blended ones. */
+.trading-desk
+  :is(
+    .td-home,
+    .td-tool,
+    .td-brand,
+    .td-replay,
+    .td-stepper,
+    .sim-ledger-toggle,
+    .td-flash,
+    .sim-side-switch,
+    .sim-stepper,
+    .td-watch-head,
+    .sim-pending,
+    .td-plan-note h3
+  )
+  svg.lucide {
+  stroke-width: 1.5;
+}
+
 /* Status bar */
 .trading-desk .td-bar {
   display: flex;
@@ -174,7 +197,7 @@
   min-height: 40px;
   padding: 0 12px;
   background: var(--td-bg);
-  border-bottom: var(--td-hairline) solid var(--td-title-line);
+  box-shadow: inset 0 calc(-1 * var(--td-hairline)) 0 var(--td-title-line);
   white-space: nowrap;
 }
 .trading-desk .td-bar :is(button, select, a) {
@@ -193,8 +216,8 @@
   font-weight: 600;
 }
 .trading-desk :is(.td-home, .td-tool) svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
 }
 .trading-desk :is(.td-home, .td-tool):hover {
   background: rgb(255 255 255 / 0.08);
@@ -315,8 +338,8 @@
   background: var(--td-raised);
 }
 .trading-desk .td-replay svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 .trading-desk .td-replay button:disabled {
   opacity: 0.45;
@@ -743,8 +766,8 @@
   border-radius: var(--td-radius);
 }
 .trading-desk .td-stepper svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
 }
 .trading-desk .td-stepper select {
   max-width: 150px;
@@ -910,8 +933,8 @@
   font-weight: 600;
 }
 .trading-desk .sim-ledger-toggle svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 .trading-desk .sim-pending-badge {
   padding: 0 5px;
@@ -1282,6 +1305,8 @@
 }
 .trading-desk .td-book-head b {
   color: var(--td-fg);
+  /* Plex Mono ships 400-600; the default bold (700) would be synthesised. */
+  font-weight: 600;
 }
 .trading-desk .td-ladder-labels,
 .trading-desk .td-level {
@@ -1821,6 +1846,7 @@
 }
 .trading-desk .sim-order-facts div {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
   gap: 8px;
 }
