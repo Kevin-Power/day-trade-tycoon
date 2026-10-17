@@ -132,3 +132,41 @@
 | `desk-states` 截圖 | 核對、待撮合、撤單、閃電、限價、紀錄、手機教材抽屜 |
 | 隔離環境整合測試（auth、morning、guest、daily） | 4／4 通過 |
 | 八項指令 | 見 `MERGE_RECOMMENDATION.md`。2 項失敗都是改版前就存在、和本次無關 |
+
+## 8. 正式站發布（2026-10-18）
+
+時間都是台北時間。使用者核准「合併交易畫面改版並部署到正式站」。
+
+- **合併**：
+  - `claude/premium-trading-ui` 以 merge commit `4a0400a` 併入 `codex/course-handover`，沒有衝突。
+  - 合併後 `npm test` 728 個，724 通過、0 失敗、4 略過；typecheck、`eslint src`、`check:symbols` 通過。
+- **發布內容**：不可變 release `20261017T223850027Z`，211 個檔案；包含每日一題（前一版已上線）與交易畫面改版。
+- **發布前驗證**（都在這個 release 上執行）：
+  - 隔離整合測試 4/4（auth、morning、guest、daily）。
+  - `desk-premium`（含平盤狀態再跑一次）、`desk-layout --strict`、`desk-sharpness`、`desk-states`、`desk-orders`、`desk-guest`、`desk-daily` 全部通過。
+- **停機與備份**：
+  - 06:42:36 正常停機，`lastCleanShutdown=true`。
+  - 一致備份 `backups/2026-10-17T22-42-38-327Z`，1,059 個檔案逐檔核對通過。
+- **切換與啟動**：
+  - 06:42:43 只修改 `appEntry`：從 `20261017T222859002Z` 改為 `20261017T223850027Z`。
+  - 06:43:00 健康檢查通過，停機約 **24 秒**；06:43:02 對外通道 4 條連線全部建立。
+- **發布後檢查**：
+  - **第一次驗證失敗後重跑通過**：
+    - 第一次在 06:43:00 執行，有一個公開檔案（`/assets/daily-BzSVs0zy.js`）回覆 502。
+    - 原因：當時對外通道的連線還在建立中（06:43:00.5–06:43:02.8 才陸續建立）。
+    - 之後同一個檔案連續回覆 200；06:43:21 重跑驗證全部通過。
+    - 第一次的輸出保留在 `verify-first-attempt-502.out`。
+  - 57 個公開 JS/CSS 的 SHA-256 與 release 一致；三個秘密檔案不變；設定除 `appEntry` 外不變；前一版保留。
+  - 正式站送出的樣式表含新的色票（`--td-select-bg:#15314a`、`--td-up-fill:#d92d45`）與手機底部分頁。
+  - 各頁面回覆 200：`/`、`/daily`、`/teacher`、`/morning?panel=trade`、`/try`、`/sw.js`、`/manifest.webmanifest`、圖示。
+  - 沒有入場碼時，`/api/daily`、`/api/morning`、建立訪客、`/api/broker/order` 都回覆 403。實盤路由本身沒改，有入場碼時仍回 501（測試伺服器上已驗證）。
+  - `/server/index.mjs` 回覆 404；8790 只綁定 `127.0.0.1`；服務紀錄沒有錯誤。
+- **回退**：
+  1. 停機。
+  2. 把 `appEntry` 指回 `20261017T222859002Z`（每日一題版，舊的交易畫面）。這一版沒有資料庫變更。
+  3. 啟動。
+- **發布紀錄**：`artifacts/deploy-20261018-premium-ui/`（被 git 忽略）。
+- **尚待確認**：
+  - 用真實手機看一次（iPhone Safari、Android Chrome）：底部分頁與安全區、單手下單、大字模式。
+  - 正式站的 `codex/course-handover` 還沒推送，等使用者同意。
+
