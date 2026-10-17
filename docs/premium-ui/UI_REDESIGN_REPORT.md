@@ -200,5 +200,24 @@
 - **驗證**：
   - 單元測試 731 個，727 通過、0 失敗、4 略過；typecheck、`eslint src` 通過；整合測試 4/4。
   - 畫面檢查全部通過：`desk-premium`（含新增的四項檢查）、`desk-layout --strict`（1366×900 走勢圖 701px）、`desk-sharpness`、`desk-states`、`desk-orders`、`desk-guest`、`desk-daily`。
-- **狀態**：在分支 `claude/render-quality`。合併、推送、部署都等使用者同意。
+- **正式站發布**（2026-10-18，使用者核准）：
+  - **合併與發布內容**：以 fast-forward 併入 `codex/course-handover`（`024e047`），已推送；release `20261017T234913289Z`，211 個檔案。
+  - **發布前驗證**（都在這個 release 上執行）：
+    - 隔離整合測試 4/4。
+    - `desk-premium`（含平盤狀態再跑一次）、`desk-layout --strict`、`desk-sharpness`、`desk-states`、`desk-orders`、`desk-guest` 通過。
+    - Fable 的 3× 視窗高度掃描 0/28 不符。
+  - **`desk-daily` 第一次在後三種尺寸卡在「正在準備題目…」，同一個 release 重跑全部通過**：
+    - 原因：這次測試量比以前多很多（大廳檢查與 28 種高度掃描），而且全部來自同一個 IP。
+    - 卡住的狀態本身是既有弱點：訪客登入成功後，如果重新讀取 session 失敗，頁面會一直等，沒有「再試一次」。
+    - 列為下一輪修正。
+  - **停機與切換**：
+    - 07:56:36 正常停機；備份 `backups/2026-10-17T23-56-37-402Z`，1,059 個檔案逐檔核對通過。
+    - 只改 `appEntry`：從 `20261017T223850027Z` 改為 `20261017T234913289Z`。
+    - 07:57:00 健康，停機約 25 秒；等通道建立後才驗證，一次通過。
+  - **發布後檢查**：
+    - 57 個公開資源 SHA-256 一致；設定除 `appEntry` 外不變；秘密檔案不變。
+    - 正式站已送出三個 Plex Mono 預載、`--text-2xs: .6875rem`、`.sim-order-facts div{…align-items:baseline…}`、`.td-book-head b{…font-weight:600}`、圖示 `stroke-width:1.5`。
+    - 各頁 200；沒有入場碼時 API 都回 403；`/server/index.mjs` 404；8790 只綁 127.0.0.1；服務紀錄沒有錯誤。
+  - **回退**：`appEntry` 指回 `20261017T223850027Z`，沒有資料庫變更。
+  - **發布紀錄**：`artifacts/deploy-20261018-render-quality/`。
 
