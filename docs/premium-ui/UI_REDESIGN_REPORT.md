@@ -174,7 +174,7 @@
 
 - **稽核方式**：使用者要求另找 Fable 5.1 獨立檢查畫質，對象是正式站的 release `20261017T223850027Z`。
   - 用 Chrome 真實裝置縮放（`--force-device-scale-factor`），在 1×–3.5× 下逐像素比對畫布 backing store 與螢幕。
-  - 完整報告與證據在本機 `artifacts/fable-quality-audit/`（被 git 忽略），重跑結果在 `.worktrees/render-quality/artifacts/render-quality/`。
+  - 完整報告與證據在本機 `artifacts/fable-quality-audit/`（被 git 忽略）。修正後重跑的數字記在下表；重跑的原始輸出放在暫時工作區，已隨工作區一起清除。
 - **結論**：「大致是」。
   - 桌機各縮放比例與多數手機，圖表都逐像素清晰。
   - 找到 1 個 P1、1 個 P2、5 個 P3，如下表。
