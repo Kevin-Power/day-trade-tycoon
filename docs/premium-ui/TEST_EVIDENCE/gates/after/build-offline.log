@@ -1,0 +1,30 @@
+
+> build:offline
+> node scripts/build-offline.mjs
+
+[36mvite v8.1.5 [32mbuilding client environment for production...[36m[39m
+[2Ktransforming...✓ 2488 modules transformed.
+rendering chunks...
+computing gzip size...
+dist-offline/index.html                                                0.57 kB │ gzip:   0.38 kB
+dist-offline/assets/ibm-plex-mono-latin-400-normal-CvHOgSBP.woff      13.14 kB
+dist-offline/assets/ibm-plex-mono-latin-500-normal-CB9ihrfo.woff      13.15 kB
+dist-offline/assets/ibm-plex-mono-latin-600-normal-DWFSQ4vo.woff      13.20 kB
+dist-offline/assets/ibm-plex-mono-latin-400-normal-DMJ8VG8y.woff2     14.70 kB
+dist-offline/assets/ibm-plex-mono-latin-500-normal-DSY6xOcd.woff2     14.88 kB
+dist-offline/assets/ibm-plex-mono-latin-600-normal-BgSNZQsw.woff2     15.62 kB
+dist-offline/assets/style-DsU_Svok.css                               154.06 kB │ gzip:  28.23 kB
+dist-offline/assets/classroom-db-C_Oukzot.js                           0.14 kB │ gzip:   0.16 kB
+dist-offline/assets/index-CYdrz-Od.js                              1,371.23 kB │ gzip: 411.54 kB
+
+[32m✓ built in 476ms[39m
+{
+  "offlineZip": "C:\\Users\\kevin\\Documents\\ChatGPT\\當沖大富翁\\.worktrees\\premium-ui\\downloads\\daytrade-tycoon-offline.zip",
+  "bytes": 903832,
+  "sha256": "d3e068647f349fcadee51e4769543baf12cdb99168234de0bf933799bcfdb0c5"
+}
+[33m[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m

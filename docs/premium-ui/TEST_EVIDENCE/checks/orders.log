@@ -1,0 +1,16 @@
+{
+  "marketBuy": {
+    "newFills": 1,
+    "side": "buy",
+    "shares": 1000
+  },
+  "lightning": {
+    "side": "sell",
+    "status": "cancelled",
+    "entryMode": "lightning",
+    "ledgerOpenedFromTab": true
+  },
+  "sellWithoutHolding": {
+    "submitDisabled": true
+  }
+}

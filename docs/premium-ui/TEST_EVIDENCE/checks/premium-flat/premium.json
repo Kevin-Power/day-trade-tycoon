@@ -1,0 +1,588 @@
+{
+  "rows": [
+    {
+      "case": "1440x900",
+      "screen": "market",
+      "small": [],
+      "offscreen": [],
+      "targets": [
+        "28px a.td-home[大廳]",
+        "28px select.[2026-10-05 · 5]",
+        "28px button.td-play[播放]",
+        "28px button.[1x]",
+        "28px button.[2x]",
+        "28px button.[+1 分]",
+        "28px button.[復盤]",
+        "28px button.td-tool[教材]",
+        "28px button.display-size-option.min-h-11[標準]",
+        "28px button.display-size-option.min-h-11[大字]",
+        "28px button.[]",
+        "28px select.[2330 台積電2317 鴻]",
+        "28px button.[]",
+        "26px button.[分時]",
+        "26px button.[K線]",
+        "33px button.[五檔]",
+        "33px button.[行情]",
+        "33px button.[分鐘明細]",
+        "26px select.[2330 台積電2317 鴻]",
+        "23px button.td-level[賣5260014]",
+        "23px button.td-level[賣4259563]",
+        "23px button.td-level[賣3259034]",
+        "23px button.td-level[賣225855]",
+        "23px button.td-level[賣1258054]",
+        "23px button.td-level[買1257513]",
+        "23px button.td-level[買2257042]",
+        "23px button.td-level[買3256571]",
+        "23px button.td-level[買4256022]",
+        "23px button.td-level[買5255551]",
+        "28px button.td-switch[開啟即送]",
+        "26px button.[1 張]",
+        "26px button.[2 張]",
+        "26px button.[3 張]",
+        "32px button.[買進]",
+        "32px button.[賣出]",
+        "30px button.[市價]",
+        "30px button.[限價]",
+        "32px button.[]",
+        "32px button.[]",
+        "40px button.sim-submit[核對模擬買進1 張]",
+        "25px summary.[撮合方式與教材費用]",
+        "33px button.[庫存1]",
+        "33px button.[委託6]",
+        "33px button.[成交3]",
+        "26px button.sim-ledger-toggle[展開]"
+      ],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": "台積電2330",
+      "heroBid": "2575",
+      "heroAsk": "2580",
+      "labels": {
+        "real": true,
+        "heroSim": true,
+        "bookSim": true,
+        "paper": true,
+        "noBroker": true
+      },
+      "dock": null,
+      "heroBookBottom": 121,
+      "chartHeight": 701,
+      "pageScroll": 0
+    },
+    {
+      "case": "1366x900",
+      "screen": "market",
+      "small": [],
+      "offscreen": [],
+      "targets": [
+        "28px a.td-home[大廳]",
+        "28px select.[2026-10-05 · 5]",
+        "28px button.td-play[播放]",
+        "28px button.[1x]",
+        "28px button.[2x]",
+        "28px button.[+1 分]",
+        "28px button.[復盤]",
+        "28px button.td-tool[教材]",
+        "28px button.display-size-option.min-h-11[標準]",
+        "28px button.display-size-option.min-h-11[大字]",
+        "28px button.[]",
+        "28px select.[2330 台積電2317 鴻]",
+        "28px button.[]",
+        "26px button.[分時]",
+        "26px button.[K線]",
+        "33px button.[五檔]",
+        "33px button.[行情]",
+        "33px button.[分鐘明細]",
+        "26px select.[2330 台積電2317 鴻]",
+        "23px button.td-level[賣5260014]",
+        "23px button.td-level[賣4259563]",
+        "23px button.td-level[賣3259034]",
+        "23px button.td-level[賣225855]",
+        "23px button.td-level[賣1258054]",
+        "23px button.td-level[買1257513]",
+        "23px button.td-level[買2257042]",
+        "23px button.td-level[買3256571]",
+        "23px button.td-level[買4256022]",
+        "23px button.td-level[買5255551]",
+        "28px button.td-switch[開啟即送]",
+        "26px button.[1 張]",
+        "26px button.[2 張]",
+        "26px button.[3 張]",
+        "32px button.[買進]",
+        "32px button.[賣出]",
+        "30px button.[市價]",
+        "30px button.[限價]",
+        "32px button.[]",
+        "32px button.[]",
+        "40px button.sim-submit[核對模擬買進1 張]",
+        "25px summary.[撮合方式與教材費用]",
+        "33px button.[庫存1]",
+        "33px button.[委託6]",
+        "33px button.[成交3]",
+        "26px button.sim-ledger-toggle[展開]"
+      ],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": "台積電2330",
+      "heroBid": "2575",
+      "heroAsk": "2580",
+      "labels": {
+        "real": true,
+        "heroSim": true,
+        "bookSim": true,
+        "paper": true,
+        "noBroker": true
+      },
+      "dock": null,
+      "heroBookBottom": 121,
+      "chartHeight": 701,
+      "pageScroll": 0
+    },
+    {
+      "case": "768x1024",
+      "screen": "market",
+      "small": [],
+      "offscreen": [],
+      "targets": [],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": "台積電2330",
+      "heroBid": "2575",
+      "heroAsk": "2580",
+      "labels": {
+        "real": true,
+        "heroSim": true,
+        "bookSim": true,
+        "paper": true,
+        "noBroker": true
+      },
+      "dock": null,
+      "heroBookBottom": 321,
+      "chartHeight": 980,
+      "pageScroll": 461
+    },
+    {
+      "case": "390x844",
+      "screen": "market",
+      "small": [],
+      "offscreen": [],
+      "targets": [],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": "台積電2330",
+      "heroBid": "2575",
+      "heroAsk": "2580",
+      "labels": {
+        "real": true,
+        "heroSim": true,
+        "bookSim": false,
+        "paper": false,
+        "noBroker": false
+      },
+      "dock": {
+        "bottom": 844,
+        "buttons": [
+          "自選",
+          "行情",
+          "下單",
+          "庫存"
+        ],
+        "narrowest": 98
+      },
+      "heroBookBottom": 353,
+      "chartHeight": 388,
+      "pageScroll": 133
+    },
+    {
+      "case": "390x844",
+      "screen": "trade",
+      "small": [],
+      "offscreen": [],
+      "targets": [],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": null,
+      "heroBid": null,
+      "heroAsk": null,
+      "labels": {
+        "real": false,
+        "heroSim": false,
+        "bookSim": true,
+        "paper": true,
+        "noBroker": true
+      },
+      "dock": {
+        "bottom": 844,
+        "buttons": [
+          "自選",
+          "行情",
+          "下單",
+          "庫存"
+        ],
+        "narrowest": 98
+      },
+      "heroBookBottom": null,
+      "chartHeight": 0,
+      "pageScroll": 715
+    },
+    {
+      "case": "390x844",
+      "screen": "positions",
+      "small": [],
+      "offscreen": [],
+      "targets": [],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": null,
+      "heroBid": null,
+      "heroAsk": null,
+      "labels": {
+        "real": false,
+        "heroSim": false,
+        "bookSim": false,
+        "paper": false,
+        "noBroker": false
+      },
+      "dock": {
+        "bottom": 844,
+        "buttons": [
+          "自選",
+          "行情",
+          "下單",
+          "庫存"
+        ],
+        "narrowest": 98
+      },
+      "heroBookBottom": null,
+      "chartHeight": 0,
+      "pageScroll": 0
+    },
+    {
+      "case": "360x740",
+      "screen": "market",
+      "small": [],
+      "offscreen": [],
+      "targets": [],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": "台積電2330",
+      "heroBid": "2575",
+      "heroAsk": "2580",
+      "labels": {
+        "real": true,
+        "heroSim": true,
+        "bookSim": false,
+        "paper": false,
+        "noBroker": false
+      },
+      "dock": {
+        "bottom": 740,
+        "buttons": [
+          "自選",
+          "行情",
+          "下單",
+          "庫存"
+        ],
+        "narrowest": 90
+      },
+      "heroBookBottom": 349,
+      "chartHeight": 340,
+      "pageScroll": 186
+    },
+    {
+      "case": "360x740",
+      "screen": "trade",
+      "small": [],
+      "offscreen": [],
+      "targets": [],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": null,
+      "heroBid": null,
+      "heroAsk": null,
+      "labels": {
+        "real": false,
+        "heroSim": false,
+        "bookSim": true,
+        "paper": true,
+        "noBroker": true
+      },
+      "dock": {
+        "bottom": 740,
+        "buttons": [
+          "自選",
+          "行情",
+          "下單",
+          "庫存"
+        ],
+        "narrowest": 90
+      },
+      "heroBookBottom": null,
+      "chartHeight": 0,
+      "pageScroll": 819
+    },
+    {
+      "case": "360x740",
+      "screen": "positions",
+      "small": [],
+      "offscreen": [],
+      "targets": [],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": null,
+      "heroBid": null,
+      "heroAsk": null,
+      "labels": {
+        "real": false,
+        "heroSim": false,
+        "bookSim": false,
+        "paper": false,
+        "noBroker": false
+      },
+      "dock": {
+        "bottom": 740,
+        "buttons": [
+          "自選",
+          "行情",
+          "下單",
+          "庫存"
+        ],
+        "narrowest": 90
+      },
+      "heroBookBottom": null,
+      "chartHeight": 0,
+      "pageScroll": 0
+    },
+    {
+      "case": "375x812-large",
+      "screen": "market",
+      "small": [],
+      "offscreen": [],
+      "targets": [],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": "台積電2330",
+      "heroBid": "2575",
+      "heroAsk": "2580",
+      "labels": {
+        "real": true,
+        "heroSim": true,
+        "bookSim": false,
+        "paper": false,
+        "noBroker": false
+      },
+      "dock": {
+        "bottom": 812,
+        "buttons": [
+          "自選",
+          "行情",
+          "下單",
+          "庫存"
+        ],
+        "narrowest": 94
+      },
+      "heroBookBottom": 547,
+      "chartHeight": 374,
+      "pageScroll": 375
+    },
+    {
+      "case": "375x812-large",
+      "screen": "trade",
+      "small": [],
+      "offscreen": [],
+      "targets": [],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": null,
+      "heroBid": null,
+      "heroAsk": null,
+      "labels": {
+        "real": false,
+        "heroSim": false,
+        "bookSim": true,
+        "paper": true,
+        "noBroker": true
+      },
+      "dock": {
+        "bottom": 812,
+        "buttons": [
+          "自選",
+          "行情",
+          "下單",
+          "庫存"
+        ],
+        "narrowest": 94
+      },
+      "heroBookBottom": null,
+      "chartHeight": 0,
+      "pageScroll": 1187
+    },
+    {
+      "case": "375x812-large",
+      "screen": "positions",
+      "small": [],
+      "offscreen": [],
+      "targets": [],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": null,
+      "heroBid": null,
+      "heroAsk": null,
+      "labels": {
+        "real": false,
+        "heroSim": false,
+        "bookSim": false,
+        "paper": false,
+        "noBroker": false
+      },
+      "dock": {
+        "bottom": 812,
+        "buttons": [
+          "自選",
+          "行情",
+          "下單",
+          "庫存"
+        ],
+        "narrowest": 94
+      },
+      "heroBookBottom": null,
+      "chartHeight": 0,
+      "pageScroll": 93
+    },
+    {
+      "case": "1366x900-large",
+      "screen": "market",
+      "small": [],
+      "offscreen": [],
+      "targets": [],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": "台積電2330",
+      "heroBid": "2575",
+      "heroAsk": "2580",
+      "labels": {
+        "real": true,
+        "heroSim": true,
+        "bookSim": false,
+        "paper": false,
+        "noBroker": false
+      },
+      "dock": {
+        "bottom": 900,
+        "buttons": [
+          "自選",
+          "行情",
+          "下單",
+          "庫存"
+        ],
+        "narrowest": 190
+      },
+      "heroBookBottom": 444,
+      "chartHeight": 414,
+      "pageScroll": 225
+    },
+    {
+      "case": "1366x900-large",
+      "screen": "trade",
+      "small": [],
+      "offscreen": [],
+      "targets": [],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": null,
+      "heroBid": null,
+      "heroAsk": null,
+      "labels": {
+        "real": false,
+        "heroSim": false,
+        "bookSim": true,
+        "paper": true,
+        "noBroker": true
+      },
+      "dock": {
+        "bottom": 900,
+        "buttons": [
+          "自選",
+          "行情",
+          "下單",
+          "庫存"
+        ],
+        "narrowest": 190
+      },
+      "heroBookBottom": null,
+      "chartHeight": 0,
+      "pageScroll": 993
+    },
+    {
+      "case": "1366x900-large",
+      "screen": "positions",
+      "small": [],
+      "offscreen": [],
+      "targets": [],
+      "numbers": [],
+      "signedZero": [],
+      "lowContrast": [],
+      "overflowX": 0,
+      "hero": null,
+      "heroBid": null,
+      "heroAsk": null,
+      "labels": {
+        "real": false,
+        "heroSim": false,
+        "bookSim": false,
+        "paper": false,
+        "noBroker": false
+      },
+      "dock": {
+        "bottom": 900,
+        "buttons": [
+          "自選",
+          "行情",
+          "下單",
+          "庫存"
+        ],
+        "narrowest": 190
+      },
+      "heroBookBottom": null,
+      "chartHeight": 0,
+      "pageScroll": 0
+    }
+  ],
+  "broker": {
+    "status": 501,
+    "body": {
+      "ok": false,
+      "venue": "live",
+      "reason": "實盤尚未接上券商 API。點了不會送到券商，教室下單仍走模擬撮合。"
+    }
+  },
+  "failures": []
+}

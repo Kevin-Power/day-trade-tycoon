@@ -1,0 +1,463 @@
+
+> build
+> node scripts/verify-morning-source.mjs && node scripts/prepare-morning-data.mjs --check && node scripts/prepare-morning-expansion.mjs --check && node scripts/run-vite.mjs build && node scripts/copy-runtime-assets.mjs && node scripts/verify-build.mjs && node scripts/verify-morning-build.mjs
+
+{
+  "ok": true,
+  "lessonId": "morning-20261006-v1-ce4a95ce69f1",
+  "bars": 450,
+  "ohlcComparisons": 1800,
+  "timeComparisons": 450,
+  "volumeComparisons": 450,
+  "differences": 0,
+  "networkRequests": 0,
+  "writes": 0,
+  "comparison": "Server t/O/H/L/C/V directly against retained Yahoo timestamp and indicators.quote arrays; no adjusted close or price transformation.",
+  "limits": "Vendor-source equality only. TWSE daily corroboration does not validate each minute; zero opening-minute volume, volume units and actual tick order remain unverified.",
+  "reports": [
+    {
+      "symbol": "2330",
+      "bars": 90,
+      "firstMinute": "09:00",
+      "lastMinute": "10:29",
+      "firstCompletedAt": "09:01",
+      "lastCompletedAt": "10:30",
+      "timeComparisons": 90,
+      "ohlcComparisons": 360,
+      "volumeComparisons": 90,
+      "differences": 0,
+      "zeroVolumeBars": 1,
+      "originalSha256": "781fe9ee0fed37739e786771d79e14d7584cd6a96baba703f53d2fc85850e9e0",
+      "dailyCorroboration": {
+        "openingMatches": true,
+        "pricesInsideDailyRange": true,
+        "scope": "Daily opening and daily price envelope only; does not independently verify minute OHLC or tick sequence."
+      }
+    },
+    {
+      "symbol": "2317",
+      "bars": 90,
+      "firstMinute": "09:00",
+      "lastMinute": "10:29",
+      "firstCompletedAt": "09:01",
+      "lastCompletedAt": "10:30",
+      "timeComparisons": 90,
+      "ohlcComparisons": 360,
+      "volumeComparisons": 90,
+      "differences": 0,
+      "zeroVolumeBars": 1,
+      "originalSha256": "665aa83943d0bd63a2b8d643ecb1a393ab63af6a30c0b66f91b0306ea5c8a9f9",
+      "dailyCorroboration": {
+        "openingMatches": true,
+        "pricesInsideDailyRange": true,
+        "scope": "Daily opening and daily price envelope only; does not independently verify minute OHLC or tick sequence."
+      }
+    },
+    {
+      "symbol": "2454",
+      "bars": 90,
+      "firstMinute": "09:00",
+      "lastMinute": "10:29",
+      "firstCompletedAt": "09:01",
+      "lastCompletedAt": "10:30",
+      "timeComparisons": 90,
+      "ohlcComparisons": 360,
+      "volumeComparisons": 90,
+      "differences": 0,
+      "zeroVolumeBars": 1,
+      "originalSha256": "011dea54039f329ea50823bbb4e59bf15b2452ca96640f4ffb1b55910b7fae57",
+      "dailyCorroboration": {
+        "openingMatches": true,
+        "pricesInsideDailyRange": true,
+        "scope": "Daily opening and daily price envelope only; does not independently verify minute OHLC or tick sequence."
+      }
+    },
+    {
+      "symbol": "2382",
+      "bars": 90,
+      "firstMinute": "09:00",
+      "lastMinute": "10:29",
+      "firstCompletedAt": "09:01",
+      "lastCompletedAt": "10:30",
+      "timeComparisons": 90,
+      "ohlcComparisons": 360,
+      "volumeComparisons": 90,
+      "differences": 0,
+      "zeroVolumeBars": 1,
+      "originalSha256": "fe38af417141512fd5a780b76888c53aa2af479969d633fb2a9457a75c91466a",
+      "dailyCorroboration": {
+        "openingMatches": true,
+        "pricesInsideDailyRange": true,
+        "scope": "Daily opening and daily price envelope only; does not independently verify minute OHLC or tick sequence."
+      }
+    },
+    {
+      "symbol": "2308",
+      "bars": 90,
+      "firstMinute": "09:00",
+      "lastMinute": "10:29",
+      "firstCompletedAt": "09:01",
+      "lastCompletedAt": "10:30",
+      "timeComparisons": 90,
+      "ohlcComparisons": 360,
+      "volumeComparisons": 90,
+      "differences": 0,
+      "zeroVolumeBars": 1,
+      "originalSha256": "25220d722ef450bef0f7562cfa69aca9721540a648f13ea269fc8aacfe05d99c",
+      "dailyCorroboration": {
+        "openingMatches": true,
+        "pricesInsideDailyRange": true,
+        "scope": "Daily opening and daily price envelope only; does not independently verify minute OHLC or tick sequence."
+      }
+    }
+  ]
+}
+Server lesson matches retained source hashes, minute grid and previous-session reference data.
+{"check":true,"readyDates":["2026-10-05"],"unavailableDates":["2026-10-02","2026-10-07"],"readyBars":450,"existingLessonPreserved":{"path":"server/data/morning-2026-10-06.json","sha256":"71b5294b2f484708e7506506688195eeb0e07c346d68c2feb9fe22797df4490a"}}
+[36mvite v8.1.5 [32mbuilding client environment for production...[36m[39m
+[2Ktransforming...✓ 2687 modules transformed.
+rendering chunks...
+computing gzip size...
+.output/public/assets/ibm-plex-mono-latin-400-normal-CvHOgSBP.woff    13.14 kB
+.output/public/assets/ibm-plex-mono-latin-500-normal-CB9ihrfo.woff    13.15 kB
+.output/public/assets/ibm-plex-mono-latin-600-normal-DWFSQ4vo.woff    13.20 kB
+.output/public/assets/ibm-plex-mono-latin-400-normal-DMJ8VG8y.woff2   14.70 kB
+.output/public/assets/ibm-plex-mono-latin-500-normal-DSY6xOcd.woff2   14.88 kB
+.output/public/assets/ibm-plex-mono-latin-600-normal-BgSNZQsw.woff2   15.62 kB
+.output/public/assets/session-feedback-D7nun_3S.css                    0.88 kB │ gzip:   0.31 kB
+.output/public/assets/styles-BDcHn8cw.css                            157.40 kB │ gzip:  29.44 kB
+.output/public/assets/invariant-DEEwAagU.js                            0.06 kB │ gzip:   0.08 kB
+.output/public/assets/check-Cb2uYFYi.js                                0.12 kB │ gzip:   0.14 kB
+.output/public/assets/chevron-left-BM1osahW.js                         0.13 kB │ gzip:   0.14 kB
+.output/public/assets/arrow-left-BfhP_4AL.js                           0.16 kB │ gzip:   0.16 kB
+.output/public/assets/arrow-right-CSxns4sm.js                          0.16 kB │ gzip:   0.16 kB
+.output/public/assets/circle-check-DG4OwIJT.js                         0.17 kB │ gzip:   0.17 kB
+.output/public/assets/clock-3-BF8_Sdcw.js                              0.18 kB │ gzip:   0.17 kB
+.output/public/assets/gates-CSJuGikJ.js                                0.19 kB │ gzip:   0.17 kB
+.output/public/assets/smartphone-BKuvdbKt.js                           0.19 kB │ gzip:   0.18 kB
+.output/public/assets/rotate-ccw-DoJjHUzI.js                           0.20 kB │ gzip:   0.18 kB
+.output/public/assets/chevron-right-DXQtOgim.js                        0.20 kB │ gzip:   0.17 kB
+.output/public/assets/log-out-DGzHzkFl.js                              0.25 kB │ gzip:   0.22 kB
+.output/public/assets/download-DaZvnV-z.js                             0.26 kB │ gzip:   0.22 kB
+.output/public/assets/flame-muUPy1xY.js                                0.27 kB │ gzip:   0.22 kB
+.output/public/assets/book-open-zM9ab1rE.js                            0.27 kB │ gzip:   0.20 kB
+.output/public/assets/useNavigate-CbVUR91D.js                          0.32 kB │ gzip:   0.23 kB
+.output/public/assets/clipboard-list-DUvwStwF.js                       0.41 kB │ gzip:   0.26 kB
+.output/public/assets/redirect-DtIAAt0y.js                             0.48 kB │ gzip:   0.30 kB
+.output/public/assets/answer-CzrB5bSh.js                               0.48 kB │ gzip:   0.37 kB
+.output/public/assets/safe-next-CzLjGbLf.js                            0.49 kB │ gzip:   0.32 kB
+.output/public/assets/chart-candlestick-CRa4_-X9.js                    0.53 kB │ gzip:   0.31 kB
+.output/public/assets/useMatch-C7erCIjY.js                             0.55 kB │ gzip:   0.35 kB
+.output/public/assets/shield-check-D9r6r17L.js                         0.58 kB │ gzip:   0.36 kB
+.output/public/assets/coach-steps-KkbMx1kW.js                          1.10 kB │ gzip:   0.73 kB
+.output/public/assets/preload-helper-Czpn1I53.js                       1.19 kB │ gzip:   0.67 kB
+.output/public/assets/course-inquiries-Bp_Q0rUG.js                     1.25 kB │ gzip:   0.80 kB
+.output/public/assets/teacher-review._id-gz3vbTkg.js                   1.61 kB │ gzip:   0.97 kB
+.output/public/assets/button-CQ_zlnim.js                               2.07 kB │ gzip:   1.07 kB
+.output/public/assets/reveal-BZ4q9BS-.js                               2.48 kB │ gzip:   1.44 kB
+.output/public/assets/dist-BS1Zn5b8.js                                 2.88 kB │ gzip:   1.27 kB
+.output/public/assets/session._id.review-x3eUi_QP.js                   3.38 kB │ gzip:   1.71 kB
+.output/public/assets/morning-exercises-DpsG8Tp8.js                    3.50 kB │ gzip:   1.72 kB
+.output/public/assets/lazyRouteComponent-CcBJq7NX.js                   3.93 kB │ gzip:   1.33 kB
+.output/public/assets/classroom-db-CKFnxFfL.js                         6.26 kB │ gzip:   2.71 kB
+.output/public/assets/setup-BaGJBwLK.js                                6.89 kB │ gzip:   2.89 kB
+.output/public/assets/daily-CuJn5SmH.js                                9.35 kB │ gzip:   3.87 kB
+.output/public/assets/login-GuUKwVw0.js                               11.16 kB │ gzip:   4.22 kB
+.output/public/assets/learning-path-CuRu7pQe.js                       13.68 kB │ gzip:   4.91 kB
+.output/public/assets/try-rwe-I4Jl.js                                 13.82 kB │ gzip:   4.95 kB
+.output/public/assets/manual-BofWcK2R.js                              19.27 kB │ gzip:   7.25 kB
+.output/public/assets/use-terminal-layout-DMiQgN9q.js                 25.24 kB │ gzip:  10.37 kB
+.output/public/assets/use-current-user-D41IIDGY.js                    30.30 kB │ gzip:  11.58 kB
+.output/public/assets/license-EngR7sQ-.js                             33.26 kB │ gzip:  10.77 kB
+.output/public/assets/createClientRpc-BvlPR4v4.js                     34.00 kB │ gzip:  10.43 kB
+.output/public/assets/dist-BTCF2I9W.js                                35.82 kB │ gzip:  12.27 kB
+.output/public/assets/teacher-tZi7NziD.js                             39.91 kB │ gzip:  12.43 kB
+.output/public/assets/routes-oC0T-bMf.js                              41.41 kB │ gzip:  12.51 kB
+.output/public/assets/display-controls-DQiUcALq.js                    65.05 kB │ gzip:  22.95 kB
+.output/public/assets/schemas-CqukMD_3.js                             70.36 kB │ gzip:  18.76 kB
+.output/public/assets/morning-CIaEBWmV.js                             77.32 kB │ gzip:  25.06 kB
+.output/public/assets/practice-goal-DbO5nMUO.js                      163.13 kB │ gzip:  46.18 kB
+.output/public/assets/index-C3MB8VRy.js                              269.17 kB │ gzip:  88.62 kB
+.output/public/assets/week-C57wzHxI.js                               333.77 kB │ gzip: 108.46 kB
+.output/public/assets/session-feedback-C6dhFat4.js                   413.53 kB │ gzip: 111.24 kB
+
+[32m✓ built in 841ms[39m
+[36mvite v8.1.5 [32mbuilding ssr environment for production...[36m[39m
+[2Ktransforming...✓ 476 modules transformed.
+rendering chunks...
+computing gzip size...
+node_modules/.nitro/vite/services/ssr/assets/ibm-plex-mono-latin-400-normal-CvHOgSBP.woff    13.14 kB
+node_modules/.nitro/vite/services/ssr/assets/ibm-plex-mono-latin-500-normal-CB9ihrfo.woff    13.15 kB
+node_modules/.nitro/vite/services/ssr/assets/ibm-plex-mono-latin-600-normal-DWFSQ4vo.woff    13.20 kB
+node_modules/.nitro/vite/services/ssr/assets/ibm-plex-mono-latin-400-normal-DMJ8VG8y.woff2   14.70 kB
+node_modules/.nitro/vite/services/ssr/assets/ibm-plex-mono-latin-500-normal-DSY6xOcd.woff2   14.88 kB
+node_modules/.nitro/vite/services/ssr/assets/ibm-plex-mono-latin-600-normal-BgSNZQsw.woff2   15.62 kB
+node_modules/.nitro/vite/services/ssr/assets/session-feedback-D7nun_3S.css                    0.88 kB │ gzip:   0.31 kB
+node_modules/.nitro/vite/services/ssr/assets/styles-BDcHn8cw.css                            157.40 kB │ gzip:  29.44 kB
+node_modules/.nitro/vite/services/ssr/assets/kysely-adapter-Cj_QZw5p.js                       0.05 kB │ gzip:   0.07 kB
+node_modules/.nitro/vite/services/ssr/assets/start-5Z2QO8AU.js                                0.14 kB │ gzip:   0.13 kB
+node_modules/.nitro/vite/services/ssr/assets/empty-plugin-adapters-D9UWiqvJ.js                0.22 kB │ gzip:   0.16 kB
+node_modules/.nitro/vite/services/ssr/assets/rolldown-runtime-D7D4PA-g.js                     0.36 kB │ gzip:   0.25 kB
+node_modules/.nitro/vite/services/ssr/assets/session._id.review-CyO8LxKG.js                   0.36 kB │ gzip:   0.23 kB
+node_modules/.nitro/vite/services/ssr/assets/teacher-review._id-BVCmgAWJ.js                   0.36 kB │ gzip:   0.23 kB
+node_modules/.nitro/vite/services/ssr/assets/createServerRpc-CN-evIEF.js                      0.38 kB │ gzip:   0.26 kB
+node_modules/.nitro/vite/services/ssr/assets/morning-BOWIS1hC.js                              0.45 kB │ gzip:   0.27 kB
+node_modules/.nitro/vite/services/ssr/assets/login-DAogis7T.js                                0.56 kB │ gzip:   0.33 kB
+node_modules/.nitro/vite/services/ssr/assets/guest-link-99BndJZT.js                           0.63 kB │ gzip:   0.38 kB
+node_modules/.nitro/vite/services/ssr/assets/daily-BJdFN4a8.js                                0.63 kB │ gzip:   0.47 kB
+node_modules/.nitro/vite/services/ssr/assets/classroom-feedback-DngcO04K.js                   0.64 kB │ gzip:   0.29 kB
+node_modules/.nitro/vite/services/ssr/assets/middleware-B_Z7AHuz.js                           0.74 kB │ gzip:   0.38 kB
+node_modules/.nitro/vite/services/ssr/assets/verify.server-305rE-b6.js                        0.84 kB │ gzip:   0.43 kB
+node_modules/.nitro/vite/services/ssr/assets/copy-B43RfxZO.js                                 0.91 kB │ gzip:   0.59 kB
+node_modules/.nitro/vite/services/ssr/assets/safe-next-CSciXuiB.js                            0.96 kB │ gzip:   0.50 kB
+node_modules/.nitro/vite/services/ssr/assets/classroom-policy-CrA-uKbz.js                     1.06 kB │ gzip:   0.60 kB
+node_modules/.nitro/vite/services/ssr/assets/morning-mnZe8tLw.js                              1.17 kB │ gzip:   0.71 kB
+node_modules/.nitro/vite/services/ssr/assets/gates-CUxTjxua.js                                1.19 kB │ gzip:   0.71 kB
+node_modules/.nitro/vite/services/ssr/assets/classroom-review.server-Dxo8JYci.js              1.26 kB │ gzip:   0.68 kB
+node_modules/.nitro/vite/services/ssr/assets/brand-mark-CfUvJcQV.js                           1.35 kB │ gzip:   0.62 kB
+node_modules/.nitro/vite/services/ssr/assets/answer-D8ULPHdo.js                               1.42 kB │ gzip:   0.86 kB
+node_modules/.nitro/vite/services/ssr/assets/button-CE6inGeV.js                               1.56 kB │ gzip:   0.77 kB
+node_modules/.nitro/vite/services/ssr/assets/pwa-effect-kQxYOY59.js                           1.66 kB │ gzip:   0.77 kB
+node_modules/.nitro/vite/services/ssr/assets/classroom-session.server-oVar5uh9.js             1.72 kB │ gzip:   0.92 kB
+node_modules/.nitro/vite/services/ssr/assets/daily-teacher-ClKjYwbM.js                        1.92 kB │ gzip:   1.02 kB
+node_modules/.nitro/vite/services/ssr/assets/market-data-BquyZIHf.js                          2.09 kB │ gzip:   1.04 kB
+node_modules/.nitro/vite/services/ssr/assets/course-inquiries-C_XXh0l-.js                     2.12 kB │ gzip:   1.04 kB
+node_modules/.nitro/vite/services/ssr/assets/config.server-Y2x-JnFx.js                        2.18 kB │ gzip:   0.92 kB
+node_modules/.nitro/vite/services/ssr/assets/isolation.server-BZ5QBxct.js                     2.21 kB │ gzip:   1.12 kB
+node_modules/.nitro/vite/services/ssr/assets/provenance-B_Nu5DqV.js                           2.26 kB │ gzip:   1.24 kB
+node_modules/.nitro/vite/services/ssr/assets/coach-steps-Dxm_s-hv.js                          2.36 kB │ gzip:   1.20 kB
+node_modules/.nitro/vite/services/ssr/assets/teacher-review._id-C96cgfMi.js                   2.71 kB │ gzip:   1.23 kB
+node_modules/.nitro/vite/services/ssr/assets/swing-highs-Jc58Z8CM.js                          2.91 kB │ gzip:   1.23 kB
+node_modules/.nitro/vite/services/ssr/assets/server-Brk6Jxil.js                               3.02 kB │ gzip:   1.14 kB
+node_modules/.nitro/vite/services/ssr/assets/market-data-status-D2klJq_s.js                   3.67 kB │ gzip:   1.56 kB
+node_modules/.nitro/vite/services/ssr/assets/morning-exercises-BZj2px7I.js                    3.94 kB │ gzip:   1.87 kB
+node_modules/.nitro/vite/services/ssr/assets/ticks-C1_ORylD.js                                3.97 kB │ gzip:   1.44 kB
+node_modules/.nitro/vite/services/ssr/assets/classroom-db-BQkQKntR.js                         4.05 kB │ gzip:   1.52 kB
+node_modules/.nitro/vite/services/ssr/assets/classroom-feedback.server-C-9hoiGI.js            4.09 kB │ gzip:   1.59 kB
+node_modules/.nitro/vite/services/ssr/assets/review-schema-BFQsI5UO.js                        4.09 kB │ gzip:   1.54 kB
+node_modules/.nitro/vite/services/ssr/assets/session.server-CQoQB5hl.js                       4.14 kB │ gzip:   1.63 kB
+node_modules/.nitro/vite/services/ssr/assets/reveal-B11fTNo1.js                               4.21 kB │ gzip:   2.08 kB
+node_modules/.nitro/vite/services/ssr/assets/morning-session.server-C6wWu5f-.js               5.00 kB │ gzip:   1.92 kB
+node_modules/.nitro/vite/services/ssr/assets/session._id.review-DhgCobcl.js                   5.90 kB │ gzip:   2.21 kB
+node_modules/.nitro/vite/services/ssr/assets/_tanstack-start-manifest_v-CIm7i7Gc.js           6.34 kB │ gzip:   1.48 kB
+node_modules/.nitro/vite/services/ssr/assets/setup-DCOXSvpV.js                                9.72 kB │ gzip:   3.26 kB
+node_modules/.nitro/vite/services/ssr/assets/classroom-auth-layout-jW8SnouF.js                9.88 kB │ gzip:   3.05 kB
+node_modules/.nitro/vite/services/ssr/assets/display-controls-BUc_GDwX.js                    10.94 kB │ gzip:   3.91 kB
+node_modules/.nitro/vite/services/ssr/assets/morning-engine-U5Djryfo.js                      11.22 kB │ gzip:   4.08 kB
+node_modules/.nitro/vite/services/ssr/assets/context-DgIuQe6I.js                             12.31 kB │ gzip:   5.08 kB
+node_modules/.nitro/vite/services/ssr/assets/classroom-db-Bh8Z5FHq.js                        13.32 kB │ gzip:   3.12 kB
+node_modules/.nitro/vite/services/ssr/assets/error-codes-B--KW6Z2.js                         15.75 kB │ gzip:   4.94 kB
+node_modules/.nitro/vite/services/ssr/assets/daily-o8vEYXZa.js                               15.78 kB │ gzip:   5.06 kB
+node_modules/.nitro/vite/services/ssr/assets/learning-path-C3boc1Z-.js                       16.00 kB │ gzip:   5.18 kB
+node_modules/.nitro/vite/services/ssr/assets/login-CPw9O3nK.js                               16.61 kB │ gzip:   4.91 kB
+node_modules/.nitro/vite/services/ssr/assets/daily-question.server-DeFYUyfj.js               19.24 kB │ gzip:   6.52 kB
+node_modules/.nitro/vite/services/ssr/assets/db-CDa5-sX8.js                                  20.85 kB │ gzip:   6.23 kB
+node_modules/.nitro/vite/services/ssr/assets/try-BAyAbH0j.js                                 20.99 kB │ gzip:   6.10 kB
+node_modules/.nitro/vite/services/ssr/assets/manual-mUGgk6zC.js                              25.12 kB │ gzip:   8.05 kB
+node_modules/.nitro/vite/services/ssr/assets/use-current-user-C34gi9Ga.js                    26.83 kB │ gzip:   7.88 kB
+node_modules/.nitro/vite/services/ssr/assets/router-XYdDboYc.js                              36.72 kB │ gzip:  10.84 kB
+node_modules/.nitro/vite/services/ssr/assets/license-ziq-VCRX.js                             47.00 kB │ gzip:  12.36 kB
+node_modules/.nitro/vite/services/ssr/assets/session-feedback-D5ysAb-5.js                    50.81 kB │ gzip:  12.95 kB
+node_modules/.nitro/vite/services/ssr/assets/use-terminal-layout-BCm-nXfP.js                 52.44 kB │ gzip:  16.29 kB
+node_modules/.nitro/vite/services/ssr/assets/routes-Ch5ZCk5I.js                              61.09 kB │ gzip:  15.46 kB
+node_modules/.nitro/vite/services/ssr/assets/teacher-J67OIdwj.js                             62.27 kB │ gzip:  15.45 kB
+node_modules/.nitro/vite/services/ssr/index.js                                               69.04 kB │ gzip:  17.89 kB
+node_modules/.nitro/vite/services/ssr/assets/morning-data.server-DkJgxIEC.js                 88.20 kB │ gzip:  16.38 kB
+node_modules/.nitro/vite/services/ssr/assets/morning-C0giiulf.js                            124.18 kB │ gzip:  31.83 kB
+node_modules/.nitro/vite/services/ssr/assets/practice-goal-DGUwmadd.js                      205.41 kB │ gzip:  41.05 kB
+node_modules/.nitro/vite/services/ssr/assets/server-DuQm0RNR.js                             313.20 kB │ gzip:  72.56 kB
+node_modules/.nitro/vite/services/ssr/assets/week-BAQw7oN9.js                               355.88 kB │ gzip: 109.94 kB
+
+[32m✓ built in 586ms[39m
+
+[90m[[90mnitro[90m][39m [35m◐[39m Building [[35mNitro[39m] [2m(preset: [36mnode-server[39m, compatibility: [36m2026-10-17[39m)[22m
+[90m[[90mnitro[90m][39m [32m✔[39m Generated public [36m.output/public[39m
+[36mvite v8.1.5 [32mbuilding nitro environment for production...[36m[39m
+[2Ktransforming...✓ 3084 modules transformed.
+[36mℹ[39m Tracing dependencies:
+- [36mtslib[39m (2.8.1)
+[32m✔[39m Traced 1 dependencies (4 files) in 39ms.
+[36mℹ[39m Ensure your production environment matches the builder OS and architecture ([36mwin32-x64[39m) to avoid native module issues.
+rendering chunks...
+computing gzip size...
+.output/server/_ssr/start-5Z2QO8AU.mjs                         0.14 kB │ gzip:   0.13 kB
+.output/server/_ssr/kysely-adapter-Cj_QZw5p.mjs                0.15 kB │ gzip:   0.12 kB
+.output/server/_ssr/empty-plugin-adapters-D9UWiqvJ.mjs         0.23 kB │ gzip:   0.16 kB
+.output/server/_chunks/core.mjs                                0.25 kB │ gzip:   0.18 kB
+.output/server/_ssr/createServerRpc-CN-evIEF.mjs               0.38 kB │ gzip:   0.26 kB
+.output/server/_ssr/rolldown-runtime-D7D4PA-g.mjs              0.41 kB │ gzip:   0.29 kB
+.output/server/_ssr/session._id.review-CyO8LxKG.mjs            0.43 kB │ gzip:   0.28 kB
+.output/server/_ssr/teacher-review._id-BVCmgAWJ.mjs            0.43 kB │ gzip:   0.28 kB
+.output/server/_libs/zod.mjs                                   0.49 kB │ gzip:   0.26 kB
+.output/server/_ssr/morning-BOWIS1hC.mjs                       0.50 kB │ gzip:   0.31 kB
+.output/server/_ssr/login-DAogis7T.mjs                         0.63 kB │ gzip:   0.39 kB
+.output/server/_ssr/guest-link-99BndJZT.mjs                    0.68 kB │ gzip:   0.42 kB
+.output/server/_ssr/daily-BJdFN4a8.mjs                         0.71 kB │ gzip:   0.52 kB
+.output/server/_ssr/classroom-feedback-DngcO04K.mjs            0.71 kB │ gzip:   0.38 kB
+.output/server/_ssr/middleware-B_Z7AHuz.mjs                    0.82 kB │ gzip:   0.41 kB
+.output/server/_ssr/verify.server-305rE-b6.mjs                 0.88 kB │ gzip:   0.46 kB
+.output/server/_ssr/copy-B43RfxZO.mjs                          0.95 kB │ gzip:   0.62 kB
+.output/server/_chunks/ssr-renderer.mjs                        0.96 kB │ gzip:   0.49 kB
+.output/server/_ssr/safe-next-CSciXuiB.mjs                     1.00 kB │ gzip:   0.53 kB
+.output/server/_ssr/classroom-policy-CrA-uKbz.mjs              1.11 kB │ gzip:   0.63 kB
+.output/server/_ssr/morning-mnZe8tLw.mjs                       1.24 kB │ gzip:   0.76 kB
+.output/server/_ssr/classroom-review.server-Dxo8JYci.mjs       1.31 kB │ gzip:   0.71 kB
+.output/server/_libs/defu.mjs                                  1.41 kB │ gzip:   0.58 kB
+.output/server/_ssr/gates-CUxTjxua.mjs                         1.41 kB │ gzip:   0.78 kB
+.output/server/_ssr/answer-D8ULPHdo.mjs                        1.55 kB │ gzip:   0.94 kB
+.output/server/_ssr/brand-mark-CfUvJcQV.mjs                    1.65 kB │ gzip:   0.71 kB
+.output/server/_libs/react-is.mjs                              1.67 kB │ gzip:   0.65 kB
+.output/server/_ssr/classroom-session.server-oVar5uh9.mjs      1.76 kB │ gzip:   0.95 kB
+.output/server/_ssr/button-CE6inGeV.mjs                        1.80 kB │ gzip:   0.82 kB
+.output/server/_libs/radix-ui__primitive.mjs                   1.83 kB │ gzip:   0.72 kB
+.output/server/_ssr/pwa-effect-kQxYOY59.mjs                    1.85 kB │ gzip:   0.88 kB
+.output/server/_runtime.mjs                                    1.89 kB │ gzip:   0.86 kB
+.output/server/_libs/zustand.mjs                               1.91 kB │ gzip:   0.72 kB
+.output/server/_ssr/daily-teacher-ClKjYwbM.mjs                 1.97 kB │ gzip:   1.05 kB
+.output/server/_ssr/market-data-BquyZIHf.mjs                   2.12 kB │ gzip:   1.06 kB
+.output/server/_libs/ufo.mjs                                   2.21 kB │ gzip:   0.72 kB
+.output/server/_ssr/config.server-Y2x-JnFx.mjs                 2.22 kB │ gzip:   0.95 kB
+.output/server/_ssr/isolation.server-BZ5QBxct.mjs              2.25 kB │ gzip:   1.15 kB
+.output/server/_libs/prop-types.mjs                            2.27 kB │ gzip:   0.84 kB
+.output/server/_ssr/course-inquiries-C_XXh0l-.mjs              2.27 kB │ gzip:   1.13 kB
+.output/server/_ssr/coach-steps-Dxm_s-hv.mjs                   2.41 kB │ gzip:   1.23 kB
+.output/server/_ssr/provenance-B_Nu5DqV.mjs                    2.42 kB │ gzip:   1.30 kB
+.output/server/_ssr/swing-highs-Jc58Z8CM.mjs                   2.95 kB │ gzip:   1.26 kB
+.output/server/_libs/class-variance-authority+clsx.mjs         3.17 kB │ gzip:   1.24 kB
+.output/server/_ssr/server-Brk6Jxil.mjs                        3.19 kB │ gzip:   1.19 kB
+.output/server/_libs/d3-path.mjs                               3.25 kB │ gzip:   1.16 kB
+.output/server/_ssr/teacher-review._id-C96cgfMi.mjs            3.28 kB │ gzip:   1.36 kB
+.output/server/_ssr/ticks-C1_ORylD.mjs                         3.68 kB │ gzip:   1.36 kB
+.output/server/_ssr/market-data-status-D2klJq_s.mjs            3.79 kB │ gzip:   1.65 kB
+.output/server/_libs/better-auth__utils.mjs                    3.80 kB │ gzip:   1.31 kB
+.output/server/_ssr/morning-exercises-BZj2px7I.mjs             3.98 kB │ gzip:   1.92 kB
+.output/server/_ssr/classroom-db-BQkQKntR.mjs                  4.07 kB │ gzip:   1.55 kB
+.output/server/_ssr/classroom-feedback.server-C-9hoiGI.mjs     4.13 kB │ gzip:   1.62 kB
+.output/server/_ssr/review-schema-BFQsI5UO.mjs                 4.20 kB │ gzip:   1.64 kB
+.output/server/_ssr/reveal-B11fTNo1.mjs                        4.25 kB │ gzip:   2.11 kB
+.output/server/_ssr/session.server-CQoQB5hl.mjs                4.47 kB │ gzip:   1.71 kB
+.output/server/_libs/d3-interpolate.mjs                        5.02 kB │ gzip:   1.61 kB
+.output/server/_ssr/morning-session.server-C6wWu5f-.mjs        5.05 kB │ gzip:   1.95 kB
+.output/server/_libs/nanostores.mjs                            5.53 kB │ gzip:   1.80 kB
+.output/server/_libs/radix-ui__react-context+react.mjs         5.74 kB │ gzip:   1.67 kB
+.output/server/_tanstack-start-manifest_v-CIm7i7Gc.mjs         6.40 kB │ gzip:   1.51 kB
+.output/server/_ssr/session._id.review-DhgCobcl.mjs            6.80 kB │ gzip:   2.34 kB
+.output/server/_libs/d3-array.mjs                              8.05 kB │ gzip:   2.25 kB
+.output/server/_libs/eventemitter3.mjs                         8.31 kB │ gzip:   2.05 kB
+.output/server/_libs/d3-color.mjs                             10.38 kB │ gzip:   3.57 kB
+.output/server/_libs/d3-format.mjs                            10.59 kB │ gzip:   3.02 kB
+.output/server/_ssr/setup-DCOXSvpV.mjs                        11.25 kB │ gzip:   3.43 kB
+.output/server/_ssr/morning-engine-U5Djryfo.mjs               11.30 kB │ gzip:   4.15 kB
+.output/server/_ssr/display-controls-BUc_GDwX.mjs             11.54 kB │ gzip:   4.02 kB
+.output/server/_ssr/classroom-auth-layout-jW8SnouF.mjs        11.81 kB │ gzip:   3.23 kB
+.output/server/_libs/tanstack__history.mjs                    12.05 kB │ gzip:   3.46 kB
+.output/server/_ssr/context-DgIuQe6I.mjs                      13.46 kB │ gzip:   5.21 kB
+.output/server/_ssr/classroom-db-Bh8Z5FHq.mjs                 13.61 kB │ gzip:   3.20 kB
+.output/server/_libs/fast-equals.mjs                          14.37 kB │ gzip:   3.62 kB
+.output/server/_libs/better-auth__memory-adapter.mjs          14.71 kB │ gzip:   4.12 kB
+.output/server/_ssr/error-codes-B--KW6Z2.mjs                  15.49 kB │ gzip:   4.94 kB
+.output/server/_ssr/learning-path-C3boc1Z-.mjs                15.78 kB │ gzip:   5.12 kB
+.output/server/_libs/@radix-ui/react-compose-refs+[...].mjs   16.79 kB │ gzip:   4.66 kB
+.output/server/_libs/@better-auth/telemetry+[...].mjs         17.53 kB │ gzip:   4.91 kB
+.output/server/_libs/h3-v2+rou3.mjs                           17.58 kB │ gzip:   5.16 kB
+.output/server/_ssr/daily-o8vEYXZa.mjs                        17.83 kB │ gzip:   5.20 kB
+.output/server/_ssr/login-CPw9O3nK.mjs                        18.93 kB │ gzip:   5.10 kB
+.output/server/_ssr/daily-question.server-DeFYUyfj.mjs        19.10 kB │ gzip:   6.51 kB
+.output/server/_ssr/db-CDa5-sX8.mjs                           20.71 kB │ gzip:   6.31 kB
+.output/server/_libs/decimal.js-light.mjs                     23.31 kB │ gzip:   6.89 kB
+.output/server/_libs/noble__hashes.mjs                        23.59 kB │ gzip:   7.85 kB
+.output/server/_ssr/try-BAyAbH0j.mjs                          23.81 kB │ gzip:   6.26 kB
+.output/server/_libs/d3-shape.mjs                             24.72 kB │ gzip:   5.02 kB
+.output/server/_ssr/use-current-user-C34gi9Ga.mjs             25.98 kB │ gzip:   7.85 kB
+.output/server/_ssr/manual-mUGgk6zC.mjs                       28.98 kB │ gzip:   8.19 kB
+.output/server/_libs/lucide-react.mjs                         29.62 kB │ gzip:   5.87 kB
+.output/server/index.mjs                                      34.24 kB │ gzip:   9.72 kB
+.output/server/_ssr/router-XYdDboYc.mjs                       36.32 kB │ gzip:  10.80 kB
+.output/server/_libs/react-smooth.mjs                         37.83 kB │ gzip:   8.15 kB
+.output/server/_libs/jose.mjs                                 38.58 kB │ gzip:   8.59 kB
+.output/server/_libs/h3+rou3+srvx.mjs                         46.00 kB │ gzip:  12.36 kB
+.output/server/_libs/noble__ciphers.mjs                       46.58 kB │ gzip:  14.45 kB
+.output/server/_ssr/use-terminal-layout-BCm-nXfP.mjs          52.69 kB │ gzip:  16.18 kB
+.output/server/_ssr/license-ziq-VCRX.mjs                      53.35 kB │ gzip:  12.62 kB
+.output/server/_libs/sonner.mjs                               53.64 kB │ gzip:  12.12 kB
+.output/server/_ssr/session-feedback-D5ysAb-5.mjs             57.68 kB │ gzip:  13.26 kB
+.output/server/_libs/d3-scale+[...].mjs                       58.25 kB │ gzip:  12.11 kB
+.output/server/_ssr/ssr.mjs                                   67.37 kB │ gzip:  17.82 kB
+.output/server/_ssr/routes-Ch5ZCk5I.mjs                       69.07 kB │ gzip:  15.81 kB
+.output/server/_ssr/teacher-J67OIdwj.mjs                      69.60 kB │ gzip:  15.72 kB
+.output/server/_libs/@radix-ui/react-dialog+[...].mjs         85.45 kB │ gzip:  20.14 kB
+.output/server/_libs/tailwind-merge.mjs                       88.13 kB │ gzip:  15.66 kB
+.output/server/_ssr/morning-data.server-DkJgxIEC.mjs          88.24 kB │ gzip:  16.42 kB
+.output/server/_libs/@tanstack/router-core+[...].mjs         122.92 kB │ gzip:  25.89 kB
+.output/server/_ssr/morning-C0giiulf.mjs                     139.69 kB │ gzip:  32.49 kB
+.output/server/_libs/pg.mjs                                  148.50 kB │ gzip:  34.36 kB
+.output/server/_libs/lodash.mjs                              161.63 kB │ gzip:  29.39 kB
+.output/server/_ssr/practice-goal-DGUwmadd.mjs               206.58 kB │ gzip:  41.10 kB
+.output/server/_ssr/server-DuQm0RNR.mjs                      307.96 kB │ gzip:  72.01 kB
+.output/server/_ssr/week-BAQw7oN9.mjs                        351.85 kB │ gzip: 108.50 kB
+.output/server/_libs/@better-auth/kysely-adapter+[...].mjs   472.94 kB │ gzip:  78.50 kB
+.output/server/_libs/recharts+[...].mjs                      516.76 kB │ gzip:  96.67 kB
+.output/server/_libs/@tanstack/react-router+[...].mjs        670.23 kB │ gzip: 140.99 kB
+.output/server/_libs/electric-sql__pglite.mjs                752.14 kB │ gzip: 153.33 kB
+.output/server/_libs/@better-auth/core+[...].mjs             764.64 kB │ gzip: 146.32 kB
+
+[32m✓ built in 525ms[39m
+[36mℹ[39m Generated [36m.output/nitro.json[39m
+
+[90m[[90mnitro[90m][39m [32m✔[39m You can preview this build using [36mnpx vite preview[39m
+Standalone database runtime assets copied.
+Server module syntax verified: 122 files. HTTP readiness must also pass before deployment.
+{
+  "ok": true,
+  "datasets": [
+    {
+      "path": "server/data/morning-2026-10-05.json",
+      "sha256": "8b2f03a01c6212e2fbf9849863c3df19967b0c17b41064874ba85c84f924251c"
+    },
+    {
+      "path": "server/data/morning-2026-10-06.json",
+      "sha256": "71b5294b2f484708e7506506688195eeb0e07c346d68c2feb9fe22797df4490a"
+    }
+  ],
+  "symbols": [
+    "2330",
+    "2317",
+    "2454",
+    "2382",
+    "2308"
+  ],
+  "fingerprint": "last two consecutive minute OHLC bars per symbol; object/array/string/minified forms",
+  "publicFiles": 18,
+  "builtFiles": 80,
+  "frontendJsFiles": 55,
+  "zipEntries": 0,
+  "compressedFiles": 0,
+  "offlineArchives": [],
+  "missingOfflineArchives": [
+    "downloads/daytrade-tycoon-offline.zip",
+    ".output/downloads/daytrade-tycoon-offline.zip"
+  ],
+  "offlineVerified": false,
+  "scope": "Artifact contents only; API time-gating and live deployment require separate checks."
+}
+[33m[plugin tanstack-start-core::server-fn:client] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:30:32 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:81:37 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:128:32 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:172:34 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:186:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:201:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:218:35 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts?tss-serverfn-split:30:32 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts?tss-serverfn-split:81:37 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts?tss-serverfn-split:128:32 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts?tss-serverfn-split:172:34 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts?tss-serverfn-split:186:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts?tss-serverfn-split:201:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts?tss-serverfn-split:218:35 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:30:32 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:81:37 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:128:32 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:172:34 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:186:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:201:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/premium-ui/src/lib/classroom-db.ts:218:35 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
