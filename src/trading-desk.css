@@ -2192,7 +2192,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   padding-bottom: env(safe-area-inset-bottom);
-  background: rgb(9 13 19 / 0.97);
+  background: #090d13;
   border-top: var(--td-hairline) solid var(--td-line-strong);
 }
 .trading-desk .td-dock button {
