@@ -18,6 +18,7 @@ import { Route as SetupRouteImport } from './routes/setup'
 import { Route as TeacherRouteImport } from './routes/teacher'
 import { Route as TryRouteImport } from './routes/try'
 import { Route as ApiCourseInquiriesRouteImport } from './routes/api/course-inquiries'
+import { Route as ApiDailyRouteImport } from './routes/api/daily'
 import { Route as ApiGateRouteImport } from './routes/api/gate'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiMorningRouteImport } from './routes/api/morning'
@@ -72,6 +73,11 @@ const TryRoute = TryRouteImport.update({
 const ApiCourseInquiriesRoute = ApiCourseInquiriesRouteImport.update({
   id: '/api/course-inquiries',
   path: '/api/course-inquiries',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDailyRoute = ApiDailyRouteImport.update({
+  id: '/api/daily',
+  path: '/api/daily',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiGateRoute = ApiGateRouteImport.update({
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/teacher': typeof TeacherRoute
   '/try': typeof TryRoute
   '/api/course-inquiries': typeof ApiCourseInquiriesRoute
+  '/api/daily': typeof ApiDailyRoute
   '/api/gate': typeof ApiGateRoute
   '/api/health': typeof ApiHealthRoute
   '/api/morning': typeof ApiMorningRoute
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/teacher': typeof TeacherRoute
   '/try': typeof TryRoute
   '/api/course-inquiries': typeof ApiCourseInquiriesRoute
+  '/api/daily': typeof ApiDailyRoute
   '/api/gate': typeof ApiGateRoute
   '/api/health': typeof ApiHealthRoute
   '/api/morning': typeof ApiMorningRoute
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/teacher': typeof TeacherRoute
   '/try': typeof TryRoute
   '/api/course-inquiries': typeof ApiCourseInquiriesRoute
+  '/api/daily': typeof ApiDailyRoute
   '/api/gate': typeof ApiGateRoute
   '/api/health': typeof ApiHealthRoute
   '/api/morning': typeof ApiMorningRoute
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/teacher'
     | '/try'
     | '/api/course-inquiries'
+    | '/api/daily'
     | '/api/gate'
     | '/api/health'
     | '/api/morning'
@@ -222,6 +232,7 @@ export interface FileRouteTypes {
     | '/teacher'
     | '/try'
     | '/api/course-inquiries'
+    | '/api/daily'
     | '/api/gate'
     | '/api/health'
     | '/api/morning'
@@ -243,6 +254,7 @@ export interface FileRouteTypes {
     | '/teacher'
     | '/try'
     | '/api/course-inquiries'
+    | '/api/daily'
     | '/api/gate'
     | '/api/health'
     | '/api/morning'
@@ -265,6 +277,7 @@ export interface RootRouteChildren {
   TeacherRoute: typeof TeacherRoute
   TryRoute: typeof TryRoute
   ApiCourseInquiriesRoute: typeof ApiCourseInquiriesRoute
+  ApiDailyRoute: typeof ApiDailyRoute
   ApiGateRoute: typeof ApiGateRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiMorningRoute: typeof ApiMorningRoute
@@ -340,6 +353,13 @@ declare module '@tanstack/react-router' {
       path: '/api/course-inquiries'
       fullPath: '/api/course-inquiries'
       preLoaderRoute: typeof ApiCourseInquiriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/daily': {
+      id: '/api/daily'
+      path: '/api/daily'
+      fullPath: '/api/daily'
+      preLoaderRoute: typeof ApiDailyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/gate': {
@@ -425,6 +445,7 @@ const rootRouteChildren: RootRouteChildren = {
   TeacherRoute: TeacherRoute,
   TryRoute: TryRoute,
   ApiCourseInquiriesRoute: ApiCourseInquiriesRoute,
+  ApiDailyRoute: ApiDailyRoute,
   ApiGateRoute: ApiGateRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiMorningRoute: ApiMorningRoute,

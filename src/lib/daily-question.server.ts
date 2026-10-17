@@ -62,7 +62,8 @@ async function generate(dir: string, days: readonly PublishedDay[], dataDay: str
 /** Issues the question on the first request after a weekday's 06:00, then returns the current one. */
 export async function ensureCurrentQuestion(sql: Sql, dir: string, now: number): Promise<Current | null> {
   const issueDay = issueDayFor(now);
-  const days = await listPublishedDays(dir);
+  // No data folder configured: keep serving questions already issued, never read a relative path.
+  const days = dir ? await listPublishedDays(dir) : [];
   const dataDay = dataDayForIssue(days, issueDay);
   if (dataDay) {
     const existing = await sql<{ id: string }>`SELECT id FROM daily_questions WHERE id = ${dataDay}`;
