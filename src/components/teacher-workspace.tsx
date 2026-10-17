@@ -15,6 +15,7 @@ import { DisplayControls } from "@/components/display-controls";
 import { BrandMark } from "@/components/brand-mark";
 import { CourseInquiryInbox } from "@/components/course-inquiry-inbox";
 import { MarketDataCard } from "@/components/market-data-card";
+import { DailyTeacherCard } from "@/components/daily-teacher-card";
 import { LESSONS } from "@/lib/game/curriculum";
 import { courseStepFor } from "@/lib/game/learning-path";
 import { csvCell } from "@/lib/classroom-policy";
@@ -117,6 +118,7 @@ export function TeacherWorkspaceView({
         </div>
 
         <MarketDataCard />
+        <DailyTeacherCard />
 
         <section
           className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"

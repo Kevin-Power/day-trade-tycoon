@@ -42,6 +42,7 @@ import { WorkspacePreview } from "@/components/workspace-preview";
 import { RealCandlesLink } from "@/components/real-candles-entry";
 import { PracticeGoalReminder } from "@/components/practice-goal";
 import { TodayCard } from "@/components/today-card";
+import { DailyCard } from "@/components/daily-card";
 import { InstallCard } from "@/components/install-card";
 import { classroomSampleMicro, officialIndexMicro, officialTurnoverMicro } from "@/lib/provenance";
 
@@ -171,6 +172,7 @@ export function Lobby() {
         className="academy-container mx-auto w-full max-w-7xl px-4 pb-12 sm:px-6 lg:px-8"
       >
         {/* Today's next step comes first, so a phone shows it without scrolling. */}
+        {!CLASSROOM_OFFLINE && <DailyCard />}
         {!CLASSROOM_OFFLINE && <TodayCard />}
         {!CLASSROOM_OFFLINE && <InstallCard />}
         <section aria-labelledby="classroom-title" className="lobby-launchpad">

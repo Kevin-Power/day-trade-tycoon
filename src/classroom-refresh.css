@@ -648,3 +648,131 @@ html[data-reading-mode="senior"] .install-card :is(p, li) {
 html[data-reading-mode="senior"] .install-card .install-primary {
   min-height: 56px;
 }
+
+/* Lobby: daily question card (streak and the week's five days) */
+.daily-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px 24px;
+  align-items: center;
+  margin-block: 16px 0;
+  padding: 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+}
+.daily-card-main {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.daily-card h2 {
+  font-size: 20px;
+  font-weight: 700;
+}
+.daily-card-main p {
+  color: var(--color-muted);
+  font-size: 15px;
+}
+.daily-card .daily-card-primary {
+  justify-self: start;
+  min-height: 48px;
+  padding-inline: 28px;
+  font-size: 17px;
+}
+.daily-card-progress {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.daily-card-streak {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.daily-card-streak svg {
+  color: #c98a12;
+}
+.daily-card-week {
+  display: flex;
+  gap: 6px;
+}
+.daily-card-week li {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--color-muted);
+  border: 1px dashed var(--color-border);
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 600;
+}
+.daily-card-week li[data-state="done"] {
+  color: #ffffff;
+  background: var(--color-brand);
+  border: 1px solid var(--color-brand);
+}
+.daily-card-week li[data-state="missed"] {
+  border-style: solid;
+}
+.daily-card-week li[data-state="off"] {
+  border-style: dotted;
+  opacity: 0.7;
+}
+.daily-card-week-text {
+  color: var(--color-muted);
+  font-size: 14px;
+}
+@media (max-width: 767px) {
+  .daily-card {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+  .daily-card .daily-card-primary {
+    justify-self: stretch;
+  }
+}
+html[data-reading-mode="senior"] .daily-card .daily-card-primary {
+  min-height: 56px;
+  font-size: 1.1rem;
+}
+html[data-reading-mode="senior"] .daily-card-week li {
+  width: 40px;
+  height: 40px;
+  font-size: 1rem;
+}
+html[data-reading-mode="senior"] :is(.daily-card-main p, .daily-card-week-text) {
+  font-size: 1rem;
+}
+
+/* Teacher: daily question split and answers */
+.daily-split-bar {
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  background: var(--color-border);
+  border-radius: 999px;
+}
+.daily-split-bar [data-choice="enter"] {
+  background: var(--color-brand);
+}
+.daily-split-bar [data-choice="watch"] {
+  background: #c98a12;
+}
+.daily-split-bar [data-choice="skip"] {
+  background: var(--color-muted);
+}
+.daily-teacher-table th,
+.daily-teacher-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 15px;
+  white-space: nowrap;
+}
+.daily-teacher-table th {
+  color: var(--color-muted);
+  font-weight: 600;
+}

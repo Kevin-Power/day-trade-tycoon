@@ -2,6 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { DailyQuestionPage } from "@/components/daily-question";
 
 export const Route = createFileRoute("/daily")({
+  // `teacher=1` (teacher card) shows the reveal without answering.
+  validateSearch: (search: Record<string, unknown>): { teacher?: "1" } => ({
+    teacher: search.teacher === "1" || search.teacher === 1 ? "1" : undefined,
+  }),
   component: DailyPage,
   head: () => ({
     meta: [
@@ -12,5 +16,6 @@ export const Route = createFileRoute("/daily")({
 });
 
 function DailyPage() {
-  return <DailyQuestionPage />;
+  const { teacher } = Route.useSearch();
+  return <DailyQuestionPage teacher={teacher === "1"} />;
 }
