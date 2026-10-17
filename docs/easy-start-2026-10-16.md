@@ -1,6 +1,6 @@
 # 新手上手完成紀錄（好玩計畫 子專案 A）— 2026-10-17
 
-依 `docs/superpowers/specs/2026-10-16-easy-start-design.md` 與計畫 `docs/superpowers/plans/2026-10-16-easy-start.md` 實作。尚未部署到正式站。
+依 `docs/superpowers/specs/2026-10-16-easy-start-design.md` 與計畫 `docs/superpowers/plans/2026-10-16-easy-start.md` 實作。2026-10-17 已部署到正式站，見文末「正式站發布」。
 
 ## 完成的功能
 
@@ -165,3 +165,30 @@
 - 離線版會顯示朗讀開關，但離線版不會朗讀。
 - 搬移後，若帳號較舊的未完成練習排在訪客較新的已完成練習之後，「再練一輪」會回到那輪舊的練習。
 - 搬移提示只在練習頁讀取；從大廳登入的學員可能看不到。
+
+## 正式站發布（2026-10-17）
+
+時間都是台北時間。
+
+- **發布內容**：提交 `8bd751f`（已推送到 `codex/course-handover`），建置為不可變 release `20261017T011132536Z`，196 個檔案。
+- **發布前驗證**：
+  - 隔離整合測試 3/3 通過（auth、morning、guest），測試對象是這個 release。
+  - 在這個 release 上：`desk-layout --strict` 全部通過；`desk-orders` 通過；`desk-guest` 五種尺寸全部通過。
+- **停機與備份**：
+  - 09:14:10 正常停機，`lastCleanShutdown=true`。
+  - 一致備份為 `<runtime>ackups6-10-17T01-14-14-706Z`，1,043 個檔案逐檔核對通過。
+- **切換與啟動**：
+  - 09:14:20 只修改 `appEntry`：從 `20261016T101228351Z` 改為 `20261017T011132536Z`。
+  - 09:14:44 健康檢查通過，停機約 **34 秒**。
+  - 健康檢查會查詢資料庫，所以遷移 `0008` 已在啟動時套用。
+- **發布後檢查**：
+  - 公開 JS/CSS 共 50 個檔案的 SHA-256 與 release 一致；三個秘密檔案不變；設定除 `appEntry` 外不變。
+  - `/try`、`/morning?panel=trade`、`/teacher`、`/sw.js`、`/manifest.webmanifest` 與三個 PNG 圖示都回覆 200。
+  - 沒有入場碼時，`/api/morning` 與建立訪客（`/api/auth/sign-in/anonymous`）都回覆 403。
+  - `/server/index.mjs` 回覆 404。
+  - 8790 只綁定 `127.0.0.1`。
+- **發布紀錄**：在 `artifacts/deploy-20261017-easy-start/`（被 git 忽略）。
+- **回退**：見上方「部署注意」，要先刪除訪客的登入 session，再把 `appEntry` 指回 `20261016T101228351Z`。
+- **尚待實機確認**：
+  - 用手機從入場碼走一次：訪客練習、建立帳號、搬移紀錄。
+  - Android 的安裝按鈕、iPhone 加入主畫面、朗讀提示。
