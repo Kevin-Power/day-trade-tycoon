@@ -21,7 +21,7 @@ const CODE = /^\d{4,6}[A-Z]?$/;
 
 async function readJson(path: string): Promise<unknown> {
   try {
-    return JSON.parse((await readFile(path, "utf8")).replace(/^﻿/, ""));
+    return JSON.parse((await readFile(path, "utf8")).replace(/^\uFEFF/, ""));
   } catch {
     return null;
   }

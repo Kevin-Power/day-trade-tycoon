@@ -18,7 +18,7 @@ const day = { date: "2026-10-14", coverage: "full-market", symbols: 1, manifestS
 const symbol = { code: "2330", name: "台積電", referencePrice: 100, close: 101, change: 1, tradeVolume: 500, tradeValue: 50_000_000, disposition: false, bars: 2 };
 
 test("published days, a day's symbols and one symbol's bars are read back", () => fixture(async (dir) => {
-  await writeFile(join(dir, "index.json"), "﻿" + JSON.stringify({ schema: 1, days: [day, { ...day, date: "2026-10-13" }] }));
+  await writeFile(join(dir, "index.json"), "\uFEFF" + JSON.stringify({ schema: 1, days: [day, { ...day, date: "2026-10-13" }] }));
   await mkdir(join(dir, "days/2026-10-14/symbols"), { recursive: true });
   await writeFile(join(dir, "days/2026-10-14/index.json"), JSON.stringify({ schema: 1, date: "2026-10-14", symbols: [symbol] }));
   await writeFile(join(dir, "days/2026-10-14/symbols/2330.json.gz"),
