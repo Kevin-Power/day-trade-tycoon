@@ -248,4 +248,21 @@
 - **驗證**：
   - 單元測試 734 個，730 通過、0 失敗、4 略過；typecheck、`eslint src`、`check:symbols` 通過；整合測試 4/4。
   - `desk-premium`、`desk-layout --strict`、`desk-sharpness`、`desk-states`、`desk-orders`、`desk-guest`、`desk-daily`、`desk-guest-resilience` 全部通過。
+- **正式站發布**（2026-10-18，使用者核准）：
+  - **合併與發布內容**：以 fast-forward 併入 `codex/course-handover`（`41e81ee`），已推送；release `20261018T002208219Z`，316 個檔案。
+  - **發布前驗證**（都在這個 release 上執行）：
+    - 隔離整合測試 4/4。
+    - `desk-premium`（含平盤狀態再跑一次）、`desk-layout --strict`、`desk-sharpness`、`desk-states`、`desk-orders`、`desk-guest`、`desk-daily` 通過。
+    - `desk-guest-resilience` 拒絕 3 次、拒絕 50 次各跑一次，都通過。
+  - **停機與切換**：
+    - 08:26:38 正常停機；備份 `backups/2026-10-18T00-26-40-886Z`，1,059 個檔案逐檔核對通過。
+    - 只改 `appEntry`：從 `20261017T234913289Z` 改為 `20261018T002208219Z`。
+    - 08:27:03 健康，停機約 25 秒；等 6 秒讓通道建立後驗證，一次通過。
+  - **發布後檢查**：
+    - 57 個公開資源 SHA-256 一致；設定除 `appEntry` 外不變；秘密檔案不變。
+    - 105 個中文字型檔從正式站下載後與 release 逐檔 SHA-256 一致；網頁不再引用 fonts.googleapis／gstatic；三個 Plex Mono 預載仍在。
+    - 正式站 CSS 已含 `.trading-desk .bg-brand{background-color:var(--td-accent-fill)}`。
+    - 各頁 200；沒有入場碼時 API 都回 403；`/server/index.mjs` 404；8790 只綁 127.0.0.1；服務與通道紀錄沒有錯誤。
+  - **回退**：`appEntry` 指回 `20261017T234913289Z`，沒有資料庫變更。
+  - **發布紀錄**：`artifacts/deploy-20261018-sprint2/`。
 
