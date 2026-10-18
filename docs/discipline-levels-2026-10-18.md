@@ -1,6 +1,6 @@
 # 紀律等級、稱號與慶祝完成紀錄（好玩計畫 子專案 C）— 2026-10-18
 
-依 `docs/superpowers/specs/2026-10-18-discipline-levels-design.md` 與計畫 `docs/superpowers/plans/2026-10-18-discipline-levels.md` 實作。使用者說「做起來」，沒有先回答問題；規格裡標「設計決定」的都是設計者的判斷，請使用者過目。**尚未合併、推送或部署。**
+依 `docs/superpowers/specs/2026-10-18-discipline-levels-design.md` 與計畫 `docs/superpowers/plans/2026-10-18-discipline-levels.md` 實作。使用者說「做起來」，沒有先回答問題；規格裡標「設計決定」的都是設計者的判斷，請使用者過目。2026-10-18 已合併、推送並部署到正式站，見「正式站發布」。
 
 ## 完成的功能
 
@@ -65,7 +65,25 @@
   - 新的 `desk-discipline`：手機 375、320，平板 820，桌機 1366，大字 375 與 1366，共 30 個畫面。檢查項目：螢幕報讀區塊、手機徽章數、沒有水平溢出、文字至少 11px、按鈕至少 44px（大字 56px）、文字對比至少 4.5:1；揭曉後加分與第一題徽章、完成練習後升到 Lv2 與第一輪徽章、大廳等級列、「我的紀律」；減少動態效果時沒有動畫；音效關閉時不會啟動聲音，開啟那一下才啟動；朗讀順序正確。全部通過。
   - 既有的 `desk-premium`、`desk-layout --strict`、`desk-sharpness`、`desk-states`、`desk-orders`、`desk-guest`、`desk-daily`、`desk-guest-resilience` 全部通過。
 
-## 上線前要做的事
+## 正式站發布（2026-10-18，使用者核准「全上啊」）
 
-- 使用者看過規格裡的「設計決定」（計分數值、稱號、徽章、音效預設關閉）。
-- 使用者核准後：合併到 `codex/course-handover`、推送、照既有流程停機、備份、部署。沒有資料庫遷移，回退只要把 `appEntry` 指回上一版。
+- **合併與發布內容**：以 fast-forward 併入 `codex/course-handover`（`a59952e`），已推送；release `20261018T022941927Z`，324 個檔案。
+- **發布前驗證**（都在這個 release 上執行）：
+  - 單元測試 767 個，763 通過、0 失敗、4 略過；typecheck、`eslint src` 通過。
+    - 第一次跑時 `scripts/hosting/hosting.test.mjs` 整個檔案失敗、沒有列出是哪一項（這次沒有改到任何 hosting 檔案）。
+    - 單獨重跑 3/3 通過，整套重跑 0 失敗，判斷是測試同時跑時啟動子程序的偶發失敗。
+  - 隔離整合測試 4/4。
+  - 畫面檢查：`desk-premium`（含平盤）、`desk-layout --strict`、`desk-sharpness`、`desk-states`、`desk-orders`、`desk-guest`、`desk-daily`、`desk-guest-resilience`（拒絕 3 次與 50 次）全部通過。
+  - `desk-discipline` 排在整串最後跑時，有三個手機情境卡住：訪客建立失敗，或大廳讀不到登入狀態。
+    - 原因是所有檢查都從同一個本機位址送出：登入相關請求每分鐘上限 100 次，訪客建立每 10 分鐘上限 60 次。
+    - 重新啟動測試伺服器（計數歸零）後單獨再跑，30 個畫面全部通過。
+- **停機與切換**：
+  - 10:39:36 正常停機；備份 `backups/2026-10-18T02-39-38-539Z`，1,059 個檔案逐檔核對通過。
+  - 只改 `appEntry`：從 `20261018T002208219Z` 改為 `20261018T022941927Z`。
+  - 10:39:59 健康，停機約 23 秒；等 6 秒後驗證，一次通過。
+- **發布後檢查**：
+  - 60 個公開資源 SHA-256 一致；設定除 `appEntry` 外不變；秘密檔案不變。
+  - `/progress` 等各頁 200；沒有入場碼時 `/api/daily`、`/api/morning`、`/api/discipline` 都回 403；`/server/index.mjs` 404；8790 只綁 127.0.0.1。
+  - 正式站樣式表含慶祝卡片與大廳等級列，與 release 逐位元組相同；網頁沒有 Google 字型；服務與通道紀錄沒有錯誤。
+- **回退**：`appEntry` 指回 `20261018T002208219Z`，沒有資料庫變更。
+- **發布紀錄**：`artifacts/deploy-20261018-discipline/`。
