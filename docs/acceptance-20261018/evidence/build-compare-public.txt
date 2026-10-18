@@ -1,0 +1,354 @@
+compare_builds  2026-10-18T05:22:00.808Z
+clean: C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/verify-clean/.output/public (189 files)
+release: C:/Users/kevin/YilutekServices/DayTradeTycoon/releases/20261018T022941927Z/public (189 files)
+normalisation: /([\w.~-]+?)-[A-Za-z0-9_-]{8}\.(js|css|mjs)\b/g → $1-[hash].$2 in paths and text contents; line endings compared after CRLF→LF
+
+== Pass 1 (raw, same path)
+byte-identical: 172
+same path, different bytes: 1
+  DIFF sw.js  clean 2a4351a2a8c9  release e9717cc5c6d4
+only in clean: 16
+  ONLY-clean assets/daily-BOHnGsvZ.js  3cf840f379e5
+  ONLY-clean assets/dist-IkBWYQY1.js  c28f704dbd46
+  ONLY-clean assets/index-8lSqrMV_.js  748df3c6b2f9
+  ONLY-clean assets/license-iJvYCLXr.js  e27e464c3ab8
+  ONLY-clean assets/login-C5fUY2Zo.js  0fec04857918
+  ONLY-clean assets/manual-CQjZi76X.js  2d1110deda12
+  ONLY-clean assets/morning-BCHFEfzb.js  bdd8d3b9efbc
+  ONLY-clean assets/practice-goal-DtPUq0G8.js  094f212b9951
+  ONLY-clean assets/routes-BlhWgQU2.js  3982ff8e25e1
+  ONLY-clean assets/session-feedback-Bw_Y41Zy.js  413080c32af7
+  ONLY-clean assets/session._id.review-Cq2jdJWy.js  d155297fc27f
+  ONLY-clean assets/setup-D230U4y3.js  d7a19430c396
+  ONLY-clean assets/styles-FsbxVnI2.css  aa3955907304
+  ONLY-clean assets/teacher-CIcFRby-.js  8517de042221
+  ONLY-clean assets/teacher-review._id-DKwpyReK.js  d4ba1cc64d8f
+  ONLY-clean assets/try-CbjKoA_y.js  9f1d5aa4f11d
+only in release: 16
+  ONLY-release assets/daily-C4_kAXtE.js  1abbc289f0b9
+  ONLY-release assets/dist-mAG7pDcw.js  6446df401369
+  ONLY-release assets/index-BYpQcv05.js  88ab7ef1375c
+  ONLY-release assets/license-DfFxo-s-.js  c5ca9ca06c38
+  ONLY-release assets/login-Dnxjg0WQ.js  b2313d4be61f
+  ONLY-release assets/manual-BB9IYmJb.js  03b83d1f3384
+  ONLY-release assets/morning-CYGUnVzx.js  a6b08bf42737
+  ONLY-release assets/practice-goal-DKZ_ZVxg.js  ddf78390677c
+  ONLY-release assets/routes-_xl_pBq7.js  41e82a98d8a7
+  ONLY-release assets/session-feedback-beaJvi6R.js  2f2df9ee2dc5
+  ONLY-release assets/session._id.review-C778fRHR.js  868f67dd1656
+  ONLY-release assets/setup-R9_LaRWX.js  29e908aede2c
+  ONLY-release assets/styles-CXm3MunE.css  2b0823771059
+  ONLY-release assets/teacher-CYLlCoGY.js  4ffb4e0bb722
+  ONLY-release assets/teacher-review._id-D8RNncA1.js  507398596fbe
+  ONLY-release assets/try-DUCtI1a1.js  e8b7d8a8cb6a
+
+== Pass 2 (hashed names normalised)
+identical after normalisation: 187, of which differed before only by hashed names: 15
+  RENAMED-ONLY assets/daily-BOHnGsvZ.js  ↔  assets/daily-C4_kAXtE.js
+  RENAMED-ONLY assets/dist-IkBWYQY1.js  ↔  assets/dist-mAG7pDcw.js
+  RENAMED-ONLY assets/index-8lSqrMV_.js  ↔  assets/index-BYpQcv05.js
+  RENAMED-ONLY assets/license-iJvYCLXr.js  ↔  assets/license-DfFxo-s-.js
+  RENAMED-ONLY assets/login-C5fUY2Zo.js  ↔  assets/login-Dnxjg0WQ.js
+  RENAMED-ONLY assets/manual-CQjZi76X.js  ↔  assets/manual-BB9IYmJb.js
+  RENAMED-ONLY assets/morning-BCHFEfzb.js  ↔  assets/morning-CYGUnVzx.js
+  RENAMED-ONLY assets/practice-goal-DtPUq0G8.js  ↔  assets/practice-goal-DKZ_ZVxg.js
+  RENAMED-ONLY assets/routes-BlhWgQU2.js  ↔  assets/routes-_xl_pBq7.js
+  RENAMED-ONLY assets/session-feedback-Bw_Y41Zy.js  ↔  assets/session-feedback-beaJvi6R.js
+  RENAMED-ONLY assets/session._id.review-Cq2jdJWy.js  ↔  assets/session._id.review-C778fRHR.js
+  RENAMED-ONLY assets/setup-D230U4y3.js  ↔  assets/setup-R9_LaRWX.js
+  RENAMED-ONLY assets/teacher-CIcFRby-.js  ↔  assets/teacher-CYLlCoGY.js
+  RENAMED-ONLY assets/teacher-review._id-DKwpyReK.js  ↔  assets/teacher-review._id-D8RNncA1.js
+  RENAMED-ONLY assets/try-CbjKoA_y.js  ↔  assets/try-DUCtI1a1.js
+differ only in line endings: 1
+  EOL-ONLY sw.js  ↔  sw.js
+still different: 1
+  STILL-DIFF assets/styles-FsbxVnI2.css  ↔  assets/styles-CXm3MunE.css
+unpaired: 0
+
+== Pass 3 (build metadata normalised, only files still different): 1
+  CONTENT-DIFF assets/styles-FsbxVnI2.css  ↔  assets/styles-CXm3MunE.css  (296435 vs 323254 chars after normalising)
+    clean: "tw-translate-x:0;--tw-translate-y:0;--tw-translate-z:0;--tw-rotate-x:initial;--tw-rotate-y:initial;--tw-rotate-z:initial;--tw-skew-x:initial;--tw-skew-y:initial;--tw-space-y-reverse:0;--tw-divide-y-reverse:0;--tw-border-style:solid;--tw-leading:initial;--tw-font-weight:initial;--tw-tracking:initial;--tw-ordinal:initial;--tw-slashed-zero:initial;--tw-numeric-figure:initial;--tw-numeric-spacing:initial;--tw-numeric-fraction:initial;--tw-shadow:0 0 #0000;--tw-shadow-color:initial;--tw-shadow-alpha:100%;--tw-inset-shadow:0 0 #0000;--tw-inset-shadow-color:initial;--tw-inset-shadow-alpha:100%;--tw-r"
+    release: "tw-translate-x:0;--tw-translate-y:0;--tw-translate-z:0;--tw-scale-x:1;--tw-scale-y:1;--tw-scale-z:1;--tw-rotate-x:initial;--tw-rotate-y:initial;--tw-rotate-z:initial;--tw-skew-x:initial;--tw-skew-y:initial;--tw-pan-x:initial;--tw-pan-y:initial;--tw-pinch-zoom:initial;--tw-space-y-reverse:0;--tw-space-x-reverse:0;--tw-divide-x-reverse:0;--tw-border-style:solid;--tw-divide-y-reverse:0;--tw-leading:initial;--tw-font-weight:initial;--tw-tracking:initial;--tw-ordinal:initial;--tw-slashed-zero:initial;--tw-numeric-figure:initial;--tw-numeric-spacing:initial;--tw-numeric-fraction:initial;--tw-shadow:"
+
+== CSS assets/styles-FsbxVnI2.css: selectors clean 1997, release 2277; only in clean 0; only in release 280
+  CSS-ONLY-release .not-sr-only
+  CSS-ONLY-release .inset-y-0\.5
+  CSS-ONLY-release .top-20
+  CSS-ONLY-release .top-full
+  CSS-ONLY-release .right-2
+  CSS-ONLY-release .bottom-0
+  CSS-ONLY-release .bottom-\[18\%\]
+  CSS-ONLY-release .left-1\.5
+  CSS-ONLY-release .isolation-auto
+  CSS-ONLY-release .z-\[2\]
+  CSS-ONLY-release .z-\[80\]
+  CSS-ONLY-release .mx-1
+  CSS-ONLY-release .mx-1\.5
+  CSS-ONLY-release .mb-1\.5
+  CSS-ONLY-release .ml-1\.5
+  CSS-ONLY-release .flow-root
+  CSS-ONLY-release .inline-grid
+  CSS-ONLY-release .inline-table
+  CSS-ONLY-release .list-item
+  CSS-ONLY-release .table-caption
+  CSS-ONLY-release .table-cell
+  CSS-ONLY-release .table-column
+  CSS-ONLY-release .table-column-group
+  CSS-ONLY-release .table-footer-group
+  CSS-ONLY-release .table-header-group
+  CSS-ONLY-release .table-row
+  CSS-ONLY-release .table-row-group
+  CSS-ONLY-release .h-1
+  CSS-ONLY-release .h-1\.5
+  CSS-ONLY-release .h-3
+  CSS-ONLY-release .h-36
+  CSS-ONLY-release .h-52
+  CSS-ONLY-release .h-\[22px\]
+  CSS-ONLY-release .max-h-64
+  CSS-ONLY-release .max-h-\[11\.5rem\]
+  CSS-ONLY-release .max-h-\[92dvh\]
+  CSS-ONLY-release .min-h-7
+  CSS-ONLY-release .min-h-9
+  CSS-ONLY-release .min-h-\[3\.5rem\]
+  CSS-ONLY-release .min-h-\[10\.25rem\]
+  CSS-ONLY-release .min-h-\[17\.5rem\]
+  CSS-ONLY-release .min-h-\[58px\]
+  CSS-ONLY-release .min-h-\[220px\]
+  CSS-ONLY-release .w-3
+  CSS-ONLY-release .w-9
+  CSS-ONLY-release .w-10
+  CSS-ONLY-release .w-12
+  CSS-ONLY-release .w-14
+  CSS-ONLY-release .w-40
+  CSS-ONLY-release .w-48
+  CSS-ONLY-release .w-72
+  CSS-ONLY-release .w-\[4\.5rem\]
+  CSS-ONLY-release .w-\[4\.75rem\]
+  CSS-ONLY-release .w-\[9\%\]
+  CSS-ONLY-release .w-\[10\%\]
+  CSS-ONLY-release .w-\[14\%\]
+  CSS-ONLY-release .w-\[15\%\]
+  CSS-ONLY-release .w-\[18\%\]
+  CSS-ONLY-release .w-\[34\%\]
+  CSS-ONLY-release .min-w-8
+  CSS-ONLY-release .min-w-9
+  CSS-ONLY-release .min-w-14
+  CSS-ONLY-release .min-w-24
+  CSS-ONLY-release .min-w-\[7\.5rem\]
+  CSS-ONLY-release .min-w-full
+  CSS-ONLY-release .flex-\[1\.55\]
+  CSS-ONLY-release .translate-none
+  CSS-ONLY-release .scale-3d
+  CSS-ONLY-release .animate-pulse
+  CSS-ONLY-release .cursor-crosshair
+  CSS-ONLY-release .touch-pinch-zoom
+  CSS-ONLY-release .grid-cols-\[2\.25rem_1fr_3\.25rem\]
+  CSS-ONLY-release .grid-cols-\[4\.5rem_minmax\(0\,1fr\)\]
+  CSS-ONLY-release .grid-cols-\[4\.6rem_2rem_4\.2rem_1fr\]
+  CSS-ONLY-release .grid-cols-\[4\.8rem_1fr_2\.8rem_2rem\]
+  CSS-ONLY-release .grid-cols-\[minmax\(0\,1fr\)_46\%\]
+  CSS-ONLY-release .flex-nowrap
+  CSS-ONLY-release .items-stretch
+  CSS-ONLY-release .gap-6
+  CSS-ONLY-release :where(.space-y-1\.5>:not(:last-child))
+  CSS-ONLY-release :where(.space-y-reverse>:not(:last-child))
+  CSS-ONLY-release :where(.space-x-reverse>:not(:last-child))
+  CSS-ONLY-release .gap-y-0\.5
+  CSS-ONLY-release .gap-y-px
+  CSS-ONLY-release :where(.divide-x>:not(:last-child))
+  CSS-ONLY-release :where(.divide-y-reverse>:not(:last-child))
+  CSS-ONLY-release .truncate
+  CSS-ONLY-release .rounded-s
+  CSS-ONLY-release .rounded-ss
+  CSS-ONLY-release .rounded-e
+  CSS-ONLY-release .rounded-se
+  CSS-ONLY-release .rounded-ee
+  CSS-ONLY-release .rounded-es
+  CSS-ONLY-release .rounded-t
+  CSS-ONLY-release .rounded-l
+  CSS-ONLY-release .rounded-tl
+  CSS-ONLY-release .rounded-r
+  CSS-ONLY-release .rounded-r-xs
+  CSS-ONLY-release .rounded-tr
+  CSS-ONLY-release .rounded-b
+  CSS-ONLY-release .rounded-br
+  CSS-ONLY-release .rounded-bl
+  CSS-ONLY-release .border-x
+  CSS-ONLY-release .border-s
+  CSS-ONLY-release .border-e
+  CSS-ONLY-release .border-bs
+  CSS-ONLY-release .border-be
+  CSS-ONLY-release .border-r
+  CSS-ONLY-release .border-bg\/80
+  CSS-ONLY-release .border-current\/40
+  CSS-ONLY-release .border-header-2
+  CSS-ONLY-release .border-tape
+  CSS-ONLY-release .border-tape\/40
+  CSS-ONLY-release .border-tape\/70
+  CSS-ONLY-release .border-warn\/40
+  CSS-ONLY-release .bg-bg\/85
+  CSS-ONLY-release .bg-border-strong\/70
+  CSS-ONLY-release .bg-down\/15
+  CSS-ONLY-release .bg-down\/20
+  CSS-ONLY-release .bg-down\/25
+  CSS-ONLY-release .bg-elevated\/40
+  CSS-ONLY-release .bg-elevated\/50
+  CSS-ONLY-release .bg-elevated\/60
+  CSS-ONLY-release .bg-header
+  CSS-ONLY-release .bg-header-2\/40
+  CSS-ONLY-release .bg-header-2\/50
+  CSS-ONLY-release .bg-header-2\/55
+  CSS-ONLY-release .bg-header\/50
+  CSS-ONLY-release .bg-header\/80
+  CSS-ONLY-release .bg-surface\/95
+  CSS-ONLY-release .bg-tape
+  CSS-ONLY-release .bg-tape\/20
+  CSS-ONLY-release .bg-up\/15
+  CSS-ONLY-release .bg-up\/20
+  CSS-ONLY-release .bg-up\/25
+  CSS-ONLY-release .bg-warn
+  CSS-ONLY-release .bg-warn\/20
+  CSS-ONLY-release .bg-white\/15
+  CSS-ONLY-release .bg-repeat
+  CSS-ONLY-release .mask-no-clip
+  CSS-ONLY-release .mask-repeat
+  CSS-ONLY-release .fill-down
+  CSS-ONLY-release .fill-down\/28
+  CSS-ONLY-release .fill-up
+  CSS-ONLY-release .fill-up\/28
+  CSS-ONLY-release .stroke-down
+  CSS-ONLY-release .stroke-tape\/70
+  CSS-ONLY-release .stroke-up
+  CSS-ONLY-release .p-0
+  CSS-ONLY-release .p-1\.5
+  CSS-ONLY-release .p-2\.5
+  CSS-ONLY-release .px-0\.5
+  CSS-ONLY-release .py-px
+  CSS-ONLY-release .pt-1\.5
+  CSS-ONLY-release .pr-1\.5
+  CSS-ONLY-release .pb-0\.5
+  CSS-ONLY-release .pb-16
+  CSS-ONLY-release .pb-\[max\(0\.4rem\,env\(safe-area-inset-bottom\)\)\]
+  CSS-ONLY-release .text-\[1\.7rem\]
+  CSS-ONLY-release .leading-\[1\.05\]
+  CSS-ONLY-release .leading-\[1\.08\]
+  CSS-ONLY-release .tracking-normal
+  CSS-ONLY-release .text-wrap
+  CSS-ONLY-release .text-clip
+  CSS-ONLY-release .text-ellipsis
+  CSS-ONLY-release .text-bg
+  CSS-ONLY-release .text-fg\/50
+  CSS-ONLY-release .text-fg\/60
+  CSS-ONLY-release .capitalize
+  CSS-ONLY-release .lowercase
+  CSS-ONLY-release .normal-case
+  CSS-ONLY-release .not-italic
+  CSS-ONLY-release .diagonal-fractions
+  CSS-ONLY-release .lining-nums
+  CSS-ONLY-release .oldstyle-nums
+  CSS-ONLY-release .ordinal
+  CSS-ONLY-release .proportional-nums
+  CSS-ONLY-release .slashed-zero
+  CSS-ONLY-release .stacked-fractions
+  CSS-ONLY-release .normal-nums
+  CSS-ONLY-release .line-through
+  CSS-ONLY-release .no-underline
+  CSS-ONLY-release .overline
+  CSS-ONLY-release .underline-offset-2
+  CSS-ONLY-release .subpixel-antialiased
+  CSS-ONLY-release .accent-header-2
+  CSS-ONLY-release .opacity-35
+  CSS-ONLY-release .opacity-55
+  CSS-ONLY-release .opacity-75
+  CSS-ONLY-release .opacity-80
+  CSS-ONLY-release .opacity-\[0\.09\]
+  CSS-ONLY-release .shadow-\[0_-8px_16px_rgb\(0_0_0\/0\.35\)\]
+  CSS-ONLY-release .shadow-\[0_0_18px_color-mix\(in_oklab\,var\(--color-up\)_35\%\,transparent\)\]
+  CSS-ONLY-release .shadow-\[inset_0_-1px_0_var\(--color-border-strong\)\]
+  CSS-ONLY-release .shadow-\[inset_0_-2px_0_rgb\(0_0_0\/0\.2\)\]
+  CSS-ONLY-release .shadow-\[inset_0_-2px_0_rgb\(0_0_0\/0\.25\)\]
+  CSS-ONLY-release .shadow-\[inset_0_-2px_0_var\(--color-tape\)\]
+  CSS-ONLY-release .shadow-\[inset_2px_0_0_var\(--color-tape\)\]
+  CSS-ONLY-release .shadow-\[inset_3px_0_0_var\(--color-tape\)\]
+  CSS-ONLY-release .shadow-\[var\(--shadow-border\)\,var\(--shadow-lift\)\]
+  CSS-ONLY-release .shadow-\[var\(--shadow-border\)\,var\(--shadow-panel\)\]
+  CSS-ONLY-release .shadow-\[var\(--shadow-border\)\]
+  CSS-ONLY-release .ring,.ring-1
+  CSS-ONLY-release .inset-ring
+  CSS-ONLY-release .ring-tape\/80
+  CSS-ONLY-release .drop-shadow
+  CSS-ONLY-release .grayscale
+  CSS-ONLY-release .invert
+  CSS-ONLY-release .sepia
+  CSS-ONLY-release .backdrop-blur
+  CSS-ONLY-release .backdrop-grayscale
+  CSS-ONLY-release .backdrop-invert
+  CSS-ONLY-release .backdrop-sepia
+  CSS-ONLY-release .backdrop-filter
+  CSS-ONLY-release .duration-100
+  CSS-ONLY-release .ease-in-out
+  CSS-ONLY-release :where(.divide-x-reverse>:not(:last-child))
+  CSS-ONLY-release .ring-inset
+  CSS-ONLY-release .placeholder\:text-muted::placeholder
+  CSS-ONLY-release .last\:mb-0:last-child
+  CSS-ONLY-release .odd\:bg-surface\/50:nth-child(odd)
+  CSS-ONLY-release .focus-within\:border-ring:focus-within
+  CSS-ONLY-release .focus-within\:ring-2:focus-within
+  CSS-ONLY-release .focus-within\:ring-ring:focus-within
+  CSS-ONLY-release .hover\:border-border-strong:hover
+  CSS-ONLY-release .hover\:border-down\/60:hover
+  CSS-ONLY-release .hover\:border-up:hover
+  CSS-ONLY-release .hover\:border-up\/60:hover
+  CSS-ONLY-release .hover\:bg-surface:hover
+  CSS-ONLY-release .hover\:text-down:hover
+  CSS-ONLY-release .hover\:text-up:hover
+  CSS-ONLY-release .focus\:border-ring:focus
+  CSS-ONLY-release .disabled\:text-muted:disabled
+  CSS-ONLY-release .max-sm\:max-h-\[34vh\]
+  CSS-ONLY-release .max-sm\:overflow-y-auto
+  CSS-ONLY-release .sm\:right-\[min\(22rem\,30\%\)\]
+  CSS-ONLY-release .sm\:left-\[min\(22rem\,30\%\)\]
+  CSS-ONLY-release .sm\:mt-4
+  CSS-ONLY-release .sm\:mb-3
+  CSS-ONLY-release .sm\:mb-8
+  CSS-ONLY-release .sm\:mb-9
+  CSS-ONLY-release .sm\:ml-0
+  CSS-ONLY-release .sm\:table-cell
+  CSS-ONLY-release .sm\:size-9
+  CSS-ONLY-release .sm\:size-auto
+  CSS-ONLY-release .sm\:h-6
+  CSS-ONLY-release .sm\:h-7
+  CSS-ONLY-release .sm\:h-8
+  CSS-ONLY-release .sm\:h-9
+  CSS-ONLY-release .sm\:h-14
+  CSS-ONLY-release .sm\:h-auto
+  CSS-ONLY-release .sm\:min-h-0
+  CSS-ONLY-release .sm\:w-40
+  CSS-ONLY-release .sm\:min-w-8
+  CSS-ONLY-release .sm\:flex-none
+  CSS-ONLY-release .sm\:gap-1
+  CSS-ONLY-release .sm\:px-1\.5
+  CSS-ONLY-release .sm\:px-2
+  CSS-ONLY-release .sm\:py-2\.5
+  CSS-ONLY-release .sm\:py-3
+  CSS-ONLY-release .sm\:text-xl
+  CSS-ONLY-release .sm\:text-2xs
+  CSS-ONLY-release .sm\:text-micro
+  CSS-ONLY-release .sm\:leading-relaxed
+  CSS-ONLY-release .md\:ml-0
+  CSS-ONLY-release .md\:inline
+  CSS-ONLY-release .lg\:col-span-2
+  CSS-ONLY-release .lg\:w-52
+  CSS-ONLY-release .lg\:w-full
+  CSS-ONLY-release .lg\:min-w-56
+  CSS-ONLY-release .lg\:grid-cols-1
+  CSS-ONLY-release .lg\:grid-cols-3
+  CSS-ONLY-release .lg\:grid-cols-\[1\.2fr_0\.8fr\]
+  CSS-ONLY-release .lg\:grid-cols-\[minmax\(0\,1\.15fr\)_minmax\(0\,0\.85fr\)\]
+  CSS-ONLY-release .lg\:grid-cols-\[minmax\(0\,1fr\)_auto\]
+  CSS-ONLY-release .lg\:items-stretch
+  CSS-ONLY-release .lg\:self-end
+  CSS-ONLY-release .lg\:p-5
+  CSS-ONLY-release .lg\:py-2\.5
+  CSS-ONLY-release .lg\:text-6xl
+  bytes clean 296435, release 323254; blocks ("{") clean 2432, release 2794

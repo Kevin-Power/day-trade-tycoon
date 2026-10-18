@@ -1,0 +1,120 @@
+compare_builds  2026-10-18T05:22:00.503Z
+clean: C:/Users/kevin/Documents/ChatGPT/當沖大富翁/.worktrees/verify-clean/.output/server (133 files)
+release: C:/Users/kevin/YilutekServices/DayTradeTycoon/releases/20261018T022941927Z/server (133 files)
+normalisation: /([\w.~-]+?)-[A-Za-z0-9_-]{8}\.(js|css|mjs)\b/g → $1-[hash].$2 in paths and text contents; line endings compared after CRLF→LF
+
+== Pass 1 (raw, same path)
+byte-identical: 111
+same path, different bytes: 2
+  DIFF _ssr/ssr.mjs  clean d238e6babb6d  release db289b0cdbb8
+  DIFF index.mjs  clean 8d11aaa28835  release b8cbb508f68a
+only in clean: 20
+  ONLY-clean _ssr/classroom-db-BQkQKntR.mjs  77f31a2a4fe6
+  ONLY-clean _ssr/classroom-db-Bh8Z5FHq.mjs  9341f2d1a0c5
+  ONLY-clean _ssr/daily-teacher-CF61FfFQ.mjs  1fdb3246db2b
+  ONLY-clean _ssr/db-CDa5-sX8.mjs  4121d209cae0
+  ONLY-clean _ssr/login-BUXXe56H.mjs  c9b8413a1500
+  ONLY-clean _ssr/login-C6vci1aQ.mjs  6e243dd1d737
+  ONLY-clean _ssr/market-data-BquyZIHf.mjs  4a485ce380e3
+  ONLY-clean _ssr/middleware-B_Z7AHuz.mjs  7f1a3791652c
+  ONLY-clean _ssr/practice-goal-mV6LgWnV.mjs  88ee9c44394c
+  ONLY-clean _ssr/router-Cva6ww4h.mjs  9d533c94430c
+  ONLY-clean _ssr/routes-BW-26Oqd.mjs  9790b99a0995
+  ONLY-clean _ssr/server-DuQm0RNR.mjs  1dc7d11341fd
+  ONLY-clean _ssr/session-feedback-DVMw48DE.mjs  774e737d3f87
+  ONLY-clean _ssr/session._id.review-7hvZ8hZL.mjs  9532a1a3d73f
+  ONLY-clean _ssr/session._id.review-CvKb4VcU.mjs  2ef3e5266994
+  ONLY-clean _ssr/teacher-CqXoakAQ.mjs  ee2d0021a93f
+  ONLY-clean _ssr/teacher-review._id-Ce7AYVsx.mjs  386126ab3b32
+  ONLY-clean _ssr/teacher-review._id-DeWiDTC2.mjs  2f7d38c71828
+  ONLY-clean _ssr/verify.server-305rE-b6.mjs  abe5a4bd7fc8
+  ONLY-clean _tanstack-start-manifest_v-As1m6Lo5.mjs  3f5bc1ccfe70
+only in release: 20
+  ONLY-release _ssr/classroom-db-BVFaymf-.mjs  c78aeb157677
+  ONLY-release _ssr/classroom-db-DESw423S.mjs  946ee6e7cccc
+  ONLY-release _ssr/daily-teacher-B8qjGhsN.mjs  654e42471e58
+  ONLY-release _ssr/db-DArXt0d5.mjs  58616d68000a
+  ONLY-release _ssr/login-Db0UiuW4.mjs  9204bf7f5799
+  ONLY-release _ssr/login-ekDBbQ-i.mjs  7d3a5f15b293
+  ONLY-release _ssr/market-data-DdjKpwmj.mjs  a73269dc2bd9
+  ONLY-release _ssr/middleware-CnsLe2Wo.mjs  bf00bc18096e
+  ONLY-release _ssr/practice-goal-BRoQELNl.mjs  62093770c685
+  ONLY-release _ssr/router-BpKq517E.mjs  0162a4b38447
+  ONLY-release _ssr/routes-pDym5vbQ.mjs  2f484fbe64d2
+  ONLY-release _ssr/server-DrRAqf_Z.mjs  e99e4251ad13
+  ONLY-release _ssr/session-feedback-BnLrozn5.mjs  28c60f1792a5
+  ONLY-release _ssr/session._id.review-BqSbK3Np.mjs  7ae1aefd22d6
+  ONLY-release _ssr/session._id.review-CGhstB-J.mjs  c9a5f2ba43bf
+  ONLY-release _ssr/teacher-9wcE8YPz.mjs  4692cb563951
+  ONLY-release _ssr/teacher-review._id-BhuAAKnG.mjs  309a11d0b1cd
+  ONLY-release _ssr/teacher-review._id-CSiaGyRN.mjs  d40ff7149b98
+  ONLY-release _ssr/verify.server-JMDgSF_R.mjs  056130f8ff21
+  ONLY-release _tanstack-start-manifest_v-CwO7cvzC.mjs  961d5d1cb600
+
+== Pass 2 (hashed names normalised)
+identical after normalisation: 130, of which differed before only by hashed names: 19
+  RENAMED-ONLY _ssr/classroom-db-Bh8Z5FHq.mjs  ↔  _ssr/classroom-db-BVFaymf-.mjs
+  RENAMED-ONLY _ssr/classroom-db-BQkQKntR.mjs  ↔  _ssr/classroom-db-DESw423S.mjs
+  RENAMED-ONLY _ssr/daily-teacher-CF61FfFQ.mjs  ↔  _ssr/daily-teacher-B8qjGhsN.mjs
+  RENAMED-ONLY _ssr/login-BUXXe56H.mjs  ↔  _ssr/login-ekDBbQ-i.mjs
+  RENAMED-ONLY _ssr/login-C6vci1aQ.mjs  ↔  _ssr/login-Db0UiuW4.mjs
+  RENAMED-ONLY _ssr/market-data-BquyZIHf.mjs  ↔  _ssr/market-data-DdjKpwmj.mjs
+  RENAMED-ONLY _ssr/middleware-B_Z7AHuz.mjs  ↔  _ssr/middleware-CnsLe2Wo.mjs
+  RENAMED-ONLY _ssr/practice-goal-mV6LgWnV.mjs  ↔  _ssr/practice-goal-BRoQELNl.mjs
+  RENAMED-ONLY _ssr/router-Cva6ww4h.mjs  ↔  _ssr/router-BpKq517E.mjs
+  RENAMED-ONLY _ssr/routes-BW-26Oqd.mjs  ↔  _ssr/routes-pDym5vbQ.mjs
+  RENAMED-ONLY _ssr/server-DuQm0RNR.mjs  ↔  _ssr/server-DrRAqf_Z.mjs
+  RENAMED-ONLY _ssr/session-feedback-DVMw48DE.mjs  ↔  _ssr/session-feedback-BnLrozn5.mjs
+  RENAMED-ONLY _ssr/session._id.review-7hvZ8hZL.mjs  ↔  _ssr/session._id.review-CGhstB-J.mjs
+  RENAMED-ONLY _ssr/session._id.review-CvKb4VcU.mjs  ↔  _ssr/session._id.review-BqSbK3Np.mjs
+  RENAMED-ONLY _ssr/ssr.mjs  ↔  _ssr/ssr.mjs
+  RENAMED-ONLY _ssr/teacher-CqXoakAQ.mjs  ↔  _ssr/teacher-9wcE8YPz.mjs
+  RENAMED-ONLY _ssr/teacher-review._id-Ce7AYVsx.mjs  ↔  _ssr/teacher-review._id-CSiaGyRN.mjs
+  RENAMED-ONLY _ssr/teacher-review._id-DeWiDTC2.mjs  ↔  _ssr/teacher-review._id-BhuAAKnG.mjs
+  RENAMED-ONLY _ssr/verify.server-305rE-b6.mjs  ↔  _ssr/verify.server-JMDgSF_R.mjs
+differ only in line endings: 0
+still different: 3
+  STILL-DIFF index.mjs  ↔  index.mjs
+  STILL-DIFF _ssr/db-CDa5-sX8.mjs  ↔  _ssr/db-DArXt0d5.mjs
+  STILL-DIFF _tanstack-start-manifest_v-As1m6Lo5.mjs  ↔  _tanstack-start-manifest_v-CwO7cvzC.mjs
+unpaired: 0
+
+== Pass 3 (build metadata normalised, only files still different): 3
+  ASSET-TABLE-ONLY index.mjs: order differs; 17 entries differ
+    clean:  "/sw.js": { "type": "text/javascript; charset=utf-8", "etag": "\"1a3-cSVK2KnHeisd2Asqnf/U+SiS7iw\"", "mtime": "[mtime]", "size": 419, "path": "../public/sw.js" }
+    clean:  "/assets/daily-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"2569-JP2h3syuyzW+EfU/AetFrHL4gnI\"", "mtime": "[mtime]", "size": 9577, "path": "../public/assets/daily-[hash].js" }
+    clean:  "/assets/dist-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"8bf5-jGBitUL7Cuuvv2iuTHxWOGgGe38\"", "mtime": "[mtime]", "size": 35829, "path": "../public/assets/dist-[hash].js" }
+    clean:  "/assets/index-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"41dcf-YiLfzJS7bn46bPjY6uZwrRI97L4\"", "mtime": "[mtime]", "size": 269775, "path": "../public/assets/index-[hash].js" }
+    clean:  "/assets/license-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"81f3-9WxBuCVd732Bj41aXBLxY1fIZT8\"", "mtime": "[mtime]", "size": 33267, "path": "../public/assets/license-[hash].js" }
+    clean:  "/assets/login-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"2ba1-aTzmU6+TCDcOyYU81GB2Y1QyV/I\"", "mtime": "[mtime]", "size": 11169, "path": "../public/assets/login-[hash].js" }
+    clean:  "/assets/manual-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"4b47-oUBkejASgMWjXHfjcZmK9E83Q2k\"", "mtime": "[mtime]", "size": 19271, "path": "../public/assets/manual-[hash].js" }
+    clean:  "/assets/morning-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"13d96-iP9OOL2zCl+XeZgpJqARt6z3bGQ\"", "mtime": "[mtime]", "size": 81302, "path": "../public/assets/morning-[hash].js" }
+    clean:  "/assets/routes-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"a685-tFNqSgXJg4q118h7Uk31Z3Q7n/s\"", "mtime": "[mtime]", "size": 42629, "path": "../public/assets/routes-[hash].js" }
+    clean:  "/assets/practice-goal-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"27d59-wPTJmkeEl9eAn1UBWa/kf8f104I\"", "mtime": "[mtime]", "size": 163161, "path": "../public/assets/practice-goal-[hash].js" }
+    clean:  "/assets/session._id.review-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"d35-3DFwrTGCkcwi+pqyn2RpjVL9Hjg\"", "mtime": "[mtime]", "size": 3381, "path": "../public/assets/session._id.review-[hash].js
+    clean:  "/assets/setup-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"1aed-kyZ6vBI9DGtMUq31WNZTQf5rL1Y\"", "mtime": "[mtime]", "size": 6893, "path": "../public/assets/setup-[hash].js" }
+    clean:  "/assets/teacher-review._id-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"650-saSnU/qKAX1nrvisf8xQS2072Ro\"", "mtime": "[mtime]", "size": 1616, "path": "../public/assets/teacher-review._id-[hash].js
+    clean:  "/assets/teacher-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"9be7-LeY6Z+gTRZNu1R29+wGWOiK0WUc\"", "mtime": "[mtime]", "size": 39911, "path": "../public/assets/teacher-[hash].js" }
+    clean:  "/assets/session-feedback-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"64f63-nBbKJjBS8Yphuv9pMbgcA78DVlU\"", "mtime": "[mtime]", "size": 413539, "path": "../public/assets/session-feedback-[hash].js
+    clean:  "/assets/styles-[hash].css": { "type": "text/css; charset=utf-8", "etag": "\"485f3-zhZTO/a2+q++XvWqtvK5SaVCyG4\"", "mtime": "[mtime]", "size": 296435, "path": "../public/assets/styles-[hash].css" }
+    clean:  "/assets/try-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"35fd-cTwVlWr0ObPpmZtwhYYwRXoCi6E\"", "mtime": "[mtime]", "size": 13821, "path": "../public/assets/try-[hash].js" }
+    release:  "/sw.js": { "type": "text/javascript; charset=utf-8", "etag": "\"19a-RA9ByMZ/LiloQkZHdf5CmYrfzPo\"", "mtime": "[mtime]", "size": 410, "path": "../public/sw.js" }
+    release:  "/assets/daily-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"2569-Es27Olwn+NBuLe6PYdQ6DldihkI\"", "mtime": "[mtime]", "size": 9577, "path": "../public/assets/daily-[hash].js" }
+    release:  "/assets/dist-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"8bf5-qzmynPTa06k2It16zlXTa93x4ZA\"", "mtime": "[mtime]", "size": 35829, "path": "../public/assets/dist-[hash].js" }
+    release:  "/assets/license-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"81f3-BfFf/ZEY+0cD+YrB9YjUhLoxFi0\"", "mtime": "[mtime]", "size": 33267, "path": "../public/assets/license-[hash].js" }
+    release:  "/assets/login-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"2ba1-1crM0G8YsgpAUgaHApzWzX9ulG8\"", "mtime": "[mtime]", "size": 11169, "path": "../public/assets/login-[hash].js" }
+    release:  "/assets/manual-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"4b47-iFwyloS/rai3PZzf0NsK2cgRBog\"", "mtime": "[mtime]", "size": 19271, "path": "../public/assets/manual-[hash].js" }
+    release:  "/assets/morning-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"13d96-rxtx8bb3TtrHgAK0Xhtq5knHEE0\"", "mtime": "[mtime]", "size": 81302, "path": "../public/assets/morning-[hash].js" }
+    release:  "/assets/index-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"41dcf-SG3NOABgFjsKsiG9YLk1ljbifMQ\"", "mtime": "[mtime]", "size": 269775, "path": "../public/assets/index-[hash].js" }
+    release:  "/assets/routes-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"a685-YmggVdZjnPNj8RUeVTgZNRw8JRc\"", "mtime": "[mtime]", "size": 42629, "path": "../public/assets/routes-[hash].js" }
+    release:  "/assets/practice-goal-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"27d59-aB+si88LSruXUVGnPLSLCJa1mGo\"", "mtime": "[mtime]", "size": 163161, "path": "../public/assets/practice-goal-[hash].js" }
+    release:  "/assets/session._id.review-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"d35-MirIjBKqQVYCQ3+0tuFkESOP1k4\"", "mtime": "[mtime]", "size": 3381, "path": "../public/assets/session._id.review-[hash].js
+    release:  "/assets/setup-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"1aed-MI8TV4Eg5p2FTcRBRvWWwzyaNKs\"", "mtime": "[mtime]", "size": 6893, "path": "../public/assets/setup-[hash].js" }
+    release:  "/assets/teacher-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"9be7-V4nvLI/d25YKBK4CToqTtirphEI\"", "mtime": "[mtime]", "size": 39911, "path": "../public/assets/teacher-[hash].js" }
+    release:  "/assets/teacher-review._id-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"650-ZAculIMztwFJS1botnuTEGN/o6U\"", "mtime": "[mtime]", "size": 1616, "path": "../public/assets/teacher-review._id-[hash].js
+    release:  "/assets/session-feedback-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"64f63-d4TlJbfcM4ACsIPDb26QUVEqoMA\"", "mtime": "[mtime]", "size": 413539, "path": "../public/assets/session-feedback-[hash].js
+    release:  "/assets/styles-[hash].css": { "type": "text/css; charset=utf-8", "etag": "\"4eeb6-sfQ0ah+mvRt60HKXwC/lRiSaEno\"", "mtime": "[mtime]", "size": 323254, "path": "../public/assets/styles-[hash].css" }
+    release:  "/assets/try-[hash].js": { "type": "text/javascript; charset=utf-8", "etag": "\"35fd-J8U473jqwEPpOnqeFiNSuxwnxJU\"", "mtime": "[mtime]", "size": 13821, "path": "../public/assets/try-[hash].js" }
+  METADATA-ONLY _ssr/db-CDa5-sX8.mjs  ↔  _ssr/db-DArXt0d5.mjs
+  METADATA-ONLY _tanstack-start-manifest_v-As1m6Lo5.mjs  ↔  _tanstack-start-manifest_v-CwO7cvzC.mjs
+
