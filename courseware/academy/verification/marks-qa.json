@@ -1,0 +1,44 @@
+{
+  "threshold": 0.05,
+  "markers": 313,
+  "print": 141,
+  "web390": 115,
+  "web390OverviewSkipped": 57,
+  "allowed": [
+    {
+      "key": "plan-observe.png|6",
+      "reason": "標在「用這個計畫開始」按鈕內的左端：按鈕文字置中，沒有被遮住（按鈕左右兩側都沒有放得下標號的空位）。",
+      "hits": [
+        {
+          "where": "print",
+          "owner": "p-01-3-a",
+          "ink": 0.341
+        },
+        {
+          "where": "web-390",
+          "owner": "view-01-3",
+          "ink": 0.1011
+        }
+      ]
+    },
+    {
+      "key": "courses.png|2",
+      "reason": "標在「開始這個練習」按鈕的左上角：按鈕文字置中，沒有被遮住。",
+      "hits": [
+        {
+          "where": "print",
+          "owner": "p-01-3-a",
+          "ink": 0.2433
+        },
+        {
+          "where": "web-390",
+          "owner": "view-01-3",
+          "ink": 0.2254
+        }
+      ]
+    }
+  ],
+  "flagged": [],
+  "cutOff": [],
+  "overlapping": []
+}

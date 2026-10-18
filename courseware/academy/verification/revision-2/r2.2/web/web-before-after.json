@@ -1,0 +1,35 @@
+{
+  "before": "C:/Users/kevin/AppData/Local/Temp/claude/C--Users-kevin-Documents-ChatGPT------/878c6034-f16a-4308-b72f-3c0fc437a09c/scratchpad/r21web/index.html",
+  "after": "output/web/index.html",
+  "at": "2026-10-18T05:58:01.230Z",
+  "report": {
+    "before": {
+      "toc": {
+        "navTop": 0,
+        "barBottom": 65,
+        "closeButton": false,
+        "backdrop": false,
+        "escapeCloses": false
+      },
+      "savingShownOnPageChange": true,
+      "markerButtonsOffScreen": [
+        "8",
+        "9",
+        "10",
+        "A",
+        "B"
+      ]
+    },
+    "after": {
+      "toc": {
+        "navTop": 65,
+        "barBottom": 65,
+        "closeButton": true,
+        "backdrop": true,
+        "escapeCloses": true
+      },
+      "savingShownOnPageChange": false,
+      "markerButtonsOffScreen": []
+    }
+  }
+}

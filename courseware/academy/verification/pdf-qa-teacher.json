@@ -1,0 +1,40 @@
+{
+ "pdf": "courseware/academy/output/當沖大富翁-講師版教學手冊.pdf",
+ "pages": 26,
+ "metadata": {
+  "format": "PDF 1.4",
+  "title": "當沖大富翁｜講師版教學手冊",
+  "author": "",
+  "subject": "",
+  "keywords": "",
+  "creator": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+  "producer": "Skia/PDF m155",
+  "creationDate": "D:20261018064547+00'00'",
+  "modDate": "D:20261018064547+00'00'",
+  "trapped": "",
+  "encryption": null
+ },
+ "problems": [],
+ "fonts": {
+  "Type0 IBMPlexMono-Regular": 26,
+  "Type0 NotoSansTC-Regular": 26,
+  "Type0 NotoSansTC-Bold": 26,
+  "Type0 IBMPlexMono-Medium": 25,
+  "Type0 NotoSansTC-Medium": 25,
+  "Type0 IBMPlexMono-SemiBold": 11,
+  "Type0 IBMPlexMono-Light": 2
+ },
+ "images": {
+  "count": 0,
+  "min_dpi": null
+ },
+ "expected": {
+  "講師版教學手冊": true,
+  "期末評分規準": true,
+  "期末參考紀錄": true,
+  "練習分與等級": true,
+  "委託分頁應只有一筆": true,
+  "台積電": true,
+  "2026.10-r2.3": true
+ }
+}

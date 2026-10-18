@@ -1,0 +1,40 @@
+{
+ "ok": true,
+ "items": [
+  {
+   "phrase": "期末參考紀錄",
+   "student": false,
+   "teacher": true
+  },
+  {
+   "phrase": "-1,816",
+   "student": false,
+   "teacher": true
+  },
+  {
+   "phrase": "253.5 跌破 254",
+   "student": false,
+   "teacher": true
+  },
+  {
+   "phrase": "優秀報告的寫法",
+   "student": false,
+   "teacher": true
+  },
+  {
+   "phrase": "評分示意",
+   "student": false,
+   "teacher": true
+  },
+  {
+   "phrase": "一次例外且有說明",
+   "student": false,
+   "teacher": true
+  },
+  {
+   "phrase": "算式小誤",
+   "student": false,
+   "teacher": true
+  }
+ ]
+}

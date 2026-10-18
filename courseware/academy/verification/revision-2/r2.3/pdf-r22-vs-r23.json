@@ -1,0 +1,28 @@
+{
+ "student": {
+  "pages": [
+   94,
+   94
+  ],
+  "pagesWithVersionString": 3,
+  "textDiffOtherThanVersion": [],
+  "sameImages": true,
+  "links": [
+   148,
+   148
+  ]
+ },
+ "teacher": {
+  "pages": [
+   26,
+   26
+  ],
+  "pagesWithVersionString": 2,
+  "textDiffOtherThanVersion": [],
+  "sameImages": true,
+  "links": [
+   0,
+   0
+  ]
+ }
+}

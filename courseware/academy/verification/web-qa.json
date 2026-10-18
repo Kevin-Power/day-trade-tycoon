@@ -1,0 +1,781 @@
+{
+  "url": "file:///C:/Users/kevin/Documents/ChatGPT/%E7%95%B6%E6%B2%96%E5%A4%A7%E5%AF%8C%E7%BF%81/.worktrees/academy/courseware/academy/output/web/index.html",
+  "browser": "155.0.8059.80",
+  "startedAt": "2026-10-18T06:45:57.169Z",
+  "scenarios": [
+    {
+      "name": "新手順序：開始 → 小任務 → 成果卡 → 保存 → 重新開啟 → 繼續",
+      "finding": "建議：先有一次小成功",
+      "checks": [
+        {
+          "label": "開始頁有「先做 5 分鐘課前小任務」入口",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "點入口後到課前小任務",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "時間寫 9:03、價格寫 2,585 也能被核對（容許常見寫法）",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "成果卡完成：出現「你現在會做什麼」",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "「前往 LEVEL 01」帶到 LEVEL 01",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "重新開啟（網址沒有 #）：開始頁出現「繼續上次學習 · LEVEL 01」",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "按「繼續上次學習」回到 LEVEL 01",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "小任務的成果還在",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "沒有 JavaScript 錯誤",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "ok": true
+    },
+    {
+      "name": "L06 只選一個習慣也能完成",
+      "finding": "P1-01",
+      "checks": [
+        {
+          "label": "06-1 的習慣是單選（選一個後，其他四個沒有被選）",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "06-1 只選一個習慣＋自我檢查 → 任務完成",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "06-2 決策日誌 3 列（其中一列是等待）→ 完成",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "06-3 對照表可答「否」「不適用」→ 完成",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "06-4 選「否」或「不適用」但還沒寫原因 → 未完成，並列出缺少的原因",
+          "ok": true,
+          "detail": "[{\"label\":\"第 2 題：選是／否／不適用（選否或不適用要寫原因）\",\"self\":false},{\"label\":\"第 4 題：選是／否／不適用（選否或不適用要寫原因）\",\"self\":false}]"
+        },
+        {
+          "label": "06-4 誠實回答「否／不適用」並寫原因 → 完成（不強迫全答是）",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "06-4 第 5 題改成「所有委託都在計畫之內嗎？」：答「是」＝照計畫，不需要寫原因",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "Level 06 完成（只選一個習慣、有「否」與「不適用」）",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "Level 06 成就章顯示完成",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "能力卡：只有自評的 06-6 標出要講師核對的系統證據（F-13）",
+          "ok": true,
+          "detail": "／7\n✓ 完成\n06-5 找出一次失誤，只改一件事\n自評 2／2 · 作答 1／1\n✓ 完成\n06-6 寫進系統復盤並保存\n自評 3／3 · 作答 0／0\n✓ 完成\n只有自評 · 請講師核對系統證據：第 7 輪的完成卡（含復盤全文）。\n\n✓ 本關的自評與必填作答都完成了。講師確認：在「我的學習成果冊」列印頁由講師簽名。"
+        },
+        {
+          "label": "沒有 JavaScript 錯誤",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "ok": true
+    },
+    {
+      "name": "期末三份作品不用紙本，可匯出與匯入還原",
+      "finding": "P1-02 / P1-04",
+      "checks": [
+        {
+          "label": "F-3 有可輸入的欄位（不是只有紙本提示）",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "F-3 開始時全部空白（沒有預先填好的答案）",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "F-3 期末計畫單完成",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "F-3 風險預算表的算式核對顯示結果（提示，不擋完成）",
+          "ok": true,
+          "detail": "核對（只是提示，不影響完成） ✓ ③ 每股風險 = ① − ② ✓ ④ 每張價差風險 = ③ × 1,000 ✓ ⑥ 每張總風險 = ④ + ⑤ ✓ ⑧ 最多張數 = ⑦ ÷ ⑥，捨去，最多 3"
+        },
+        {
+          "label": "F-4 可以新增一列",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "F-4 三列（含等待）＋一列空白 → 完成",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "F-4 刪除空白列不需確認，剩 3 列",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "F-5 期末報告完成",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "F-5 對帳核對：淨損益與成交一致",
+          "ok": true,
+          "detail": "核對（只是提示，不影響完成） ✓ 價差合計 = 賣出金額 − 買進金額（依你抄的成交：-1,000） ✓ 費稅合計 = 每筆手續費＋交易稅（依你抄的成交：816） ✓ 淨損益 = 價差合計 − 費稅合計"
+        },
+        {
+          "label": "期末關卡完成（F-1～F-5）",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "學習成果冊列出期末三份作品",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "匯出檔有 schema 與版本",
+          "ok": true,
+          "detail": "dtt-academy-workbook v2"
+        },
+        {
+          "label": "匯出檔包含作答（不只勾選）",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "沒有 JavaScript 錯誤",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "匯入前先顯示內容並要求確認",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "確認框寫明不會合併、整份取代、取代前自動備份（F-10）",
+          "ok": true,
+          "detail": "\n完成任務 0 個 · 作答與筆記 0 欄 · 勾選 0 項\n\n不會合併：這台裝置上的作答會被整份取代（取代前會自動備份，可在下方還原）。\n\n取代目前紀錄\n取消"
+        },
+        {
+          "label": "清空的瀏覽器匯入後，期末三份作品完整還原",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "還原後欄位內容一致",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "匯入前自動建立了備份",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "取消匯入：原本的紀錄沒有被覆蓋",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "格式不符的檔案：顯示錯誤，不更動紀錄",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "ok": true
+    },
+    {
+      "name": "最新輸入在切頁、匯出、重新整理後仍在；保存失敗有提示",
+      "finding": "P1-04",
+      "checks": [
+        {
+          "label": "輸入後立刻切頁：已寫入 localStorage",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "輸入後立刻重新整理：內容還在",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "輸入後立刻匯出：匯出檔有最新內容",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "畫面顯示「已保存」",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "記住最後閱讀的頁面，開始頁出現「繼續上次學習」",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "保存失敗：狀態列顯示「保存失敗」",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "保存失敗：出現提示與「匯出備份檔」按鈕",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "保存失敗：畫面上的內容沒有被清掉",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "保存失敗時仍可匯出暫存成果",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "ok": true
+    },
+    {
+      "name": "儲存資料異常不會中止，也不會被靜默刪除",
+      "finding": "P2-04",
+      "checks": [
+        {
+          "label": "checks／fields 為 null：正常載入、可切頁",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "內容損壞：顯示提示",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "內容損壞：原始內容另存一份備份",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "新作答可以保存",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "沒有 JavaScript 錯誤",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "舊版（v1）紀錄：勾選與筆記轉入新版",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "舊版（v1）資料保留在瀏覽器中，沒有刪除",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "舊版「習慣全勾」不被猜成答案，保留在 legacy",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "ok": true
+    },
+    {
+      "name": "匯入格式：不是闖關手冊紀錄的檔案，在取代確認之前就被拒絕",
+      "finding": "R21-02",
+      "checks": [
+        {
+          "label": "有效 v1（第一版的勾選與筆記）：進入取代確認；取消後紀錄不變",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "有效 v2（匯出檔）：進入取代確認；取消後紀錄不變",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "合法空白 v1 {\"checks\":{},\"notes\":{}}：進入取代確認；取消後紀錄不變",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "合法空白 v2（沒有作答的匯出檔）：進入取代確認；取消後紀錄不變",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "壞 JSON：確認前就拒絕，顯示「匯入失敗…目前的紀錄沒有被更動」，紀錄與備份都沒有變",
+          "ok": true,
+          "detail": "匯入失敗：這個檔案不是有效的 JSON。目前的紀錄沒有被更動。"
+        },
+        {
+          "label": "{}：確認前就拒絕，顯示「匯入失敗…目前的紀錄沒有被更動」，紀錄與備份都沒有變",
+          "ok": true,
+          "detail": "匯入失敗：不是學習紀錄格式（找不到勾選或筆記資料）。目前的紀錄沒有被更動。"
+        },
+        {
+          "label": "{\"hello\":\"world\"}：確認前就拒絕，顯示「匯入失敗…目前的紀錄沒有被更動」，紀錄與備份都沒有變",
+          "ok": true,
+          "detail": "匯入失敗：不是學習紀錄格式（找不到勾選或筆記資料）。目前的紀錄沒有被更動。"
+        },
+        {
+          "label": "錯誤 schema：確認前就拒絕，顯示「匯入失敗…目前的紀錄沒有被更動」，紀錄與備份都沒有變",
+          "ok": true,
+          "detail": "匯入失敗：這不是闖關手冊的紀錄（schema: other-app）。目前的紀錄沒有被更動。"
+        },
+        {
+          "label": "不支援的版本（3）：確認前就拒絕，顯示「匯入失敗…目前的紀錄沒有被更動」，紀錄與備份都沒有變",
+          "ok": true,
+          "detail": "匯入失敗：這個檔案來自更新的講義版本（版本 3）。目前的紀錄沒有被更動。"
+        },
+        {
+          "label": "型別錯誤：v2 的 checks 是陣列：確認前就拒絕，顯示「匯入失敗…目前的紀錄沒有被更動」，紀錄與備份都沒有變",
+          "ok": true,
+          "detail": "匯入失敗：紀錄的 checks 欄位缺少或不是物件。目前的紀錄沒有被更動。"
+        },
+        {
+          "label": "型別錯誤：v1 的 notes 是字串：確認前就拒絕，顯示「匯入失敗…目前的紀錄沒有被更動」，紀錄與備份都沒有變",
+          "ok": true,
+          "detail": "匯入失敗：紀錄的 notes 欄位不是物件。目前的紀錄沒有被更動。"
+        },
+        {
+          "label": "確認匯入有效 v1：筆記轉入新版，匯入前自動備份",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "沒有 JavaScript 錯誤",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "ok": true
+    },
+    {
+      "name": "手機看圖可放大、標號不漂移；燈箱鍵盤操作",
+      "finding": "P1-03 / P2-02",
+      "checks": [
+        {
+          "label": "390px：原尺寸 100% 的圖寬是適合螢幕的 3 倍以上",
+          "ok": true,
+          "detail": "fit 390px → 100% 1326px（頁面內 356px）"
+        },
+        {
+          "label": "100% 等於原始畫面的 CSS 尺寸（1 擷取像素 = 1 CSS 像素）",
+          "ok": true,
+          "detail": "1326 vs 1326"
+        },
+        {
+          "label": "放大前後標號 7 在圖上的相對位置不變（誤差 < 0.5%）",
+          "ok": true,
+          "detail": "{\"fitMark\":{\"x\":0.280488782051282,\"y\":0.3473900916456369,\"inside\":true},\"fullMark\":{\"x\":0.28049585218702866,\"y\":0.3473828125,\"inside\":true}}"
+        },
+        {
+          "label": "貼著圖上緣的標號 2：適合螢幕時整顆仍在圖內，沒有被裁掉",
+          "ok": true,
+          "detail": "{\"x\":0.6564903846153847,\"y\":0.04675255678044893,\"inside\":true}"
+        },
+        {
+          "label": "390px：「跳到標號」12 個按鈕（1–10、A、B）不用橫向捲動就全部看得到（F-11）",
+          "ok": true,
+          "detail": "{\"count\":12,\"hidden\":[],\"overflow\":0}"
+        },
+        {
+          "label": "「跳到標號」把標號放大置中",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "兩指張開可以放大（模擬觸控）",
+          "ok": true,
+          "detail": "0.29 → 1.37"
+        },
+        {
+          "label": "「還原」回到適合螢幕",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "鍵盤 Enter 可以開啟放大檢視",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "開啟時背景設為 inert（不可操作）",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "Tab／Shift+Tab 各 18 次都留在對話框內",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "Escape 關閉",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "關閉後焦點回到原本的圖片",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "滑鼠拖曳 (−200, −100)、分 12 步：畫面平移約 (200, 100)",
+          "ok": true,
+          "detail": "[200,100]"
+        }
+      ],
+      "ok": true
+    },
+    {
+      "name": "手機目錄：不蓋住工具列；關閉鈕、點遮罩、Escape 都能關閉",
+      "finding": "F-02",
+      "checks": [
+        {
+          "label": "390px：目錄從工具列下方開始，不蓋住工具列",
+          "ok": true,
+          "detail": "{\"navTop\":65,\"navBottom\":800,\"barBottom\":65,\"menuOnTop\":true,\"focusInNav\":true,\"mainInert\":true,\"height\":800}"
+        },
+        {
+          "label": "390px：目錄高度在視窗內（內容可捲動）",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "390px：工具列上的「目錄」鈕沒有被蓋住",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "390px：打開時焦點移進目錄，後方頁面不可操作",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "390px：按「關閉目錄」關閉，焦點回到「目錄」鈕",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "390px：關閉後目錄連結不能被 Tab 到（不可見）",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "390px：點目錄外的遮罩就關閉",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "390px：Escape 關閉，焦點回到「目錄」鈕",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "390px：點目錄裡的任務會換頁並收起目錄",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "390px：沒有 JavaScript 錯誤",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "360px：目錄從工具列下方開始，不蓋住工具列",
+          "ok": true,
+          "detail": "{\"navTop\":65,\"navBottom\":800,\"barBottom\":65,\"menuOnTop\":true,\"focusInNav\":true,\"mainInert\":true,\"height\":800}"
+        },
+        {
+          "label": "360px：目錄高度在視窗內（內容可捲動）",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "360px：工具列上的「目錄」鈕沒有被蓋住",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "360px：打開時焦點移進目錄，後方頁面不可操作",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "360px：按「關閉目錄」關閉，焦點回到「目錄」鈕",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "360px：關閉後目錄連結不能被 Tab 到（不可見）",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "360px：點目錄外的遮罩就關閉",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "360px：Escape 關閉，焦點回到「目錄」鈕",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "360px：點目錄裡的任務會換頁並收起目錄",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "360px：沒有 JavaScript 錯誤",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "ok": true
+    },
+    {
+      "name": "換頁不是作答：不顯示「儲存中…」，最後保存時間不變，仍記得讀到哪裡",
+      "finding": "B-22",
+      "checks": [
+        {
+          "label": "連續換三頁，保存狀態從未出現「儲存中…」",
+          "ok": true,
+          "detail": "[]"
+        },
+        {
+          "label": "最後保存時間仍是最後一次作答的時間",
+          "ok": true,
+          "detail": "2026-10-18T06:46:22.273Z → 2026-10-18T06:46:22.273Z"
+        },
+        {
+          "label": "讀到哪一頁仍有記下（繼續上次學習）",
+          "ok": true,
+          "detail": "02-3"
+        },
+        {
+          "label": "作答內容不變",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "沒有 JavaScript 錯誤",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "ok": true
+    },
+    {
+      "name": "任務與術語連結存在且語意相符",
+      "finding": "P2-01",
+      "checks": [
+        {
+          "label": "所有頁內連結都指向存在的頁面",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "術語表 45 條：目標任務確實講到該術語",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "審查指出的 6 條已改正",
+          "ok": true,
+          "detail": "當沖→05-1,費稅門檻→05-1,滑價→05-2,風險預算→05-2,N 字與突破→05-4,頭頭高／底底高→05-4"
+        },
+        {
+          "label": "不再有任何「紙本」作答依賴文字",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "ok": true
+    },
+    {
+      "name": "作答預設留白、範例有標示、課前小任務可核對",
+      "finding": "建議 10 / 課前小任務",
+      "checks": [
+        {
+          "label": "全新瀏覽器：所有作答欄位留白",
+          "ok": true,
+          "detail": "0 個非空白"
+        },
+        {
+          "label": "所有自我檢查預設未勾",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "範例區塊都標示「範例」",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "讀錯價格：核對顯示和教材資料不同（不洩漏答案）",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "讀對價格：核對一致",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "小任務完成卡出現三段：會做什麼／成果／下一個挑戰",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "ok": true
+    }
+  ],
+  "layout": [
+    {
+      "width": 1440,
+      "scheme": "light",
+      "views": 51,
+      "overflow": [],
+      "brokenImages": 0,
+      "errors": []
+    },
+    {
+      "width": 1440,
+      "scheme": "dark",
+      "views": 51,
+      "overflow": [],
+      "brokenImages": 0,
+      "errors": []
+    },
+    {
+      "width": 768,
+      "scheme": "light",
+      "views": 51,
+      "overflow": [],
+      "brokenImages": 0,
+      "errors": []
+    },
+    {
+      "width": 768,
+      "scheme": "dark",
+      "views": 51,
+      "overflow": [],
+      "brokenImages": 0,
+      "errors": []
+    },
+    {
+      "width": 390,
+      "scheme": "light",
+      "views": 51,
+      "overflow": [],
+      "brokenImages": 0,
+      "errors": []
+    },
+    {
+      "width": 390,
+      "scheme": "dark",
+      "views": 51,
+      "overflow": [],
+      "brokenImages": 0,
+      "errors": []
+    },
+    {
+      "width": 360,
+      "scheme": "light",
+      "views": 51,
+      "overflow": [],
+      "brokenImages": 0,
+      "errors": []
+    },
+    {
+      "width": 360,
+      "scheme": "dark",
+      "views": 51,
+      "overflow": [],
+      "brokenImages": 0,
+      "errors": []
+    },
+    {
+      "width": 320,
+      "scheme": "light",
+      "views": 51,
+      "overflow": [],
+      "brokenImages": 0,
+      "errors": []
+    },
+    {
+      "width": 320,
+      "scheme": "dark",
+      "views": 51,
+      "overflow": [],
+      "brokenImages": 0,
+      "errors": []
+    }
+  ],
+  "contrast": [
+    {
+      "scheme": "light",
+      "measured": 2120,
+      "failures": []
+    },
+    {
+      "scheme": "dark",
+      "measured": 2120,
+      "failures": []
+    }
+  ],
+  "problems": [],
+  "finishedAt": "2026-10-18T06:47:58.351Z",
+  "ok": true
+}

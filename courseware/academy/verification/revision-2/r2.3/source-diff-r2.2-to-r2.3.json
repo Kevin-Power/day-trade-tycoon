@@ -1,0 +1,18 @@
+{
+  "from": "2026.10-r2.2",
+  "to": "2026.10-r2.3",
+  "changed": [
+    "content/course.mjs",
+    "build/manifest.mjs",
+    "build/qa_web.mjs",
+    "design/web.js",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "added": [
+    "build/package.py"
+  ],
+  "removed": [],
+  "fromTree": "589195B3B90587B6C6BC308D938EAEFA2CD53EA7E1597879BCD688E62A27636A",
+  "toTree": "9F641A389664EFD1B63757213073A73B94102E02A272A232A015498182526277"
+}

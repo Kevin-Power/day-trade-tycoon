@@ -1,0 +1,46 @@
+{
+ "pdf": "courseware/academy/output/當沖大富翁-學員實戰闖關手冊.pdf",
+ "pages": 94,
+ "metadata": {
+  "format": "PDF 1.4",
+  "title": "當沖大富翁｜學員實戰闖關手冊",
+  "author": "",
+  "subject": "",
+  "keywords": "",
+  "creator": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+  "producer": "Skia/PDF m155",
+  "creationDate": "D:20261018064541+00'00'",
+  "modDate": "D:20261018064541+00'00'",
+  "trapped": "",
+  "encryption": null
+ },
+ "problems": [],
+ "fonts": {
+  "Type0 IBMPlexMono-Regular": 94,
+  "Type0 NotoSansTC-Regular": 94,
+  "Type0 NotoSansTC-Bold": 93,
+  "Type0 IBMPlexMono-Medium": 93,
+  "Type0 NotoSansTC-Medium": 93,
+  "Type0 IBMPlexMono-SemiBold": 71,
+  "Type0 IBMPlexMono-Light": 15
+ },
+ "images": {
+  "count": 90,
+  "min_dpi": 175
+ },
+ "expected": {
+  "學員實戰闖關手冊": true,
+  "課前小任務": true,
+  "所有委託都在計畫之內嗎": true,
+  "寫新計畫，再練一輪": true,
+  "不適用": true,
+  "模擬交易教學，非投資建議": true,
+  "重試這次操作": true,
+  "委託分頁應該只有一筆": true,
+  "增加一張": true,
+  "這檔目前沒有庫存": true,
+  "預估來回費稅": true,
+  "我的自評總分": true,
+  "2026.10-r2.3": true
+ }
+}

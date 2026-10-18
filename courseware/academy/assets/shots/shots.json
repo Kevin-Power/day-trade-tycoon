@@ -1,0 +1,3877 @@
+{
+ "try-review": {
+  "file": "try-review.png",
+  "width": 768,
+  "height": 1314,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/try",
+  "clock": null,
+  "boxes": {
+   "steps": {
+    "x": 32,
+    "y": 233.5,
+    "w": 704,
+    "h": 86
+   },
+   "order": {
+    "x": 65,
+    "y": 519,
+    "w": 638,
+    "h": 354
+   },
+   "question": {
+    "x": 65,
+    "y": 897,
+    "w": 638,
+    "h": 180
+   },
+   "action": {
+    "x": 65,
+    "y": 1097,
+    "w": 638,
+    "h": 56
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:01:43.584Z",
+  "image": "try-review.png",
+  "pixels": [
+   1536,
+   2628
+  ],
+  "edge": "#f1f4f9"
+ },
+ "try-complete": {
+  "file": "try-complete.png",
+  "width": 720,
+  "height": 835,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/try",
+  "clock": null,
+  "boxes": {
+   "done": {
+    "x": 8,
+    "y": 8.5,
+    "w": 704,
+    "h": 818.5
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:01:45.024Z",
+  "image": "try-complete.png",
+  "pixels": [
+   1440,
+   1670
+  ],
+  "edge": "#eff2f7"
+ },
+ "q-today": {
+  "file": "q-today.png",
+  "width": 1160,
+  "height": 274,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1000
+  },
+  "url": "/",
+  "clock": null,
+  "boxes": {
+   "card": {
+    "x": 8,
+    "y": 8.5,
+    "w": 1144,
+    "h": 258
+   },
+   "start": {
+    "x": 29,
+    "y": 139.5,
+    "w": 177,
+    "h": 48
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:01:47.643Z",
+  "image": "q-today.png",
+  "pixels": [
+   2320,
+   548
+  ],
+  "edge": "#f1f4f9"
+ },
+ "q-plan": {
+  "file": "q-plan.png",
+  "width": 974,
+  "height": 443,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1000
+  },
+  "url": "/morning?panel=trade&new=%221%22",
+  "clock": "09:00",
+  "boxes": {
+   "observe": {
+    "x": 8,
+    "y": 153.9,
+    "w": 958,
+    "h": 64.8
+   },
+   "start": {
+    "x": 8,
+    "y": 329.4,
+    "w": 958,
+    "h": 50
+   },
+   "templates": {
+    "x": 8,
+    "y": 8.4,
+    "w": 958,
+    "h": 283
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:01:48.858Z",
+  "image": "q-plan.png",
+  "pixels": [
+   1948,
+   886
+  ],
+  "edge": "#0d131b"
+ },
+ "q-desk": {
+  "file": "q-desk.png",
+  "width": 1280,
+  "height": 1000,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1000
+  },
+  "url": "/morning?panel=trade&new=%221%22",
+  "clock": "09:03",
+  "boxes": {
+   "clock": {
+    "x": 424,
+    "y": 11,
+    "w": 100,
+    "h": 17.9
+   },
+   "plusOne": {
+    "x": 974.4,
+    "y": 6,
+    "w": 46.6,
+    "h": 28
+   },
+   "replay": {
+    "x": 838.5,
+    "y": 3,
+    "w": 249.5,
+    "h": 34
+   },
+   "hero": {
+    "x": 256,
+    "y": 129.9,
+    "w": 684,
+    "h": 102.9
+   },
+   "heroName": {
+    "x": 270,
+    "y": 134.9,
+    "w": 448,
+    "h": 24
+   },
+   "stamp": {
+    "x": 270,
+    "y": 161.9,
+    "w": 448,
+    "h": 16.9
+   },
+   "price": {
+    "x": 270,
+    "y": 182.9,
+    "w": 103.8,
+    "h": 44
+   },
+   "change": {
+    "x": 385.8,
+    "y": 187.8,
+    "w": 50.4,
+    "h": 34.2
+   }
+  },
+  "meta": {
+   "lesson": "2026-10-06",
+   "exercise": "first-order",
+   "guest": true
+  },
+  "takenAt": "2026-10-18T05:01:54.063Z",
+  "image": "q-desk.png",
+  "pixels": [
+   2560,
+   2000
+  ],
+  "edge": "#0d131b"
+ },
+ "q-quote": {
+  "file": "q-quote.png",
+  "width": 696,
+  "height": 115,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1000
+  },
+  "url": "/morning?panel=trade&new=%221%22",
+  "clock": "09:03",
+  "boxes": {
+   "name": {
+    "x": 20,
+    "y": 11.9,
+    "w": 448,
+    "h": 24
+   },
+   "stamp": {
+    "x": 20,
+    "y": 38.9,
+    "w": 448,
+    "h": 16.9
+   },
+   "price": {
+    "x": 20,
+    "y": 59.9,
+    "w": 103.8,
+    "h": 44
+   },
+   "change": {
+    "x": 135.8,
+    "y": 64.8,
+    "w": 50.4,
+    "h": 34.2
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:01:54.657Z",
+  "image": "q-quote.png",
+  "pixels": [
+   1392,
+   230
+  ],
+  "edge": "#101b27"
+ },
+ "gate": {
+  "file": "gate.png",
+  "width": 1280,
+  "height": 1000,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1000
+  },
+  "url": "/",
+  "clock": null,
+  "boxes": {
+   "trial": {
+    "x": 812.6,
+    "y": 386.1,
+    "w": 377.4,
+    "h": 56
+   },
+   "code": {
+    "x": 795.6,
+    "y": 515.1,
+    "w": 411.4,
+    "h": 48
+   },
+   "notice": {
+    "x": 795.6,
+    "y": 615.1,
+    "w": 411.4,
+    "h": 154
+   },
+   "agree": {
+    "x": 795.6,
+    "y": 789.1,
+    "w": 16,
+    "h": 16
+   },
+   "enter": {
+    "x": 795.6,
+    "y": 857.1,
+    "w": 411.4,
+    "h": 48
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:01:56.346Z",
+  "image": "gate.png",
+  "pixels": [
+   2560,
+   2000
+  ],
+  "edge": "#172c49"
+ },
+ "gate-ready": {
+  "file": "gate-ready.png",
+  "width": 436,
+  "height": 474,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1000
+  },
+  "url": "/",
+  "clock": null,
+  "boxes": {
+   "code": {
+    "x": 12.6,
+    "y": 40.1,
+    "w": 411.4,
+    "h": 48
+   },
+   "agree": {
+    "x": 12.6,
+    "y": 314.1,
+    "w": 16,
+    "h": 16
+   },
+   "enter": {
+    "x": 12.6,
+    "y": 382.1,
+    "w": 411.4,
+    "h": 48
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:01:57.534Z",
+  "image": "gate-ready.png",
+  "pixels": [
+   872,
+   948
+  ],
+  "edge": "#ffffff"
+ },
+ "lobby-guest": {
+  "file": "lobby-guest.png",
+  "width": 1280,
+  "height": 1000,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1000
+  },
+  "url": "/",
+  "clock": null,
+  "boxes": {
+   "daily": {
+    "x": 68,
+    "y": 87,
+    "w": 1144,
+    "h": 158.5
+   },
+   "today": {
+    "x": 68,
+    "y": 261.5,
+    "w": 1144,
+    "h": 258
+   },
+   "start": {
+    "x": 89,
+    "y": 392.5,
+    "w": 177,
+    "h": 48
+   },
+   "coachLink": {
+    "x": 89,
+    "y": 454.5,
+    "w": 165,
+    "h": 44
+   },
+   "size": {
+    "x": 586,
+    "y": 12,
+    "w": 162,
+    "h": 46
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:01:59.938Z",
+  "image": "lobby-guest.png",
+  "pixels": [
+   2560,
+   2000
+  ],
+  "edge": "#f1f4f9"
+ },
+ "lobby-account": {
+  "file": "lobby-account.png",
+  "width": 1164,
+  "height": 195,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1000
+  },
+  "url": "/",
+  "clock": null,
+  "boxes": {
+   "signin": {
+    "x": 969,
+    "y": 37.5,
+    "w": 160,
+    "h": 48
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:01.092Z",
+  "image": "lobby-account.png",
+  "pixels": [
+   2328,
+   390
+  ],
+  "edge": "#eff2f7"
+ },
+ "signup": {
+  "file": "signup.png",
+  "width": 1280,
+  "height": 1000,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1000
+  },
+  "url": "/login",
+  "clock": null,
+  "boxes": {
+   "tab": {
+    "x": 1003.3,
+    "y": 305.3,
+    "w": 199.7,
+    "h": 48
+   },
+   "name": {
+    "x": 795.6,
+    "y": 413.3,
+    "w": 411.4,
+    "h": 48
+   },
+   "email": {
+    "x": 795.6,
+    "y": 513.3,
+    "w": 411.4,
+    "h": 48
+   },
+   "password": {
+    "x": 795.6,
+    "y": 609.3,
+    "w": 411.4,
+    "h": 48
+   },
+   "submit": {
+    "x": 795.6,
+    "y": 705.3,
+    "w": 411.4,
+    "h": 48
+   },
+   "note": {
+    "x": 795.6,
+    "y": 773.3,
+    "w": 411.4,
+    "h": 56
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:02.432Z",
+  "image": "signup.png",
+  "pixels": [
+   2560,
+   2000
+  ],
+  "edge": "#172b47"
+ },
+ "profile": {
+  "file": "profile.png",
+  "width": 1280,
+  "height": 1000,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1000
+  },
+  "url": "/login",
+  "clock": null,
+  "boxes": {
+   "name": {
+    "x": 795.6,
+    "y": 515.3,
+    "w": 411.4,
+    "h": 48
+   },
+   "klass": {
+    "x": 795.6,
+    "y": 615.3,
+    "w": 411.4,
+    "h": 48
+   },
+   "agree": {
+    "x": 812.6,
+    "y": 740.3,
+    "w": 20,
+    "h": 20
+   },
+   "save": {
+    "x": 795.6,
+    "y": 913.3,
+    "w": 411.4,
+    "h": 48
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:03.789Z",
+  "image": "profile.png",
+  "pixels": [
+   2560,
+   2000
+  ],
+  "edge": "#182e4a"
+ },
+ "lobby-member": {
+  "file": "lobby-member.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/",
+  "clock": null,
+  "boxes": {
+   "daily": {
+    "x": 68,
+    "y": 87,
+    "w": 1144,
+    "h": 158.5
+   },
+   "today": {
+    "x": 68,
+    "y": 261.5,
+    "w": 1144,
+    "h": 258
+   },
+   "start": {
+    "x": 89,
+    "y": 392.5,
+    "w": 177,
+    "h": 48
+   },
+   "mine": {
+    "x": 892,
+    "y": 13,
+    "w": 76,
+    "h": 44
+   },
+   "manual": {
+    "x": 976,
+    "y": 13,
+    "w": 73,
+    "h": 44
+   },
+   "leave": {
+    "x": 1141,
+    "y": 13,
+    "w": 71,
+    "h": 44
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:06.391Z",
+  "image": "lobby-member.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#f1f4f9"
+ },
+ "courses": {
+  "file": "courses.png",
+  "width": 1156,
+  "height": 811,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/",
+  "clock": null,
+  "boxes": {
+   "card1": {
+    "x": 6,
+    "y": 6.8,
+    "w": 370.7,
+    "h": 391.3
+   },
+   "steps": {
+    "x": 40,
+    "y": 264,
+    "w": 302.7,
+    "h": 48
+   },
+   "start1": {
+    "x": 27,
+    "y": 329,
+    "w": 328.7,
+    "h": 48
+   },
+   "card2": {
+    "x": 392.7,
+    "y": 6.8,
+    "w": 370.7,
+    "h": 391.3
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:07.684Z",
+  "image": "courses.png",
+  "pixels": [
+   2312,
+   1622
+  ],
+  "edge": "#f1f4f9"
+ },
+ "course-steps": {
+  "file": "course-steps.png",
+  "width": 379,
+  "height": 755,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/",
+  "clock": null,
+  "boxes": {
+   "steps": {
+    "x": 25,
+    "y": 261,
+    "w": 328.7,
+    "h": 405
+   },
+   "start1": {
+    "x": 25,
+    "y": 682,
+    "w": 328.7,
+    "h": 48
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:08.854Z",
+  "image": "course-steps.png",
+  "pixels": [
+   758,
+   1510
+  ],
+  "edge": "#ecf0f4"
+ },
+ "plan-observe": {
+  "file": "plan-observe.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:00",
+  "boxes": {
+   "lesson": {
+    "x": 122,
+    "y": 6,
+    "w": 174,
+    "h": 28
+   },
+   "subject": {
+    "x": 306,
+    "y": 11.3,
+    "w": 108,
+    "h": 17.4
+   },
+   "clock": {
+    "x": 424,
+    "y": 11,
+    "w": 100,
+    "h": 17.9
+   },
+   "templates": {
+    "x": 289,
+    "y": 228.5,
+    "w": 958,
+    "h": 283
+   },
+   "observe": {
+    "x": 289,
+    "y": 374,
+    "w": 958,
+    "h": 64.8
+   },
+   "start": {
+    "x": 289,
+    "y": 523.5,
+    "w": 958,
+    "h": 50
+   },
+   "details": {
+    "x": 289,
+    "y": 585.5,
+    "w": 958,
+    "h": 44
+   },
+   "money": {
+    "x": 289,
+    "y": 641.5,
+    "w": 958,
+    "h": 37.5
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:10.017Z",
+  "image": "plan-observe.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "plan-observe-details": {
+  "file": "plan-observe-details.png",
+  "width": 1000,
+  "height": 1277,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1500
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:00",
+  "boxes": {
+   "focus": {
+    "x": 21,
+    "y": 541.5,
+    "w": 958,
+    "h": 52
+   },
+   "bias": {
+    "x": 21,
+    "y": 605.5,
+    "w": 958,
+    "h": 176
+   },
+   "reason": {
+    "x": 21,
+    "y": 845,
+    "w": 958,
+    "h": 78
+   },
+   "entry": {
+    "x": 21,
+    "y": 986.5,
+    "w": 958,
+    "h": 78
+   },
+   "stop": {
+    "x": 21,
+    "y": 1128,
+    "w": 958,
+    "h": 78
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:11.254Z",
+  "image": "plan-observe-details.png",
+  "pixels": [
+   2000,
+   2554
+  ],
+  "edge": "#05090e"
+ },
+ "coach-1": {
+  "file": "coach-1.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:01",
+  "boxes": {
+   "dialog": {
+    "x": 416,
+    "y": 17,
+    "w": 448,
+    "h": 194.9
+   },
+   "ring": {
+    "x": 252,
+    "y": 203.9,
+    "w": 692,
+    "h": 565.1
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:13.993Z",
+  "image": "coach-1.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#06090c"
+ },
+ "coach-2": {
+  "file": "coach-2.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:01",
+  "boxes": {
+   "dialog": {
+    "x": 416,
+    "y": 37,
+    "w": 448,
+    "h": 170.9
+   },
+   "ring": {
+    "x": 837.5,
+    "y": 2,
+    "w": 70,
+    "h": 36
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:15.029Z",
+  "image": "coach-2.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#06090c"
+ },
+ "coach-3": {
+  "file": "coach-3.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:01",
+  "boxes": {
+   "dialog": {
+    "x": 416,
+    "y": 589,
+    "w": 448,
+    "h": 170.9
+   },
+   "ring": {
+    "x": 252,
+    "y": 761,
+    "w": 692,
+    "h": 43
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:16.061Z",
+  "image": "coach-3.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#06090c"
+ },
+ "desk-tour": {
+  "file": "desk-tour.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:03",
+  "boxes": {
+   "bar": {
+    "x": 0,
+    "y": 0,
+    "w": 1280,
+    "h": 40
+   },
+   "lesson": {
+    "x": 122,
+    "y": 6,
+    "w": 174,
+    "h": 28
+   },
+   "clock": {
+    "x": 424,
+    "y": 11,
+    "w": 100,
+    "h": 17.9
+   },
+   "account": {
+    "x": 534,
+    "y": 12,
+    "w": 202.4,
+    "h": 15.9
+   },
+   "replay": {
+    "x": 838.5,
+    "y": 3,
+    "w": 249.5,
+    "h": 34
+   },
+   "resources": {
+    "x": 1098,
+    "y": 6,
+    "w": 64,
+    "h": 28
+   },
+   "tip": {
+    "x": 12,
+    "y": 44,
+    "w": 402,
+    "h": 18.9
+   },
+   "watch": {
+    "x": 0,
+    "y": 68,
+    "w": 255,
+    "h": 628.4
+   },
+   "hero": {
+    "x": 256,
+    "y": 68,
+    "w": 684,
+    "h": 102.9
+   },
+   "chartBar": {
+    "x": 256,
+    "y": 170.9,
+    "w": 684,
+    "h": 37
+   },
+   "chart": {
+    "x": 256,
+    "y": 207.9,
+    "w": 684,
+    "h": 557.1
+   },
+   "quoteDetail": {
+    "x": 941,
+    "y": 68,
+    "w": 339,
+    "h": 454.8
+   },
+   "ticket": {
+    "x": 941,
+    "y": 522.8,
+    "w": 339,
+    "h": 374.1
+   },
+   "ledger": {
+    "x": 256,
+    "y": 765,
+    "w": 684,
+    "h": 35
+   },
+   "planNote": {
+    "x": 0,
+    "y": 696.4,
+    "w": 255,
+    "h": 103.6
+   }
+  },
+  "meta": {
+   "lesson": "2026-10-06",
+   "exercise": "first-order"
+  },
+  "takenAt": "2026-10-18T05:02:18.715Z",
+  "image": "desk-tour.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "phone01-market": {
+  "file": "phone01-market.png",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "url": "/morning?panel=trade",
+  "clock": "09:03",
+  "boxes": {
+   "dock": {
+    "x": 0,
+    "y": 783,
+    "w": 390,
+    "h": 61
+   },
+   "tab": {
+    "x": 97.5,
+    "y": 784,
+    "w": 97.5,
+    "h": 60
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:20.410Z",
+  "image": "phone01-market.png",
+  "pixels": [
+   1170,
+   2532
+  ],
+  "edge": "#0d131b"
+ },
+ "phone01-watch": {
+  "file": "phone01-watch.png",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "url": "/morning?panel=trade",
+  "clock": "09:03",
+  "boxes": {
+   "dock": {
+    "x": 0,
+    "y": 783,
+    "w": 390,
+    "h": 61
+   },
+   "tab": {
+    "x": 0,
+    "y": 784,
+    "w": 97.5,
+    "h": 60
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:21.621Z",
+  "image": "phone01-watch.png",
+  "pixels": [
+   1170,
+   2532
+  ],
+  "edge": "#0d131b"
+ },
+ "phone01-trade": {
+  "file": "phone01-trade.png",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "url": "/morning?panel=trade",
+  "clock": "09:03",
+  "boxes": {
+   "dock": {
+    "x": 0,
+    "y": 783,
+    "w": 390,
+    "h": 61
+   },
+   "tab": {
+    "x": 195,
+    "y": 784,
+    "w": 97.5,
+    "h": 60
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:22.837Z",
+  "image": "phone01-trade.png",
+  "pixels": [
+   1170,
+   2532
+  ],
+  "edge": "#0f2d2a"
+ },
+ "phone01-positions": {
+  "file": "phone01-positions.png",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "url": "/morning?panel=trade",
+  "clock": "09:03",
+  "boxes": {
+   "dock": {
+    "x": 0,
+    "y": 783,
+    "w": 390,
+    "h": 61
+   },
+   "tab": {
+    "x": 292.5,
+    "y": 784,
+    "w": 97.5,
+    "h": 60
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:24.017Z",
+  "image": "phone01-positions.png",
+  "pixels": [
+   1170,
+   2532
+  ],
+  "edge": "#0a0f16"
+ },
+ "phone01-ticket": {
+  "file": "phone01-ticket.png",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "url": "/morning?panel=trade",
+  "clock": "09:03",
+  "boxes": {
+   "dock": {
+    "x": 0,
+    "y": 783,
+    "w": 390,
+    "h": 61
+   },
+   "ticket": {
+    "x": 0,
+    "y": 315.7,
+    "w": 390,
+    "h": 452.7
+   },
+   "submit": {
+    "x": 10,
+    "y": 638.5,
+    "w": 370,
+    "h": 44
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:25.522Z",
+  "image": "phone01-ticket.png",
+  "pixels": [
+   1170,
+   2532
+  ],
+  "edge": "#0d131b"
+ },
+ "phone01-senior": {
+  "file": "phone01-senior.png",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "url": "/morning?panel=trade",
+  "clock": "09:03",
+  "boxes": {
+   "size": {
+    "x": 246,
+    "y": 8,
+    "w": 132,
+    "h": 58
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:27.319Z",
+  "image": "phone01-senior.png",
+  "pixels": [
+   1170,
+   2532
+  ],
+  "edge": "#0d131b"
+ },
+ "switch-watch": {
+  "file": "switch-watch.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:03",
+  "boxes": {
+   "hon": {
+    "x": 0,
+    "y": 223,
+    "w": 255,
+    "h": 121
+   },
+   "heroName": {
+    "x": 270,
+    "y": 73,
+    "w": 444,
+    "h": 24
+   },
+   "stepper": {
+    "x": 268,
+    "y": 174.9,
+    "w": 182,
+    "h": 28
+   },
+   "select": {
+    "x": 300,
+    "y": 174.9,
+    "w": 118,
+    "h": 28
+   },
+   "tsmc": {
+    "x": 0,
+    "y": 102,
+    "w": 255,
+    "h": 121
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:27.857Z",
+  "image": "switch-watch.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "switch-stepper": {
+  "file": "switch-stepper.png",
+  "width": 684,
+  "height": 697,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:03",
+  "boxes": {
+   "prev": {
+    "x": 12,
+    "y": 106.9,
+    "w": 28,
+    "h": 28
+   },
+   "next": {
+    "x": 166,
+    "y": 106.9,
+    "w": 28,
+    "h": 28
+   },
+   "select": {
+    "x": 44,
+    "y": 106.9,
+    "w": 118,
+    "h": 28
+   },
+   "heroName": {
+    "x": 14,
+    "y": 5,
+    "w": 448,
+    "h": 24
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:28.487Z",
+  "image": "switch-stepper.png",
+  "pixels": [
+   1368,
+   1394
+  ],
+  "edge": "#0d131b"
+ },
+ "quote-hero": {
+  "file": "quote-hero.png",
+  "width": 696,
+  "height": 115,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:03",
+  "boxes": {
+   "name": {
+    "x": 20,
+    "y": 11,
+    "w": 448,
+    "h": 24
+   },
+   "stamp": {
+    "x": 20,
+    "y": 38,
+    "w": 448,
+    "h": 16.9
+   },
+   "price": {
+    "x": 20,
+    "y": 58.9,
+    "w": 103.8,
+    "h": 44
+   },
+   "change": {
+    "x": 135.8,
+    "y": 63.8,
+    "w": 50.4,
+    "h": 34.2
+   },
+   "book": {
+    "x": 486,
+    "y": 33,
+    "w": 190,
+    "h": 48
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:29.095Z",
+  "image": "quote-hero.png",
+  "pixels": [
+   1392,
+   230
+  ],
+  "edge": "#101b27"
+ },
+ "updown": {
+  "file": "updown.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:05",
+  "boxes": {
+   "up": {
+    "x": 0,
+    "y": 223,
+    "w": 255,
+    "h": 121
+   },
+   "down": {
+    "x": 0,
+    "y": 344,
+    "w": 255,
+    "h": 121
+   },
+   "heroChange": {
+    "x": 385.8,
+    "y": 125.8,
+    "w": 50.4,
+    "h": 34.2
+   },
+   "chart": {
+    "x": 256,
+    "y": 207.9,
+    "w": 684,
+    "h": 557.1
+   },
+   "watchFoot": {
+    "x": 0,
+    "y": 663.5,
+    "w": 255,
+    "h": 32.9
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:31.621Z",
+  "image": "updown.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "ohl": {
+  "file": "ohl.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:05",
+  "boxes": {
+   "quoteTab": {
+    "x": 1003.5,
+    "y": 68,
+    "w": 50.5,
+    "h": 34
+   },
+   "detail": {
+    "x": 941,
+    "y": 167.8,
+    "w": 339,
+    "h": 53.7
+   },
+   "range": {
+    "x": 941,
+    "y": 221.5,
+    "w": 339,
+    "h": 37.2
+   },
+   "stamp": {
+    "x": 941,
+    "y": 145.8,
+    "w": 339,
+    "h": 21.9
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:32.447Z",
+  "image": "ohl.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "kline": {
+  "file": "kline.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:07",
+  "boxes": {
+   "modeNav": {
+    "x": 462,
+    "y": 172.9,
+    "w": 109.8,
+    "h": 32
+   },
+   "modeChart": {
+    "x": 519,
+    "y": 175.9,
+    "w": 49.8,
+    "h": 26
+   },
+   "chart": {
+    "x": 256,
+    "y": 207.9,
+    "w": 684,
+    "h": 557.1
+   },
+   "alert": {
+    "x": 538.7,
+    "y": 44,
+    "w": 210,
+    "h": 18.9
+   },
+   "source": {
+    "x": 711.8,
+    "y": 178.9,
+    "w": 216.2,
+    "h": 20
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:35.076Z",
+  "image": "kline.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "kline-hover": {
+  "file": "kline-hover.png",
+  "width": 684,
+  "height": 558,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:07",
+  "boxes": {
+   "chart": {
+    "x": 0,
+    "y": 0.9,
+    "w": 684,
+    "h": 557.1
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:36.200Z",
+  "image": "kline-hover.png",
+  "pixels": [
+   1368,
+   1116
+  ],
+  "edge": "#0d131b"
+ },
+ "fenshi": {
+  "file": "fenshi.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:07",
+  "boxes": {
+   "modeQuote": {
+    "x": 465,
+    "y": 175.9,
+    "w": 54,
+    "h": 26
+   },
+   "chart": {
+    "x": 256,
+    "y": 207.9,
+    "w": 684,
+    "h": 557.1
+   },
+   "source": {
+    "x": 689,
+    "y": 178.9,
+    "w": 239,
+    "h": 20
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:37.336Z",
+  "image": "fenshi.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "book": {
+  "file": "book.png",
+  "width": 340,
+  "height": 732,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:07",
+  "boxes": {
+   "tag": {
+    "x": 11,
+    "y": 37,
+    "w": 82,
+    "h": 20
+   },
+   "asks": {
+    "x": 1,
+    "y": 80.9,
+    "w": 339,
+    "h": 115
+   },
+   "ask1": {
+    "x": 1,
+    "y": 172.9,
+    "w": 339,
+    "h": 23
+   },
+   "mid": {
+    "x": 1,
+    "y": 195.9,
+    "w": 339,
+    "h": 26.9
+   },
+   "bid1": {
+    "x": 1,
+    "y": 222.9,
+    "w": 339,
+    "h": 23
+   },
+   "bids": {
+    "x": 1,
+    "y": 222.9,
+    "w": 339,
+    "h": 115
+   },
+   "pressure": {
+    "x": 11,
+    "y": 341.9,
+    "w": 319,
+    "h": 16
+   },
+   "flash": {
+    "x": 1,
+    "y": 361.9,
+    "w": 339,
+    "h": 37
+   },
+   "lots": {
+    "x": 1,
+    "y": 398.9,
+    "w": 339,
+    "h": 30
+   },
+   "heroBook": {
+    "x": -204,
+    "y": 27,
+    "w": 190,
+    "h": 48
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:38.359Z",
+  "image": "book.png",
+  "pixels": [
+   680,
+   1464
+  ],
+  "edge": "#1a232e"
+ },
+ "book-hero": {
+  "file": "book-hero.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:07",
+  "boxes": {
+   "heroBook": {
+    "x": 736,
+    "y": 95,
+    "w": 190,
+    "h": 48
+   },
+   "ask1": {
+    "x": 941,
+    "y": 240.9,
+    "w": 339,
+    "h": 23
+   },
+   "bid1": {
+    "x": 941,
+    "y": 290.9,
+    "w": 339,
+    "h": 23
+   },
+   "tag": {
+    "x": 951,
+    "y": 105,
+    "w": 82,
+    "h": 20
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:38.849Z",
+  "image": "book-hero.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "minutes": {
+  "file": "minutes.png",
+  "width": 339,
+  "height": 240,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:07",
+  "boxes": {
+   "tab": {
+    "x": 113.1,
+    "y": 0,
+    "w": 77,
+    "h": 34
+   },
+   "table": {
+    "x": 0,
+    "y": 34,
+    "w": 339,
+    "h": 205
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:39.748Z",
+  "image": "minutes.png",
+  "pixels": [
+   678,
+   480
+  ],
+  "edge": "#0d131b"
+ },
+ "resources": {
+  "file": "resources.png",
+  "width": 440,
+  "height": 760,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:07",
+  "boxes": {
+   "title": {
+    "x": 13,
+    "y": 6.8,
+    "w": 71.3,
+    "h": 20.3
+   },
+   "sources": {
+    "x": 1,
+    "y": 153.5,
+    "w": 439,
+    "h": 38.8
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:40.799Z",
+  "image": "resources.png",
+  "pixels": [
+   880,
+   1520
+  ],
+  "edge": "#2a3846"
+ },
+ "review-r1": {
+  "file": "review-r1.png",
+  "width": 1256,
+  "height": 589,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:10",
+  "boxes": {
+   "summary": {
+    "x": 17,
+    "y": 95.8,
+    "w": 1222,
+    "h": 50
+   },
+   "questions": {
+    "x": 17,
+    "y": 161.8,
+    "w": 1222,
+    "h": 134
+   },
+   "text": {
+    "x": 17,
+    "y": 347.8,
+    "w": 1222,
+    "h": 156
+   },
+   "save": {
+    "x": 17,
+    "y": 519.8,
+    "w": 192,
+    "h": 52
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:44.462Z",
+  "image": "review-r1.png",
+  "pixels": [
+   2512,
+   1178
+  ],
+  "edge": "#1a232e"
+ },
+ "complete-r1": {
+  "file": "complete-r1.png",
+  "width": 1256,
+  "height": 1034,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1700
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:10",
+  "boxes": {
+   "badges": {
+    "x": 25,
+    "y": 107.8,
+    "w": 1206,
+    "h": 112
+   },
+   "points": {
+    "x": 40,
+    "y": 411.3,
+    "w": 690,
+    "h": 29
+   },
+   "restart": {
+    "x": 25,
+    "y": 956.3,
+    "w": 206,
+    "h": 52
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:46.248Z",
+  "image": "complete-r1.png",
+  "pixels": [
+   2512,
+   2068
+  ],
+  "edge": "#1b3650"
+ },
+ "plan-pullback": {
+  "file": "plan-pullback.png",
+  "width": 1000,
+  "height": 1341,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1500
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:00",
+  "boxes": {
+   "pullback": {
+    "x": 21,
+    "y": 177.3,
+    "w": 958,
+    "h": 64.8
+   },
+   "focus": {
+    "x": 21,
+    "y": 541.5,
+    "w": 958,
+    "h": 52
+   },
+   "bias": {
+    "x": 34,
+    "y": 699.5,
+    "w": 20,
+    "h": 20
+   },
+   "reason": {
+    "x": 21,
+    "y": 845,
+    "w": 958,
+    "h": 78
+   },
+   "entry": {
+    "x": 21,
+    "y": 986.5,
+    "w": 958,
+    "h": 78
+   },
+   "stop": {
+    "x": 21,
+    "y": 1128,
+    "w": 958,
+    "h": 78
+   },
+   "start": {
+    "x": 21,
+    "y": 399.5,
+    "w": 958,
+    "h": 50
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:02:47.929Z",
+  "image": "plan-pullback.png",
+  "pixels": [
+   2000,
+   2682
+  ],
+  "edge": "#05090e"
+ },
+ "wait-0916": {
+  "file": "wait-0916.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:16",
+  "boxes": {
+   "heroPrice": {
+    "x": 270,
+    "y": 120.9,
+    "w": 448,
+    "h": 44
+   },
+   "chart": {
+    "x": 256,
+    "y": 207.9,
+    "w": 684,
+    "h": 557.1
+   },
+   "planNote": {
+    "x": 0,
+    "y": 696.4,
+    "w": 255,
+    "h": 103.6
+   },
+   "tip": {
+    "x": 12,
+    "y": 44,
+    "w": 402,
+    "h": 18.9
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:11.497Z",
+  "image": "wait-0916.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "signal-0920": {
+  "file": "signal-0920.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:20",
+  "boxes": {
+   "alert": {
+    "x": 538.7,
+    "y": 44,
+    "w": 210,
+    "h": 18.9
+   },
+   "chart": {
+    "x": 256,
+    "y": 207.9,
+    "w": 684,
+    "h": 557.1
+   },
+   "heroPrice": {
+    "x": 270,
+    "y": 120.9,
+    "w": 448,
+    "h": 44
+   },
+   "planNote": {
+    "x": 0,
+    "y": 696.4,
+    "w": 255,
+    "h": 103.6
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:16.903Z",
+  "image": "signal-0920.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "ticket-market": {
+  "file": "ticket-market.png",
+  "width": 339,
+  "height": 375,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:20",
+  "boxes": {
+   "side": {
+    "x": 10,
+    "y": 42.8,
+    "w": 319,
+    "h": 32
+   },
+   "type": {
+    "x": 10,
+    "y": 80.8,
+    "w": 106,
+    "h": 32
+   },
+   "typeHint": {
+    "x": 221,
+    "y": 88.1,
+    "w": 108,
+    "h": 17.4
+   },
+   "qty": {
+    "x": 10,
+    "y": 142.2,
+    "w": 319,
+    "h": 34
+   },
+   "amount": {
+    "x": 21,
+    "y": 191.2,
+    "w": 297,
+    "h": 21
+   },
+   "cost": {
+    "x": 21,
+    "y": 216.2,
+    "w": 297,
+    "h": 19.2
+   },
+   "cash": {
+    "x": 21,
+    "y": 239.4,
+    "w": 297,
+    "h": 19.2
+   },
+   "submit": {
+    "x": 10,
+    "y": 273.6,
+    "w": 319,
+    "h": 40
+   },
+   "help": {
+    "x": 10,
+    "y": 319.6,
+    "w": 319,
+    "h": 25.4
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:17.518Z",
+  "image": "ticket-market.png",
+  "pixels": [
+   678,
+   750
+  ],
+  "edge": "#0d131b"
+ },
+ "ticket-limit": {
+  "file": "ticket-limit.png",
+  "width": 339,
+  "height": 434,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:20",
+  "boxes": {
+   "type": {
+    "x": 10,
+    "y": 80.8,
+    "w": 106,
+    "h": 32
+   },
+   "field": {
+    "x": 10,
+    "y": 118.8,
+    "w": 319,
+    "h": 53.4
+   },
+   "down": {
+    "x": 11,
+    "y": 141.2,
+    "w": 38,
+    "h": 30
+   },
+   "up": {
+    "x": 290,
+    "y": 141.2,
+    "w": 38,
+    "h": 30
+   },
+   "typeHint": {
+    "x": 233,
+    "y": 88.1,
+    "w": 96,
+    "h": 17.4
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:18.469Z",
+  "image": "ticket-limit.png",
+  "pixels": [
+   678,
+   868
+  ],
+  "edge": "#0d131b"
+ },
+ "ticket-help": {
+  "file": "ticket-help.png",
+  "width": 327,
+  "height": 164,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:20",
+  "boxes": {
+   "help": {
+    "x": 4,
+    "y": 4.6,
+    "w": 319,
+    "h": 159.1
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:19.451Z",
+  "image": "ticket-help.png",
+  "pixels": [
+   654,
+   328
+  ],
+  "edge": "#0d131b"
+ },
+ "confirm-buy": {
+  "file": "confirm-buy.png",
+  "width": 339,
+  "height": 461,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:20",
+  "boxes": {
+   "title": {
+    "x": 21,
+    "y": 53.8,
+    "w": 297,
+    "h": 20.3
+   },
+   "symbol": {
+    "x": 21,
+    "y": 82.1,
+    "w": 297,
+    "h": 17.4
+   },
+   "main": {
+    "x": 21,
+    "y": 107.5,
+    "w": 297,
+    "h": 30
+   },
+   "facts": {
+    "x": 21,
+    "y": 145.5,
+    "w": 297,
+    "h": 108.6
+   },
+   "help": {
+    "x": 21,
+    "y": 262.1,
+    "w": 297,
+    "h": 34.8
+   },
+   "send": {
+    "x": 21,
+    "y": 304.8,
+    "w": 297,
+    "h": 40
+   },
+   "back": {
+    "x": 21,
+    "y": 352.8,
+    "w": 297,
+    "h": 36
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:20.170Z",
+  "image": "confirm-buy.png",
+  "pixels": [
+   678,
+   922
+  ],
+  "edge": "#0d131b"
+ },
+ "pending-buy": {
+  "file": "pending-buy.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:20",
+  "boxes": {
+   "pending": {
+    "x": 951,
+    "y": 564.8,
+    "w": 319,
+    "h": 131.1
+   },
+   "advance": {
+    "x": 962,
+    "y": 648.9,
+    "w": 145.5,
+    "h": 36
+   },
+   "cancel": {
+    "x": 1113.5,
+    "y": 648.9,
+    "w": 145.5,
+    "h": 36
+   },
+   "feedback": {
+    "x": 430,
+    "y": 44.8,
+    "w": 396,
+    "h": 17.4
+   },
+   "ledgerTabs": {
+    "x": 268,
+    "y": 766,
+    "w": 293.1,
+    "h": 34
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:20.753Z",
+  "image": "pending-buy.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "orders-pending": {
+  "file": "orders-pending.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:20",
+  "boxes": {
+   "tabs": {
+    "x": 268,
+    "y": 611,
+    "w": 293.1,
+    "h": 34
+   },
+   "content": {
+    "x": 256,
+    "y": 645,
+    "w": 684,
+    "h": 155
+   },
+   "status": {
+    "x": 809,
+    "y": 687.3,
+    "w": 45,
+    "h": 17.4
+   },
+   "pending": {
+    "x": 951,
+    "y": 564.8,
+    "w": 319,
+    "h": 131.1
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:21.807Z",
+  "image": "orders-pending.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "filled-buy": {
+  "file": "filled-buy.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:21",
+  "boxes": {
+   "alert": {
+    "x": 766.7,
+    "y": 44,
+    "w": 308.1,
+    "h": 18.9
+   },
+   "feedback": {
+    "x": 430,
+    "y": 44.8,
+    "w": 320.7,
+    "h": 17.4
+   },
+   "status": {
+    "x": 883,
+    "y": 687.8,
+    "w": 45,
+    "h": 17.4
+   },
+   "content": {
+    "x": 256,
+    "y": 645,
+    "w": 684,
+    "h": 155
+   },
+   "account": {
+    "x": 534,
+    "y": 12,
+    "w": 236,
+    "h": 15.9
+   },
+   "chart": {
+    "x": 256,
+    "y": 207.9,
+    "w": 684,
+    "h": 402.1
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:23.047Z",
+  "image": "filled-buy.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "fills-buy": {
+  "file": "fills-buy.png",
+  "width": 684,
+  "height": 190,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:21",
+  "boxes": {
+   "tabs": {
+    "x": 12,
+    "y": 1,
+    "w": 223.6,
+    "h": 34
+   },
+   "content": {
+    "x": 0,
+    "y": 35,
+    "w": 684,
+    "h": 155
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:24.172Z",
+  "image": "fills-buy.png",
+  "pixels": [
+   1368,
+   380
+  ],
+  "edge": "#0d131b"
+ },
+ "positions-1": {
+  "file": "positions-1.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:21",
+  "boxes": {
+   "tabs": {
+    "x": 268,
+    "y": 611,
+    "w": 223.6,
+    "h": 34
+   },
+   "content": {
+    "x": 256,
+    "y": 645,
+    "w": 684,
+    "h": 155
+   },
+   "account": {
+    "x": 534,
+    "y": 12,
+    "w": 236,
+    "h": 15.9
+   },
+   "meta": {
+    "x": 582.3,
+    "y": 619.5,
+    "w": 271.2,
+    "h": 16.9
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:25.201Z",
+  "image": "positions-1.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "phone-market": {
+  "file": "phone-market.png",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "url": "/morning?panel=trade",
+  "clock": "09:21",
+  "boxes": {
+   "dock": {
+    "x": 0,
+    "y": 783,
+    "w": 390,
+    "h": 61
+   },
+   "tab": {
+    "x": 97.5,
+    "y": 784,
+    "w": 97.5,
+    "h": 60
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:26.872Z",
+  "image": "phone-market.png",
+  "pixels": [
+   1170,
+   2532
+  ],
+  "edge": "#1a232e"
+ },
+ "phone-watch": {
+  "file": "phone-watch.png",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "url": "/morning?panel=trade",
+  "clock": "09:21",
+  "boxes": {
+   "dock": {
+    "x": 0,
+    "y": 783,
+    "w": 390,
+    "h": 61
+   },
+   "tab": {
+    "x": 0,
+    "y": 784,
+    "w": 97.5,
+    "h": 60
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:28.035Z",
+  "image": "phone-watch.png",
+  "pixels": [
+   1170,
+   2532
+  ],
+  "edge": "#0d131b"
+ },
+ "phone-trade": {
+  "file": "phone-trade.png",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "url": "/morning?panel=trade",
+  "clock": "09:21",
+  "boxes": {
+   "dock": {
+    "x": 0,
+    "y": 783,
+    "w": 390,
+    "h": 61
+   },
+   "tab": {
+    "x": 195,
+    "y": 784,
+    "w": 97.5,
+    "h": 60
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:29.215Z",
+  "image": "phone-trade.png",
+  "pixels": [
+   1170,
+   2532
+  ],
+  "edge": "#0d131b"
+ },
+ "phone-positions": {
+  "file": "phone-positions.png",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "url": "/morning?panel=trade",
+  "clock": "09:21",
+  "boxes": {
+   "dock": {
+    "x": 0,
+    "y": 783,
+    "w": 390,
+    "h": 61
+   },
+   "tab": {
+    "x": 292.5,
+    "y": 784,
+    "w": 97.5,
+    "h": 60
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:30.413Z",
+  "image": "phone-positions.png",
+  "pixels": [
+   1170,
+   2532
+  ],
+  "edge": "#0a0f16"
+ },
+ "phone-ticket": {
+  "file": "phone-ticket.png",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "url": "/morning?panel=trade",
+  "clock": "09:21",
+  "boxes": {
+   "dock": {
+    "x": 0,
+    "y": 783,
+    "w": 390,
+    "h": 61
+   },
+   "ticket": {
+    "x": 0,
+    "y": 315.7,
+    "w": 390,
+    "h": 452.7
+   },
+   "submit": {
+    "x": 10,
+    "y": 638.4,
+    "w": 370,
+    "h": 44
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:31.898Z",
+  "image": "phone-ticket.png",
+  "pixels": [
+   1170,
+   2532
+  ],
+  "edge": "#0d131b"
+ },
+ "sell-limit-form": {
+  "file": "sell-limit-form.png",
+  "width": 339,
+  "height": 434,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:21",
+  "boxes": {
+   "side": {
+    "x": 10,
+    "y": 42.8,
+    "w": 319,
+    "h": 32
+   },
+   "type": {
+    "x": 10,
+    "y": 80.8,
+    "w": 106,
+    "h": 32
+   },
+   "field": {
+    "x": 10,
+    "y": 118.8,
+    "w": 319,
+    "h": 53.4
+   },
+   "qty": {
+    "x": 10,
+    "y": 201.6,
+    "w": 319,
+    "h": 34
+   },
+   "holding": {
+    "x": 21,
+    "y": 298.8,
+    "w": 297,
+    "h": 19.2
+   },
+   "submit": {
+    "x": 10,
+    "y": 333,
+    "w": 319,
+    "h": 40
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:33.136Z",
+  "image": "sell-limit-form.png",
+  "pixels": [
+   678,
+   868
+  ],
+  "edge": "#0d131b"
+ },
+ "confirm-sell-limit": {
+  "file": "confirm-sell-limit.png",
+  "width": 339,
+  "height": 461,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:21",
+  "boxes": {
+   "main": {
+    "x": 21,
+    "y": 107.5,
+    "w": 297,
+    "h": 30
+   },
+   "facts": {
+    "x": 21,
+    "y": 145.5,
+    "w": 297,
+    "h": 108.6
+   },
+   "help": {
+    "x": 21,
+    "y": 262.1,
+    "w": 297,
+    "h": 34.8
+   },
+   "send": {
+    "x": 21,
+    "y": 304.8,
+    "w": 297,
+    "h": 40
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:33.786Z",
+  "image": "confirm-sell-limit.png",
+  "pixels": [
+   678,
+   922
+  ],
+  "edge": "#0d131b"
+ },
+ "pending-sell-limit": {
+  "file": "pending-sell-limit.png",
+  "width": 339,
+  "height": 252,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:21",
+  "boxes": {
+   "pending": {
+    "x": 10,
+    "y": 42.8,
+    "w": 319,
+    "h": 148.5
+   },
+   "cancel": {
+    "x": 172.5,
+    "y": 144.3,
+    "w": 145.5,
+    "h": 36
+   },
+   "help": {
+    "x": 21,
+    "y": 103.5,
+    "w": 297,
+    "h": 34.8
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:34.450Z",
+  "image": "pending-sell-limit.png",
+  "pixels": [
+   678,
+   504
+  ],
+  "edge": "#0d131b"
+ },
+ "cancelled": {
+  "file": "cancelled.png",
+  "width": 684,
+  "height": 190,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:21",
+  "boxes": {
+   "content": {
+    "x": 0,
+    "y": 35,
+    "w": 684,
+    "h": 155
+   },
+   "cancelled": {
+    "x": 627,
+    "y": 69.9,
+    "w": 45,
+    "h": 17.4
+   },
+   "reason": {
+    "x": 548.9,
+    "y": 88.7,
+    "w": 123.1,
+    "h": 15.9
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:35.894Z",
+  "image": "cancelled.png",
+  "pixels": [
+   1368,
+   380
+  ],
+  "edge": "#0d131b"
+ },
+ "stop-0937": {
+  "file": "stop-0937.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:37",
+  "boxes": {
+   "alert": {
+    "x": 538.7,
+    "y": 44,
+    "w": 210,
+    "h": 18.9
+   },
+   "chart": {
+    "x": 256,
+    "y": 207.9,
+    "w": 684,
+    "h": 402.1
+   },
+   "heroPrice": {
+    "x": 270,
+    "y": 120.9,
+    "w": 448,
+    "h": 44
+   },
+   "positions": {
+    "x": 268,
+    "y": 611,
+    "w": 223.6,
+    "h": 34
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:58.343Z",
+  "image": "stop-0937.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "confirm-sell": {
+  "file": "confirm-sell.png",
+  "width": 339,
+  "height": 461,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:37",
+  "boxes": {
+   "main": {
+    "x": 21,
+    "y": 107.5,
+    "w": 297,
+    "h": 30
+   },
+   "facts": {
+    "x": 21,
+    "y": 145.5,
+    "w": 297,
+    "h": 108.6
+   },
+   "send": {
+    "x": 21,
+    "y": 304.8,
+    "w": 297,
+    "h": 40
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:03:59.029Z",
+  "image": "confirm-sell.png",
+  "pixels": [
+   678,
+   922
+  ],
+  "edge": "#0d131b"
+ },
+ "sold": {
+  "file": "sold.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "09:38",
+  "boxes": {
+   "content": {
+    "x": 256,
+    "y": 645,
+    "w": 684,
+    "h": 155
+   },
+   "account": {
+    "x": 534,
+    "y": 12,
+    "w": 244.4,
+    "h": 15.9
+   },
+   "alert": {
+    "x": 766.7,
+    "y": 44,
+    "w": 308.1,
+    "h": 18.9
+   },
+   "tabs": {
+    "x": 268,
+    "y": 611,
+    "w": 223.6,
+    "h": 34
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:04:00.838Z",
+  "image": "sold.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "checkpoint-1000": {
+  "file": "checkpoint-1000.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "10:00",
+  "boxes": {
+   "banner": {
+    "x": 12,
+    "y": 65.9,
+    "w": 1256,
+    "h": 48
+   },
+   "write": {
+    "x": 1035.7,
+    "y": 73.9,
+    "w": 90,
+    "h": 32
+   },
+   "extend": {
+    "x": 1133.7,
+    "y": 73.9,
+    "w": 124.3,
+    "h": 32
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:04:31.991Z",
+  "image": "checkpoint-1000.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "review-r2": {
+  "file": "review-r2.png",
+  "width": 1256,
+  "height": 589,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "10:00",
+  "boxes": {
+   "summary": {
+    "x": 17,
+    "y": 95.8,
+    "w": 1222,
+    "h": 50
+   },
+   "questions": {
+    "x": 17,
+    "y": 161.8,
+    "w": 1222,
+    "h": 134
+   },
+   "text": {
+    "x": 17,
+    "y": 347.8,
+    "w": 1222,
+    "h": 156
+   },
+   "save": {
+    "x": 17,
+    "y": 519.8,
+    "w": 192,
+    "h": 52
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:04:32.748Z",
+  "image": "review-r2.png",
+  "pixels": [
+   2512,
+   1178
+  ],
+  "edge": "#1a232e"
+ },
+ "complete-r2": {
+  "file": "complete-r2.png",
+  "width": 1256,
+  "height": 733,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1700
+  },
+  "url": "/morning?exercise=first-order&panel=trade",
+  "clock": "10:00",
+  "boxes": {
+   "badges": {
+    "x": 25,
+    "y": 107.8,
+    "w": 1206,
+    "h": 112
+   },
+   "points": {
+    "x": 39,
+    "y": 1006.8,
+    "w": 1,
+    "h": 1
+   },
+   "restart": {
+    "x": 25,
+    "y": 655.9,
+    "w": 206,
+    "h": 52
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:04:34.432Z",
+  "image": "complete-r2.png",
+  "pixels": [
+   2512,
+   1466
+  ],
+  "edge": "#1b3650"
+ },
+ "plan-risk": {
+  "file": "plan-risk.png",
+  "width": 1000,
+  "height": 1341,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1500
+  },
+  "url": "/morning?exercise=position&panel=trade",
+  "clock": "09:00",
+  "boxes": {
+   "custom": {
+    "x": 21,
+    "y": 322.8,
+    "w": 958,
+    "h": 64.8
+   },
+   "focus": {
+    "x": 21,
+    "y": 479.5,
+    "w": 958,
+    "h": 52
+   },
+   "entry": {
+    "x": 21,
+    "y": 924.5,
+    "w": 958,
+    "h": 78
+   },
+   "stop": {
+    "x": 21,
+    "y": 1066,
+    "w": 958,
+    "h": 78
+   },
+   "start": {
+    "x": 21,
+    "y": 1156,
+    "w": 958,
+    "h": 50
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:04:36.452Z",
+  "image": "plan-risk.png",
+  "pixels": [
+   2000,
+   2682
+  ],
+  "edge": "#05090e"
+ },
+ "ticket-2lots": {
+  "file": "ticket-2lots.png",
+  "width": 339,
+  "height": 375,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=position&panel=trade",
+  "clock": "09:04",
+  "boxes": {
+   "qty": {
+    "x": 10,
+    "y": 142.2,
+    "w": 319,
+    "h": 34
+   },
+   "amount": {
+    "x": 21,
+    "y": 191.2,
+    "w": 297,
+    "h": 21
+   },
+   "cost": {
+    "x": 21,
+    "y": 216.2,
+    "w": 297,
+    "h": 19.2
+   },
+   "cash": {
+    "x": 21,
+    "y": 239.4,
+    "w": 297,
+    "h": 19.2
+   },
+   "submit": {
+    "x": 10,
+    "y": 273.6,
+    "w": 319,
+    "h": 40
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:04:42.802Z",
+  "image": "ticket-2lots.png",
+  "pixels": [
+   678,
+   750
+  ],
+  "edge": "#0d131b"
+ },
+ "positions-2": {
+  "file": "positions-2.png",
+  "width": 684,
+  "height": 190,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=position&panel=trade",
+  "clock": "09:05",
+  "boxes": {
+   "content": {
+    "x": 0,
+    "y": 35,
+    "w": 684,
+    "h": 155
+   },
+   "tabs": {
+    "x": 12,
+    "y": 1,
+    "w": 223.6,
+    "h": 34
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:04:44.082Z",
+  "image": "positions-2.png",
+  "pixels": [
+   1368,
+   380
+  ],
+  "edge": "#0d131b"
+ },
+ "confirm-sell-2": {
+  "file": "confirm-sell-2.png",
+  "width": 339,
+  "height": 461,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=position&panel=trade",
+  "clock": "09:11",
+  "boxes": {
+   "main": {
+    "x": 21,
+    "y": 107.5,
+    "w": 297,
+    "h": 30
+   },
+   "facts": {
+    "x": 21,
+    "y": 145.5,
+    "w": 297,
+    "h": 108.6
+   },
+   "send": {
+    "x": 21,
+    "y": 304.8,
+    "w": 297,
+    "h": 40
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:04:52.158Z",
+  "image": "confirm-sell-2.png",
+  "pixels": [
+   678,
+   922
+  ],
+  "edge": "#0d131b"
+ },
+ "fills-r3": {
+  "file": "fills-r3.png",
+  "width": 684,
+  "height": 190,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=position&panel=trade",
+  "clock": "09:12",
+  "boxes": {
+   "content": {
+    "x": 0,
+    "y": 35,
+    "w": 684,
+    "h": 155
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:04:53.516Z",
+  "image": "fills-r3.png",
+  "pixels": [
+   1368,
+   380
+  ],
+  "edge": "#0d131b"
+ },
+ "saved-plan": {
+  "file": "saved-plan.png",
+  "width": 440,
+  "height": 760,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=exit&panel=trade",
+  "clock": "09:12",
+  "boxes": {
+   "saved": {
+    "x": 13,
+    "y": 112.7,
+    "w": 415,
+    "h": 438.5
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:05:11.575Z",
+  "image": "saved-plan.png",
+  "pixels": [
+   880,
+   1520
+  ],
+  "edge": "#2a3846"
+ },
+ "exit-watch": {
+  "file": "exit-watch.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=exit&panel=trade",
+  "clock": "09:12",
+  "boxes": {
+   "heroPrice": {
+    "x": 270,
+    "y": 120.9,
+    "w": 448,
+    "h": 44
+   },
+   "chart": {
+    "x": 256,
+    "y": 207.9,
+    "w": 684,
+    "h": 402.1
+   },
+   "tip": {
+    "x": 12,
+    "y": 44,
+    "w": 414,
+    "h": 18.9
+   },
+   "planNote": {
+    "x": 0,
+    "y": 679,
+    "w": 255,
+    "h": 121
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:05:12.144Z",
+  "image": "exit-watch.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "n-swing": {
+  "file": "n-swing.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=n-breakout&panel=trade",
+  "clock": "09:14",
+  "boxes": {
+   "alert": {
+    "x": 563.8,
+    "y": 44,
+    "w": 201.4,
+    "h": 18.9
+   },
+   "chart": {
+    "x": 256,
+    "y": 207.9,
+    "w": 684,
+    "h": 402.1
+   },
+   "heroName": {
+    "x": 270,
+    "y": 73,
+    "w": 444,
+    "h": 24
+   },
+   "modeChart": {
+    "x": 519,
+    "y": 175.9,
+    "w": 49.8,
+    "h": 26
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:06:40.211Z",
+  "image": "n-swing.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "n-pullback": {
+  "file": "n-pullback.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=n-breakout&panel=trade",
+  "clock": "09:30",
+  "boxes": {
+   "chart": {
+    "x": 256,
+    "y": 207.9,
+    "w": 684,
+    "h": 402.1
+   },
+   "heroPrice": {
+    "x": 270,
+    "y": 120.9,
+    "w": 444,
+    "h": 44
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:07:02.492Z",
+  "image": "n-pullback.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "end-1030": {
+  "file": "end-1030.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=patience&panel=trade",
+  "clock": "10:30",
+  "boxes": {
+   "banner": {
+    "x": 12,
+    "y": 65.9,
+    "w": 1256,
+    "h": 33.4
+   },
+   "clock": {
+    "x": 412,
+    "y": 11,
+    "w": 100,
+    "h": 17.9
+   },
+   "review": {
+    "x": 1023,
+    "y": 6,
+    "w": 62,
+    "h": 28
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:09:52.851Z",
+  "image": "end-1030.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "complete-wait": {
+  "file": "complete-wait.png",
+  "width": 1256,
+  "height": 707,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1700
+  },
+  "url": "/morning?exercise=patience&panel=trade",
+  "clock": "10:30",
+  "boxes": {
+   "badges": {
+    "x": 25,
+    "y": 107.8,
+    "w": 1206,
+    "h": 112
+   },
+   "points": {
+    "x": 39,
+    "y": 980.8,
+    "w": 1,
+    "h": 1
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:09:54.560Z",
+  "image": "complete-wait.png",
+  "pixels": [
+   2512,
+   1414
+  ],
+  "edge": "#1b3650"
+ },
+ "review-plan": {
+  "file": "review-plan.png",
+  "width": 440,
+  "height": 760,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=review&panel=trade",
+  "clock": "10:00",
+  "boxes": {
+   "saved": {
+    "x": 13,
+    "y": 112.7,
+    "w": 415,
+    "h": 412.5
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:11:30.003Z",
+  "image": "review-plan.png",
+  "pixels": [
+   880,
+   1520
+  ],
+  "edge": "#2a3846"
+ },
+ "review-orders": {
+  "file": "review-orders.png",
+  "width": 684,
+  "height": 190,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=review&panel=trade",
+  "clock": "10:00",
+  "boxes": {
+   "content": {
+    "x": 0,
+    "y": 35,
+    "w": 684,
+    "h": 155
+   },
+   "tabs": {
+    "x": 12,
+    "y": 1,
+    "w": 223.6,
+    "h": 34
+   },
+   "meta": {
+    "x": 326.3,
+    "y": 9.5,
+    "w": 271.2,
+    "h": 16.9
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:11:31.162Z",
+  "image": "review-orders.png",
+  "pixels": [
+   1368,
+   380
+  ],
+  "edge": "#0d131b"
+ },
+ "review-fills": {
+  "file": "review-fills.png",
+  "width": 684,
+  "height": 190,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=review&panel=trade",
+  "clock": "10:00",
+  "boxes": {
+   "content": {
+    "x": 0,
+    "y": 35,
+    "w": 684,
+    "h": 155
+   },
+   "tabs": {
+    "x": 12,
+    "y": 1,
+    "w": 223.6,
+    "h": 34
+   },
+   "meta": {
+    "x": 326.3,
+    "y": 9.5,
+    "w": 271.2,
+    "h": 16.9
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:11:32.307Z",
+  "image": "review-fills.png",
+  "pixels": [
+   1368,
+   380
+  ],
+  "edge": "#0d131b"
+ },
+ "review-positions": {
+  "file": "review-positions.png",
+  "width": 684,
+  "height": 190,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=review&panel=trade",
+  "clock": "10:00",
+  "boxes": {
+   "content": {
+    "x": 0,
+    "y": 35,
+    "w": 684,
+    "h": 155
+   },
+   "tabs": {
+    "x": 12,
+    "y": 1,
+    "w": 223.6,
+    "h": 34
+   },
+   "meta": {
+    "x": 326.3,
+    "y": 9.5,
+    "w": 271.2,
+    "h": 16.9
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:11:33.446Z",
+  "image": "review-positions.png",
+  "pixels": [
+   1368,
+   380
+  ],
+  "edge": "#0d131b"
+ },
+ "review-r7": {
+  "file": "review-r7.png",
+  "width": 1256,
+  "height": 589,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=review&panel=trade",
+  "clock": "10:00",
+  "boxes": {
+   "summary": {
+    "x": 17,
+    "y": 95.8,
+    "w": 1222,
+    "h": 50
+   },
+   "questions": {
+    "x": 17,
+    "y": 161.8,
+    "w": 1222,
+    "h": 134
+   },
+   "text": {
+    "x": 17,
+    "y": 347.8,
+    "w": 1222,
+    "h": 156
+   },
+   "save": {
+    "x": 17,
+    "y": 519.8,
+    "w": 192,
+    "h": 52
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:11:34.164Z",
+  "image": "review-r7.png",
+  "pixels": [
+   2512,
+   1178
+  ],
+  "edge": "#1a232e"
+ },
+ "complete-r7": {
+  "file": "complete-r7.png",
+  "width": 1256,
+  "height": 733,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1700
+  },
+  "url": "/morning?exercise=review&panel=trade",
+  "clock": "10:00",
+  "boxes": {
+   "badges": {
+    "x": 25,
+    "y": 107.8,
+    "w": 1206,
+    "h": 112
+   },
+   "points": {
+    "x": 39,
+    "y": 1006.8,
+    "w": 1,
+    "h": 1
+   },
+   "reflection": {
+    "x": 25,
+    "y": 583.9,
+    "w": 1206,
+    "h": 52
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:11:35.842Z",
+  "image": "complete-r7.png",
+  "pixels": [
+   2512,
+   1466
+  ],
+  "edge": "#1b3650"
+ },
+ "final-day": {
+  "file": "final-day.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/morning?exercise=review&panel=trade&lesson=morning-20261005-v1-bd566804b809",
+  "clock": "09:00",
+  "boxes": {
+   "lesson": {
+    "x": 122,
+    "y": 6,
+    "w": 174,
+    "h": 28
+   },
+   "subject": {
+    "x": 306,
+    "y": 11.3,
+    "w": 84,
+    "h": 17.4
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:11:38.464Z",
+  "image": "final-day.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#0d131b"
+ },
+ "complete-final": {
+  "file": "complete-final.png",
+  "width": 1256,
+  "height": 707,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 1700
+  },
+  "url": "/morning?exercise=review&panel=trade&lesson=morning-20261005-v1-bd566804b809",
+  "clock": "10:00",
+  "boxes": {
+   "badges": {
+    "x": 25,
+    "y": 107.8,
+    "w": 1206,
+    "h": 112
+   },
+   "points": {
+    "x": 39,
+    "y": 980.8,
+    "w": 1,
+    "h": 1
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:13:05.351Z",
+  "image": "complete-final.png",
+  "pixels": [
+   2512,
+   1414
+  ],
+  "edge": "#1b3650"
+ },
+ "lobby-done": {
+  "file": "lobby-done.png",
+  "width": 1280,
+  "height": 800,
+  "dpr": 2,
+  "viewport": {
+   "width": 1280,
+   "height": 800
+  },
+  "url": "/",
+  "clock": null,
+  "boxes": {
+   "today": {
+    "x": 68,
+    "y": 261.5,
+    "w": 1144,
+    "h": 296
+   },
+   "again": {
+    "x": 89,
+    "y": 430.5,
+    "w": 126,
+    "h": 48
+   }
+  },
+  "meta": {},
+  "takenAt": "2026-10-18T05:13:07.704Z",
+  "image": "lobby-done.png",
+  "pixels": [
+   2560,
+   1600
+  ],
+  "edge": "#f1f4f9"
+ }
+}

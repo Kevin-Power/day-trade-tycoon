@@ -1,0 +1,877 @@
+{
+  "version": "2026.10-r2.1",
+  "generatedAt": "2026-10-18T04:49:36.226Z",
+  "sourceTree": {
+    "root": "courseware/academy",
+    "files": 135,
+    "treeSha256": "97340011FAE5A064A61F3D3EFB1A7BFC4202565D7805F5EC7075722851F81196"
+  },
+  "appRepository": {
+    "worktree": "academy",
+    "commit": "e069fe213c3db23938c49ac81c1ba36e00cdb55c",
+    "files": [
+      {
+        "path": "src/lib/morning-quote.ts",
+        "sha256": "CA9FACBB8063981A2FD94DEB347506AF327DF10565AC175E52B160D441E3E12F"
+      },
+      {
+        "path": "src/lib/morning-book.ts",
+        "sha256": "69C11C2BD2688D3AEFBC3E0631F8AFCD497FBE3F9334E08006E8A4FD34DF1091"
+      },
+      {
+        "path": "src/lib/morning-alerts.ts",
+        "sha256": "ACBEEACA805909538FA514AA56F5801379BB6F4732BEC903957D65BCB0E8F056"
+      },
+      {
+        "path": "src/lib/market/ticks.ts",
+        "sha256": "7F259B3537808C7E15CFE8C66AC753C65CD729E057BF9F725220CB4E1F2C237C"
+      },
+      {
+        "path": "server/data/morning-2026-10-05.json",
+        "sha256": "8B2F03A01C6212E2FBF9849863C3DF19967B0C17B41064874BA85C84F924251C"
+      },
+      {
+        "path": "server/data/morning-2026-10-06.json",
+        "sha256": "71B5294B2F484708E7506506688195EEB0E07C346D68C2FEB9FE22797DF4490A"
+      }
+    ]
+  },
+  "capture": {
+    "release": "20261018T022941927Z",
+    "appEntry": "C:\\Users\\kevin\\YilutekServices\\DayTradeTycoon\\releases\\20261018T022941927Z\\server\\index.mjs",
+    "startedAt": "2026-10-18T04:13:54.340Z",
+    "finishedAt": "2026-10-18T04:25:11.921Z",
+    "checks": 135,
+    "passed": 135,
+    "failed": 0,
+    "shots": 88,
+    "stalls": 0
+  },
+  "buildCommands": [
+    "node courseware/academy/capture/run.mjs",
+    "python courseware/academy/build/shots.py --raw courseware/academy/.cache/capture/raw --manifest courseware/academy/.cache/capture/shots.json --out courseware/academy/assets/shots",
+    "node courseware/academy/build/build.mjs --python <python with fontTools, brotli>",
+    "python courseware/academy/build/qa_pdf.py <student pdf> --out courseware/academy/output/qa/student …",
+    "python courseware/academy/build/qa_pdf.py <teacher pdf> --out courseware/academy/output/qa/teacher …",
+    "python courseware/academy/build/qa_leak.py <student pdf> <teacher pdf> --out courseware/academy/output/qa",
+    "node courseware/academy/build/qa_web.mjs courseware/academy/output/web/index.html courseware/academy/output/qa/web",
+    "node courseware/academy/build/qa_before_after.mjs courseware/academy/.cache/review-baseline/web/index.html courseware/academy/output/web/index.html courseware/academy/verification/revision-2/evidence",
+    "node courseware/academy/build/report.mjs",
+    "node courseware/academy/build/manifest.mjs 2026.10-r2.1"
+  ],
+  "tools": {
+    "node": "v24.15.0",
+    "chrome": "155.0.8059.80"
+  },
+  "built": [
+    {
+      "name": "學員版 PDF",
+      "file": "output/當沖大富翁-學員實戰闖關手冊.pdf",
+      "sha256": "93233C39BEEDBC3AFC0A828F0C2C65A7530DEF8D23BA469C737334986CF6BF51",
+      "modifiedUtc": "2026-10-18T04:28:40Z"
+    },
+    {
+      "name": "講師版 PDF",
+      "file": "output/當沖大富翁-講師版教學手冊.pdf",
+      "sha256": "E311926B1A136CB2DF296239F6EBCDABA0F3561A17879DE5D568E056DECE4533",
+      "modifiedUtc": "2026-10-18T04:28:43Z"
+    },
+    {
+      "name": "數位版 index.html",
+      "file": "output/web/index.html",
+      "sha256": "C8129C8D3BCB24351DD19BA645D01648772F143DF21D7EEF062CDAA283861E0D",
+      "modifiedUtc": "2026-10-18T04:28:33Z"
+    },
+    {
+      "name": "數位版 web.js",
+      "file": "output/web/assets/web.js",
+      "sha256": "CFF8ECAD670C9D32E99B6254C2A5A304A0704BF013FE6C9B3CA2D108262FAF8D",
+      "modifiedUtc": "2026-10-18T04:26:00Z"
+    }
+  ],
+  "webOutput": {
+    "files": 77,
+    "treeSha256": "6AAD12EEC53A12CCC4CD7213A6E1B65D8F2CA78016FD92E82A20E2D534B67D9C"
+  },
+  "deliverables": [
+    {
+      "file": "output/drive-upload/當沖大富翁-學員實戰闖關手冊-2026.10-r2.1.pdf",
+      "bytes": 19408851,
+      "sha256": "93233C39BEEDBC3AFC0A828F0C2C65A7530DEF8D23BA469C737334986CF6BF51",
+      "modifiedUtc": "2026-10-18T04:28:40Z"
+    },
+    {
+      "file": "output/drive-upload/當沖大富翁-數位互動版-2026.10-r2.1.zip",
+      "bytes": 20128233,
+      "sha256": "E4816177369FFC8D215062ACE95B99EA88FEDF3C89DDCE7A76CFF026ABBAAE2E",
+      "modifiedUtc": "2026-10-18T04:31:38Z"
+    },
+    {
+      "file": "output/drive-upload/當沖大富翁-講師版教學手冊-2026.10-r2.1.pdf",
+      "bytes": 1030164,
+      "sha256": "E311926B1A136CB2DF296239F6EBCDABA0F3561A17879DE5D568E056DECE4533",
+      "modifiedUtc": "2026-10-18T04:28:43Z"
+    }
+  ],
+  "qa": {
+    "capture": "135/135",
+    "pdfStudent": {
+      "pages": 94,
+      "problems": 0,
+      "minImageDpi": 168
+    },
+    "pdfTeacher": {
+      "pages": 26,
+      "problems": 0
+    },
+    "leak": {
+      "ok": true,
+      "phrases": 7
+    },
+    "web": {
+      "ok": true,
+      "checks": 78,
+      "failed": 0,
+      "at": "2026-10-18T04:31:04.384Z"
+    },
+    "beforeAfter": {
+      "rows": 10,
+      "fixed": 10,
+      "at": "2026-10-18T04:31:22.282Z"
+    }
+  },
+  "completionCardChecks": [
+    {
+      "scope": "L02",
+      "label": "保存後出現完成卡",
+      "ok": true
+    },
+    {
+      "scope": "L02",
+      "label": "完成卡列出「寫下自己的計畫」與「完成這一輪復盤」",
+      "ok": true
+    },
+    {
+      "scope": "L02",
+      "label": "完成卡顯示練習分（當天第一輪）",
+      "ok": true
+    },
+    {
+      "scope": "L05-1",
+      "label": "第 2 課：先看到上一輪的完成卡",
+      "ok": true
+    },
+    {
+      "scope": "L05-2",
+      "label": "第 3 課：先看到上一輪的完成卡",
+      "ok": true
+    },
+    {
+      "scope": "L05-3",
+      "label": "第 4 課：先看到上一輪的完成卡",
+      "ok": true
+    },
+    {
+      "scope": "L05-4",
+      "label": "第 5 課：先看到上一輪的完成卡",
+      "ok": true
+    },
+    {
+      "scope": "L05-4",
+      "label": "完成卡：整輪等待也列出「照計畫的股票操作」「收盤前不留倉」",
+      "ok": true
+    },
+    {
+      "scope": "L05-4",
+      "label": "同一天再練：練習分只算最好的一輪",
+      "ok": true
+    },
+    {
+      "scope": "L06",
+      "label": "第 6 課：先看到上一輪的完成卡",
+      "ok": true
+    },
+    {
+      "scope": "FINAL",
+      "label": "F-1：換到已練過的 10/05，先出現那一天上一輪的完成卡",
+      "ok": true
+    }
+  ],
+  "sources": [
+    {
+      "path": "content/course.mjs",
+      "bytes": 11540,
+      "sha256": "46E94E8ADDE65812741C096EB6A4B9BA4C95C6194EEA1CC333A9DAE031D9609D"
+    },
+    {
+      "path": "content/digital.mjs",
+      "bytes": 15432,
+      "sha256": "E005F475BDDFDB5866B0453079984FA819A566A80C13B7C2598D7C27D8E2A82D"
+    },
+    {
+      "path": "content/final.mjs",
+      "bytes": 7937,
+      "sha256": "1D15ED85584D8224FF4E7CA01EA3694A0741E9A2E476E401297EFB7735F1843D"
+    },
+    {
+      "path": "content/l01.mjs",
+      "bytes": 23311,
+      "sha256": "45016967C0995D54A09802396A207AF12B6B453A25EDB656B62876FC36205E5B"
+    },
+    {
+      "path": "content/l02.mjs",
+      "bytes": 19026,
+      "sha256": "822851E5AD09D2828C58E1CB0597766EC1C56AC29A3D7412DE7B78B37F63FF08"
+    },
+    {
+      "path": "content/l03.mjs",
+      "bytes": 17083,
+      "sha256": "655F20CA741D260FE3E05E09D1FFF4141B7792D39147BCBAA588F899B797BD2D"
+    },
+    {
+      "path": "content/l04.mjs",
+      "bytes": 19044,
+      "sha256": "37DAC2258F1457E490122CC02F535AB4A0B0BFF34BB217A0C5C8AB4C38BC9604"
+    },
+    {
+      "path": "content/l05.mjs",
+      "bytes": 21453,
+      "sha256": "BD9B7AEF88011E6357F97D2672F9127F59AAB1265F7FF6F38BCF13CCBFBD23E0"
+    },
+    {
+      "path": "content/l06.mjs",
+      "bytes": 16247,
+      "sha256": "3FB2A9E581BA7198D8CC3709B0825F478C9AF265695C9C9B16BA4F141B3C059C"
+    },
+    {
+      "path": "content/teacher.mjs",
+      "bytes": 26498,
+      "sha256": "F24037FE87262A75F1001FB37C4E58947B519DE62EB27225AE4C225FE4B03E67"
+    },
+    {
+      "path": "build/build.mjs",
+      "bytes": 3886,
+      "sha256": "84CBFE7CA3ADF7ACD0F90E9DC437686BBAA00F4288F0EF175C9FFC195F22824E"
+    },
+    {
+      "path": "build/fonts.py",
+      "bytes": 3501,
+      "sha256": "ADBBDF4FF95D50467A95075D1510081043565D52EE5548D2AD7723AADF0F2536"
+    },
+    {
+      "path": "build/lib/book.mjs",
+      "bytes": 2601,
+      "sha256": "483A2434D38BE4ADDE774B9D0F436ADC4D2B027344262839C15E3749F1E98A4C"
+    },
+    {
+      "path": "build/lib/figure.mjs",
+      "bytes": 7975,
+      "sha256": "9AEBC416790D0DD363B28F1C8F11ADDCCA297877D9EDBB98DA23E0206D1CCCCF"
+    },
+    {
+      "path": "build/lib/forms.mjs",
+      "bytes": 11904,
+      "sha256": "7100F7A41328C90F9EADF79B0317C73C3A1F14A28CC479816A10BA1FEA4FCC6C"
+    },
+    {
+      "path": "build/lib/markup.mjs",
+      "bytes": 3615,
+      "sha256": "D55B8752165E0DB98E11DA33082A43E432B48A1A7BF0603F9D0EAC949ED2037E"
+    },
+    {
+      "path": "build/lib/pages.mjs",
+      "bytes": 12318,
+      "sha256": "ED22C5F9E899E2A327CF9E986FA8D640A6B546EAF221FD461D733A74EEF67B77"
+    },
+    {
+      "path": "build/lib/student-levels.mjs",
+      "bytes": 24856,
+      "sha256": "D316603600F767EB4CD320895A2A05676D55A589F3A8FED1273C05156E019169"
+    },
+    {
+      "path": "build/lib/student.mjs",
+      "bytes": 15319,
+      "sha256": "C630D58327DC87E86BD7835E5309B114159A588EF4970CE78506217ADEEA7285"
+    },
+    {
+      "path": "build/manifest.mjs",
+      "bytes": 10751,
+      "sha256": "82C527B71E788D5D4FAE1FEFB659FBBFD4285BFDD8F1E7F1D4FF3FF9B8F1995A"
+    },
+    {
+      "path": "build/pdf.mjs",
+      "bytes": 3426,
+      "sha256": "BE1015066DCF3A42C26DF916AB726F11854B8C62518F19249A49A72F2C8470B3"
+    },
+    {
+      "path": "build/preview.mjs",
+      "bytes": 1648,
+      "sha256": "B0AA6679DA1423B17B5570982ADD813E82FA1D287B2A9383122443385A62B575"
+    },
+    {
+      "path": "build/qa_before_after.mjs",
+      "bytes": 13026,
+      "sha256": "425C606CC8A775251C17CC3DA847B2DD6BE703721AAF25B25AAE2545A890E9C7"
+    },
+    {
+      "path": "build/qa_leak.py",
+      "bytes": 2003,
+      "sha256": "2BAEFA3887C4DF3CAB41A85259C7179B82B460E93A28F1F1654CF01FDB9DE38C"
+    },
+    {
+      "path": "build/qa_pdf.py",
+      "bytes": 4781,
+      "sha256": "4FFD926391D49F17FDB48D9AE8F367DF8970BF42B12F01D7F1B5EA36AC495220"
+    },
+    {
+      "path": "build/qa_web.mjs",
+      "bytes": 37900,
+      "sha256": "2A701E191D54B78C1A280FAFCA143A650DF0A4FCF301BDBBF9FFAE576538274A"
+    },
+    {
+      "path": "build/reference.mjs",
+      "bytes": 4216,
+      "sha256": "39121551FD7FD5158CC56A1B1BD92BAE2BCD3FEC088363FE4A4284092C525543"
+    },
+    {
+      "path": "build/render.mjs",
+      "bytes": 7100,
+      "sha256": "BB6C8B93FA650908E1039ECABF8D71A82BD03BB96156A84ADEEA3325BF05FCB4"
+    },
+    {
+      "path": "build/report.mjs",
+      "bytes": 8113,
+      "sha256": "35BE5A5DCCF5B89836547A7EC91C9724F42F9888B25D3E8D06B697667380E924"
+    },
+    {
+      "path": "build/shots.py",
+      "bytes": 2225,
+      "sha256": "BC514AED32D5797C24F06F4982FDB874EAA09D34FA45CA6AE375EA6854CBCE0D"
+    },
+    {
+      "path": "build/teacher.mjs",
+      "bytes": 30974,
+      "sha256": "475F72D973BF6CBB21BFBBC428CF6DCA0B290CBAD44DE3B02703454ABE397EAE"
+    },
+    {
+      "path": "build/web.mjs",
+      "bytes": 36869,
+      "sha256": "F0F827C9841EC17A30FFFE76DA1539D3C207B5303AEB5403AC7DB9922AB67DB0"
+    },
+    {
+      "path": "capture/capture.mjs",
+      "bytes": 64276,
+      "sha256": "2186F2F63291D8E942CCAFB9BC1379004495C15C83643222CD583C8E64632B5C"
+    },
+    {
+      "path": "capture/lib.mjs",
+      "bytes": 12619,
+      "sha256": "5ED1962034A523F3FD4F8DEA964BAE61D2E89DAB274FA990015099627DB94A04"
+    },
+    {
+      "path": "capture/run.mjs",
+      "bytes": 5414,
+      "sha256": "F9D5E70748C83F00B771BA82A9A61657D167CAB2653210AE9C42CD9C7948401D"
+    },
+    {
+      "path": "design/print.css",
+      "bytes": 29782,
+      "sha256": "37050B9D6C19935CF808925EABFF0C0EE29340BC2D9A284E5A76F96176BED269"
+    },
+    {
+      "path": "design/teacher.css",
+      "bytes": 2914,
+      "sha256": "2406D9036FFDF8F3A1156D6779D37121BE99A521DAB80D39D4BD071C937CC892"
+    },
+    {
+      "path": "design/web.css",
+      "bytes": 35912,
+      "sha256": "6D16DEB30906EAE2CA78D34F26BF946D13FC6E1F34739E9113F61580508FA563"
+    },
+    {
+      "path": "design/web.js",
+      "bytes": 59593,
+      "sha256": "CFF8ECAD670C9D32E99B6254C2A5A304A0704BF013FE6C9B3CA2D108262FAF8D"
+    },
+    {
+      "path": "assets/shots/book-hero.png",
+      "bytes": 449503,
+      "sha256": "8F9952808925418B6081CDEB748259239EFED91413C27656781EA442392E928B"
+    },
+    {
+      "path": "assets/shots/book.png",
+      "bytes": 133385,
+      "sha256": "060CE8777FECDE00ED36F02FBA64AE2E889C165DA790120C79672D8FFB15697E"
+    },
+    {
+      "path": "assets/shots/cancelled.png",
+      "bytes": 48473,
+      "sha256": "3D25B2B691890EBEBE8FD4B40C6B64F8814F64265BB0F8381ED5FA1EE9CA32B2"
+    },
+    {
+      "path": "assets/shots/capture-checks.json",
+      "bytes": 23349,
+      "sha256": "42D3DF3CDACD616B20EF14B41544115BF44A5B3AC3AA7DB90A816E68D2412B5E"
+    },
+    {
+      "path": "assets/shots/capture-facts.json",
+      "bytes": 5097,
+      "sha256": "2042D384943D4F603CA0E4C51F0C180D3040C79BD71D01CEE1E5F7CB33C9FD5D"
+    },
+    {
+      "path": "assets/shots/capture-stalls.json",
+      "bytes": 2,
+      "sha256": "4F53CDA18C2BAA0C0354BB5F9A3ECBE5ED12AB4D8E11BA873C2F11161202B945"
+    },
+    {
+      "path": "assets/shots/capture-summary.json",
+      "bytes": 493,
+      "sha256": "2BCFDE078D379699FFBAB40A501B65CF2548D886C450C2F862E15B49CFE5ED82"
+    },
+    {
+      "path": "assets/shots/checkpoint-1000.png",
+      "bytes": 511265,
+      "sha256": "768B9BED4128574178FCCCFCF96DCEE4CC939782C60BD1055637C77EF0144F03"
+    },
+    {
+      "path": "assets/shots/coach-1.png",
+      "bytes": 409847,
+      "sha256": "8035DC24651CD2B449221DC3E1C7C716FC196529DF0917C310CC631ED844C1A7"
+    },
+    {
+      "path": "assets/shots/coach-2.png",
+      "bytes": 423861,
+      "sha256": "B8251B2624DCB9678999D6E386DA5C737543206AE855BA346183E00734E7D7AD"
+    },
+    {
+      "path": "assets/shots/coach-3.png",
+      "bytes": 426481,
+      "sha256": "6C74813B79744C0EE9EC9644326DEA1974FBE23ED0FED8EF4AC64E8EF674CD05"
+    },
+    {
+      "path": "assets/shots/complete-final.png",
+      "bytes": 215638,
+      "sha256": "810AA8CA082A09A95463524E6E7FB694CB14871CD2AC294205CDECBCD866FC4E"
+    },
+    {
+      "path": "assets/shots/complete-r1.png",
+      "bytes": 415473,
+      "sha256": "E5BD7A476A35E5FD29093CF8981FBC8D22ACABF22EE7DECB26F0AAB3D400917A"
+    },
+    {
+      "path": "assets/shots/complete-r2.png",
+      "bytes": 257160,
+      "sha256": "8FD6F9FCDD8AD65B5E21A8644F495244CE2C88D4795548F5AAC9F655312C0913"
+    },
+    {
+      "path": "assets/shots/complete-r7.png",
+      "bytes": 254902,
+      "sha256": "4B53F8611E41D2ED1066600D596D6E0152AB841A3EC50A4CED7427EB37D22F76"
+    },
+    {
+      "path": "assets/shots/complete-wait.png",
+      "bytes": 241261,
+      "sha256": "D7FA11317EAF2FFB2444BBD6A20F1906D9814E3D71CC99590098A8208DD11E16"
+    },
+    {
+      "path": "assets/shots/confirm-buy.png",
+      "bytes": 92948,
+      "sha256": "01E2F925B6770045A0B461700F55BCD8160E4BD054BB940A826B5A9C82F788E6"
+    },
+    {
+      "path": "assets/shots/confirm-sell-2.png",
+      "bytes": 90148,
+      "sha256": "7AAA3172A5F8300DD1966C03FD9F620D3D7968E4C88E8B8C9C1DDCE21587060F"
+    },
+    {
+      "path": "assets/shots/confirm-sell-limit.png",
+      "bytes": 97108,
+      "sha256": "9B1FC8B7335217DE9EA3AFC7CC25162E124C303F572EE7590094554EA50493A5"
+    },
+    {
+      "path": "assets/shots/confirm-sell.png",
+      "bytes": 90753,
+      "sha256": "5FCAC88E643A89F8E0054CC544AA2B7C63D99C571395A6483F2A30CA2893832D"
+    },
+    {
+      "path": "assets/shots/course-steps.png",
+      "bytes": 152653,
+      "sha256": "B008ABCB8B7C34ABECA87757685CD2ABBDF2E67C33E6923EE5D6916D433EEBA4"
+    },
+    {
+      "path": "assets/shots/courses.png",
+      "bytes": 347950,
+      "sha256": "DDB8B2B6077A6F5CD7588DDCE73EF81E1BF7E9A01815A12977E252D3E3A43D9C"
+    },
+    {
+      "path": "assets/shots/desk-tour.png",
+      "bytes": 439049,
+      "sha256": "A0EE197EDD45C7B57EA050C05D5E16F177DBE970C0F998E0D6D6CC8970345168"
+    },
+    {
+      "path": "assets/shots/end-1030.png",
+      "bytes": 514885,
+      "sha256": "B85C3CA5F4466E6BA634E410156672ABC202EE373EEC440CF917FF240DA3789B"
+    },
+    {
+      "path": "assets/shots/exit-watch.png",
+      "bytes": 455427,
+      "sha256": "02E7CBE99B50931FDF205B9A34B7AFD9F833448D167579FF0404156E64B46CC1"
+    },
+    {
+      "path": "assets/shots/fenshi.png",
+      "bytes": 424784,
+      "sha256": "49AC0769CC4033E4B5F6E18D852F87DC426B6169880C7644B81BCB1E73641875"
+    },
+    {
+      "path": "assets/shots/filled-buy.png",
+      "bytes": 490329,
+      "sha256": "E0FF893BD20072D58A5C0E61AC321EA3D98CB44208AA000A8031D5635EF752FB"
+    },
+    {
+      "path": "assets/shots/fills-buy.png",
+      "bytes": 36475,
+      "sha256": "8112E67274098C24E35E4D8F64D802D8CC70D401363EB92526638C76B1D9F28C"
+    },
+    {
+      "path": "assets/shots/fills-r3.png",
+      "bytes": 55526,
+      "sha256": "D5AC9615CA2109E303FE8895D9E38D3F757D1984EAF18DE388015E5F37EE992A"
+    },
+    {
+      "path": "assets/shots/final-day.png",
+      "bytes": 304024,
+      "sha256": "A86FFA461B570DD27D87FF45AC69C858D0B76A6704B7EF0E21AC1A831C0C10C8"
+    },
+    {
+      "path": "assets/shots/gate-ready.png",
+      "bytes": 126198,
+      "sha256": "572107B0C3E758EF1050CF1B4C8F475411C65BCF53E6E5BEEDE90DDD6C3EEDC3"
+    },
+    {
+      "path": "assets/shots/gate.png",
+      "bytes": 1190806,
+      "sha256": "06E708707AE92F2FE683A9F9577789BDE7762EC554A6A4778E5CA8279B5049A3"
+    },
+    {
+      "path": "assets/shots/kline-hover.png",
+      "bytes": 48877,
+      "sha256": "F142E04E1E3E62522C653B8770BBA69861CE2ABC77A05C735A7371187ED3B613"
+    },
+    {
+      "path": "assets/shots/kline.png",
+      "bytes": 423216,
+      "sha256": "6D6078DA3B4D4C181AD9C2321DE894C1F339961C3E4073A4B728A1B1000EF428"
+    },
+    {
+      "path": "assets/shots/lobby-account.png",
+      "bytes": 74581,
+      "sha256": "F9EAE452C1615FCFE86E4444B51A4A98AD59CD158846DD2F772771599C1958B5"
+    },
+    {
+      "path": "assets/shots/lobby-done.png",
+      "bytes": 170956,
+      "sha256": "9157F9C4EB857EB9FEC938F80D7BA78D85062E26D3846EE800A28EBE2B450472"
+    },
+    {
+      "path": "assets/shots/lobby-guest.png",
+      "bytes": 268537,
+      "sha256": "6766BF361ACFCB3BE744AD5CF5C6DD8D2D04E4F15C4A576D5D91D4310CE98A8C"
+    },
+    {
+      "path": "assets/shots/lobby-member.png",
+      "bytes": 190974,
+      "sha256": "75849E20DF1FDF4C6DC56A3CBA24CA741B88EA38903A75B25DCF22268B0C9BE5"
+    },
+    {
+      "path": "assets/shots/minutes.png",
+      "bytes": 41226,
+      "sha256": "9BBA7A839726A2115F2B1FD96F628D5744FCFADA43BD682D55468118D98B06F1"
+    },
+    {
+      "path": "assets/shots/n-pullback.png",
+      "bytes": 487230,
+      "sha256": "5F6985370538406AAD9469E6F06C4644E99560DB083470DC7DA9F921CFAF0168"
+    },
+    {
+      "path": "assets/shots/n-swing.png",
+      "bytes": 482153,
+      "sha256": "07918418E7DDA354B87AA6964591B2C2B01200232EB8C8FA82904E6CD6200119"
+    },
+    {
+      "path": "assets/shots/ohl.png",
+      "bytes": 414262,
+      "sha256": "458384576DF58340FBB991B0170C502B991967B84239418300F45D1EBAEC6236"
+    },
+    {
+      "path": "assets/shots/orders-pending.png",
+      "bytes": 498421,
+      "sha256": "FB8B4832136AC2CD5CBA6F3A6C9D7B04B25B2FDC0DF4F8527C58A79D1C780E53"
+    },
+    {
+      "path": "assets/shots/pending-buy.png",
+      "bytes": 480125,
+      "sha256": "3B289233B0C837B6F0C90BA5535AE2B508907EF88D1B66DE60201D44D4E9CCBB"
+    },
+    {
+      "path": "assets/shots/pending-sell-limit.png",
+      "bytes": 59361,
+      "sha256": "725746BED7FA39D07537D110D74298F164236989EA5405C5CD3F668771CA3FFE"
+    },
+    {
+      "path": "assets/shots/phone-market.png",
+      "bytes": 240150,
+      "sha256": "2A26A02F2A3721D444092BC04FF2243870A0A67BB9674BED917B0BCE3CBFC598"
+    },
+    {
+      "path": "assets/shots/phone-positions.png",
+      "bytes": 210026,
+      "sha256": "53038C968BCBBE933D8FE5ADF0DCD3E916D3B594B97747F62DC75DAA4A75A2A9"
+    },
+    {
+      "path": "assets/shots/phone-ticket.png",
+      "bytes": 199449,
+      "sha256": "9BF58AD7935AF4E229D4E572ED547A95D2693B36B89535DDE4000554FEB13793"
+    },
+    {
+      "path": "assets/shots/phone-trade.png",
+      "bytes": 190843,
+      "sha256": "A791B17B6384D6A3D9502C73C26A149901BB3FFCC24D66E04FA4618039D66DD5"
+    },
+    {
+      "path": "assets/shots/phone-watch.png",
+      "bytes": 208992,
+      "sha256": "A2C5A7F8471461FED4A87F02BB4DDAF61F3DDE2090E5104ECC0EDE42CDCBC2E1"
+    },
+    {
+      "path": "assets/shots/phone01-market.png",
+      "bytes": 219581,
+      "sha256": "98408D92C05EBA191751C131FBA6583C9C6E7689C6AA69A1206BDD98453B4379"
+    },
+    {
+      "path": "assets/shots/phone01-positions.png",
+      "bytes": 166502,
+      "sha256": "50728D30801DF578F63CC6B030AAA9DA2EFF5476A0FD3A1336BEE04AB57F1698"
+    },
+    {
+      "path": "assets/shots/phone01-senior.png",
+      "bytes": 234769,
+      "sha256": "4F247C3827AA597E565EE319F06B8A86E8F5BDA736093732A4685B1CBF22632A"
+    },
+    {
+      "path": "assets/shots/phone01-ticket.png",
+      "bytes": 202237,
+      "sha256": "3201C264AD2BAB628AEF8B470CB97ECD3CB2E14483CBADF6A13632CE1516168C"
+    },
+    {
+      "path": "assets/shots/phone01-trade.png",
+      "bytes": 183980,
+      "sha256": "04017E0A6A2B5123781BAEF040AA5FD2E716605523E692164A250D02301A0BB2"
+    },
+    {
+      "path": "assets/shots/phone01-watch.png",
+      "bytes": 187525,
+      "sha256": "B0FCFA829499E84AE04860D2FB7BE5F2C1BEAEC77EC352EB33A49C1C9676E047"
+    },
+    {
+      "path": "assets/shots/plan-observe-details.png",
+      "bytes": 268029,
+      "sha256": "EFCA7B057DBD8E714A67E3C63130A5FFFAE2F65F0159941203DC9C883A5368A6"
+    },
+    {
+      "path": "assets/shots/plan-observe.png",
+      "bytes": 300686,
+      "sha256": "9135A37ED32DCF014ADDBFBA7FF4EAE24282BACEEDEEDE49E4A357820F65A245"
+    },
+    {
+      "path": "assets/shots/plan-pullback.png",
+      "bytes": 275880,
+      "sha256": "C988953A6F04CAE3E3AC5B2481796B2BE1B56F6F0A8AD9CA1535E20447D43539"
+    },
+    {
+      "path": "assets/shots/plan-risk.png",
+      "bytes": 319550,
+      "sha256": "8248204A9B0A530F22C9BBF66B93152A3ADD3F76095BA04C9DEF303DB41DE079"
+    },
+    {
+      "path": "assets/shots/positions-1.png",
+      "bytes": 492922,
+      "sha256": "FE81072208A6DA25D844C79A145FAF1E2135B83BA9008E53717516FE86F27FD9"
+    },
+    {
+      "path": "assets/shots/positions-2.png",
+      "bytes": 47637,
+      "sha256": "F43B7B3BAE9511651FC0FC92CA863EABA02800CACD3ADEAE077C49F86C05EEFA"
+    },
+    {
+      "path": "assets/shots/profile.png",
+      "bytes": 1184957,
+      "sha256": "639734A421E8E0B3013C3BFB6E4D4A83FC28E67839CEBAAD2ED3A78011CB38C9"
+    },
+    {
+      "path": "assets/shots/q-desk.png",
+      "bytes": 491248,
+      "sha256": "943468680DD5A4C56E8245EFD870D25D1179AF64F1413A8660B87D553EE736FE"
+    },
+    {
+      "path": "assets/shots/q-plan.png",
+      "bytes": 89802,
+      "sha256": "E9CC9EB2F6015A80F84B00F240CC9BED2E10B7B2EBF022634C701F6C4E112A6D"
+    },
+    {
+      "path": "assets/shots/q-quote.png",
+      "bytes": 33701,
+      "sha256": "1BF4708E02DDBC2BF0D1C4370F3D7895AE9B7F65DFDEE26EA6CDE2C10626930F"
+    },
+    {
+      "path": "assets/shots/q-today.png",
+      "bytes": 47624,
+      "sha256": "B2D904E00A2596170558D44052C535F97AA6081EFDD4280D9487B93D4AEFE8CB"
+    },
+    {
+      "path": "assets/shots/quote-hero.png",
+      "bytes": 33948,
+      "sha256": "BF8D1430BADC62D3FF19B9ED9BC13D2696CA660866F63883A041724B90C7E44D"
+    },
+    {
+      "path": "assets/shots/resources.png",
+      "bytes": 196496,
+      "sha256": "AA6936BC5ABB6B975258685F46EB0ECE9E9FDEE408FE335552874BFAB006D07B"
+    },
+    {
+      "path": "assets/shots/review-fills.png",
+      "bytes": 54020,
+      "sha256": "EB8296A865DDD4B9B499EA6D5C181F40E3BD1658C3D475FB2BCC8D2590DCB7C8"
+    },
+    {
+      "path": "assets/shots/review-orders.png",
+      "bytes": 54888,
+      "sha256": "DE6A02F606698D49C12173E77D95383C7C0B67CEDE5BBA8A9A0B3C37970A7F48"
+    },
+    {
+      "path": "assets/shots/review-plan.png",
+      "bytes": 150864,
+      "sha256": "73ED1706F92A4AD647A169310111C9BC24F75B3C0C6A8CAC017E1BD8CE6F124E"
+    },
+    {
+      "path": "assets/shots/review-positions.png",
+      "bytes": 36992,
+      "sha256": "EB3428098C0767C82D456EA89279D3CED705D61E5435ED13ED7E21390FAAC39D"
+    },
+    {
+      "path": "assets/shots/review-r1.png",
+      "bytes": 166016,
+      "sha256": "749F81787B3C8DE70B5D3E354FF5111690CFA98CD894FD35F866F504007EC342"
+    },
+    {
+      "path": "assets/shots/review-r2.png",
+      "bytes": 230827,
+      "sha256": "7FC59A9D69A66193B3D2D7F37D3AB62CCAB0B286B808572FE5E5818AA7B37671"
+    },
+    {
+      "path": "assets/shots/review-r7.png",
+      "bytes": 233625,
+      "sha256": "312AC7EA4914F07C396A354AAB4667DEABA6F14E51D7968C0B7830020FC56F48"
+    },
+    {
+      "path": "assets/shots/saved-plan.png",
+      "bytes": 155119,
+      "sha256": "3A738AB389D9349EDC175C788DB6CF208C650A55B13B2429448A837F64E25A6E"
+    },
+    {
+      "path": "assets/shots/sell-limit-form.png",
+      "bytes": 79046,
+      "sha256": "40C3F68E3AE30312C6537CC2E6F749EDA9FE24886CAD955A8A210E4DB31DCAC3"
+    },
+    {
+      "path": "assets/shots/shots.json",
+      "bytes": 61443,
+      "sha256": "7CD6CA77D8FFA81C59F299478EEC8F4E81B923A5C4F31EBDFF630AF4AB69DDA7"
+    },
+    {
+      "path": "assets/shots/signal-0920.png",
+      "bytes": 454748,
+      "sha256": "C113A6023D68A0822716A093E95470067C6D4DE1644AD40A18CFDB633D5DD37B"
+    },
+    {
+      "path": "assets/shots/signup.png",
+      "bytes": 1009029,
+      "sha256": "0F9B5C62880FA00C9928C91BD7538234E5D7240B6E08AFF52D4248CABA5AA941"
+    },
+    {
+      "path": "assets/shots/sold.png",
+      "bytes": 517960,
+      "sha256": "FA21EABFCC15DD154198A63C5A238F2AB00A6EE82A1AF522F19BF094C19FC084"
+    },
+    {
+      "path": "assets/shots/stop-0937.png",
+      "bytes": 484405,
+      "sha256": "18B7605A4370A0A05D06F8FE13C436806423964B4BF14D0FD6970C98C8D822A8"
+    },
+    {
+      "path": "assets/shots/switch-stepper.png",
+      "bytes": 92756,
+      "sha256": "2F5FFEF0AD311AA2CF4A378D9CA8456C5BEC88AC8EAA635C92C88F279DC391E4"
+    },
+    {
+      "path": "assets/shots/switch-watch.png",
+      "bytes": 437831,
+      "sha256": "C696359695342516BCABF60D84619BB5700FB8BE830FACD978358FEB9B3F1C80"
+    },
+    {
+      "path": "assets/shots/ticket-2lots.png",
+      "bytes": 72887,
+      "sha256": "00735753870A549AFC47A28CAA0230F114EBC848D04A740826FC939867417ADF"
+    },
+    {
+      "path": "assets/shots/ticket-help.png",
+      "bytes": 80581,
+      "sha256": "F0BFE42D3504AFE20AF62D521F6AE8B5125F799E6729AA6A3D9B87AA181EC8F6"
+    },
+    {
+      "path": "assets/shots/ticket-limit.png",
+      "bytes": 79038,
+      "sha256": "FC281E0014CD0FE68CE79B731FDC2BDF47033A63BFC8A179783A3AD83B482E26"
+    },
+    {
+      "path": "assets/shots/ticket-market.png",
+      "bytes": 73079,
+      "sha256": "C83CD95A655F9B339C9D1935A260F114806D8F38DE1B29FE71CCE35FFC9F6773"
+    },
+    {
+      "path": "assets/shots/try-complete.png",
+      "bytes": 207792,
+      "sha256": "1DBC8F68D5C3AEF27ACAE3FC363C4D9F54D2B31D57721B4E586E9DF7DE32FBD7"
+    },
+    {
+      "path": "assets/shots/try-review.png",
+      "bytes": 270035,
+      "sha256": "029249D043FECBFAA79E2B5BCDCF57269B3E0FF8D6517A429EB20E8CEF48CA5C"
+    },
+    {
+      "path": "assets/shots/updown.png",
+      "bytes": 439484,
+      "sha256": "3F9467EA673C9D5EA2DAEBFB83285E7231B0E9ED800BF6684A9517303305763A"
+    },
+    {
+      "path": "assets/shots/wait-0916.png",
+      "bytes": 451900,
+      "sha256": "92AF1A541CF20BA0AE050F089EC59DC4D47955B999483D6EC31B42079B57C938"
+    },
+    {
+      "path": "README.md",
+      "bytes": 7739,
+      "sha256": "55131DE3310A48CCE520F857EBE654171BB485AF2BDCE78171281E4789065838"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "bytes": 10003,
+      "sha256": "85DB2F87C8BD2579A9B091EBE98EE2E82C33809366079D1072573BBF6F45C6CE"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 147,
+      "sha256": "C29C12DED12E863DE719003CB7F2E667E3D2E16351B9D2E3A384B17B4476FDBB"
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "before": "courseware/academy/.cache/review-baseline/web/index.html",
+  "after": "courseware/academy/output/web/index.html",
+  "at": "2026-10-18T06:47:06.473Z",
+  "rows": [
+    {
+      "item": "Level 06：只選一個習慣、其他必要項目完成（06-4 全部誠實答「否」並寫原因）",
+      "before": "已勾選 19 / 23 項（完成：否）",
+      "after": "本關完成 ✓（自評與必填作答齊全）（完成：是）",
+      "verdict": "已修正"
+    },
+    {
+      "item": "期末 F-3／F-4／F-5 可輸入的欄位數",
+      "before": "0／0／0",
+      "after": "18／12／23（F-4、F-5 還可新增列）",
+      "verdict": "已修正"
+    },
+    {
+      "item": "390px 手機：01-4 工作台圖放大後的寬度",
+      "before": "358 → 366 px（×1.022）",
+      "after": "356 → 1326 px（×3.72，可再放大到 400%，可拖曳、兩指縮放）",
+      "verdict": "已修正"
+    },
+    {
+      "item": "匯入（還原）控制項數量",
+      "before": "0",
+      "after": "1",
+      "verdict": "已修正"
+    },
+    {
+      "item": "輸入後立刻觸發 pagehide，localStorage 裡的筆記",
+      "before": "第一句",
+      "after": "第二句：輸入後立刻離開頁面",
+      "verdict": "已修正"
+    },
+    {
+      "item": "不帶網址 # 重新開啟：有「繼續上次學習」",
+      "before": "無",
+      "after": "有",
+      "verdict": "已修正"
+    },
+    {
+      "item": "儲存資料為 {checks:null, notes:null} 時的錯誤",
+      "before": "Cannot read properties of null (reading '01-1:check:0')",
+      "after": "無",
+      "verdict": "已修正"
+    },
+    {
+      "item": "術語表連到不存在的任務",
+      "before": "05-0、05-0",
+      "after": "無",
+      "verdict": "已修正"
+    },
+    {
+      "item": "深色模式任務標籤（12px）對比",
+      "before": "2.69:1",
+      "after": "7.19:1",
+      "verdict": "已修正"
+    },
+    {
+      "item": "燈箱開啟後按 Tab 10 次，焦點留在燈箱內的次數",
+      "before": "1／10",
+      "after": "10／10",
+      "verdict": "已修正"
+    }
+  ]
+}

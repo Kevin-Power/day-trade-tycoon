@@ -1,0 +1,31 @@
+/* Instructor guide additions on top of print.css. */
+.teacher-cover .academy { color: #e7b549; }
+.teacher-cover .levels span.final { border-color: #e7b549; }
+.num-dot { display: inline-block; width: 5mm; height: 5mm; border-radius: 50%; background: var(--blue-wash); color: var(--blue-deep); text-align: center; line-height: 5mm; font-size: 7pt; margin-top: 0.6mm; }
+.design-map td { height: auto; padding: 1.8mm 2mm; color: var(--ink-2); font-size: 8.4pt; line-height: 1.5; vertical-align: top; }
+.design-map td b.mono { color: var(--blue); font-size: 7.6pt; letter-spacing: 0.08em; }
+.sessions { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+.sessions section { border: 0.25mm solid var(--rule); border-radius: 1.6mm; padding: 3mm 3.4mm; }
+.sessions header { display: grid; grid-template-columns: 11mm 1fr auto; gap: 2mm; align-items: start; border-bottom: 0.3mm solid var(--ink); padding-bottom: 1.6mm; }
+.sessions header > b { font-size: 18pt; font-weight: 300; color: var(--blue); line-height: 1; }
+.sessions header h3 { font-size: 10.4pt; }
+.sessions header p { font-size: 7.6pt; color: var(--ink-3); line-height: 1.45; }
+.sessions header .mono { font-size: 7.4pt; color: var(--ink-3); }
+.sessions ol { list-style: decimal; padding-left: 4.6mm; margin-top: 1.6mm; }
+.sessions li { font-size: 8.2pt; line-height: 1.6; color: var(--ink-2); padding: 0.4mm 0; }
+.timeline.demo li { grid-template-columns: 11mm 1fr; font-size: 8.4pt; line-height: 1.55; }
+.record.answer td { height: 6.6mm; font-size: 8pt; }
+.rubric-full header { display: flex; align-items: baseline; gap: 3mm; border-bottom: 0.3mm solid var(--ink); padding-bottom: 1mm; margin-bottom: 1mm; }
+.rubric-full header b { font-size: 11pt; }
+.rubric-full header .mono { color: var(--blue); font-size: 11pt; font-weight: 300; }
+.rubric-full .bands { margin-left: auto; display: flex; gap: 2mm; }
+.rubric-full .bands i { font-style: normal; font-family: var(--mono); font-size: 6.8pt; color: var(--ink-3); border: 0.2mm solid var(--rule); border-radius: 3mm; padding: 0 1.8mm; }
+.rubric-table td { height: auto; padding: 1.2mm 2mm; font-size: 7.8pt; line-height: 1.5; color: var(--ink-2); vertical-align: top; }
+.rubric-table th { font-size: 7pt; }
+.record.score td { height: auto; padding: 2.4mm 2mm; vertical-align: top; }
+.record.score .ev { display: inline-flex; align-items: center; gap: 1.4mm; margin: 0 4mm 1.4mm 0; font-size: 8.2pt; color: var(--ink-2); }
+.record.score .ev .checkbox { width: 3.6mm; height: 3.6mm; margin: 0; }
+.record.appendix td, .record.appendix th { text-align: center; }
+.record.appendix td { height: auto; padding: 1mm 1.4mm; font-size: 8pt; line-height: 1.35; color: var(--ink); }
+.record.appendix th .mono { font-size: 6.6pt; color: var(--ink-4); font-weight: 400; }
+.record.checks-table td { height: auto; padding: 1.4mm 2mm; font-size: 7.8pt; line-height: 1.5; color: var(--ink-2); vertical-align: top; }

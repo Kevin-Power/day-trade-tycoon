@@ -1,0 +1,14 @@
+{
+  "release": "20261018T022941927Z",
+  "appEntry": "C:\\Users\\kevin\\YilutekServices\\DayTradeTycoon\\releases\\20261018T022941927Z\\server\\index.mjs",
+  "commit": "e069fe213c3db23938c49ac81c1ba36e00cdb55c",
+  "startedAt": "2026-10-18T05:01:41.838Z",
+  "finishedAt": "2026-10-18T05:13:08.414Z",
+  "marketData": "read-only copy of the host's published market data",
+  "shots": 88,
+  "checks": 139,
+  "passed": 139,
+  "failed": [],
+  "serverClosedCleanly": true,
+  "stalls": []
+}

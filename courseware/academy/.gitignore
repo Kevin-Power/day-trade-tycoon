@@ -1,0 +1,6 @@
+# Raw captures, debug screenshots and page previews are rebuilt on demand.
+.cache/
+output/qa/
+output/print/
+output/corpus.txt
+output/drive-upload/
