@@ -194,9 +194,7 @@
     - lucide 的線條畫在 24 格的整數座標上，縮到 16px 時，1px 線條必然跨兩個像素。
     - 其餘 8 個圖示位在文字流裡（行高 18.85px 累積小數），也不在整數像素上。
     - 要完全銳利，得換成逐像素設計的圖示組。
-  - **Noto Sans TC 仍走 Google Fonts**：
-    - 自架要新增依賴，網站與離線包也會大很多，需要使用者決定。
-    - 沒有內建 Noto 的 Windows 10 連不上 Google 時，中文會改用微軟正黑體。
+  - **Noto Sans TC 原本走 Google Fonts**：第二輪已改成網站自己提供，見第 10 節。
 - **驗證**：
   - 單元測試 731 個，727 通過、0 失敗、4 略過；typecheck、`eslint src` 通過；整合測試 4/4。
   - 畫面檢查全部通過：`desk-premium`（含新增的四項檢查）、`desk-layout --strict`（1366×900 走勢圖 701px）、`desk-sharpness`、`desk-states`、`desk-orders`、`desk-guest`、`desk-daily`。
@@ -220,4 +218,34 @@
     - 各頁 200；沒有入場碼時 API 都回 403；`/server/index.mjs` 404；8790 只綁 127.0.0.1；服務紀錄沒有錯誤。
   - **回退**：`appEntry` 指回 `20261017T223850027Z`，沒有資料庫變更。
   - **發布紀錄**：`artifacts/deploy-20261018-render-quality/`。
+
+## 10. 衝刺第二輪：中文字型自架、訪客登入不再卡住（2026-10-18）
+
+使用者：「做好就推上去，全力衝刺」。
+
+- **中文字型改成網站自己提供**：
+  - 套件：`@fontsource-variable/noto-sans-tc` 5.3.1（OFL-1.1）。一個可變字重家族（100–900），所以任何字重都不會被合成。
+  - 共 108 個 unicode-range 子集，瀏覽器只下載頁面用到的字。交易台抓了 13 個子集，和以前從 Google 抓的數量相當。
+  - 拿掉 Google Fonts，沒有任何第三方請求。
+  - 好處：
+    - Windows 10 連不上 Google 時，不會再退回微軟正黑體。
+    - 離線包也改用同一套中文字型。
+  - 代價：網站多 105 個字型檔（4.3 MB），離線 zip 從 0.9 MB 變 5.2 MB。
+  - 畫面放大對照：與 Google 版看不出差異。
+  - `desk-premium` 新增「不得向 fonts.googleapis／gstatic 發請求」：正式站失敗，修正後通過。
+- **訪客登入不再卡在「正在準備…」**：
+  - **問題**：
+    - 上一輪發布測試時發現，訪客帳號建立後，緊接著讀取 session 那一次只要被拒絕一次（例如 429），`/daily` 與 `/morning` 就會永遠停在「正在準備…」。
+    - 學校全班共用一個 IP 時可能遇到。
+  - **修正**：
+    - 建立後在第 1、2、4 秒重新讀取 session。讀取中不算結果，只有真的看到訪客身分才結束等待。
+    - 仍讀不到就顯示「再試一次」。
+  - **證據**：新增 `desk-guest-resilience`：
+    - 正式站版本在只拒絕 1 次時就卡住。
+    - 修正後：拒絕 1 次、3 次會自動恢復；持續拒絕會顯示「再試一次」，連線恢復後按下即可進入。
+  - 純函式 `guest-bootstrap.ts` 有單元測試。
+  - 順手修正：交易台內共用主按鈕（作戰計畫「用這個計畫開始」、「再試一次」）原本白字在亮藍底上只有 2.64:1，改用深藍 4.65:1，同一支腳本檢查。
+- **驗證**：
+  - 單元測試 734 個，730 通過、0 失敗、4 略過；typecheck、`eslint src`、`check:symbols` 通過；整合測試 4/4。
+  - `desk-premium`、`desk-layout --strict`、`desk-sharpness`、`desk-states`、`desk-orders`、`desk-guest`、`desk-daily`、`desk-guest-resilience` 全部通過。
 
