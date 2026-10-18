@@ -110,10 +110,13 @@ function DisciplineBody({ data }: { data: DisciplineSummary }) {
             <dt>紀律分</dt>
             <dd>{data.discipline}</dd>
           </div>
-          <div>
-            <dt>眼力分</dt>
-            <dd>{data.eye}</dd>
-          </div>
+          {/* 眼力 is a bonus: it appears once earned and is never shown as 0. */}
+          {data.eye > 0 && (
+            <div>
+              <dt>眼力分</dt>
+              <dd>{data.eye}</dd>
+            </div>
+          )}
         </dl>
         <div
           className="td-celebrate-bar"

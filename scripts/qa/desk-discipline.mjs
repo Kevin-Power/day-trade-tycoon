@@ -20,7 +20,7 @@ const cases = [
   { name: "320", width: 320, height: 700, senior: false, reducedMotion: true },
   { name: "375-large", width: 375, height: 812, senior: true },
   { name: "820", width: 820, height: 1100, senior: false, soundOn: true },
-  { name: "1366", width: 1366, height: 900, senior: false },
+  { name: "1366", width: 1366, height: 900, senior: false, enter: true },
   { name: "1366-large", width: 1366, height: 900, senior: true },
 ];
 const CONTROLS = ".td-celebrate :is(a, button), .level-strip, .td-progress-card a, .td-progress-sound button, .td-daily-head .td-home, .academy-header :is(button, a)";
@@ -157,7 +157,11 @@ for (const item of cases) {
     await page.getByRole("link", { name: "開始作答" }).click();
     const choices = page.getByRole("radiogroup", { name: "你的選擇" });
     await choices.waitFor({ timeout: 20000 });
-    await choices.getByRole("radio", { name: /觀望/ }).click();
+    // Entering on a question that did not break out: a wrong read, so no 眼力 anywhere.
+    if (item.enter) {
+      await choices.getByRole("radio", { name: /進場/ }).click();
+      await page.getByRole("radiogroup", { name: "停損" }).getByRole("radio", { name: /回檔低點/ }).click();
+    } else await choices.getByRole("radio", { name: /觀望/ }).click();
     await page.getByRole("button", { name: "看不清楚先等" }).click();
     await page.getByRole("button", { name: "送出答案" }).click();
     const card = page.locator(".td-celebrate");
@@ -171,6 +175,7 @@ for (const item of cases) {
     if (!(await card.getByText("說出理由").isVisible())) fail("reason line missing");
     if (!(await card.getByText("拿到徽章：第一題").isVisible())) fail("first-daily badge missing");
     if (await card.getByText(/答錯|眼力 \+?0/).count()) fail("the card mentions a wrong answer or zero 眼力");
+    if (item.enter && (await card.getByText(/眼力/).count())) fail("a wrong read still shows a 眼力 line");
     if (item.speech) {
       const tail = await spokenTail();
       if (!tail.some((line) => /^拿到 1[58] 分。$/.test(line))) fail(`daily points not read aloud after the headline (queue: ${tail.join(" / ")})`);
@@ -224,6 +229,8 @@ for (const item of cases) {
     if ((await page.locator(".td-progress-recent li").count()) !== 2) fail("recent points are not the answer and the round");
     if ((await page.locator(".td-progress-levels li[aria-current='step']").textContent())?.includes("準時報到") !== true) fail("level table does not mark Lv2");
     if (!(await page.locator(".td-progress-sound").getByRole("switch", { name: /音效/ }).isVisible())) fail("sound switch missing on 我的紀律");
+    const scores = await page.locator(".td-progress-scores div").allTextContents();
+    if (scores.some((text) => /^眼力分\s*0$/.test(text.trim()))) fail("我的紀律 shows 眼力分 0");
     await check("progress");
     await page.screenshot({ path: `${out}${item.name}-progress-full.png`, fullPage: true });
   } catch (error) {
