@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { PGlite } from "@electric-sql/pglite";
 import { loadDiscipline, readDisciplineInput } from "./discipline.server.ts";
 import { linkGuestRecords } from "./guest-link.server.ts";
+import { celebrationAfterSave } from "./discipline/records.server.ts";
 import type { Sql } from "./db.ts";
 
 function sqlFor(db: { query: <T>(query: string, params?: unknown[]) => Promise<{ rows: T[] }> }): Sql {
@@ -105,4 +106,9 @@ test("a question saved without an outcome still counts the answer, without a rea
   await answer(db, "alice", "2026-10-09", "watch", "unclear");
   const summary = await tx((sql) => loadDiscipline(sql, "alice", TUE_0900));
   assert.deepEqual([summary.total, summary.eye], [15, 0]);
+}));
+
+test("a celebration for an answer that is not in the records is none, never +0", () => fixture(async ({ tx }) => {
+  assert.equal(await tx((sql) => celebrationAfterSave(sql, "alice", TUE_0900, { daily: "2026-10-16" })), null);
+  assert.equal(await tx((sql) => celebrationAfterSave(sql, "alice", TUE_0900, { practice: randomUUID() })), null);
 }));

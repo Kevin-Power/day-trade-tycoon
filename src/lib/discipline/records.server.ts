@@ -32,9 +32,10 @@ function readOf(outcome: DailyOutcome | string | null, level: number | string | 
 export async function readDisciplineInput(sql: Sql, userId: string, now: number): Promise<DisciplineInput> {
   const answers = await sql<{
     question_id: string; issue_date: string; choice: DailyChoice; reason: boolean;
-    level: number | string | null; outcome: DailyOutcome | string | null;
+    level: number | string | null; outcome: DailyOutcome | string | null; at: number | string;
   }>`
     SELECT a.question_id, q.issue_date::text AS issue_date, a.choice, a.reason IS NOT NULL AS reason,
+      (extract(epoch FROM a.answered_at) * 1000)::float8 AS at,
       q.payload->'level' AS level, q.payload->'outcome' AS outcome
     FROM daily_answers a JOIN daily_questions q ON q.id = a.question_id
     WHERE a.user_id = ${userId} AND q.issue_date IS NOT NULL AND q.payload IS NOT NULL`;
@@ -43,9 +44,10 @@ export async function readDisciplineInput(sql: Sql, userId: string, now: number)
     WHERE payload IS NOT NULL AND issue_date IS NOT NULL AND issue_date <= ${issueDayFor(now)}::date ORDER BY issue_date`;
   const rounds = await sql<{
     id: string; day: string; focus: string | null; reflection: string | null;
-    orders: { code?: string }[] | string | null; positions: { shares?: number }[] | string | null;
+    orders: { code?: string }[] | string | null; positions: { shares?: number }[] | string | null; at: number | string;
   }>`
     SELECT id::text AS id, to_char(created_at AT TIME ZONE 'Asia/Taipei', 'YYYY-MM-DD') AS day,
+      (extract(epoch FROM updated_at) * 1000)::float8 AS at,
       state_json->'plan'->>'focusCode' AS focus, state_json->>'reflection' AS reflection,
       state_json->'orders' AS orders, state_json->'positions' AS positions
     FROM morning_sessions WHERE user_id = ${userId} AND completed`;
@@ -56,6 +58,7 @@ export async function readDisciplineInput(sql: Sql, userId: string, now: number)
       choice: row.choice,
       reason: row.reason,
       brokeOut: readOf(row.outcome, row.level),
+      at: Number(row.at),
     })),
     issued: issued.map((row) => row.issue_date),
     practice: rounds.map((row) => {
@@ -67,6 +70,7 @@ export async function readDisciplineInput(sql: Sql, userId: string, now: number)
         reflection: Boolean(row.reflection?.trim()),
         onPlan: (Array.isArray(orders) ? orders : []).every((order) => order.code === row.focus),
         flat: (Array.isArray(positions) ? positions : []).every((position) => !position.shares),
+        at: Number(row.at),
       };
     }),
     now,
@@ -85,6 +89,11 @@ export async function celebrationAfterSave(
 ): Promise<Celebration | null> {
   try {
     const after = await readDisciplineInput(sql, userId, now);
+    // Only something just saved can be celebrated; never show a card of +0.
+    const present = "daily" in saved
+      ? after.daily.some((record) => record.questionId === saved.daily)
+      : after.practice.some((record) => record.id === saved.practice);
+    if (!present) return null;
     if ("daily" in saved)
       return celebrationFor({ ...after, daily: after.daily.filter((record) => record.questionId !== saved.daily) }, after, "daily");
     return celebrationFor({ ...after, practice: after.practice.filter((record) => record.id !== saved.practice) }, after, "practice");

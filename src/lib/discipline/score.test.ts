@@ -15,10 +15,10 @@ const MON_1019 = Date.parse("2026-10-19T09:00:00+08:00");
 const ids = (lines: { id: string }[]) => lines.map((line) => line.id);
 const sum = (lines: { points: number }[]) => lines.reduce((total, line) => total + line.points, 0);
 const daily = (issueDate: string, over: Partial<DailyRecord> = {}): DailyRecord => ({
-  questionId: issueDate, issueDate, choice: "watch", reason: false, brokeOut: false, ...over,
+  questionId: issueDate, issueDate, choice: "watch", reason: false, brokeOut: false, at: Date.parse(`${issueDate}T07:00:00+08:00`), ...over,
 });
 const round = (day: string, over: Partial<PracticeRecord> = {}): PracticeRecord => ({
-  id: `${day}-${Math.random()}`, day, reflection: true, onPlan: true, flat: true, ...over,
+  id: `${day}-${Math.random()}`, day, reflection: true, onPlan: true, flat: true, at: Date.parse(`${day}T10:00:00+08:00`), ...over,
 });
 const input = (over: Partial<DisciplineInput> = {}): DisciplineInput => ({
   daily: [], practice: [], issued: [], now: MON_1019, ...over,
@@ -162,4 +162,16 @@ test("a holiday week's full-week badge is celebrated with the next answer after 
   const later = { ...after, issued: [...after.issued, "2026-10-27"], now: tuesday };
   const next = { ...later, daily: [...later.daily, daily("2026-10-27")] };
   assert.deepEqual(celebrationFor(later, next, "daily").newBadges.map((item) => item.id), []);
+});
+
+test("a time-completed badge is celebrated once even when Friday's question is answered on Monday", () => {
+  // Wednesday 10/21 was a holiday: four questions that week.
+  const week = ["2026-10-19", "2026-10-20", "2026-10-22"].map((date) => daily(date));
+  const fridayOnMonday = daily("2026-10-23", { at: Date.parse("2026-10-26T05:30:00+08:00") });
+  const early = input({ daily: week, issued: ["2026-10-19", "2026-10-20", "2026-10-22", "2026-10-23"], now: Date.parse("2026-10-26T05:30:00+08:00") });
+  const first = celebrationFor(early, { ...early, daily: [...week, fridayOnMonday] }, "daily");
+  assert.deepEqual(first.newBadges.map((item) => item.id), ["full-week"]);
+  const later = input({ daily: [...week, fridayOnMonday], issued: [...early.issued, "2026-10-26"], now: Date.parse("2026-10-26T07:00:00+08:00") });
+  const second = celebrationFor(later, { ...later, daily: [...later.daily, daily("2026-10-26")] }, "daily");
+  assert.deepEqual(second.newBadges.map((item) => item.id), ["streak-5"]);
 });

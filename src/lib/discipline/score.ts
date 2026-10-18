@@ -5,10 +5,13 @@ import type { DailyChoice } from "../daily/types.ts";
  * Discipline points (spec docs/superpowers/specs/2026-10-18-discipline-levels-design.md). Everything is
  * recomputed from saved answers and finished rounds, so points never depend on profit and never go down.
  */
-/** `brokeOut` is null when the saved question has no readable outcome: the answer counts, the read does not. */
-export type DailyRecord = { questionId: string; issueDate: string; choice: DailyChoice; reason: boolean; brokeOut: boolean | null };
-/** One finished round; `day` is the Taipei date the round was started. */
-export type PracticeRecord = { id: string; day: string; reflection: boolean; onPlan: boolean; flat: boolean };
+/**
+ * `brokeOut` is null when the saved question has no readable outcome: the answer counts, the read does not.
+ * `at` is when the learner answered (ms).
+ */
+export type DailyRecord = { questionId: string; issueDate: string; choice: DailyChoice; reason: boolean; brokeOut: boolean | null; at: number };
+/** One finished round; `day` is the Taipei date the round was started, `at` when it was last saved (ms). */
+export type PracticeRecord = { id: string; day: string; reflection: boolean; onPlan: boolean; flat: boolean; at: number };
 export type DisciplineInput = { daily: DailyRecord[]; practice: PracticeRecord[]; issued: string[]; now: number };
 
 export type ScoreLineId = "answered" | "reason" | "eye" | "completed" | "on-plan" | "flat";
@@ -172,13 +175,12 @@ export function disciplineSummary(input: DisciplineInput): DisciplineSummary {
 }
 
 /**
- * The end of the learner's last active day (capped at `now`). A badge that time alone completed since
- * then, like a holiday week ending, was not there when they last looked, so it is still new.
+ * When the learner last answered or saved a round (capped at `now`). A badge that time alone completed
+ * since then, like a holiday week ending, was not there when they last acted, so it is still new.
  */
 function lastActive(input: DisciplineInput): number {
-  const dates = [...input.daily.map((record) => record.issueDate), ...input.practice.map((record) => record.day)].sort();
-  const latest = dates.at(-1);
-  return latest ? Math.min(input.now, Date.parse(`${latest}T23:59:59+08:00`)) : input.now;
+  const times = [...input.daily, ...input.practice].map((record) => record.at).filter(Number.isFinite);
+  return times.length ? Math.min(input.now, Math.max(...times)) : input.now;
 }
 
 /** What the answer or round just saved added: the summary with it minus the summary without it. */
