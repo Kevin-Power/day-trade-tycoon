@@ -85,7 +85,7 @@ export function breakoutPrice(level: number): number {
  * For outcomes stored with this rule it equals `higherHigh`; older ones are read by the same rule from
  * their stored highest price and close.
  */
-function brokeOut(outcome: DailyOutcome, level: number): boolean {
+export function brokeOut(outcome: DailyOutcome, level: number): boolean {
   const breakout = cents(breakoutPrice(level));
   return (outcome.higherHigh && cents(outcome.maxAfter) >= breakout) || cents(outcome.close) >= breakout;
 }
