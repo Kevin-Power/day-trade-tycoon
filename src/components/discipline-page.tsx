@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Award, Lock } from "lucide-react";
 import { AccessCard } from "@/components/access-card";
-import { DisplayControls } from "@/components/display-controls";
+import { DisplayControls, SoundSwitch } from "@/components/display-controls";
 import { useGuestBootstrap } from "@/components/use-guest-bootstrap";
 import { useDisplayPreferences } from "@/lib/display-preferences";
 import { useTerminalLayout } from "@/lib/use-terminal-layout";
@@ -90,6 +90,8 @@ export function DisciplinePage() {
 }
 
 function DisciplineBody({ data }: { data: DisciplineSummary }) {
+  const sound = useDisplayPreferences((state) => state.sound);
+  const setSound = useDisplayPreferences((state) => state.setSound);
   const { level } = data;
   const earned = data.badges.filter((badge) => badge.earned).length;
   return (
@@ -125,6 +127,10 @@ function DisciplineBody({ data }: { data: DisciplineSummary }) {
           <span style={{ "--to": `${levelProgress(level, data.total) * 100}%` } as CSSProperties} />
         </div>
         <p className="td-progress-next">{progressText(level, data.total)}</p>
+        <div className="td-progress-sound">
+          <span>拿到分數時播放提示音</span>
+          <SoundSwitch on={sound} onChange={setSound} />
+        </div>
       </section>
 
       <section className="td-progress-card" aria-labelledby="progress-rules-title">

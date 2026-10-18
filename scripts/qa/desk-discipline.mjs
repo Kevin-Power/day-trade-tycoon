@@ -23,8 +23,8 @@ const cases = [
   { name: "1366", width: 1366, height: 900, senior: false },
   { name: "1366-large", width: 1366, height: 900, senior: true },
 ];
-const CONTROLS = ".td-celebrate :is(a, button), .level-strip, .td-progress-card a, .td-daily-head .td-home, .academy-header :is(button, a)";
-const LARGE = ".td-celebrate :is(a, button), .level-strip, .td-progress-card a";
+const CONTROLS = ".td-celebrate :is(a, button), .level-strip, .td-progress-card a, .td-progress-sound button, .td-daily-head .td-home, .academy-header :is(button, a)";
+const LARGE = ".td-celebrate :is(a, button), .level-strip, .td-progress-card a, .td-progress-sound button";
 
 const scan = ({ controls, large, scope }) => {
   const visible = (el) => {
@@ -147,6 +147,10 @@ for (const item of cases) {
     await page.getByRole("button", { name: "進入教室" }).click();
     await page.getByRole("link", { name: "開始作答" }).waitFor({ timeout: 20000 });
     await check("lobby-header", ".academy-header");
+    // Phones keep the header to one row of display controls; the sound switch lives elsewhere there.
+    const soundInHeader = await page.locator(".academy-header .display-sound-switch").isVisible();
+    if (item.width < 480 && soundInHeader) fail("sound switch adds a row to the phone lobby header");
+    if (item.width >= 480 && !soundInHeader) fail("sound switch missing from the lobby header");
     await shoot("lobby-header");
 
     // Daily question: watch, with a reason.
@@ -219,6 +223,7 @@ for (const item of cases) {
     if ((await page.locator(".td-progress-badges li[data-earned='true']").count()) !== 2) fail("progress page does not show two earned badges");
     if ((await page.locator(".td-progress-recent li").count()) !== 2) fail("recent points are not the answer and the round");
     if ((await page.locator(".td-progress-levels li[aria-current='step']").textContent())?.includes("準時報到") !== true) fail("level table does not mark Lv2");
+    if (!(await page.locator(".td-progress-sound").getByRole("switch", { name: /音效/ }).isVisible())) fail("sound switch missing on 我的紀律");
     await check("progress");
     await page.screenshot({ path: `${out}${item.name}-progress-full.png`, fullPage: true });
   } catch (error) {

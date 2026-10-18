@@ -3361,6 +3361,23 @@
   font-size: 14px;
   line-height: 1.6;
 }
+.trading-desk .td-progress-sound {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--td-line);
+  font-size: 15px;
+}
+.trading-desk[data-layout="senior"] .td-progress-sound {
+  font-size: 17px;
+}
+.trading-desk[data-layout="senior"] .td-progress-sound .display-sound-switch {
+  min-height: 56px;
+  font-size: 17px;
+}
 .trading-desk .td-progress-count {
   color: var(--td-muted);
   font-family: var(--font-mono);
