@@ -189,6 +189,11 @@
   stroke-width: 1.5;
 }
 
+/* The shared primary button (plan start, 再試一次) carries white text: same deep fill as .td-button. */
+.trading-desk .bg-brand {
+  background-color: var(--td-accent-fill);
+}
+
 /* Status bar */
 .trading-desk .td-bar {
   display: flex;
