@@ -146,6 +146,9 @@ export function PaperOrder({
   const pendingId = pending?.id;
   useEffect(() => {
     if (pendingId) pendingPanel.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
+    // A new waiting order means the reviewed order was accepted, also when 「重試這次操作」 resent it after a
+    // failed send: the confirm card can no longer be used (sending is locked while an order waits), so close it.
+    if (pendingId) setReview(null);
   }, [pendingId]);
   const symbol = catalog.symbols.find((item) => item.code === code);
   const last = session?.bars[code]?.at(-1);
