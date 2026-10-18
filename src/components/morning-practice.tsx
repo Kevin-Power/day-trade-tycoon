@@ -34,6 +34,9 @@ import { useSay } from "@/components/use-speech";
 import { fillAnnouncement, SPEECH_TEXT } from "@/lib/speech";
 import { openingRevealDelay } from "@/lib/opening-reveal";
 import { useDisplayPreferences } from "@/lib/display-preferences";
+import { unlockChime } from "@/lib/celebration-sound";
+import { DisciplineCelebration } from "@/components/discipline-celebration";
+import type { Celebration } from "@/lib/discipline/score";
 import { useLedgerPreferences } from "@/lib/ledger-preferences";
 import { useTerminalLayout, type TerminalLayout } from "@/lib/use-terminal-layout";
 import { deriveMorningAlerts } from "@/lib/morning-alerts";
@@ -567,6 +570,8 @@ function MorningLesson({
   async function finish(reflection: string) {
     if (!session) return;
     setAuto(false);
+    // Browsers start audio only inside a tap; the chime itself plays when the points come back.
+    if (useDisplayPreferences.getState().sound) unlockChime();
     const next = await request({
       action: "finish",
       requestId: crypto.randomUUID(),
@@ -915,6 +920,7 @@ function MorningLesson({
               {completed && session && !newPlan && (
                 <Completion
                   session={session}
+                  celebration={data?.celebration ?? null}
                   busy={Boolean(busy)}
                   onRestart={() => {
                     setAuto(false);
@@ -1538,21 +1544,23 @@ function ReflectionForm({
 
 function Completion({
   session,
+  celebration,
   busy,
   onRestart,
 }: {
   session: MorningState;
+  celebration: Celebration | null;
   busy: boolean;
   onRestart: () => void;
 }) {
   const exercise = getMorningExercise(session.plan.exerciseId);
-  const waited =
-    session.cursor > 0 &&
-    (session.orders.length === 0 ||
-      Math.min(...session.orders.map((item) => item.submittedCursor)) > 0);
+  // The same two checks as the practice points (no orders counts for both).
+  const onPlan = session.orders.every((item) => item.code === session.plan.focusCode);
+  const flat = session.positions.every((item) => !item.shares);
   const achievements = [
     "寫下自己的計畫",
-    ...(waited ? ["先觀察，再決定是否操作"] : []),
+    ...(onPlan ? ["照計畫的股票操作"] : []),
+    ...(flat ? ["收盤前不留倉"] : []),
     "完成這一輪復盤",
   ];
   return (
@@ -1563,7 +1571,7 @@ function Completion({
           {exercise.no} · {exercise.title}，已完成本輪復盤
         </h2>
       )}
-      <ul className="mt-4 grid gap-3 sm:grid-cols-3">
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
         {achievements.map((item) => (
           <li
             key={item}
@@ -1574,6 +1582,11 @@ function Completion({
           </li>
         ))}
       </ul>
+      {celebration && (
+        <div className="mt-4">
+          <DisciplineCelebration celebration={celebration} />
+        </div>
+      )}
       <p className="mt-4 text-sm text-muted">
         本輪記錄至 {formatTime(session.cursor * 60).slice(0, 5)}
         ；沒有強制平倉，剩餘庫存保留在紀錄中。重練已看過的行情不代表首次未知行情的表現。

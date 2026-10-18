@@ -3,10 +3,12 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Flame } from "lucide-react";
 import { TapeChart } from "@/components/charts";
 import { DisplayControls } from "@/components/display-controls";
+import { DisciplineCelebration } from "@/components/discipline-celebration";
 import { AccessCard } from "@/components/access-card";
 import { useGuestBootstrap } from "@/components/use-guest-bootstrap";
 import { useSay } from "@/components/use-speech";
 import { useDisplayPreferences } from "@/lib/display-preferences";
+import { unlockChime } from "@/lib/celebration-sound";
 import { useTerminalLayout } from "@/lib/use-terminal-layout";
 import { describeAccessProblem, GUEST_TERMS_TEXT } from "@/lib/morning-access";
 import { limitDown, stepTick } from "@/lib/market/ticks";
@@ -198,6 +200,8 @@ function DailyBody({
   async function send() {
     if (!canSend || choice === null) return;
     say("已送出");
+    // Browsers start audio only inside a tap; the chime itself plays when the points come back.
+    if (useDisplayPreferences.getState().sound) unlockChime();
     setSending(true);
     setError("");
     try {
@@ -339,6 +343,7 @@ function DailyReveal({ data, teacher, headline }: { data: DailyResponse; teacher
           連續 {data.progress.streak} 天 · 本週 {data.progress.week.done}／{data.progress.week.total} 天
         </p>
       )}
+      {!teacher && data.celebration && <DisciplineCelebration celebration={data.celebration} />}
       <div className="td-daily-next">
         <Link to="/" className="td-button">回大廳</Link>
         <Link to="/morning" search={{ panel: "trade" }} className="td-button" data-variant="primary">去模擬練習</Link>

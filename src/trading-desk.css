@@ -3066,3 +3066,435 @@
     animation: none;
   }
 }
+
+/* Discipline points: celebration card (daily reveal, finished round) and the 我的紀律 page.
+   Gold marks celebration; red and green stay reserved for prices going up and down. */
+.trading-desk .td-level-chip {
+  display: inline-grid;
+  place-items: center;
+  min-width: 40px;
+  min-height: 24px;
+  padding: 0 7px;
+  color: #1c1503;
+  background: var(--td-prev);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+.trading-desk .td-celebrate {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  max-width: 720px;
+  padding: 14px;
+  color: var(--td-fg);
+  background: var(--td-raised);
+  border: 1px solid rgb(230 194 90 / 0.45);
+  border-radius: var(--td-radius);
+}
+.trading-desk .td-celebrate h3 {
+  margin: 0;
+  color: var(--td-prev);
+  font-size: 20px;
+  font-weight: 700;
+}
+.trading-desk .td-celebrate-note {
+  margin: 0;
+  color: var(--td-muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.trading-desk .td-celebrate-lines {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trading-desk .td-celebrate-lines li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--td-line);
+  font-size: 15px;
+}
+.trading-desk .td-celebrate-lines b {
+  color: var(--td-prev);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.trading-desk .td-celebrate-lines li[data-kind="eye"] b {
+  color: var(--td-accent);
+}
+.trading-desk .td-celebrate-level {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.trading-desk .td-celebrate-level strong {
+  font-size: 16px;
+}
+.trading-desk .td-celebrate-total {
+  margin-left: auto;
+  color: var(--td-muted);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+.trading-desk .td-celebrate-bar {
+  height: 8px;
+  overflow: hidden;
+  background: var(--td-line);
+  border-radius: 999px;
+}
+.trading-desk .td-celebrate-bar > span {
+  display: block;
+  width: var(--to);
+  height: 100%;
+  background: linear-gradient(90deg, var(--td-accent-fill), var(--td-accent));
+  border-radius: inherit;
+}
+.trading-desk .td-celebrate-next {
+  margin: 0;
+  color: var(--td-muted);
+  font-size: 14px;
+}
+.trading-desk .td-celebrate-levelup {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 14px 12px;
+  text-align: center;
+  background: radial-gradient(circle at 50% 0%, rgb(230 194 90 / 0.2), transparent 70%);
+  border: 1px solid rgb(230 194 90 / 0.6);
+  border-radius: var(--td-radius);
+}
+.trading-desk .td-celebrate-spark {
+  width: 28px;
+  height: 28px;
+  color: var(--td-prev);
+}
+.trading-desk .td-celebrate-levelup p {
+  margin: 0;
+}
+.trading-desk .td-celebrate-kicker {
+  color: var(--td-prev);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.trading-desk .td-celebrate-new {
+  font-size: 24px;
+  font-weight: 700;
+}
+.trading-desk .td-celebrate-cheer {
+  color: var(--td-fg);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.trading-desk .td-celebrate-badges {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trading-desk .td-celebrate-badges li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  background: rgb(230 194 90 / 0.08);
+  border: 1px solid rgb(230 194 90 / 0.35);
+  border-radius: var(--td-radius);
+}
+.trading-desk .td-celebrate-badges svg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--td-prev);
+}
+.trading-desk .td-celebrate-badges span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.trading-desk .td-celebrate-badges b {
+  font-size: 15px;
+}
+.trading-desk .td-celebrate-badges small {
+  color: var(--td-muted);
+  font-size: 13px;
+}
+.trading-desk .td-celebrate-foot {
+  display: grid;
+  gap: 8px;
+}
+.trading-desk .td-celebrate-foot p {
+  margin: 0;
+  color: var(--td-muted);
+  font-size: 13px;
+}
+.trading-desk .td-celebrate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.trading-desk .td-celebrate-actions .td-button {
+  flex: 1 1 160px;
+  min-height: 44px;
+  text-decoration: none;
+}
+.trading-desk[data-layout="senior"] .td-celebrate h3 {
+  font-size: 23px;
+}
+.trading-desk[data-layout="senior"] :is(.td-celebrate-lines li, .td-celebrate-note, .td-celebrate-cheer, .td-celebrate-badges b) {
+  font-size: 17px;
+}
+.trading-desk[data-layout="senior"] :is(.td-celebrate-next, .td-celebrate-foot p, .td-celebrate-badges small, .td-celebrate-total) {
+  font-size: 15px;
+}
+.trading-desk[data-layout="senior"] :is(.td-celebrate-actions .td-button, .td-celebrate-actions .display-sound-switch) {
+  min-height: 56px;
+  font-size: 17px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .trading-desk .td-celebrate {
+    animation: td-daily-in 0.5s ease-out;
+  }
+  .trading-desk .td-celebrate-bar > span {
+    animation: td-celebrate-fill 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both;
+  }
+  .trading-desk .td-celebrate-levelup {
+    animation: td-celebrate-glow 1.2s ease-out both;
+  }
+  .trading-desk .td-celebrate-spark {
+    animation: td-celebrate-pop 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.3) 0.1s both;
+  }
+  .trading-desk .td-celebrate-badges li {
+    animation: td-celebrate-pop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.3) 0.5s both;
+  }
+}
+@keyframes td-celebrate-fill {
+  from {
+    width: var(--from);
+  }
+  to {
+    width: var(--to);
+  }
+}
+@keyframes td-celebrate-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes td-celebrate-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgb(230 194 90 / 0);
+  }
+  35% {
+    box-shadow: 0 0 0 6px rgb(230 194 90 / 0.25);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(230 194 90 / 0);
+  }
+}
+
+/* 我的紀律 page */
+.trading-desk :is(.td-progress-level, .td-progress-card) {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  background: var(--td-panel);
+  border: 1px solid var(--td-line);
+  border-radius: var(--td-radius);
+}
+.trading-desk :is(.td-progress-level, .td-progress-card) h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.trading-desk .td-progress-level-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.trading-desk .td-progress-level-head h2 {
+  font-size: 24px;
+}
+.trading-desk .td-progress-scores {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.trading-desk .td-progress-scores div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--td-raised);
+  border-radius: 4px;
+}
+.trading-desk .td-progress-scores dt {
+  color: var(--td-muted);
+  font-size: 13px;
+}
+.trading-desk .td-progress-scores dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 600;
+}
+.trading-desk .td-progress-next,
+.trading-desk .td-progress-note {
+  margin: 0;
+  color: var(--td-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.trading-desk .td-progress-count {
+  color: var(--td-muted);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+}
+.trading-desk .td-progress-rules {
+  width: 100%;
+  border-collapse: collapse;
+}
+.trading-desk .td-progress-rules caption {
+  padding: 4px 0;
+  color: var(--td-prev);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+}
+.trading-desk .td-progress-rules :is(th, td) {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--td-line);
+  font-size: 15px;
+}
+.trading-desk .td-progress-rules th {
+  font-weight: 400;
+  text-align: left;
+}
+.trading-desk .td-progress-rules td {
+  padding-left: 12px;
+  color: var(--td-prev);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+.trading-desk .td-progress-badges {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trading-desk .td-progress-badges li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  background: var(--td-raised);
+  border: 1px solid var(--td-line);
+  border-radius: var(--td-radius);
+}
+.trading-desk .td-progress-badges li[data-earned="true"] {
+  background: rgb(230 194 90 / 0.08);
+  border-color: rgb(230 194 90 / 0.4);
+}
+.trading-desk .td-progress-badges svg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--td-muted);
+}
+.trading-desk .td-progress-badges li[data-earned="true"] svg {
+  color: var(--td-prev);
+}
+.trading-desk .td-progress-badges div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.trading-desk .td-progress-badges strong {
+  font-size: 15px;
+}
+.trading-desk .td-progress-badges small {
+  color: var(--td-muted);
+  font-size: 13px;
+}
+.trading-desk .td-progress-badges li[data-earned="true"] .td-progress-badge-state {
+  color: var(--td-prev);
+}
+.trading-desk .td-progress-recent {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trading-desk .td-progress-recent li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--td-line);
+  font-size: 15px;
+}
+.trading-desk .td-progress-recent b {
+  color: var(--td-prev);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.trading-desk .td-progress-levels {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trading-desk .td-progress-levels li {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--td-line);
+  font-size: 15px;
+}
+.trading-desk .td-progress-levels li span,
+.trading-desk .td-progress-levels li small {
+  color: var(--td-muted);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+.trading-desk .td-progress-levels li[aria-current="step"] {
+  color: var(--td-select-fg);
+  background: var(--td-select-bg);
+  box-shadow: inset 3px 0 0 var(--td-prev);
+}
+.trading-desk .td-progress-levels li[aria-current="step"] :is(span, small) {
+  color: var(--td-select-fg);
+}
+@media (min-width: 600px) {
+  .trading-desk .td-progress-badges {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.trading-desk[data-layout="senior"] :is(.td-progress-rules :is(th, td), .td-progress-recent li, .td-progress-levels li, .td-progress-badges strong) {
+  font-size: 17px;
+}
+.trading-desk[data-layout="senior"] :is(.td-progress-badges small, .td-progress-note, .td-progress-next, .td-progress-scores dt) {
+  font-size: 15px;
+}

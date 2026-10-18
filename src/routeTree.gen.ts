@@ -15,6 +15,7 @@ import { Route as LicenseRouteImport } from './routes/license'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ManualRouteImport } from './routes/manual'
 import { Route as MorningRouteImport } from './routes/morning'
+import { Route as ProgressRouteImport } from './routes/progress'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as TeacherRouteImport } from './routes/teacher'
 import { Route as TryRouteImport } from './routes/try'
@@ -60,6 +61,11 @@ const ManualRoute = ManualRouteImport.update({
 const MorningRoute = MorningRouteImport.update({
   id: '/morning',
   path: '/morning',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProgressRoute = ProgressRouteImport.update({
+  id: '/progress',
+  path: '/progress',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SetupRoute = SetupRouteImport.update({
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/manual': typeof ManualRoute
   '/morning': typeof MorningRoute
+  '/progress': typeof ProgressRoute
   '/setup': typeof SetupRoute
   '/teacher': typeof TeacherRoute
   '/try': typeof TryRoute
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/manual': typeof ManualRoute
   '/morning': typeof MorningRoute
+  '/progress': typeof ProgressRoute
   '/setup': typeof SetupRoute
   '/teacher': typeof TeacherRoute
   '/try': typeof TryRoute
@@ -199,6 +207,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/manual': typeof ManualRoute
   '/morning': typeof MorningRoute
+  '/progress': typeof ProgressRoute
   '/setup': typeof SetupRoute
   '/teacher': typeof TeacherRoute
   '/try': typeof TryRoute
@@ -225,6 +234,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/manual'
     | '/morning'
+    | '/progress'
     | '/setup'
     | '/teacher'
     | '/try'
@@ -249,6 +259,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/manual'
     | '/morning'
+    | '/progress'
     | '/setup'
     | '/teacher'
     | '/try'
@@ -273,6 +284,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/manual'
     | '/morning'
+    | '/progress'
     | '/setup'
     | '/teacher'
     | '/try'
@@ -298,6 +310,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ManualRoute: typeof ManualRoute
   MorningRoute: typeof MorningRoute
+  ProgressRoute: typeof ProgressRoute
   SetupRoute: typeof SetupRoute
   TeacherRoute: typeof TeacherRoute
   TryRoute: typeof TryRoute
@@ -358,6 +371,13 @@ declare module '@tanstack/react-router' {
       path: '/morning'
       fullPath: '/morning'
       preLoaderRoute: typeof MorningRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/progress': {
+      id: '/progress'
+      path: '/progress'
+      fullPath: '/progress'
+      preLoaderRoute: typeof ProgressRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/setup': {
@@ -482,6 +502,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ManualRoute: ManualRoute,
   MorningRoute: MorningRoute,
+  ProgressRoute: ProgressRoute,
   SetupRoute: SetupRoute,
   TeacherRoute: TeacherRoute,
   TryRoute: TryRoute,
