@@ -3,6 +3,8 @@ import { applyMorningAction, createMorningState, MorningError, parseMorningActio
   type MorningSource, type MorningStoredState } from "./morning-engine.ts";
 import type { Sql } from "./db.ts";
 import { summarizeMorningLesson, type MorningLessonSummary, type MorningResponse } from "./morning.ts";
+import { readDisciplineInput } from "./discipline/records.server.ts";
+import { celebrationFor, type Celebration } from "./discipline/score.ts";
 
 type SessionRow = { id: string; state_json: MorningStoredState | string };
 function stored(row: SessionRow): MorningStoredState {
@@ -58,6 +60,7 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
     return response(stored(rows[0]), source, lessons);
   }
   let state: MorningStoredState;
+  let celebration: Celebration | null = null;
   if (action.action === "start") {
     const active = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions
       WHERE user_id = ${userId} AND lesson_id = ${source.catalog.lessonId} AND completed = FALSE FOR UPDATE`;
@@ -71,13 +74,17 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
     const rows = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions
       WHERE id = ${action.id}::uuid AND user_id = ${userId} AND lesson_id = ${source.catalog.lessonId} FOR UPDATE`;
     if (!rows[0]) throw new MorningError(404, "找不到這份練習");
-    state = applyMorningAction(stored(rows[0]), action, source, now);
+    const previous = stored(rows[0]);
+    // The engine refuses a finished run, so a finish that gets here completes it exactly once.
+    const before = action.action === "finish" && !previous.completed ? await readDisciplineInput(sql, userId, now) : null;
+    state = applyMorningAction(previous, action, source, now);
     await sql`UPDATE morning_sessions SET state_json = ${JSON.stringify(state)}::jsonb,
       completed = ${state.completed}, updated_at = NOW() WHERE id = ${state.id}::uuid AND user_id = ${userId}`;
+    if (before && state.completed) celebration = celebrationFor(before, await readDisciplineInput(sql, userId, now), "practice");
   }
   const counts = await sql<{ count: number }>`SELECT count(*)::int AS count FROM morning_requests WHERE session_id = ${state.id}::uuid`;
   if (counts[0].count >= 1_000) throw new MorningError(429, "本次練習操作次數已達上限，請聯絡講師");
   await sql`INSERT INTO morning_requests (user_id, request_id, session_id, action_hash)
     VALUES (${userId}, ${action.requestId}::uuid, ${state.id}::uuid, ${hash})`;
-  return response(state, source, lessons);
+  return celebration ? { ...response(state, source, lessons), celebration } : response(state, source, lessons);
 }

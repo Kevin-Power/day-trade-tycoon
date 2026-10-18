@@ -25,7 +25,7 @@ test("real SQL replay: owner, consent, atomic revisions, request idempotence, pe
   const directory = await mkdtemp(join(tmpdir(), "morning-sql-test-"));
   let db = new PGlite({ dataDir: join(directory, "pglite") });
   try {
-    for (const migration of ["0001_auth.sql", "0003_classroom.sql", "0007_morning_replay.sql", "0008_anonymous_users.sql"])
+    for (const migration of ["0001_auth.sql", "0003_classroom.sql", "0007_morning_replay.sql", "0008_anonymous_users.sql", "0009_daily_questions.sql"])
       await db.exec(await readFile(new URL("../../migrations/" + migration, import.meta.url), "utf8"));
     for (const id of ["alice", "bob", "unconsented"])
       await db.query('INSERT INTO "user"(id,name,email,"emailVerified") VALUES($1,$1,$2,FALSE)', [id, id + "@example.invalid"]);
@@ -124,7 +124,7 @@ async function guestFixture(run: (tools: {
   const directory = await mkdtemp(join(tmpdir(), "morning-sql-test-"));
   const db = new PGlite({ dataDir: join(directory, "pglite") });
   try {
-    for (const migration of ["0001_auth.sql", "0003_classroom.sql", "0007_morning_replay.sql", "0008_anonymous_users.sql"])
+    for (const migration of ["0001_auth.sql", "0003_classroom.sql", "0007_morning_replay.sql", "0008_anonymous_users.sql", "0009_daily_questions.sql"])
       await db.exec(await readFile(new URL("../../migrations/" + migration, import.meta.url), "utf8"));
     for (const [id, anonymous] of [["guest", true], ["guest2", true], ["member", false], ["stranger", false]] as const)
       await db.query('INSERT INTO "user"(id,name,email,"emailVerified","isAnonymous") VALUES($1,$1,$2,FALSE,$3)', [id, id + "@example.invalid", anonymous]);
@@ -167,4 +167,19 @@ test("guest start is idempotent under a double tap", () => guestFixture(async ({
   assert.equal(first.state!.id, second.state!.id);
   assert.equal(await count("SELECT count(*)::int AS count FROM guest_consents WHERE user_id='guest2'"), 1);
   assert.equal((await act({ ...guestStart(), guestTerms: true }, 10, "guest2")).state!.id, first.state!.id);
+}));
+
+test("finishing a round celebrates its points once; a second round that day adds nothing", () => guestFixture(async ({ act }) => {
+  const run = (await act(guestStart(), 0, "member")).state!;
+  const finish = { action: "finish", requestId: randomUUID(), id: run.id, expectedRevision: run.revision, reflection: "條件沒有成立，不交易。" };
+  const done = await act(finish, 100, "member");
+  assert.equal(done.celebration!.source, "practice");
+  assert.deepEqual([done.celebration!.points, done.celebration!.beforeTotal, done.celebration!.total], [25, 0, 25]);
+  assert.deepEqual(done.celebration!.newBadges.map((badge) => badge.id), ["first-practice"]);
+  assert.equal((await act(finish, 200, "member")).celebration ?? null, null, "a retried finish does not celebrate again");
+  const second = (await act(guestStart(), 300, "member")).state!;
+  const again = await act({ action: "finish", requestId: randomUUID(), id: second.id, expectedRevision: second.revision, reflection: "再練一輪。" }, 400, "member");
+  assert.deepEqual([again.celebration!.points, again.celebration!.alreadyCounted], [0, true]);
+  const advanced = (await act({ action: "advance", requestId: randomUUID(), id: (await act(guestStart(), 500, "member")).state!.id, expectedRevision: 0 }, 1500, "member"));
+  assert.equal(advanced.celebration ?? null, null, "only finishing celebrates");
 }));

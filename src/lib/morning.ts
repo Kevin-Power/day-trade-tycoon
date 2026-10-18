@@ -1,4 +1,5 @@
 import type { Bar } from "./game/types";
+import type { Celebration } from "./discipline/score";
 
 export type MorningPlan = {
   exerciseId?: string;
@@ -86,6 +87,8 @@ export type MorningResponse = {
   catalog: MorningCatalog;
   state: MorningState | null;
   lessons?: MorningLessonSummary[];
+  /** Only on the request that finished the round; retries and other actions have none. */
+  celebration?: Celebration | null;
 };
 export type MorningAction =
   | { action: "start"; requestId: string; plan: MorningPlan; guestTerms?: true }

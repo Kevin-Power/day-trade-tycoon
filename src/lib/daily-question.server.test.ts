@@ -189,3 +189,15 @@ test("progress counts by issue day", () => fixture(async ({ dir, tx }) => {
   assert.equal(wednesday.progress.streak, 2);
   assert.deepEqual(wednesday.progress.week.days.slice(0, 3).map((day) => day.state), ["done", "done", "off"]);
 }));
+
+test("the first answer celebrates its points; a resend celebrates nothing", () => fixture(async ({ dir, tx }) => {
+  const first = await tx((sql) => answerDaily(sql, "alice", { questionId: "2026-10-14", choice: "watch", reason: "unclear" }, dir, MON_0700));
+  assert.equal(first.celebration!.source, "daily");
+  assert.deepEqual(first.celebration!.gained.slice(0, 2).map((line) => line.id), ["answered", "reason"]);
+  assert.equal(first.celebration!.points, first.celebration!.gained.reduce((sum, line) => sum + line.points, 0));
+  assert.deepEqual(first.celebration!.newBadges.map((badge) => badge.id), ["first-daily"]);
+  const again = await tx((sql) => answerDaily(sql, "alice", { questionId: "2026-10-14", choice: "watch", reason: "unclear" }, dir, MON_0700));
+  assert.equal(again.celebration, null);
+  const read = await tx((sql) => loadDaily(sql, "alice", dir, MON_0700));
+  assert.equal(read.celebration ?? null, null);
+}));

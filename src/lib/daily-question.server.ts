@@ -10,6 +10,8 @@ import { dailyProgress, type DailyProgress } from "./daily/progress.ts";
 import { dailyAnswerSchema, validateStop } from "./daily/answer.ts";
 import { entryResult, type EntryResult } from "./daily/reveal.ts";
 import type { DailyChoice, DailyOutcome, DailyQuestionPayload } from "./daily/types.ts";
+import { readDisciplineInput } from "./discipline/records.server.ts";
+import { celebrationFor, type Celebration } from "./discipline/score.ts";
 
 export type DailyQuestionView = Omit<DailyQuestionPayload, "bars" | "outcome"> & { bars: Bar[]; issueDate: string };
 export type DailyReveal = {
@@ -25,6 +27,8 @@ export type DailyResponse = {
   reveal: DailyReveal | null;
   progress: DailyProgress;
   needsTerms: boolean;
+  /** Only on the POST that saved the answer; a resend gets null. */
+  celebration?: Celebration | null;
 };
 type Current = { id: string; issueDate: string; payload: DailyQuestionPayload };
 
@@ -173,7 +177,7 @@ export async function answerDaily(sql: Sql, userId: string, input: unknown, dir:
   if (!current || current.id !== body.questionId) throw new MorningError(409, "題目已更新，請重新載入");
   const existing = await sql<{ choice: string }>`
     SELECT choice FROM daily_answers WHERE user_id = ${userId} AND question_id = ${current.id}`;
-  if (existing[0]) return loadDaily(sql, userId, dir, now);
+  if (existing[0]) return { ...(await loadDaily(sql, userId, dir, now)), celebration: null };
   if (access.kind === "member" && body.guestTerms) throw new MorningError(400, "這個帳號不需要訪客聲明");
   if (access.kind === "guest" && !access.consented) {
     if (!body.guestTerms) throw new MorningError(403, "請先確認教學聲明");
@@ -181,10 +185,13 @@ export async function answerDaily(sql: Sql, userId: string, input: unknown, dir:
   }
   const problem = validateStop(current.payload, body.choice, body.stopPrice);
   if (problem) throw new MorningError(400, problem);
-  await sql`INSERT INTO daily_answers (user_id, question_id, choice, stop_price, reason)
+  const before = await readDisciplineInput(sql, userId, now);
+  const inserted = await sql<{ question_id: string }>`INSERT INTO daily_answers (user_id, question_id, choice, stop_price, reason)
     VALUES (${userId}, ${current.id}, ${body.choice}, ${body.stopPrice ?? null}, ${body.reason ?? null})
-    ON CONFLICT (user_id, question_id) DO NOTHING`;
-  return loadDaily(sql, userId, dir, now);
+    ON CONFLICT (user_id, question_id) DO NOTHING RETURNING question_id`;
+  const response = await loadDaily(sql, userId, dir, now);
+  if (!inserted.length) return { ...response, celebration: null };
+  return { ...response, celebration: celebrationFor(before, await readDisciplineInput(sql, userId, now), "daily") };
 }
 
 /** Teacher card: the current question, its reveal, the class list and how many guests answered. */
