@@ -307,6 +307,54 @@ try {
     return scale >= 2 && drift < 0.005 && Math.abs(panned.left - actual.left) > 100 && Math.abs(reset.width - fit.width) < 2 && escaped === 0 && closed && focusBack;
   }, { hasTouch: true, isMobile: true });
 
+  // Fable F-02 (r2.1): on a phone the 目錄 panel covered the 目錄 button, could not be closed, and a tap at the
+  // button's place opened 開始之前. Checked with real touch taps at 390 and 360.
+  for (const width of [390, 360]) {
+    await run(`P2 手機目錄（${width}）：打開後看得到關閉方式，關閉鈕、點遮罩、Esc 都能關，不會誤觸跳頁`, { width, height: width === 390 ? 844 : 740 }, async ({ page, shot, note }) => {
+      await page.goto(base);
+      await go(page, "03-4");
+      const menu = page.locator("button.w-menu");
+      const nav = page.locator("#w-nav");
+      const isOpen = () => nav.evaluate((element) => element.classList.contains("open") && getComputedStyle(element).visibility !== "hidden");
+      const tapAt = async (x, y) => {
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await page.waitForTimeout(350);
+      };
+      const button = await menu.boundingBox();
+      await tapAt(button.x + button.width / 2, button.y + button.height / 2);
+      const opened = await isOpen();
+      const top = await nav.evaluate((element) => Math.round(element.getBoundingClientRect().top));
+      const covered = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("button.w-menu") !== null, [button.x + button.width / 2, button.y + button.height / 2]);
+      await shot(`menu-open-${width}`);
+      // 1) a tap at the 目錄 button again must not jump to 開始之前
+      await tapAt(button.x + button.width / 2, button.y + button.height / 2);
+      const hashAfterTap = await page.evaluate(() => location.hash);
+      if (!(await isOpen())) await menu.click();
+      // 2) the close button
+      await page.getByRole("button", { name: "關閉目錄" }).click();
+      await page.waitForTimeout(300);
+      const closedByButton = !(await isOpen());
+      // 3) the shade beside the panel
+      await menu.click();
+      await page.waitForTimeout(300);
+      const panel = await nav.boundingBox();
+      await tapAt(Math.min(width - 8, panel.x + panel.width + 20), Math.min(700, panel.y + 200));
+      const closedByShade = !(await isOpen());
+      // 4) Escape, focus back on 目錄
+      await menu.click();
+      await page.waitForTimeout(300);
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(300);
+      const closedByEscape = !(await isOpen());
+      const focusBack = await page.evaluate(() => document.activeElement?.classList.contains("w-menu") ?? false);
+      const stayed = await page.evaluate(() => location.hash);
+      note(`open ${opened} · panel top ${top}px · 目錄 button still reachable ${covered} · hash after tapping there ${hashAfterTap} · closed by button ${closedByButton}, shade ${closedByShade}, Esc ${closedByEscape} · focus back ${focusBack} · page ${stayed}`);
+      return opened && covered && hashAfterTap === "#03-4" && closedByButton && closedByShade && closedByEscape && focusBack && stayed === "#03-4";
+    }, { hasTouch: true, isMobile: true });
+  }
+
   await run("P2 桌機看圖：滑鼠拖曳可以平移放大的圖", { width: 1440, height: 900 }, async ({ page, shot, note }) => {
     await page.goto(base);
     await go(page, "01-4");

@@ -61,38 +61,109 @@ say(`only in ${labelB}: ${onlyB.length}`);
 for (const path of onlyB) say(`  ONLY-${labelB} ${path}  ${sha(b.get(path)).slice(0, 12)}`);
 say();
 
-// Pass 2: hashed names normalised.
+// Pass 2: hashed names normalised. Several chunks can share a base name (login-AAAA.mjs and login-BBBB.mjs), so
+// files are grouped by normalised path and paired by identical normalised content first; leftovers pair 1:1 only.
 const normalise = (files) => {
-  const result = new Map();
+  const groups = new Map();
   for (const [path, buffer] of files) {
     const key = path.replace(HASHED, "$1-[hash].$2");
     const content = TEXT.has(extname(path)) ? Buffer.from(buffer.toString("utf8").replace(HASHED, "$1-[hash].$2")) : buffer;
-    result.set(key, { path, content });
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ path, content, hash: sha(content) });
   }
-  return result;
+  return groups;
 };
 const na = normalise(a);
 const nb = normalise(b);
-const pairs = [...na.keys()].filter((key) => nb.has(key));
-const sameAfter = pairs.filter((key) => sha(na.get(key).content) === sha(nb.get(key).content));
+const sameAfter = [];
+const pairsLeft = [];
+const unpaired = [];
+for (const key of new Set([...na.keys(), ...nb.keys()])) {
+  const left = [...(na.get(key) ?? [])];
+  const right = [...(nb.get(key) ?? [])];
+  for (let i = left.length - 1; i >= 0; i--) {
+    const match = right.findIndex((item) => item.hash === left[i].hash);
+    if (match >= 0) {
+      sameAfter.push([left[i], right[match]]);
+      left.splice(i, 1);
+      right.splice(match, 1);
+    }
+  }
+  if (left.length === 1 && right.length === 1) pairsLeft.push([left[0], right[0]]);
+  else {
+    for (const item of left) unpaired.push(`${labelA} ${item.path}`);
+    for (const item of right) unpaired.push(`${labelB} ${item.path}`);
+  }
+}
 const eolOnly = [];
 const stillDifferent = [];
-for (const key of pairs.filter((item) => !sameAfter.includes(item))) {
-  const left = na.get(key).content.toString("utf8").replace(/\r\n/g, "\n");
-  const right = nb.get(key).content.toString("utf8").replace(/\r\n/g, "\n");
-  (left === right ? eolOnly : stillDifferent).push(key);
+for (const pair of pairsLeft) {
+  const [left, right] = pair.map((item) => item.content.toString("utf8").replace(/\r\n/g, "\n"));
+  (left === right ? eolOnly : stillDifferent).push(pair);
 }
-const renamedOnly = sameAfter.filter((key) => na.get(key).path !== nb.get(key).path || sha(a.get(na.get(key).path)) !== sha(b.get(nb.get(key).path)));
+const renamedOnly = sameAfter.filter(([left, right]) => left.path !== right.path || sha(a.get(left.path)) !== sha(b.get(right.path)));
 say(`== Pass 2 (hashed names normalised)`);
-say(`paired files: ${pairs.length} (unpaired ${labelA} ${na.size - pairs.length}, unpaired ${labelB} ${nb.size - pairs.length})`);
 say(`identical after normalisation: ${sameAfter.length}, of which differed before only by hashed names: ${renamedOnly.length}`);
-for (const key of renamedOnly.sort()) say(`  RENAMED-ONLY ${na.get(key).path}  ↔  ${nb.get(key).path}`);
+for (const [left, right] of renamedOnly.sort((x, y) => x[0].path.localeCompare(y[0].path))) say(`  RENAMED-ONLY ${left.path}  ↔  ${right.path}`);
 say(`differ only in line endings: ${eolOnly.length}`);
-for (const key of eolOnly) say(`  EOL-ONLY ${key}`);
+for (const [left, right] of eolOnly) say(`  EOL-ONLY ${left.path}  ↔  ${right.path}`);
 say(`still different: ${stillDifferent.length}`);
-for (const key of stillDifferent) say(`  STILL-DIFF ${na.get(key).path}  ↔  ${nb.get(key).path}`);
-for (const key of [...na.keys()].filter((item) => !nb.has(item))) say(`  UNPAIRED-${labelA} ${na.get(key).path}`);
-for (const key of [...nb.keys()].filter((item) => !na.has(item))) say(`  UNPAIRED-${labelB} ${nb.get(key).path}`);
+for (const [left, right] of stillDifferent) say(`  STILL-DIFF ${left.path}  ↔  ${right.path}`);
+say(`unpaired: ${unpaired.length}`);
+for (const item of unpaired) say(`  UNPAIRED ${item}`);
+say();
+
+// Pass 3, only for what still differs: build metadata. Hash tokens taken from the hashed file names of both trees are
+// replaced also where the bundler turned them into identifiers (- → _); CRLF inside string literals, absolute build
+// roots and file mtimes are replaced. What remains is a real content difference, printed with its first excerpt.
+const tokens = new Set();
+for (const path of [...a.keys(), ...b.keys()]) for (const match of path.matchAll(/-([A-Za-z0-9_-]{8})\.(?:js|css|mjs)\b/g)) tokens.add(match[1]);
+const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const tokenPattern = new RegExp([...tokens].flatMap((token) => [escape(token), escape(token.replace(/-/g, "_"))]).join("|"), "g");
+const loose = (text) =>
+  text
+    .replace(/\r\n/g, "\n")
+    .replace(/\\r\\n/g, "\\n") // CRLF inside bundled string literals (e.g. SQL files checked out with CRLF)
+    .replace(tokenPattern, "[hash]")
+    .replace(/[A-Z]:\/[^"'\n]*?\/src\//g, "[root]/src/")
+    .replace(/\b_lazy_[A-Za-z0-9]{6}\b/g, "_lazy_[id]") // Nitro's generated names for lazy route handlers
+    .replace(/"mtime": "[^"]*"/g, '"mtime": "[mtime]"');
+say(`== Pass 3 (build metadata normalised, only files still different): ${stillDifferent.length}`);
+for (const [left, right] of stillDifferent) {
+  let x = loose(left.content.toString("utf8"));
+  let y = loose(right.content.toString("utf8"));
+  if (left.path.endsWith("index.mjs")) {
+    // Nitro's public asset table is keyed in directory-walk order: compare it as a set of entries and list the
+    // entries that differ (an entry differs when the file it describes differs: size and etag).
+    const table = /var public_assets_data_default = \{[\s\S]*?\n\};/;
+    const entries = (text) => new Set([...text.match(table)[0].matchAll(/\t"(\/[^"]+)": \{[^}]*\}/g)].map((match) => match[0].replace(/\s+/g, " ")));
+    if (table.test(x) && table.test(y)) {
+      const left = entries(x);
+      const right = entries(y);
+      const onlyLeft = [...left].filter((item) => !right.has(item));
+      const onlyRight = [...right].filter((item) => !left.has(item));
+      x = x.replace(table, "[public asset table]");
+      y = y.replace(table, "[public asset table]");
+      if (x === y) {
+        say(`  ASSET-TABLE-ONLY ${left.size === right.size ? "" : "(entry count differs) "}index.mjs: order differs; ${onlyLeft.length} entries differ`);
+        for (const item of onlyLeft) say(`    ${labelA}: ${item.slice(0, 220)}`);
+        for (const item of onlyRight) say(`    ${labelB}: ${item.slice(0, 220)}`);
+        continue;
+      }
+    }
+  }
+  if (x === y) {
+    say(`  METADATA-ONLY ${left.path}  ↔  ${right.path}`);
+    continue;
+  }
+  let start = 0;
+  while (start < x.length && x[start] === y[start]) start++;
+  let tail = 0;
+  while (tail < Math.min(x.length, y.length) - start && x[x.length - 1 - tail] === y[y.length - 1 - tail]) tail++;
+  say(`  CONTENT-DIFF ${left.path}  ↔  ${right.path}  (${x.length} vs ${y.length} chars after normalising)`);
+  say(`    ${labelA}: ${JSON.stringify(x.slice(Math.max(0, start - 60), x.length - tail + 20).slice(0, 600))}`);
+  say(`    ${labelB}: ${JSON.stringify(y.slice(Math.max(0, start - 60), y.length - tail + 20).slice(0, 600))}`);
+}
 say();
 
 // CSS that still differs: compare the selector sets (selector text before each `{`, at-rules excluded).
@@ -101,15 +172,17 @@ const selectors = (css) => {
   for (const match of css.matchAll(/(?:^|[{};])\s*([^{}@;][^{};]*?)\s*\{/g)) found.add(match[1].replace(/\s+/g, " "));
   return found;
 };
-for (const key of stillDifferent.filter((item) => item.endsWith(".css"))) {
-  const left = selectors(na.get(key).content.toString("utf8"));
-  const right = selectors(nb.get(key).content.toString("utf8"));
+for (const [leftFile, rightFile] of stillDifferent.filter(([item]) => item.path.endsWith(".css"))) {
+  const key = leftFile.path;
+  const left = selectors(leftFile.content.toString("utf8"));
+  const right = selectors(rightFile.content.toString("utf8"));
   const onlyLeft = [...left].filter((item) => !right.has(item));
   const onlyRight = [...right].filter((item) => !left.has(item));
   say(`== CSS ${key}: selectors ${labelA} ${left.size}, ${labelB} ${right.size}; only in ${labelA} ${onlyLeft.length}; only in ${labelB} ${onlyRight.length}`);
   for (const item of onlyLeft) say(`  CSS-ONLY-${labelA} ${item}`);
   for (const item of onlyRight) say(`  CSS-ONLY-${labelB} ${item}`);
-  say(`  bytes ${labelA} ${na.get(key).content.length}, ${labelB} ${nb.get(key).content.length}`);
+  const blocks = (file) => (file.content.toString("utf8").match(/\{/g) ?? []).length;
+  say(`  bytes ${labelA} ${leftFile.content.length}, ${labelB} ${rightFile.content.length}; blocks ("{") ${labelA} ${blocks(leftFile)}, ${labelB} ${blocks(rightFile)}`);
 }
 writeFileSync(out, `${lines.join("\n")}\n`);
 console.log(lines.filter((line) => !line.startsWith("  ")).join("\n"));

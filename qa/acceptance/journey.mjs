@@ -81,26 +81,33 @@ const barAt = (date, code, time) => barsOf(date, code).find(([seconds]) => minut
 const shownClose = (date, code, time) => barsOf(date, code).find(([seconds]) => minuteOf(seconds + 60) === time)?.[4];
 const previousClose = (date, code) => JSON.parse(readFileSync(join(marketCopy, "days", date, "index.json"), "utf8")).symbols.find((item) => item.code === code).referencePrice;
 
-const server = spawn(process.execPath, [join(project, "scripts", "qa", "desk-server.mjs")], {
-  cwd: project,
-  env: { ...process.env, APP_ENTRY: appEntry, PORT_APP: portApp, PORT_PROXY: portProxy, MARKET_DATA_DIR: marketCopy, DOWNLOADS: join(appEntry, "..", "..", "downloads") },
-  stdio: ["ignore", "pipe", "pipe"],
-  windowsHide: true,
-});
+// --replay <journey.json>: the workbook part only, written from what an earlier run saw on the desk (no classroom).
+// Used to repeat the save / reopen / export / import checks on a later package, opened the way a student opens it.
+const replay = option("replay") ? JSON.parse(readFileSync(resolve(option("replay")), "utf8")) : null;
+let server = null;
 let serverLog = "";
-await new Promise((done, fail) => {
-  const timer = setTimeout(() => fail(new Error("classroom did not start:\n" + serverLog)), 90000);
-  server.stdout.on("data", (chunk) => {
-    serverLog += chunk;
-    if (serverLog.includes("QA ready")) {
-      clearTimeout(timer);
-      done();
-    }
+let classroom = null;
+if (!replay) {
+  server = spawn(process.execPath, [join(project, "scripts", "qa", "desk-server.mjs")], {
+    cwd: project,
+    env: { ...process.env, APP_ENTRY: appEntry, PORT_APP: portApp, PORT_PROXY: portProxy, MARKET_DATA_DIR: marketCopy, DOWNLOADS: join(appEntry, "..", "..", "downloads") },
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
   });
-  server.stderr.on("data", (chunk) => (serverLog += chunk));
-  server.on("exit", (code) => fail(new Error(`classroom exited (${code}):\n${serverLog}`)));
-});
-const classroom = JSON.parse(await readFile(join(project, "artifacts", "trading-desk-qa", `server-${portProxy}.json`), "utf8"));
+  await new Promise((done, fail) => {
+    const timer = setTimeout(() => fail(new Error("classroom did not start:\n" + serverLog)), 90000);
+    server.stdout.on("data", (chunk) => {
+      serverLog += chunk;
+      if (serverLog.includes("QA ready")) {
+        clearTimeout(timer);
+        done();
+      }
+    });
+    server.stderr.on("data", (chunk) => (serverLog += chunk));
+    server.on("exit", (code) => fail(new Error(`classroom exited (${code}):\n${serverLog}`)));
+  });
+  classroom = JSON.parse(await readFile(join(project, "artifacts", "trading-desk-qa", `server-${portProxy}.json`), "utf8"));
+}
 
 /* ── the record ── */
 const records = [];
@@ -223,16 +230,19 @@ async function finishRound(page, reflection) {
 const money = (value) => Number(String(value ?? "").replace(/[−–]/g, "-").replace(/[^\d.-]/g, ""));
 const observed = { quotes: [], fees: [], waits: [] }; // what the journey saw, for the student's own workbook
 let roundOrders = []; // orders this student sent in the current round: { code, side, lots, at } (at = clock when confirmed)
+/** The quote as the hero shows it: price in <strong>, then the change and the percent in their own spans
+ *  (quote-hero.tsx). The first r2.2 run read the whole price line and wrote "2585100.39" into the workbook. */
 async function heroQuote(page) {
   const d = desk(page);
-  const change = await text(d.heroChange);
+  const parts = await d.heroPrice.evaluate((node) => [node.querySelector("strong")?.textContent ?? "", ...[...node.querySelectorAll(".td-hero-change > span")].map((span) => span.textContent ?? "")]);
   return {
     code: await page.locator('select[aria-label="選擇股票"]').inputValue(),
     name: await text(d.heroName),
     time: await clock(page),
-    price: await text(d.heroPrice),
-    change: (change.match(/[▲▼]?\s*[\d,.]+/)?.[0] ?? "").replace(/\s+/g, ""),
-    percent: change.match(/[+\-−]?[\d.]+%/)?.[0] ?? "",
+    day: await tradingDay(page),
+    price: parts[0].trim(),
+    change: (parts[1] ?? "").replace(/\s+/g, ""),
+    percent: (parts[2] ?? "").trim(),
   };
 }
 const watchList = (page) =>
@@ -586,6 +596,7 @@ async function level02(page) {
     act: () => finishRound(page, "台積電開在昨收附近，09:07 出現前高 2590；我會讀最新價、漲跌與五檔了。"),
     verify: async () => {
       const card = await text(page.locator("section", { hasText: "已保存 · 這是操作足跡，不是獲利能力評分" }).last());
+      await evidence(page, "02-6-completion-card", completionCard(page));
       const ok = card.includes("寫下自己的計畫") && card.includes("完成這一輪復盤");
       return verdict(ok, card.slice(0, 260));
     },
@@ -660,6 +671,7 @@ async function level03(page) {
     act: async () => {
       await d.submit.click();
       const confirm = await text(d.confirm);
+      await evidence(page, "03-4-confirm-card", d.confirm);
       if (!confirm.includes("1,000 股") || !confirm.includes("市價模擬")) throw new Error(`confirm card: ${confirm.slice(0, 120)}`);
       await page.getByRole("button", { name: "確認送出模擬買進" }).click();
     },
@@ -877,6 +889,17 @@ async function marketOrder(page, side, lots = 1) {
   await page.getByRole("button", { name: `確認送出模擬${side}` }).click();
   await page.getByRole("button", { name: "前進一分鐘撮合" }).click();
   await page.waitForTimeout(1200);
+}
+/** Extra evidence for the side-by-side sheets: the element itself, after its entrance animation has finished.
+ *  Taken inside a step; it never changes the step's result. */
+async function evidence(page, name, locator) {
+  try {
+    await locator.first().scrollIntoViewIfNeeded();
+    await page.waitForTimeout(1800);
+    await locator.first().screenshot({ path: join(out, `evidence-${name}.png`) });
+  } catch (error) {
+    console.log(`(evidence ${name} not taken: ${error.message.split("\n")[0]})`);
+  }
 }
 function completionCard(page) {
   return page.locator("section", { hasText: "已保存 · 這是操作足跡，不是獲利能力評分" }).last();
@@ -1174,6 +1197,7 @@ async function level06(page) {
     act: () => finishRound(page, "計畫：站上昨收再買。執行：09:20 買、09:37 跌破昨收賣。結果：淨損益與狀態列一致。改善：送單前先寫費稅門檻。"),
     verify: async () => {
       const card = await text(completionCard(page));
+      await evidence(page, "06-6-completion-card", completionCard(page));
       return verdict(card.includes("先寫費稅門檻") && card.includes("完成這一輪復盤"), card.slice(0, 160));
     },
   });
@@ -1330,14 +1354,17 @@ const webServer = createServer((request, response) => {
   if (!file.startsWith(webDir) || !existsSync(file)) return response.writeHead(404).end();
   response.writeHead(200, { "Content-Type": WEB_TYPES[extname(file)] ?? "application/octet-stream" }).end(readFileSync(file));
 });
-const workbookUrl = `http://127.0.0.1:${portWeb}/index.html`;
+// --file: open index.html straight from the extracted folder (file://), the way a student opens the ZIP.
+const workbookUrl = process.argv.includes("--file") ? pathToFileURL(join(webDir, "index.html")).href : `http://127.0.0.1:${portWeb}/index.html`;
 const profiles = { student: await mkdtemp(join(tmpdir(), "journey-workbook-student-")), restore: await mkdtemp(join(tmpdir(), "journey-workbook-restore-")) };
 const typed = {}; // data-field key → what the student wrote or chose
 const ticked = new Set(); // data-check keys the student ticked
 let wbContext = null;
 let wb = null;
+// --mobile: the workbook in a phone-sized Chrome (device emulation, not a real phone).
+const mobile = process.argv.includes("--mobile");
 async function openWorkbook(profile = profiles.student) {
-  const options = { viewport: VIEW, deviceScaleFactor: 1, acceptDownloads: true };
+  const options = mobile ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, acceptDownloads: true } : { viewport: VIEW, deviceScaleFactor: 1, acceptDownloads: true };
   wbContext = await chromium.launchPersistentContext(profile, options).catch(() => chromium.launchPersistentContext(profile, { ...options, channel: "chrome" }));
   wb = wbContext.pages()[0] ?? (await wbContext.newPage());
   await wb.goto(workbookUrl);
@@ -1362,8 +1389,23 @@ async function put(key, value) {
     if (option === null) throw new Error(`${key}: no option "${value}"`);
     await field.selectOption(option);
     value = option;
-  } else await field.fill(value);
+  } else {
+    // A number cell must get a plain number: the first r2.2 run wrote "2585100.39" and "NaN" into 01-6 unnoticed.
+    if ((await field.getAttribute("inputmode")) === "decimal" && !/^-?\d+(\.\d+)?$/.test(value)) throw new Error(`${key}: "${value}" is not a number`);
+    await field.fill(value);
+  }
   typed[key] = value;
+}
+/** The student's numbers checked against the published minute data, independently of how they were read. */
+function worksAgainstData(id) {
+  const problems = [];
+  const same = (key, expected) => {
+    if (typed[key] !== undefined && Number(typed[key]) !== expected) problems.push(`${key} ${typed[key]} ≠ ${expected}`);
+  };
+  if (id === "01-6") observed.quotes.slice(0, 2).forEach((quote, index) => same(`01-6:quote:${index}:2`, shownClose(quote.day, quote.code, quote.time)));
+  if (id === "02-1") (observed.watch0905 ?? []).slice(0, 4).forEach((item, index) => same(`02-1:c0905:${index}:1`, shownClose("2026-10-06", item.code, "09:05")));
+  if (id === "05-5") observed.waits.forEach((wait) => Number(wait.price) !== shownClose(wait.day, wait.code, wait.time) && problems.push(`05-5 ${wait.time} ${wait.price} ≠ ${shownClose(wait.day, wait.code, wait.time)}`));
+  return problems;
 }
 const row = (prefix, index, cells) => cells.map((value, column) => (value === null ? null : [`${prefix}:${index}:${column}`, String(value)])).filter(Boolean);
 const fillsOf = (round) => [...(round?.ledger.fills.rows ?? [])].reverse();
@@ -1502,7 +1544,7 @@ function worksOf(id) {
   }
 }
 const taskPassed = (id) => {
-  const own = records.filter((item) => item.task === id && item.level !== "WORKBOOK");
+  const own = [...(replay?.records ?? []), ...records].filter((item) => item.task === id && item.level !== "WORKBOOK");
   return own.length === 0 ? null : own.every((item) => item.ok);
 };
 /** One level of the workbook, right after the student finished it on the desk. */
@@ -1531,7 +1573,8 @@ async function workbookLevel(level) {
         const panel = await text(wb.locator(`[data-done="${id}"]`));
         const three = ["你現在會做什麼", "你留下的成果", "下一個小挑戰"].every((part) => panel.includes(part));
         const works = worksOf(id).length;
-        return verdict(passed === false ? !status.done : status.done && three, `${status.done ? "完成" : `還差 ${status.missing.map((item) => item.label).join("、")}`} · 作品欄位 ${works} · journey steps ${passed === null ? "none" : passed ? "all passed" : "some failed (self-check left empty)"} · ${panel.slice(0, 90)}`);
+        const wrong = worksAgainstData(id);
+        return verdict((passed === false ? !status.done : status.done && three) && !wrong.length, `${wrong.length ? `作品數字和行情檔不符：${wrong.join("；")} · ` : ""}${status.done ? "完成" : `還差 ${status.missing.map((item) => item.label).join("、")}`} · 作品欄位 ${works} · journey steps ${passed === null ? "none" : passed ? "all passed" : "some failed (self-check left empty)"} · ${panel.slice(0, 90)}`);
       },
     });
   }
@@ -1579,6 +1622,29 @@ async function workbookFinish() {
   const sample = [...new Set(Object.keys(typed).map((key) => key.split(":")[0]))].map((task) => Object.keys(typed).find((key) => key.startsWith(`${task}:`)));
   const latest = "09:44 依時間條件賣出，沒有留倉；這句是關掉分頁前最後打的字";
   await step(wb, {
+    task: "FINAL", does: "寫完作品，看頁首的保存提示", kind: "workbook", expected: "頁首顯示「已保存 時:分:秒」",
+    act: () => wbGo("F-5"),
+    verify: async () => {
+      const status = wb.locator("[data-save-status]").first();
+      const ok = await wb.waitForFunction(() => /已保存/.test(document.querySelector("[data-save-status]")?.textContent ?? ""), null, { timeout: 8000 }).then(() => true, () => false);
+      return verdict(ok, `頁首：${await text(status)}`);
+    },
+  });
+  await step(wb, {
+    task: "FINAL", does: "關閉整個瀏覽器，再重新打開講義", kind: "workbook", expected: "作品、勾選、任務與關卡進度都在",
+    act: async () => {
+      await wbContext.close();
+      await openWorkbook(profiles.student);
+      await wbGo("progress");
+    },
+    verify: async () => {
+      const after = await worksOnScreen();
+      const wrong = await fieldsShown(sample);
+      const same = after.done.join() === before.done.join() && after.levels.join() === before.levels.join();
+      return verdict(!after.lostFields.length && !after.lostChecks.length && !wrong.length && same, `fields ${after.fields} lost ${after.lostFields.length} · checks ${after.checks} lost ${after.checks ? after.lostChecks.length : 0} · shown on page ${sample.length - wrong.length}/${sample.length} · tasks done ${after.done.length} · levels ${after.levels.join(",")}`);
+    },
+  });
+  await step(wb, {
     task: "F-5", does: "寫完最後一句立刻關掉分頁和瀏覽器，再重新打開", kind: "workbook", expected: "最後一句還在",
     act: async () => {
       await wbGo("F-5");
@@ -1623,14 +1689,19 @@ async function workbookFinish() {
     const now = await wb.evaluate(() => window.ACADEMY_DEBUG.state());
     return JSON.stringify([now.fields, now.checks, now.rows]) === JSON.stringify([before.state.fields, before.state.checks, before.state.rows].map((part, index) => (index === 0 ? { ...part, "F-5:reflect:proud": latest } : part)));
   };
-  const BAD = [
-    ["不是 JSON 的檔案", "not-a-backup.txt", "這不是備份檔，只是一段文字。", /不是有效的 JSON/],
-    ["別的程式匯出的 JSON", "other-app.json", JSON.stringify({ schema: "another-app-export", data: { fields: { x: "y" } } }), /這不是闖關手冊的紀錄/],
-    ["半個備份檔（下載中斷）", "cut-backup.json", readFileSync(exportFile, "utf8").slice(0, 400), /不是有效的 JSON/],
+  const SCHEMA = "dtt-academy-workbook";
+  const REFUSE = [
+    ["不是 JSON 的檔案", "not-a-backup.txt", "這不是備份檔，只是一段文字。"],
+    ["半個備份檔（下載中斷）", "cut-backup.json", readFileSync(exportFile, "utf8").slice(0, 400)],
+    ["空物件 {}", "empty-object.json", "{}"],
+    ['不相關的 JSON {"hello":"world"}', "hello.json", '{"hello":"world"}'],
+    ["別的程式匯出的 JSON（錯誤 schema）", "other-app.json", JSON.stringify({ schema: "another-app-export", data: { fields: { x: "y" } } })],
+    ["不支援的版本", "version-9.json", JSON.stringify({ schema: SCHEMA, version: 9, data: { checks: {}, fields: {}, rows: {} } })],
+    ["容器型別錯誤", "wrong-types.json", JSON.stringify({ schema: SCHEMA, version: 2, data: { checks: [], fields: "x", rows: 5 } })],
   ];
-  for (const [label, name, body, expected] of BAD)
+  for (const [label, name, body] of REFUSE)
     await step(wb, {
-      task: "FINAL", does: `匯入壞掉的檔案：${label}`, kind: "workbook", expected: "顯示匯入失敗、目前的紀錄沒有被更動",
+      task: "FINAL", does: `匯入不是本講義備份的檔案：${label}`, kind: "workbook", expected: "進入取代確認之前就拒絕：顯示匯入失敗、目前的紀錄沒有被更動",
       act: async () => {
         await wbGo("progress");
         await wb.getByLabel("匯入備份檔").setInputFiles({ name, mimeType: name.endsWith(".json") ? "application/json" : "text/plain", buffer: Buffer.from(body, "utf8") });
@@ -1638,26 +1709,38 @@ async function workbookFinish() {
       },
       verify: async () => {
         const message = await text(wb.locator("[data-import-review]"));
-        const dialog = await wb.locator("[data-dialog]").isVisible().catch(() => false);
+        const dialog = wb.locator("[data-dialog]");
+        const asked = await dialog.isVisible().catch(() => false);
+        const dialogText = asked ? await text(dialog) : "";
+        if (asked) await dialog.getByRole("button", { name: "取消" }).click();
         const same = await unchanged();
-        return verdict(expected.test(message) && message.includes("目前的紀錄沒有被更動") && !dialog && same, `${message.slice(0, 90)} · dialog ${dialog} · records unchanged ${same}`);
+        return verdict(/匯入失敗/.test(message) && message.includes("目前的紀錄沒有被更動") && !asked && same, `${asked ? `went on to the replace dialog: ${dialogText.slice(0, 80)} · ` : ""}${message.slice(0, 90)} · records unchanged ${same}`);
       },
     });
-  await step(wb, {
-    task: "FINAL", does: "匯入一個沒有標示格式的 JSON（{\"hello\":\"world\"}），看到對話框後按「取消」", kind: "workbook", expected: "不會靜默取代：先問、列出兩邊內容；取消後紀錄不變",
-    act: async () => {
-      await wb.getByLabel("匯入備份檔").setInputFiles({ name: "hello.json", mimeType: "application/json", buffer: Buffer.from('{"hello":"world"}') });
-      await wb.waitForTimeout(500);
-    },
-    verify: async () => {
-      const dialog = wb.locator("[data-dialog]");
-      const shown = await dialog.isVisible().catch(() => false);
-      const body = shown ? await text(dialog) : await text(wb.locator("[data-import-review]"));
-      if (shown) await dialog.getByRole("button", { name: "取消" }).click();
-      const same = await unchanged();
-      return verdict(same, `dialog ${shown}: ${body.slice(0, 140)} · after 取消 records unchanged ${same}`);
-    },
-  });
+  const ACCEPT = [
+    ["有效的 v2 備份（剛匯出的檔案）", "valid-v2.json", readFileSync(exportFile, "utf8")],
+    ["合法的空白 v2 備份", "empty-v2.json", JSON.stringify({ schema: SCHEMA, version: 2, exportedAt: new Date().toISOString(), data: { schema: SCHEMA, version: 2, checks: {}, fields: {}, rows: {} } })],
+    ["有效的 v1 備份（原版 checks／notes）", "valid-v1.json", JSON.stringify({ checks: { "01-1:check:0": true }, notes: { "01-1:think": "舊版的筆記" } })],
+    ["合法的空白 v1 備份", "empty-v1.json", JSON.stringify({ checks: {}, notes: {} })],
+  ];
+  for (const [label, name, body] of ACCEPT)
+    await step(wb, {
+      task: "FINAL", does: `匯入合法的備份：${label}，看到確認後按「取消」`, kind: "workbook", expected: "進入取代確認、列出兩邊內容；取消後紀錄不變",
+      act: async () => {
+        await wbGo("progress");
+        await wb.getByLabel("匯入備份檔").setInputFiles({ name, mimeType: "application/json", buffer: Buffer.from(body, "utf8") });
+        await wb.waitForTimeout(500);
+      },
+      verify: async () => {
+        const dialog = wb.locator("[data-dialog]");
+        const asked = await dialog.isVisible().catch(() => false);
+        const dialogText = asked ? await text(dialog) : await text(wb.locator("[data-import-review]"));
+        if (asked) await dialog.getByRole("button", { name: "取消" }).click();
+        await wb.waitForTimeout(300);
+        const same = await unchanged();
+        return verdict(asked && same, `dialog ${asked}: ${dialogText.slice(0, 120)} · after 取消 records unchanged ${same}`);
+      },
+    });
   await step(wb, {
     task: "FINAL", does: "換一個全新的瀏覽器設定檔，匯入剛剛的備份檔並確認取代", kind: "workbook", expected: "先問再取代；作品、勾選、任務與關卡進度全部還原",
     act: async () => {
@@ -1692,7 +1775,8 @@ const startedAt = new Date().toISOString();
 await new Promise((done) => webServer.listen(portWeb, "127.0.0.1", done));
 const environment = {
   startedAt,
-  classroom: { release, appEntry, ports: { app: portApp, proxy: portProxy }, gateCode: `read from artifacts/trading-desk-qa/server-${portProxy}.json (disposable, not recorded here)`, runtime: classroom.runtime, database: "new empty PGlite created by scripts/qa/desk-server.mjs for this run" },
+  classroom: replay ? { replayOf: option("replay"), note: "no classroom: the works come from that run's own screen observations" } : { release, appEntry, ports: { app: portApp, proxy: portProxy }, gateCode: `read from artifacts/trading-desk-qa/server-${portProxy}.json (disposable, not recorded here)`, runtime: classroom.runtime, database: "new empty PGlite created by scripts/qa/desk-server.mjs for this run" },
+  opening: { url: workbookUrl, mobile: mobile ? "390×844, DPR 3, touch (Chrome device emulation, not a real phone)" : "1440×900 desktop" },
   marketData: { copiedFrom: join(host, "market-data"), copy: marketCopy, days: JSON.parse(readFileSync(join(marketCopy, "index.json"), "utf8")).days.map((day) => ({ date: day.date, manifestSha256: day.manifestSha256 })) },
   workbook: { content: contentDir, web: webDir, indexSha256: createHash("sha256").update(readFileSync(join(webDir, "index.html"))).digest("hex"), url: workbookUrl, profiles },
   browsers: "desk: Playwright chromium (or Chrome channel), new context; workbook: persistent profiles in new temp folders",
@@ -1710,16 +1794,18 @@ try {
       const state = await wb.evaluate(() => window.ACADEMY_DEBUG.state());
       const edition = await wb.evaluate(() => JSON.stringify(window.ACADEMY.edition ?? {}));
       environment.workbook.edition = edition;
+      environment.workbook.userAgent = await wb.evaluate(() => navigator.userAgent);
       return verdict(!Object.keys(state.fields).length && !Object.keys(state.checks).length, `fields ${Object.keys(state.fields).length} · checks ${Object.keys(state.checks).length} · edition ${edition.slice(0, 80)}`);
     },
   });
+  if (replay) Object.assign(observed, replay.observed);
   for (const id of Object.keys(levels)) {
     if (!onlyLevels.includes(id)) {
       completedAll = false;
       break;
     }
     try {
-      await levels[id](page, context);
+      if (!replay) await levels[id](page, context);
       await workbookLevel(id);
     } catch (error) {
       records.push({ seq: ++seq, level: id, task: id, kind: "step", instruction: "", does: "level stopped", expected: "", ok: false, actual: error.message.split("\n")[0], before: "", after: "" });
@@ -1740,14 +1826,16 @@ try {
   await wbContext?.close().catch(() => {});
   webServer.close();
   await browser.close();
-  await writeFile(join(classroom.runtime, "stop-request"), "");
-  await new Promise((done) => {
-    const timer = setTimeout(done, 30000);
-    server.on("exit", () => {
-      clearTimeout(timer);
-      done();
+  if (classroom) {
+    await writeFile(join(classroom.runtime, "stop-request"), "");
+    await new Promise((done) => {
+      const timer = setTimeout(done, 30000);
+      server.on("exit", () => {
+        clearTimeout(timer);
+        done();
+      });
     });
-  });
+  }
 }
 const summary = {
   release,
@@ -1761,7 +1849,9 @@ const summary = {
   steps: records.length,
   passed: records.filter((item) => item.ok).length,
   failed: records.filter((item) => !item.ok).map((item) => `${item.task} ${item.does}: ${item.actual}`),
-  serverClosedCleanly: serverLog.includes("QA database closed cleanly"),
+  serverClosedCleanly: replay ? "n/a (replay)" : serverLog.includes("QA database closed cleanly"),
+  opening: workbookUrl.startsWith("file:") ? "file://" : "http (local static server)",
+  workbookDevice: mobile ? "phone size (emulated)" : "desktop",
 };
 await writeFile(join(out, "journey.json"), JSON.stringify({ summary, records, observed, typed, ticked: [...ticked] }, null, 2));
 writeFileSync(join(out, "environment.json"), JSON.stringify({ ...environment, finishedAt: summary.finishedAt }, null, 2));

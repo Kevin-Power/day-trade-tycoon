@@ -115,7 +115,56 @@ for (const [shot, meta] of Object.entries(shots)) {
     problems: problems.join("；") || "—",
   });
 }
-const header = "| 講義頁面 | 任務 | 對應功能 | 截圖 | 系統版本 | 擷取時間（UTC） | 畫面／時鐘 | 截圖一致 | 操作可完成 | 問題 |\n|---|---|---|---|---|---|---|---|---|---|";
+// Per task, the five checks the acceptance asks for. "Image exists + capture passed" is only check ① (traceable);
+// it is never reported as consistency on its own.
+//   --reviewed <pages the acceptor looked at enlarged, comma separated>  --pairs <tasks with side-by-side sheets>
+//   --marks <the author's marks-qa.json>
+const reviewed = new Set((option("reviewed") ?? "").split(",").filter(Boolean).map(Number));
+const paired = new Set((option("pairs") ?? "").split(",").filter(Boolean));
+const marks = option("marks") && existsSync(option("marks")) ? JSON.parse(readFileSync(option("marks"), "utf8")) : null;
+const taskRows = [];
+for (const file of files) {
+  const module = await import(pathToFileURL(join(contentDir, file)).href);
+  const levels = [module.default, ...Object.values(module)].filter((value) => value && typeof value === "object" && Array.isArray(value.tasks));
+  const seen = new Set();
+  for (const level of levels) {
+    if (seen.has(level.id)) continue;
+    seen.add(level.id);
+    for (const task of level.tasks) {
+      if (taskRows.some((row) => row.task === task.id)) continue;
+      const figures = rows.filter((row) => row.task === task.id);
+      const pages = pdf ? pdf.pages.filter((page) => page.tasks.includes(task.id)).map((page) => page.page) : [];
+      const desk = journey ? journey.records.filter((record) => record.task === task.id && record.level !== "WORKBOOK") : [];
+      const book = journey ? journey.records.filter((record) => record.task === task.id && record.level === "WORKBOOK") : [];
+      const expectSteps = desk.filter((record) => record.expected && task.expect && record.expected === task.expect);
+      const recoveries = desk.filter((record) => record.kind === "recovery").length;
+      const traceable = figures.every((row) => row.consistent === "是");
+      const one = !figures.length ? "無截圖" : traceable ? `是（${figures.length} 張；${summary.release}；擷取 ${summary.passed}/${summary.checks}）` : `否：${figures.filter((row) => row.consistent !== "是").map((row) => row.shot).join("、")}`;
+      const two = !figures.length
+        ? "—"
+        : [summary.release === production ? "同正式站 release" : "release 不同", desk.length ? (desk.every((record) => record.ok) ? "旅程在同一 release 走過且通過" : "旅程有失敗") : "旅程未操作此畫面", paired.has(task.id) ? "並排圖已目視" : null].filter(Boolean).join("；");
+      const three = !figures.length
+        ? "無標號圖"
+        : [marks ? `作者 qa_marks：壓字 ${marks.flagged?.length ?? 0}、被裁 ${marks.cutOff?.length ?? 0}、重疊 ${marks.overlapping?.length ?? 0}（全書）` : null, "驗收方看過全部頁面總覽", pages.some((page) => reviewed.has(page)) ? `放大抽查 p.${pages.filter((page) => reviewed.has(page)).join("、")}` : null].filter(Boolean).join("；");
+      const four = desk.length
+        ? `${desk.every((record) => record.ok) ? "通過" : "失敗"} ${desk.filter((record) => record.ok).length}/${desk.length}${recoveries ? `（含 ${recoveries} 個錯誤與復原）` : ""}`
+        : book.length
+          ? "不需操作系統（講義作答）"
+          : "未涵蓋";
+      const five = expectSteps.length
+        ? `${expectSteps.every((record) => record.ok) ? "相符" : "不符"}（逐字對照講義 EXPECTED，#${expectSteps.map((record) => record.n ?? "-").join("、#")}）`
+        : desk.length
+          ? `步驟檢查通過，沒有逐字比對 EXPECTED`
+          : "—";
+      const workbook = book.filter((record) => /寫下/.test(record.does));
+      const six = workbook.length ? (workbook.every((record) => record.ok) ? "完成" : "未完成") : "—";
+      taskRows.push({ task: task.id, pages: pages.join(", ") || "—", figures: figures.length, one, two, three, four, five, six });
+    }
+  }
+}
+const taskHeader = "| 講義頁面 | 任務 | 截圖 | ① 可追溯 | ② 與新介面一致 | ③ 標號／箭頭 | ④ 步驟可完成 | ⑤ 預期結果 | 數位版作品 |\n|---|---|---|---|---|---|---|---|---|";
+const taskLines = taskRows.map((row) => `| ${row.pages} | ${row.task} | ${row.figures} | ${row.one} | ${row.two} | ${row.three} | ${row.four} | ${row.five} | ${row.six} |`);
+const header = "| 講義頁面 | 任務 | 對應功能 | 截圖 | 系統版本 | 擷取時間（UTC） | 畫面／時鐘 | ① 可追溯（同 release＋擷取通過＋檔案存在） | 操作可完成 | 問題 |\n|---|---|---|---|---|---|---|---|---|---|";
 const lines = rows.map((row) => `| ${row.pages} | ${row.task} | ${row.feature} | ${row.shot} | ${row.release} | ${row.takenAt.replace("T", " ").slice(0, 19)} | ${row.url} ${row.clock ?? ""} | ${row.consistent} | ${row.operable} | ${row.problems.replace(/\|/g, "／")} |`);
-writeFileSync(out, `${header}\n${lines.join("\n")}\n`);
-console.log(JSON.stringify({ figures: rows.length, consistent: rows.filter((row) => row.consistent === "是").length, captureRelease: summary.release, production }, null, 2));
+writeFileSync(out, `## 每個任務的五項檢查\n\n${taskHeader}\n${taskLines.join("\n")}\n\n## 每張截圖的來源（只證明可追溯，不代表一致）\n\n${header}\n${lines.join("\n")}\n`);
+console.log(JSON.stringify({ tasks: taskRows.length, figures: rows.length, traceable: rows.filter((row) => row.consistent === "是").length, unused: rows.filter((row) => row.consistent === "未使用").length, captureRelease: summary.release, production }, null, 2));
