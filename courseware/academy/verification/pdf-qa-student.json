@@ -1,0 +1,41 @@
+{
+ "pdf": "output/當沖大富翁-學員實戰闖關手冊.pdf",
+ "pages": 92,
+ "metadata": {
+  "format": "PDF 1.4",
+  "title": "當沖大富翁｜學員實戰闖關手冊",
+  "author": "",
+  "subject": "",
+  "keywords": "",
+  "creator": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+  "producer": "Skia/PDF m155",
+  "creationDate": "D:20261018015558+00'00'",
+  "modDate": "D:20261018015558+00'00'",
+  "trapped": "",
+  "encryption": null
+ },
+ "problems": [],
+ "fonts": {
+  "Type0 IBMPlexMono-Regular": 92,
+  "Type0 NotoSansTC-Regular": 92,
+  "Type0 NotoSansTC-Bold": 91,
+  "Type0 IBMPlexMono-Medium": 91,
+  "Type0 NotoSansTC-Medium": 91,
+  "Type0 IBMPlexMono-SemiBold": 70,
+  "Type0 IBMPlexMono-Light": 15
+ },
+ "images": {
+  "count": 85,
+  "min_dpi": 168
+ },
+ "expected": {
+  "學員實戰闖關手冊": true,
+  "我的第一筆模擬委託": true,
+  "委託成功": true,
+  "費稅門檻參考表": true,
+  "交易復盤": true,
+  "模擬交易教學，非投資建議": true,
+  "台積電": true,
+  "未實現損益": true
+ }
+}

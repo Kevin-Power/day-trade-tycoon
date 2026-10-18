@@ -1,0 +1,237 @@
+{
+  "browser": "155.0.8059.80",
+  "lessons": [
+    {
+      "id": "morning-20261005-v1-bd566804b809",
+      "date": "2026-10-05",
+      "title": "先寫計畫，再核對真實早盤"
+    },
+    {
+      "id": "morning-20261006-v1-ce4a95ce69f1",
+      "date": "2026-10-06",
+      "title": "先讀背景，再等自己的出手機會"
+    }
+  ],
+  "symbols1006": [
+    {
+      "code": "2330",
+      "name": "台積電",
+      "previousClose": 2575
+    },
+    {
+      "code": "2317",
+      "name": "鴻海",
+      "previousClose": 254
+    },
+    {
+      "code": "2454",
+      "name": "聯發科",
+      "previousClose": 5165
+    },
+    {
+      "code": "2382",
+      "name": "廣達",
+      "previousClose": 331
+    },
+    {
+      "code": "2308",
+      "name": "台達電",
+      "previousClose": 2005
+    }
+  ],
+  "r1.plan": {
+    "bias": "observe",
+    "stop": "沒有部位，不適用",
+    "entry": "今天只觀察，不下單",
+    "reason": "第一次練習，先看開盤怎麼走",
+    "focusCode": "2330",
+    "exerciseId": "first-order"
+  },
+  "quote0903": {
+    "clock": "09:03",
+    "lastBarStart": 120,
+    "last": 2585,
+    "previousClose": 2575,
+    "open": 2575,
+    "high": 2585,
+    "low": 2575
+  },
+  "watch0903": {
+    "2308": 2060,
+    "2317": 261.5,
+    "2330": 2585,
+    "2382": 334.5,
+    "2454": 5050
+  },
+  "book0908": {
+    "ask1": 2585,
+    "bid1": 2580,
+    "mid": 2580,
+    "clock": "09:07"
+  },
+  "r2.orderCursor": 20,
+  "r2.buyFill": {
+    "t": 1200,
+    "id": "961d3ee5-7108-48a2-adbe-15aac9133bbe",
+    "fee": 2202,
+    "tax": 0,
+    "code": "2330",
+    "side": "buy",
+    "price": 2575,
+    "shares": 1000
+  },
+  "r2.afterBuy": {
+    "cursor": 21,
+    "cash": 7422798,
+    "equity": 9997798,
+    "positions": [
+      {
+        "code": "2330",
+        "shares": 1000,
+        "averageCost": 2575
+      }
+    ],
+    "last": 2575
+  },
+  "r2.sellFill": {
+    "t": 2220,
+    "id": "20f100d7-8143-4064-96ba-fef914f6d3d1",
+    "fee": 2197,
+    "tax": 3855,
+    "code": "2330",
+    "side": "sell",
+    "price": 2570,
+    "shares": 1000
+  },
+  "r2.afterSell": {
+    "cursor": 38,
+    "cash": 9986746,
+    "equity": 9986746,
+    "pnl": -13254,
+    "positions": []
+  },
+  "r2.at1000": {
+    "equity": 9986746,
+    "pnl": -13254,
+    "orders": [
+      {
+        "side": "buy",
+        "status": "filled",
+        "limit": null,
+        "price": 2575,
+        "reason": null,
+        "at": 20
+      },
+      {
+        "side": "sell",
+        "status": "cancelled",
+        "limit": 2595,
+        "price": null,
+        "reason": "由學員取消",
+        "at": 21
+      },
+      {
+        "side": "sell",
+        "status": "filled",
+        "limit": null,
+        "price": 2570,
+        "reason": null,
+        "at": 37
+      }
+    ]
+  },
+  "r3.ticket2lots": "參考金額（未含費）525,000預估來回費稅（假設同價出場）1,686可用模擬資金10,000,000",
+  "r3.buyFill": {
+    "t": 240,
+    "id": "9d25f132-f92a-4f57-924b-be7fad98b1af",
+    "fee": 449,
+    "tax": 0,
+    "code": "2317",
+    "side": "buy",
+    "price": 262.5,
+    "shares": 2000
+  },
+  "r3.stopClock": "09:11",
+  "r3.sellFill": {
+    "t": 660,
+    "id": "11a16e09-1aab-40dc-afc5-3e92c4c6eb09",
+    "fee": 445,
+    "tax": 780,
+    "code": "2317",
+    "side": "sell",
+    "price": 260,
+    "shares": 2000
+  },
+  "r3.pnl": -6674,
+  "r4.summary": {
+    "orders": 0,
+    "fills": 0,
+    "cursor": 60
+  },
+  "r7": {
+    "fills": [
+      {
+        "t": 1200,
+        "id": "bcbe249a-21fc-4e61-80ab-af1f51c62413",
+        "fee": 2202,
+        "tax": 0,
+        "code": "2330",
+        "side": "buy",
+        "price": 2575,
+        "shares": 1000
+      },
+      {
+        "t": 2220,
+        "id": "5eaabb02-6bd4-459b-82cb-b971ae10d21d",
+        "fee": 2197,
+        "tax": 3855,
+        "code": "2330",
+        "side": "sell",
+        "price": 2570,
+        "shares": 1000
+      }
+    ],
+    "pnl": -13254,
+    "orders": [
+      {
+        "side": "buy",
+        "status": "filled",
+        "at": 20,
+        "price": 2575
+      },
+      {
+        "side": "sell",
+        "status": "filled",
+        "at": 37,
+        "price": 2570
+      }
+    ]
+  },
+  "final.exitClock": "09:25",
+  "final": {
+    "fills": [
+      {
+        "t": 180,
+        "id": "fecf2f99-92ba-41c9-83d0-53552b8fee4d",
+        "fee": 218,
+        "tax": 0,
+        "code": "2317",
+        "side": "buy",
+        "price": 255,
+        "shares": 1000
+      },
+      {
+        "t": 1500,
+        "id": "f8a165fc-fc16-4468-a1df-f2799ebadde0",
+        "fee": 217,
+        "tax": 381,
+        "code": "2317",
+        "side": "sell",
+        "price": 254,
+        "shares": 1000
+      }
+    ],
+    "pnl": -1816,
+    "positions": []
+  }
+}

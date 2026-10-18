@@ -1,0 +1,50 @@
+{
+  "url": "file:///C:/Users/kevin/Documents/ChatGPT/%E7%95%B6%E6%B2%96%E5%A4%A7%E5%AF%8C%E7%BF%81/.worktrees/academy/courseware/academy/output/web/index.html",
+  "sizes": [
+    {
+      "size": "phone-375",
+      "views": 49,
+      "overflowViews": [],
+      "brokenImages": 0,
+      "pagerNext": "#01-2",
+      "lightbox": true,
+      "tickKeptAfterReload": true,
+      "totalProgress": "1%",
+      "pageErrors": []
+    },
+    {
+      "size": "phone-390",
+      "views": 49,
+      "overflowViews": [],
+      "brokenImages": 0,
+      "pagerNext": "#01-2",
+      "lightbox": true,
+      "tickKeptAfterReload": true,
+      "totalProgress": "1%",
+      "pageErrors": []
+    },
+    {
+      "size": "tablet-768",
+      "views": 49,
+      "overflowViews": [],
+      "brokenImages": 0,
+      "pagerNext": "#01-2",
+      "lightbox": true,
+      "tickKeptAfterReload": true,
+      "totalProgress": "1%",
+      "pageErrors": []
+    },
+    {
+      "size": "desktop-1280",
+      "views": 49,
+      "overflowViews": [],
+      "brokenImages": 0,
+      "pagerNext": "#01-2",
+      "lightbox": true,
+      "tickKeptAfterReload": true,
+      "totalProgress": "1%",
+      "pageErrors": []
+    }
+  ],
+  "problems": []
+}
