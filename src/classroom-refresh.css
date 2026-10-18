@@ -825,12 +825,27 @@ html[data-reading-mode="senior"] :is(.daily-card-main p, .daily-card-week-text) 
 .level-strip-go {
   color: var(--color-muted);
 }
+/* Phones: the badge count moves under the progress text instead of a fourth column. */
 @media (max-width: 479px) {
   .level-strip {
     grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "chip main go"
+      "chip badges go";
+    row-gap: 6px;
+  }
+  .level-strip-chip {
+    grid-area: chip;
+  }
+  .level-strip-main {
+    grid-area: main;
   }
   .level-strip-badges {
-    display: none;
+    grid-area: badges;
+    font-size: 13px;
+  }
+  .level-strip-go {
+    grid-area: go;
   }
 }
 html[data-reading-mode="senior"] .level-strip {

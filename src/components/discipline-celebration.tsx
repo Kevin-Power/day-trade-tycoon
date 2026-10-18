@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
 import { Award, Sparkles } from "lucide-react";
 import { SoundSwitch } from "@/components/display-controls";
@@ -19,12 +19,15 @@ export function DisciplineCelebration({ celebration }: { celebration: Celebratio
   const { after, total, gained, newBadges } = celebration;
   const levelUp = after.no > celebration.before.no;
   const announced = useRef<Celebration | null>(null);
+  // Filled a tick after the card appears: screen readers announce a status region whose text changes.
+  const [announcement, setAnnouncement] = useState("");
   useEffect(() => {
     if (announced.current === celebration) return;
     // Next tick: a parent's effect (the reveal headline) runs after this one and interrupts what is
     // queued, so the points are queued only once the page's own line has started.
     const timer = window.setTimeout(() => {
       announced.current = celebration;
+      setAnnouncement(celebrationSpeech(celebration));
       say(celebrationSpeech(celebration), false);
       if (sound && celebration.points > 0) playChime(levelUp ? "level-up" : "points");
     }, 0);
@@ -36,6 +39,9 @@ export function DisciplineCelebration({ celebration }: { celebration: Celebratio
   const next = progressText(after, total);
   return (
     <section className="td-celebrate" data-level-up={levelUp ? "true" : undefined} aria-labelledby="td-celebrate-title">
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
       {levelUp && (
         <div className="td-celebrate-levelup">
           <Sparkles aria-hidden className="td-celebrate-spark" />
@@ -46,7 +52,7 @@ export function DisciplineCelebration({ celebration }: { celebration: Celebratio
           <p className="td-celebrate-cheer">{cheerFor(after.no)}</p>
         </div>
       )}
-      <h3 id="td-celebrate-title" aria-live="polite">
+      <h3 id="td-celebrate-title">
         {celebrationHeadline(celebration)}
       </h3>
       {celebration.alreadyCounted && (

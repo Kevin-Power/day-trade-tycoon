@@ -180,6 +180,9 @@ for (const item of cases) {
       const tail = await spokenTail();
       if (!tail.some((line) => /^拿到 1[58] 分。$/.test(line))) fail(`daily points not read aloud after the headline (queue: ${tail.join(" / ")})`);
     }
+    // Screen readers: a status region that exists before its text arrives.
+    const dailyStatus = (await card.locator('[role="status"]').textContent().catch(() => "")) ?? "";
+    if (!/^拿到 1[58] 分。$/.test(dailyStatus.trim())) fail(`daily card status region says "${dailyStatus.trim()}"`);
     await check("daily", ".td-celebrate");
     await shoot("daily", card);
 
@@ -194,6 +197,7 @@ for (const item of cases) {
     const strip = page.locator(".level-strip");
     await strip.waitFor({ timeout: 15000 });
     if (!(await strip.getByText("新手學員").isVisible())) fail("lobby strip does not show 新手學員 after the first answer");
+    if (!(await strip.getByText("徽章 1／8").isVisible())) fail("lobby strip does not show the badge count");
     await check("lobby-strip", ".level-strip");
     await shoot("lobby-strip", strip);
     await page.getByRole("link", { name: "開始今天的練習" }).click();
@@ -216,6 +220,8 @@ for (const item of cases) {
       const tail = await spokenTail();
       if (!tail.includes("拿到 25 分。升級了，第 2 級，準時報到。")) fail(`practice level-up not read aloud (queue: ${tail.join(" / ")})`);
     }
+    const practiceStatus = (await practice.locator('[role="status"]').textContent().catch(() => "")) ?? "";
+    if (practiceStatus.trim() !== "拿到 25 分。升級了，第 2 級，準時報到。") fail(`practice card status region says "${practiceStatus.trim()}"`);
     await check("practice", ".td-celebrate");
     await shoot("practice", practice);
     if (!item.soundOn && (await page.evaluate(() => window.__audioContexts))) fail("audio started while sound is off");
