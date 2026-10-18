@@ -5,7 +5,8 @@ import type { DailyChoice } from "../daily/types.ts";
  * Discipline points (spec docs/superpowers/specs/2026-10-18-discipline-levels-design.md). Everything is
  * recomputed from saved answers and finished rounds, so points never depend on profit and never go down.
  */
-export type DailyRecord = { questionId: string; issueDate: string; choice: DailyChoice; reason: boolean; brokeOut: boolean };
+/** `brokeOut` is null when the saved question has no readable outcome: the answer counts, the read does not. */
+export type DailyRecord = { questionId: string; issueDate: string; choice: DailyChoice; reason: boolean; brokeOut: boolean | null };
 /** One finished round; `day` is the Taipei date the round was started. */
 export type PracticeRecord = { id: string; day: string; reflection: boolean; onPlan: boolean; flat: boolean };
 export type DisciplineInput = { daily: DailyRecord[]; practice: PracticeRecord[]; issued: string[]; now: number };
@@ -73,7 +74,7 @@ export function levelFor(total: number): LevelView {
 
 /** The read matches the reveal's lesson: enter on a breakout, watch or skip when there was none. */
 export function dailyLines(record: DailyRecord): ScoreLine[] {
-  const read = record.brokeOut ? record.choice === "enter" : record.choice !== "enter";
+  const read = record.brokeOut === null ? false : record.brokeOut ? record.choice === "enter" : record.choice !== "enter";
   return [LINES.answered, ...(record.reason ? [LINES.reason] : []), ...(read ? [LINES.eye] : [])];
 }
 

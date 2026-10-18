@@ -4,7 +4,26 @@ import { issueDayFor } from "../daily/schedule.ts";
 import type { DailyChoice, DailyOutcome } from "../daily/types.ts";
 import type { DisciplineInput } from "./score.ts";
 
-const json = <T>(value: T | string): T => (typeof value === "string" ? (JSON.parse(value) as T) : value);
+function json<T>(value: T | string | null): T | null {
+  if (typeof value !== "string") return value ?? null;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
+/** A saved question without a usable level or outcome still counts the answer, just not the read. */
+function readOf(outcome: DailyOutcome | string | null, level: number | string | null): boolean | null {
+  const parsed = json(outcome);
+  const price = Number(json(level));
+  if (!parsed || typeof parsed !== "object" || !Number.isFinite(price) || price <= 0) return null;
+  try {
+    return brokeOut(parsed, price);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * The learner's saved answers and finished rounds, reduced to what scoring needs. Only the question's
@@ -13,7 +32,7 @@ const json = <T>(value: T | string): T => (typeof value === "string" ? (JSON.par
 export async function readDisciplineInput(sql: Sql, userId: string, now: number): Promise<DisciplineInput> {
   const answers = await sql<{
     question_id: string; issue_date: string; choice: DailyChoice; reason: boolean;
-    level: number | string; outcome: DailyOutcome | string;
+    level: number | string | null; outcome: DailyOutcome | string | null;
   }>`
     SELECT a.question_id, q.issue_date::text AS issue_date, a.choice, a.reason IS NOT NULL AS reason,
       q.payload->'level' AS level, q.payload->'outcome' AS outcome
@@ -36,18 +55,18 @@ export async function readDisciplineInput(sql: Sql, userId: string, now: number)
       issueDate: row.issue_date,
       choice: row.choice,
       reason: row.reason,
-      brokeOut: brokeOut(json(row.outcome), Number(json(row.level))),
+      brokeOut: readOf(row.outcome, row.level),
     })),
     issued: issued.map((row) => row.issue_date),
     practice: rounds.map((row) => {
-      const orders = json(row.orders) ?? [];
-      const positions = json(row.positions) ?? [];
+      const orders = json(row.orders);
+      const positions = json(row.positions);
       return {
         id: row.id,
         day: row.day,
         reflection: Boolean(row.reflection?.trim()),
-        onPlan: orders.every((order) => order.code === row.focus),
-        flat: positions.every((position) => !position.shares),
+        onPlan: (Array.isArray(orders) ? orders : []).every((order) => order.code === row.focus),
+        flat: (Array.isArray(positions) ? positions : []).every((position) => !position.shares),
       };
     }),
     now,

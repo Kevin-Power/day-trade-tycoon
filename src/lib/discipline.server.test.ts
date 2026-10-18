@@ -98,3 +98,11 @@ test("someone without a profile or guest account cannot read a summary", () => f
   await db.query('INSERT INTO "user"(id,name,email,"emailVerified","isAnonymous") VALUES($1,$1,$2,FALSE,FALSE)', ["stranger", "s@example.invalid"]);
   await assert.rejects(tx((sql) => loadDiscipline(sql, "stranger", TUE_0900)), /學員資料/);
 }));
+
+test("a question saved without an outcome still counts the answer, without a read", () => fixture(async ({ db, tx }) => {
+  await db.query("INSERT INTO daily_questions(id,issue_date,payload) VALUES($1,$2,$3::jsonb)",
+    ["2026-10-09", "2026-10-12", JSON.stringify({ level: 100, bars: [] })]);
+  await answer(db, "alice", "2026-10-09", "watch", "unclear");
+  const summary = await tx((sql) => loadDiscipline(sql, "alice", TUE_0900));
+  assert.deepEqual([summary.total, summary.eye], [15, 0]);
+}));

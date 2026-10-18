@@ -76,11 +76,15 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
     if (!rows[0]) throw new MorningError(404, "找不到這份練習");
     const previous = stored(rows[0]);
     // The engine refuses a finished run, so a finish that gets here completes it exactly once.
-    const before = action.action === "finish" && !previous.completed ? await readDisciplineInput(sql, userId, now) : null;
+    // The celebration is a nicety: a scoring problem must never stop the round from being saved.
+    const before = action.action === "finish" && !previous.completed ? await readDisciplineInput(sql, userId, now).catch(() => null) : null;
     state = applyMorningAction(previous, action, source, now);
     await sql`UPDATE morning_sessions SET state_json = ${JSON.stringify(state)}::jsonb,
       completed = ${state.completed}, updated_at = NOW() WHERE id = ${state.id}::uuid AND user_id = ${userId}`;
-    if (before && state.completed) celebration = celebrationFor(before, await readDisciplineInput(sql, userId, now), "practice");
+    if (before && state.completed)
+      celebration = await readDisciplineInput(sql, userId, now)
+        .then((after) => celebrationFor(before, after, "practice"))
+        .catch(() => null);
   }
   const counts = await sql<{ count: number }>`SELECT count(*)::int AS count FROM morning_requests WHERE session_id = ${state.id}::uuid`;
   if (counts[0].count >= 1_000) throw new MorningError(429, "本次練習操作次數已達上限，請聯絡講師");

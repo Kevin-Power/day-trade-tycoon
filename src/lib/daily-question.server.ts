@@ -185,13 +185,17 @@ export async function answerDaily(sql: Sql, userId: string, input: unknown, dir:
   }
   const problem = validateStop(current.payload, body.choice, body.stopPrice);
   if (problem) throw new MorningError(400, problem);
-  const before = await readDisciplineInput(sql, userId, now);
+  // The celebration is a nicety: a scoring problem must never stop the answer from being saved.
+  const before = await readDisciplineInput(sql, userId, now).catch(() => null);
   const inserted = await sql<{ question_id: string }>`INSERT INTO daily_answers (user_id, question_id, choice, stop_price, reason)
     VALUES (${userId}, ${current.id}, ${body.choice}, ${body.stopPrice ?? null}, ${body.reason ?? null})
     ON CONFLICT (user_id, question_id) DO NOTHING RETURNING question_id`;
   const response = await loadDaily(sql, userId, dir, now);
-  if (!inserted.length) return { ...response, celebration: null };
-  return { ...response, celebration: celebrationFor(before, await readDisciplineInput(sql, userId, now), "daily") };
+  if (!inserted.length || !before) return { ...response, celebration: null };
+  const celebration = await readDisciplineInput(sql, userId, now)
+    .then((after) => celebrationFor(before, after, "daily"))
+    .catch(() => null);
+  return { ...response, celebration };
 }
 
 /** Teacher card: the current question, its reveal, the class list and how many guests answered. */
