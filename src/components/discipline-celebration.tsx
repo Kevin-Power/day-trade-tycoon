@@ -21,10 +21,14 @@ export function DisciplineCelebration({ celebration }: { celebration: Celebratio
   const announced = useRef<Celebration | null>(null);
   useEffect(() => {
     if (announced.current === celebration) return;
-    announced.current = celebration;
-    // Queued after the page's own line (the reveal headline or 「已保存」), never cutting it off.
-    say(celebrationSpeech(celebration), false);
-    if (sound && celebration.points > 0) playChime(levelUp ? "level-up" : "points");
+    // Next tick: a parent's effect (the reveal headline) runs after this one and interrupts what is
+    // queued, so the points are queued only once the page's own line has started.
+    const timer = window.setTimeout(() => {
+      announced.current = celebration;
+      say(celebrationSpeech(celebration), false);
+      if (sound && celebration.points > 0) playChime(levelUp ? "level-up" : "points");
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [celebration, levelUp, say, sound]);
 
   const from = levelUp ? 0 : levelProgress(after, celebration.beforeTotal);

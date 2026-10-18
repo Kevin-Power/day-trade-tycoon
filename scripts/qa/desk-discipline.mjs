@@ -16,7 +16,7 @@ const out = fileURLToPath(new URL(`../../artifacts/trading-desk-qa/${label}/`, i
 mkdirSync(out, { recursive: true });
 
 const cases = [
-  { name: "375", width: 375, height: 812, senior: false },
+  { name: "375", width: 375, height: 812, senior: false, speech: true },
   { name: "320", width: 320, height: 700, senior: false, reducedMotion: true },
   { name: "375-large", width: 375, height: 812, senior: true },
   { name: "820", width: 820, height: 1100, senior: false, soundOn: true },
@@ -107,8 +107,24 @@ for (const item of cases) {
         }
       };
   });
+  // Read-aloud on with a recording voice: the points must be spoken after the page's own line.
+  if (item.speech)
+    await context.addInitScript(() => {
+      window.__spoken = [];
+      window.SpeechSynthesisUtterance = class {
+        constructor(text) {
+          this.text = text;
+        }
+      };
+      const voice = { getVoices: () => [{ lang: "zh-TW", name: "recorder" }], speak: (utterance) => window.__spoken.push(utterance.text),
+        cancel: () => window.__spoken.push("<cancel>"), addEventListener() {}, removeEventListener() {} };
+      Object.defineProperty(window, "speechSynthesis", { configurable: true, get: () => voice });
+      localStorage.setItem("day-tycoon-speech-v1", "on");
+    });
   const page = await context.newPage();
   const fail = (message) => failures.push(`${item.name}: ${message}`);
+  /** What is still being read: everything after the last interruption. */
+  const spokenTail = () => page.evaluate(() => window.__spoken.slice(window.__spoken.lastIndexOf("<cancel>") + 1));
   const check = async (screen, scope = null) => {
     const report = await page.evaluate(scan, { controls: CONTROLS, large: item.senior ? LARGE : null, scope });
     rows.push({ case: item.name, screen, ...report });
@@ -151,6 +167,10 @@ for (const item of cases) {
     if (!(await card.getByText("說出理由").isVisible())) fail("reason line missing");
     if (!(await card.getByText("拿到徽章：第一題").isVisible())) fail("first-daily badge missing");
     if (await card.getByText(/答錯|眼力 \+?0/).count()) fail("the card mentions a wrong answer or zero 眼力");
+    if (item.speech) {
+      const tail = await spokenTail();
+      if (!tail.some((line) => /^拿到 1[58] 分。$/.test(line))) fail(`daily points not read aloud after the headline (queue: ${tail.join(" / ")})`);
+    }
     await check("daily", ".td-celebrate");
     await shoot("daily", card);
 
@@ -183,6 +203,10 @@ for (const item of cases) {
     if (!(await practice.getByText("拿到徽章：第一輪").isVisible())) fail("first-practice badge missing");
     if (!(await page.getByText("收盤前不留倉").first().isVisible())) fail("completion checks do not include 收盤前不留倉");
     if (await page.getByText("先觀察，再決定是否操作").count()) fail("the always-true 先觀察 check is still shown");
+    if (item.speech) {
+      const tail = await spokenTail();
+      if (!tail.includes("拿到 25 分。升級了，第 2 級，準時報到。")) fail(`practice level-up not read aloud (queue: ${tail.join(" / ")})`);
+    }
     await check("practice", ".td-celebrate");
     await shoot("practice", practice);
     if (!item.soundOn && (await page.evaluate(() => window.__audioContexts))) fail("audio started while sound is off");
