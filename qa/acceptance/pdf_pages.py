@@ -24,7 +24,14 @@ doc = fitz.open(pdf_path)
 pages = []
 for index, page in enumerate(doc, start=1):
     text = page.get_text()
-    tasks = sorted({f"{a}-{b}" for a, b in TASK.findall(text)})
+    tasks = {f"{a}-{b}" for a, b in TASK.findall(text)}
+    # Final sheets, the rubric and the quick mission carry an eyebrow instead of a TASK heading.
+    # Eyebrows are letter-spaced in the PDF text ("S H E E T 1"), so compare with spaces removed.
+    squeezed = re.sub(r"\s+", "", text)
+    for pattern, task in ((r"SHEET1", "F-3"), (r"SHEET2", "F-4"), (r"SHEET3", "F-5"), (r"FINALMISSION·ASSESSMENT", "F-2"), (r"課前小任務：", "Q")):
+        if re.search(pattern, squeezed, re.IGNORECASE):
+            tasks.add(task)
+    tasks = sorted(tasks)
     fonts = sorted({font[3] for font in page.get_fonts(full=True)})
     images = []
     for info in page.get_image_info(xrefs=True):

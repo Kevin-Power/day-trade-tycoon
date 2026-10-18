@@ -4,13 +4,51 @@ Left: the image the workbook prints (assets/shots). Right: the journey's "after"
 task on the current release. Used for looking, task by task, at whether the printed screen still matches.
 
     python -I qa/acceptance/pair_shots.py <academy dir> <journey dir with journey.json> <out dir>
+
+Chosen pairs instead (a printed page or a workbook image next to a named journey screenshot):
+
+    python -I qa/acceptance/pair_shots.py --spec <pairs.json> <out dir>
+
+pairs.json: [{"name", "left", "leftLabel", "right", "rightLabel", "leftCrop": [x0, y0, x1, y1] (optional),
+"rightCrop": [...] (optional)}]; paths are absolute or relative to pairs.json.
 """
 import json
 import re
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
+
+if sys.argv[1] == "--spec":
+    spec_file, out_dir = Path(sys.argv[2]), Path(sys.argv[3])
+    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        font = ImageFont.truetype("C:/Windows/Fonts/msjh.ttc", 18)
+    except OSError:
+        font = None
+    height = 760
+    written = []
+    for pair in json.loads(spec_file.read_text(encoding="utf-8")):
+        images = []
+        for side in ("left", "right"):
+            image = Image.open(spec_file.parent / pair[side]).convert("RGB")
+            if pair.get(f"{side}Crop"):
+                image = image.crop(tuple(pair[f"{side}Crop"]))
+            scale = height / image.height
+            images.append(image.resize((max(1, round(image.width * scale)), height)))
+        left, right = images
+        sheet = Image.new("RGB", (left.width + right.width + 30, height + 44), "white")
+        sheet.paste(left, (10, 38))
+        sheet.paste(right, (left.width + 20, 38))
+        draw = ImageDraw.Draw(sheet)
+        draw.text((10, 8), pair.get("leftLabel", pair["left"]), fill="black", font=font)
+        draw.text((left.width + 20, 8), pair.get("rightLabel", pair["right"]), fill="black", font=font)
+        target = out_dir / f"{pair['name']}.png"
+        sheet.save(target)
+        written.append({"name": pair["name"], "sheet": target.name, "left": pair["left"], "right": pair["right"]})
+    (out_dir / "pairs.json").write_text(json.dumps(written, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"{len(written)} chosen pairs written to {out_dir}")
+    sys.exit(0)
 
 academy, journey_dir, out_dir = (Path(arg) for arg in sys.argv[1:4])
 out_dir.mkdir(parents=True, exist_ok=True)
@@ -32,6 +70,10 @@ for file in sorted((academy / "content").glob("*.mjs")):
                     task_shots[current].append(shot)
 
 HEIGHT = 520
+try:
+    FONT = ImageFont.truetype("C:/Windows/Fonts/msjh.ttc", 16)  # labels in Chinese
+except OSError:
+    FONT = None
 def fit(image, height=HEIGHT):
     scale = height / image.height
     return image.resize((max(1, round(image.width * scale)), height))
@@ -55,8 +97,8 @@ for task, names in task_shots.items():
         sheet.paste(left, (10, 30))
         sheet.paste(right, (left.width + 20, 30))
         draw = ImageDraw.Draw(sheet)
-        draw.text((10, 8), f"{task} workbook: {name} (taken {meta.get('takenAt', '?')[:19]})", fill="black")
-        draw.text((left.width + 20, 8), label_right, fill="black")
+        draw.text((10, 8), f"{task} workbook: {name} (taken {meta.get('takenAt', '?')[:19]})", fill="black", font=FONT)
+        draw.text((left.width + 20, 8), label_right, fill="black", font=FONT)
         path = out_dir / f"{task}-{name}.png"
         sheet.save(path)
         index.append({"task": task, "shot": name, "sheet": path.name, "journey": live["seq"] if live else None})

@@ -83,6 +83,38 @@ for (const file of files) {
     }
   }
 }
+// Every screenshot in shots.json must be accounted for: those not placed by a task (warm-up page, quick
+// mission, cover pages) are found by searching the content and layout source for their name.
+import { readdirSync as listDir } from "node:fs";
+const sources = [];
+for (const dir of ["content", "build", join("build", "lib")]) {
+  for (const name of listDir(join(academy, dir)).filter((file) => /\.(mjs|js)$/.test(file))) sources.push([`${dir}/${name}`, readFileSync(join(academy, dir, name), "utf8")]);
+}
+const placed = new Set(rows.map((row) => row.shot));
+const quickIds = { "q-today": "Q", "q-plan": "Q", "q-desk": "Q", "q-quote": "Q" };
+for (const [shot, meta] of Object.entries(shots)) {
+  if (placed.has(shot)) continue;
+  const where = sources.filter(([, text]) => text.includes(`"${shot}"`)).map(([file]) => file);
+  const task = quickIds[shot] ?? (where.some((file) => file.includes("student") || file.includes("pages")) ? "版面頁" : "—");
+  const pages = pdf ? pdf.pages.filter((page) => page.tasks.includes(task)).map((page) => page.page) : [];
+  const problems = [];
+  if (!where.length) problems.push("沒有任何頁面使用（未印出）");
+  if (summary.release !== production) problems.push(`擷取版本 ${summary.release} ≠ 正式站 ${production}`);
+  rows.push({
+    pages: pages.join(", ") || (where.length ? `見 ${where.join("、")}` : "—"),
+    task,
+    feature: task === "Q" ? "課前小任務（訪客路徑）" : shot.startsWith("try-") ? "課前暖身（免費體驗頁）" : shot.startsWith("phone") ? "手機版畫面" : "版面頁圖片",
+    shot,
+    caption: "",
+    release: summary.release,
+    takenAt: meta.takenAt ?? "—",
+    url: meta.url ?? "—",
+    clock: meta.clock ?? "—",
+    consistent: where.length && existsSync(join(academy, "assets", "shots", meta.image ?? `${shot}.png`)) && summary.release === production && !summary.failed?.length ? "是" : where.length ? "否" : "未使用",
+    operable: journey ? (task === "Q" ? "（旅程未單獨走訪客路徑；作者擷取 quick 10/10）" : "—") : "—",
+    problems: problems.join("；") || "—",
+  });
+}
 const header = "| 講義頁面 | 任務 | 對應功能 | 截圖 | 系統版本 | 擷取時間（UTC） | 畫面／時鐘 | 截圖一致 | 操作可完成 | 問題 |\n|---|---|---|---|---|---|---|---|---|---|";
 const lines = rows.map((row) => `| ${row.pages} | ${row.task} | ${row.feature} | ${row.shot} | ${row.release} | ${row.takenAt.replace("T", " ").slice(0, 19)} | ${row.url} ${row.clock ?? ""} | ${row.consistent} | ${row.operable} | ${row.problems.replace(/\|/g, "／")} |`);
 writeFileSync(out, `${header}\n${lines.join("\n")}\n`);
