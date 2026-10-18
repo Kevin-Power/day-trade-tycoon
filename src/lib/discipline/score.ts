@@ -171,9 +171,19 @@ export function disciplineSummary(input: DisciplineInput): DisciplineSummary {
   };
 }
 
+/**
+ * The end of the learner's last active day (capped at `now`). A badge that time alone completed since
+ * then, like a holiday week ending, was not there when they last looked, so it is still new.
+ */
+function lastActive(input: DisciplineInput): number {
+  const dates = [...input.daily.map((record) => record.issueDate), ...input.practice.map((record) => record.day)].sort();
+  const latest = dates.at(-1);
+  return latest ? Math.min(input.now, Date.parse(`${latest}T23:59:59+08:00`)) : input.now;
+}
+
 /** What the answer or round just saved added: the summary with it minus the summary without it. */
 export function celebrationFor(before: DisciplineInput, after: DisciplineInput, source: "daily" | "practice"): Celebration {
-  const was = disciplineSummary(before);
+  const was = disciplineSummary({ ...before, now: lastActive(before) });
   const now = disciplineSummary(after);
   const previous = new Map(events(before).map((event) => [event.key, event]));
   const gained = events(after)

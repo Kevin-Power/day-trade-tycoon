@@ -201,3 +201,10 @@ test("the first answer celebrates its points; a resend celebrates nothing", () =
   const read = await tx((sql) => loadDaily(sql, "alice", dir, MON_0700));
   assert.equal(read.celebration ?? null, null);
 }));
+
+test("two submissions at once save one answer and celebrate once", () => fixture(async ({ db, dir, tx }) => {
+  const body = { questionId: "2026-10-14", choice: "watch", reason: "unclear" };
+  const both = await Promise.all([tx((sql) => answerDaily(sql, "alice", body, dir, MON_0700)), tx((sql) => answerDaily(sql, "alice", body, dir, MON_0700))]);
+  assert.equal(both.filter((response) => response.celebration).length, 1);
+  assert.equal(await count(db, "SELECT count(*)::int AS count FROM daily_answers"), 1);
+}));

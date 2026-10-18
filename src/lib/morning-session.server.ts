@@ -3,8 +3,8 @@ import { applyMorningAction, createMorningState, MorningError, parseMorningActio
   type MorningSource, type MorningStoredState } from "./morning-engine.ts";
 import type { Sql } from "./db.ts";
 import { summarizeMorningLesson, type MorningLessonSummary, type MorningResponse } from "./morning.ts";
-import { readDisciplineInput } from "./discipline/records.server.ts";
-import { celebrationFor, type Celebration } from "./discipline/score.ts";
+import { celebrationAfterSave } from "./discipline/records.server.ts";
+import type { Celebration } from "./discipline/score.ts";
 
 type SessionRow = { id: string; state_json: MorningStoredState | string };
 function stored(row: SessionRow): MorningStoredState {
@@ -75,16 +75,12 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
       WHERE id = ${action.id}::uuid AND user_id = ${userId} AND lesson_id = ${source.catalog.lessonId} FOR UPDATE`;
     if (!rows[0]) throw new MorningError(404, "找不到這份練習");
     const previous = stored(rows[0]);
-    // The engine refuses a finished run, so a finish that gets here completes it exactly once.
-    // The celebration is a nicety: a scoring problem must never stop the round from being saved.
-    const before = action.action === "finish" && !previous.completed ? await readDisciplineInput(sql, userId, now).catch(() => null) : null;
     state = applyMorningAction(previous, action, source, now);
     await sql`UPDATE morning_sessions SET state_json = ${JSON.stringify(state)}::jsonb,
       completed = ${state.completed}, updated_at = NOW() WHERE id = ${state.id}::uuid AND user_id = ${userId}`;
-    if (before && state.completed)
-      celebration = await readDisciplineInput(sql, userId, now)
-        .then((after) => celebrationFor(before, after, "practice"))
-        .catch(() => null);
+    // The engine refuses a finished run, so a finish that gets here completes it exactly once.
+    if (action.action === "finish" && !previous.completed && state.completed)
+      celebration = await celebrationAfterSave(sql, userId, now, { practice: state.id });
   }
   const counts = await sql<{ count: number }>`SELECT count(*)::int AS count FROM morning_requests WHERE session_id = ${state.id}::uuid`;
   if (counts[0].count >= 1_000) throw new MorningError(429, "本次練習操作次數已達上限，請聯絡講師");

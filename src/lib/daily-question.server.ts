@@ -10,8 +10,8 @@ import { dailyProgress, type DailyProgress } from "./daily/progress.ts";
 import { dailyAnswerSchema, validateStop } from "./daily/answer.ts";
 import { entryResult, type EntryResult } from "./daily/reveal.ts";
 import type { DailyChoice, DailyOutcome, DailyQuestionPayload } from "./daily/types.ts";
-import { readDisciplineInput } from "./discipline/records.server.ts";
-import { celebrationFor, type Celebration } from "./discipline/score.ts";
+import { celebrationAfterSave } from "./discipline/records.server.ts";
+import type { Celebration } from "./discipline/score.ts";
 
 export type DailyQuestionView = Omit<DailyQuestionPayload, "bars" | "outcome"> & { bars: Bar[]; issueDate: string };
 export type DailyReveal = {
@@ -185,17 +185,12 @@ export async function answerDaily(sql: Sql, userId: string, input: unknown, dir:
   }
   const problem = validateStop(current.payload, body.choice, body.stopPrice);
   if (problem) throw new MorningError(400, problem);
-  // The celebration is a nicety: a scoring problem must never stop the answer from being saved.
-  const before = await readDisciplineInput(sql, userId, now).catch(() => null);
   const inserted = await sql<{ question_id: string }>`INSERT INTO daily_answers (user_id, question_id, choice, stop_price, reason)
     VALUES (${userId}, ${current.id}, ${body.choice}, ${body.stopPrice ?? null}, ${body.reason ?? null})
     ON CONFLICT (user_id, question_id) DO NOTHING RETURNING question_id`;
   const response = await loadDaily(sql, userId, dir, now);
-  if (!inserted.length || !before) return { ...response, celebration: null };
-  const celebration = await readDisciplineInput(sql, userId, now)
-    .then((after) => celebrationFor(before, after, "daily"))
-    .catch(() => null);
-  return { ...response, celebration };
+  if (!inserted.length) return { ...response, celebration: null };
+  return { ...response, celebration: await celebrationAfterSave(sql, userId, now, { daily: current.id }) };
 }
 
 /** Teacher card: the current question, its reveal, the class list and how many guests answered. */

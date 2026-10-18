@@ -2,7 +2,7 @@ import type { Sql } from "../db.ts";
 import { brokeOut } from "../daily/reveal.ts";
 import { issueDayFor } from "../daily/schedule.ts";
 import type { DailyChoice, DailyOutcome } from "../daily/types.ts";
-import type { DisciplineInput } from "./score.ts";
+import { celebrationFor, type Celebration, type DisciplineInput } from "./score.ts";
 
 function json<T>(value: T | string | null): T | null {
   if (typeof value !== "string") return value ?? null;
@@ -71,4 +71,24 @@ export async function readDisciplineInput(sql: Sql, userId: string, now: number)
     }),
     now,
   };
+}
+
+/**
+ * Right after one answer or round was saved: read the records once and compare them with and without
+ * it. The celebration is a nicety, so any problem yields null and never fails the save.
+ */
+export async function celebrationAfterSave(
+  sql: Sql,
+  userId: string,
+  now: number,
+  saved: { daily: string } | { practice: string },
+): Promise<Celebration | null> {
+  try {
+    const after = await readDisciplineInput(sql, userId, now);
+    if ("daily" in saved)
+      return celebrationFor({ ...after, daily: after.daily.filter((record) => record.questionId !== saved.daily) }, after, "daily");
+    return celebrationFor({ ...after, practice: after.practice.filter((record) => record.id !== saved.practice) }, after, "practice");
+  } catch {
+    return null;
+  }
 }

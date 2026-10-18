@@ -149,3 +149,17 @@ test("a second round on the same day adds nothing unless it is better", () => {
   assert.deepEqual([better.points, better.alreadyCounted], [5, false]);
   assert.deepEqual(ids(better.gained), ["on-plan"]);
 });
+
+test("a holiday week's full-week badge is celebrated with the next answer after the week ends", () => {
+  const four = ["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22"];
+  const monday = Date.parse("2026-10-26T07:00:00+08:00");
+  const before = input({ daily: four.map((date) => daily(date)), issued: [...four, "2026-10-26"], now: monday });
+  const after = { ...before, daily: [...before.daily, daily("2026-10-26")] };
+  // The fifth answer in a row also completes the streak badge.
+  assert.deepEqual(celebrationFor(before, after, "daily").newBadges.map((item) => item.id), ["streak-5", "full-week"]);
+  // Already celebrated once the learner acted after the week ended.
+  const tuesday = Date.parse("2026-10-27T07:00:00+08:00");
+  const later = { ...after, issued: [...after.issued, "2026-10-27"], now: tuesday };
+  const next = { ...later, daily: [...later.daily, daily("2026-10-27")] };
+  assert.deepEqual(celebrationFor(later, next, "daily").newBadges.map((item) => item.id), []);
+});

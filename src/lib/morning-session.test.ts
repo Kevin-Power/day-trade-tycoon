@@ -120,6 +120,7 @@ async function guestFixture(run: (tools: {
   read: (user: string) => Promise<Awaited<ReturnType<typeof loadMorningSession>>>;
   act: (input: unknown, now: number, user: string) => Promise<Awaited<ReturnType<typeof mutateMorningSession>>>;
   count: (query: string) => Promise<number>;
+  db: PGlite;
 }) => Promise<void>) {
   const directory = await mkdtemp(join(tmpdir(), "morning-sql-test-"));
   const db = new PGlite({ dataDir: join(directory, "pglite") });
@@ -133,6 +134,7 @@ async function guestFixture(run: (tools: {
       read: user => db.transaction(tx => loadMorningSession(sqlFor(tx), user, source)),
       act: (input, now, user) => db.transaction(tx => mutateMorningSession(sqlFor(tx), user, input, source, now)),
       count: async query => Number((await db.query<{ count: number }>(query)).rows[0].count),
+      db,
     });
   } finally {
     await db.close();
@@ -182,4 +184,15 @@ test("finishing a round celebrates its points once; a second round that day adds
   assert.deepEqual([again.celebration!.points, again.celebration!.alreadyCounted], [0, true]);
   const advanced = (await act({ action: "advance", requestId: randomUUID(), id: (await act(guestStart(), 500, "member")).state!.id, expectedRevision: 0 }, 1500, "member"));
   assert.equal(advanced.celebration ?? null, null, "only finishing celebrates");
+}));
+
+test("finishing still celebrates when an older record is unreadable", () => guestFixture(async ({ act, db }) => {
+  await db.query("INSERT INTO daily_questions(id,issue_date,payload) VALUES('2026-10-09','2026-10-12','{\"level\":100}'::jsonb)");
+  await db.query("INSERT INTO daily_answers(user_id,question_id,choice,stop_price,reason) VALUES('member','2026-10-09','watch',NULL,NULL)");
+  await db.query(`INSERT INTO morning_sessions(id,user_id,lesson_id,state_json,completed,created_at)
+    VALUES($1,'member','old','{"plan":{"focusCode":"2330"},"reflection":"舊紀錄","orders":"broken","positions":{"x":1}}'::jsonb,TRUE,'2026-10-01T01:00:00Z')`, [randomUUID()]);
+  const run = (await act(guestStart(), 0, "member")).state!;
+  const done = await act({ action: "finish", requestId: randomUUID(), id: run.id, expectedRevision: run.revision, reflection: "照計畫。" }, 100, "member");
+  assert.equal(done.state!.completed, true);
+  assert.equal(done.celebration!.points, 25);
 }));
