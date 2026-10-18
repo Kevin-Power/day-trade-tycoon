@@ -2,6 +2,8 @@
 @import "@fontsource/ibm-plex-mono/latin-400.css";
 @import "@fontsource/ibm-plex-mono/latin-500.css";
 @import "@fontsource/ibm-plex-mono/latin-600.css";
+/* Chinese UI text, served by the site (variable 100-900: every weight is a real face). */
+@import "@fontsource-variable/noto-sans-tc";
 @import "./reading-mode.css";
 @import "./responsive-terminal.css";
 @import "./academy-finish.css";
@@ -10,7 +12,7 @@
 @source "./**/*.{ts,tsx}";
 
 @theme {
-  --font-sans: "Noto Sans TC", "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --font-sans: "Noto Sans TC Variable", "Noto Sans TC", "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
   --font-mono: "IBM Plex Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
 
   --color-bg: #f5f7fb;

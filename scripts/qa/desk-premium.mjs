@@ -78,8 +78,8 @@ const scan = (senior) => {
     const large = size >= 24 || (size >= 18.66 && Number(style.fontWeight) >= 700);
     if (ratio < (large ? 3 : 4.5)) lowContrast.push(`${ratio.toFixed(2)} ${id(el)}`);
   }
-  // Weights the loaded faces cannot draw are synthesised (faux bold): Plex Mono ships 400-600 and
-  // Noto Sans TC 400-700.
+  // Weights the loaded faces cannot draw are synthesised (faux bold): Plex Mono ships 400-600;
+  // Noto Sans TC Variable covers 100-900 (the static fallback name only 400-700).
   const fauxBold = [];
   for (const el of document.querySelectorAll(".trading-desk *")) {
     if (el.closest(".sr-only, [hidden]") || !visible(el)) continue;
@@ -155,6 +155,9 @@ for (const item of cases) {
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => message.type() === "error" && errors.push(message.text()));
   page.on("request", (request) => /\/api\/broker/.test(request.url()) && broker.push(request.url()));
+  // Fonts are served by the site itself: nothing is fetched from Google Fonts.
+  const thirdPartyFonts = [];
+  page.on("request", (request) => /fonts\.(googleapis|gstatic)\.com/.test(request.url()) && thirdPartyFonts.push(request.url()));
   const phone = item.width < 768 || item.senior;
   try {
     await page.goto(`${base}/morning`, { waitUntil: "domcontentloaded" });
@@ -300,6 +303,7 @@ for (const item of cases) {
   }
   if (errors.length) fail(`console/page errors: ${errors.slice(0, 3).join(" | ")}`);
   if (broker.length) fail(`broker requests sent: ${broker.join(", ")}`);
+  if (thirdPartyFonts.length) fail(`fonts fetched from Google: ${thirdPartyFonts.slice(0, 2).join(", ")}`);
   await context.close();
 }
 // Real orders stay disabled on this build: the live hop answers 501 and never sends.
