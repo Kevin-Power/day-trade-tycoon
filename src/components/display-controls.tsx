@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useDisplayPreferences, type ReadingMode } from "@/lib/display-preferences";
 import { speakNow, useSpeechSupport } from "@/components/use-speech";
 import { SPEECH_TEXT } from "@/lib/speech";
+import { playChime, unlockChime } from "@/lib/celebration-sound";
 import { cn } from "@/lib/utils";
 
 /** Mounted once outside admission/auth so the saved reading preference applies everywhere. */
@@ -30,6 +31,8 @@ export function DisplayControls({ compact = false, className }: { compact?: bool
   const speech = useDisplayPreferences((state) => state.speech);
   const speechAsked = useDisplayPreferences((state) => state.speechAsked);
   const setSpeech = useDisplayPreferences((state) => state.setSpeech);
+  const sound = useDisplayPreferences((state) => state.sound);
+  const setSound = useDisplayPreferences((state) => state.setSound);
   const supported = useSpeechSupport();
   const [offer, setOffer] = useState(false);
   const options = useRef<(HTMLButtonElement | null)[]>([]);
@@ -106,6 +109,7 @@ export function DisplayControls({ compact = false, className }: { compact?: bool
           {!supported && <small className="text-xs text-muted">這台設備沒有中文語音</small>}
         </span>
       )}
+      {!compact && <SoundSwitch on={sound} onChange={setSound} />}
       {offer && (
         <SpeechOffer
           onAnswer={(on) => {
@@ -116,6 +120,32 @@ export function DisplayControls({ compact = false, className }: { compact?: bool
         />
       )}
     </div>
+  );
+}
+
+/** Celebration sound; turning it on plays the chime once inside the tap, so the learner hears what it is. */
+export function SoundSwitch({ on, onChange, className }: { on: boolean; onChange: (on: boolean) => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => {
+        if (!on) {
+          unlockChime();
+          playChime("points");
+        }
+        onChange(!on);
+      }}
+      className={cn(
+        "display-sound-switch inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-semibold",
+        on ? "border-brand bg-brand text-brand-fg" : "border-border-strong bg-surface text-fg",
+        className,
+      )}
+    >
+      音效
+      <span className="rounded border border-current/30 px-1.5 text-xs">{on ? "開" : "關"}</span>
+    </button>
   );
 }
 

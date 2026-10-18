@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readSpeechPreference, writeSpeechPreference } from "./display-preferences.ts";
+import { readSoundPreference, readSpeechPreference, writeSoundPreference, writeSpeechPreference } from "./display-preferences.ts";
 
 const memory = () => {
   const values = new Map<string, string>();
@@ -32,4 +32,17 @@ test("blocked storage keeps the default and never throws", () => {
   assert.deepEqual(readSpeechPreference(blocked), { speech: false, asked: false });
   assert.doesNotThrow(() => writeSpeechPreference(blocked, true));
   assert.deepEqual(readSpeechPreference(undefined), { speech: false, asked: false });
+});
+
+test("celebration sound starts off, is remembered, and survives blocked storage", () => {
+  const storage = memory();
+  assert.equal(readSoundPreference(storage), false);
+  writeSoundPreference(storage, true);
+  assert.equal(readSoundPreference(storage), true);
+  writeSoundPreference(storage, false);
+  assert.equal(readSoundPreference(storage), false);
+  storage.setItem("day-tycoon-sound-v1", "loud");
+  assert.equal(readSoundPreference(storage), false);
+  assert.equal(readSoundPreference(blocked), false);
+  assert.doesNotThrow(() => writeSoundPreference(blocked, true));
 });
