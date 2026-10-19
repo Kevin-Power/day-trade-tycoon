@@ -1,0 +1,150 @@
+// Trade-by-trade replay on a disposable desk-server runtime (after desk-seed). Plays the desk and samples it
+// every 100 ms: the price moves several times inside each minute, stays inside that minute's real high and
+// low and rests on its real close; the hero's best bid/ask always match the ladder; the clock runs through
+// the seconds; the tape's newest trade is the price on screen; the main thread has no long stalls; and with
+// 即送 armed the ladder holds still under the pointer.
+// Usage: node scripts/qa/desk-ticks.mjs <baseUrl> <label>
+import { chromium } from "playwright";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const [base = "http://127.0.0.1:18811", label = "ticks"] = process.argv.slice(2);
+const out = fileURLToPath(new URL(`../../artifacts/trading-desk-qa/${label}/`, import.meta.url));
+mkdirSync(out, { recursive: true });
+const failures = [];
+const fail = (message) => failures.push(message);
+const number = (text) => Number(String(text ?? "").replace(/[^\d.-]/g, ""));
+
+async function state(page) {
+  return page.evaluate(async () => {
+    const response = await fetch("/api/morning", { credentials: "same-origin" });
+    return (await response.json()).state;
+  });
+}
+
+const sample = () => {
+  const text = (selector) => document.querySelector(selector)?.textContent?.trim() ?? "";
+  const bids = document.querySelectorAll('.td-ladder[data-side="sell"] .td-level .td-level-price');
+  const asks = document.querySelectorAll('.td-ladder[data-side="buy"] .td-level .td-level-price');
+  return {
+    at: performance.now(),
+    code: document.querySelector("#morning-practice-title small")?.textContent?.trim() ?? "",
+    price: text(".td-hero-price strong"),
+    heroBid: text('.td-hero-book [data-side="bid"] dd'),
+    heroAsk: text('.td-hero-book [data-side="ask"] dd'),
+    ladderBid: bids[0]?.textContent?.trim() ?? "",
+    ladderAsk: asks[asks.length - 1]?.textContent?.trim() ?? "",
+    clock: text(".td-clock strong"),
+    tapeTop: text(".td-tape-rows li:first-child span"),
+    tapeRows: document.querySelectorAll(".td-tape-rows li").length,
+    flashing: document.querySelectorAll('[data-flash="up"], [data-flash="down"]').length,
+  };
+};
+
+const browser = await chromium.launch().catch(() => chromium.launch({ channel: "chrome" }));
+const rows = [];
+for (const viewport of [
+  { name: "1366", width: 1366, height: 900 },
+  { name: "390", width: 390, height: 844 },
+  // A mid-range phone: the same desk with the CPU slowed four times.
+  { name: "390-slow", width: 390, height: 844, throttle: 4 },
+]) {
+  const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height } });
+  await context.addInitScript(() => {
+    window.__longTasks = [];
+    new PerformanceObserver((list) => window.__longTasks.push(...list.getEntries().map((entry) => entry.duration))).observe({
+      type: "longtask",
+      buffered: true,
+    });
+  });
+  const page = await context.newPage();
+  if (viewport.throttle)
+    await (await context.newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate: viewport.throttle });
+  const phone = viewport.width < 768;
+  try {
+    await page.goto(`${base}/morning`, { waitUntil: "domcontentloaded" });
+    await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 });
+    await page.waitForTimeout(800);
+    // 鴻海 moves inside the fixture's next minutes; 台積電 is flat there, which is real and shows no trades moving.
+    await page.getByRole("button", { name: "下一檔股票" }).click();
+    await page.waitForTimeout(300);
+    const startCursor = (await state(page)).cursor;
+    await page.evaluate(() => (window.__longTasks = []));
+    await page.getByRole("button", { name: "自動重播", exact: true }).click();
+    const samples = [];
+    const until = Date.now() + 6500;
+    while (Date.now() < until) {
+      samples.push(await page.evaluate(sample));
+      if (samples.length === 12) await page.screenshot({ path: `${out}${viewport.name}-playing.png` });
+      await page.waitForTimeout(100);
+    }
+    await page.getByRole("button", { name: "暫停重播", exact: true }).click();
+    await page.waitForTimeout(2200);
+    const rest = await page.evaluate(sample);
+    const after = await state(page);
+    const longTasks = await page.evaluate(() => window.__longTasks);
+    const code = rest.code;
+    const bars = after.bars[code];
+    const played = bars.slice(startCursor);
+    if (played.length < 2) fail(`${viewport.name}: only ${played.length} minutes played in 6.5 s`);
+    // Inside every played minute the price stays within the real range; at rest it is the real close.
+    const prices = samples.map((s) => number(s.price));
+    const lo = Math.min(...played.map((bar) => bar.l), bars[startCursor - 1].c);
+    const hi = Math.max(...played.map((bar) => bar.h), bars[startCursor - 1].c);
+    const outside = prices.filter((p) => p < lo || p > hi);
+    if (outside.length) fail(`${viewport.name}: prices outside the played minutes' range ${lo}–${hi}: ${outside.slice(0, 3)}`);
+    // Narrow minutes may only move between two prices, so count moves rather than distinct prices.
+    const distinct = new Set(samples.map((s) => s.price)).size;
+    const moves = samples.filter((s, i) => i > 0 && s.price !== samples[i - 1].price).length;
+    const moving = played.filter((bar) => bar.h > bar.l).length;
+    if (code !== "2317") fail(`${viewport.name}: expected 鴻海 selected, got ${code}`);
+    if (moves < moving * 2) fail(`${viewport.name}: the price moved only ${moves} times over ${moving} moving minutes`);
+    if (number(rest.price) !== bars.at(-1).c) fail(`${viewport.name}: rests on ${rest.price}, real close ${bars.at(-1).c}`);
+    if (rest.clock !== `${String(9 + Math.floor(after.cursor / 60)).padStart(2, "0")}:${String(after.cursor % 60).padStart(2, "0")}:00`)
+      fail(`${viewport.name}: clock at rest ${rest.clock} for cursor ${after.cursor}`);
+    const seconds = new Set(samples.map((s) => s.clock)).size;
+    if (seconds < 8) fail(`${viewport.name}: the clock showed only ${seconds} different times while playing`);
+    for (const s of [...samples, rest]) {
+      if (phone) continue; // The phone shows the ladder on the 下單 tab.
+      if (s.heroBid !== s.ladderBid || s.heroAsk !== s.ladderAsk)
+        fail(`${viewport.name}: hero ${s.heroBid}/${s.heroAsk} vs ladder ${s.ladderBid}/${s.ladderAsk}`);
+      if (s.tapeTop && s.tapeTop !== s.price) fail(`${viewport.name}: newest trade ${s.tapeTop} but price ${s.price}`);
+    }
+    if (!samples.some((s) => s.flashing)) fail(`${viewport.name}: no price flash seen while playing`);
+    if (!rest.tapeRows) fail(`${viewport.name}: the trade tape is empty`);
+    const stalled = longTasks.filter((ms) => ms >= 100);
+    const busy = Math.round(longTasks.reduce((sum, ms) => sum + ms, 0));
+    if (stalled.length) fail(`${viewport.name}: ${stalled.length} main-thread stalls of 100 ms or more (${stalled.map(Math.round)})`);
+    await page.screenshot({ path: `${out}${viewport.name}-rest.png` });
+    rows.push({ viewport: viewport.name, minutes: played.length, samples: samples.length, distinct, moves, seconds, longTasks: longTasks.length, busyMs: busy, tapeRows: rest.tapeRows });
+
+    if (!phone) {
+      // 即送 armed: the ladder holds still while the pointer is on it, then moves again.
+      await page.getByRole("switch", { name: "閃電即送" }).click();
+      await page.getByRole("button", { name: "自動重播", exact: true }).click();
+      await page.locator(".td-ladder-mid").hover();
+      const held = [];
+      for (let i = 0; i < 12; i++) {
+        held.push(await page.evaluate(() => [...document.querySelectorAll(".td-level-price")].map((el) => el.textContent).join(",")));
+        await page.waitForTimeout(100);
+      }
+      const heroMoves = await page.evaluate(() => document.querySelector(".td-book")?.dataset.held);
+      if (new Set(held).size !== 1) fail(`${viewport.name}: the ladder moved under the pointer with 即送 armed`);
+      if (heroMoves !== "true") fail(`${viewport.name}: the book is not marked as held`);
+      await page.mouse.move(5, 5);
+      await page.getByRole("button", { name: "暫停重播", exact: true }).click();
+      await page.getByRole("switch", { name: "閃電即送" }).click();
+    }
+  } catch (error) {
+    fail(`${viewport.name}: flow stopped: ${error.message.split("\n")[0]}`);
+    await page.screenshot({ path: `${out}${viewport.name}-stopped.png` }).catch(() => {});
+  }
+  await context.close();
+}
+await browser.close();
+writeFileSync(`${out}ticks.json`, JSON.stringify(rows, null, 2));
+console.table(rows);
+if (failures.length) {
+  console.log("FAILURES:\n" + failures.join("\n"));
+  process.exitCode = 1;
+} else console.log("Trade-by-trade replay checks passed.");
