@@ -812,7 +812,7 @@ function MorningLesson({
                   </aside>
                 )}
                 <div className="td-center">
-                  {replayNotice && <ReplayNotice key={replayNotice} text={replayNotice} />}
+                  {singlePane && replayNotice && <ReplayNotice key={replayNotice} text={replayNotice} />}
                   {singlePane && activePane !== "market" && (
                     <h1 className="sr-only" ref={practiceHeading} tabIndex={-1}>
                       真實歷史行情・模擬交易工作台
@@ -832,6 +832,9 @@ function MorningLesson({
                   <div className="td-pane">
                     {(!singlePane || activePane === "market") && (
                       <div className="td-chart-row">
+                        {!singlePane && replayNotice && (
+                          <ReplayNotice key={replayNotice} text={replayNotice} floating />
+                        )}
                         <MorningChart
                           catalog={catalog}
                           session={liveMarket}

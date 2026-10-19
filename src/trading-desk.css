@@ -426,6 +426,19 @@
 .trading-desk .td-notice :is(.td-chip, .td-button) {
   flex: none;
 }
+/* Desktops and tablets: over the top of the chart row, so the chart keeps its full height. */
+.trading-desk .td-chart-row {
+  position: relative;
+}
+.trading-desk .td-notice[data-floating="true"] {
+  position: absolute;
+  inset: 8px 10px auto;
+  z-index: 4;
+  background: #1d1a14;
+  border: 1px solid rgb(230 184 110 / 0.55);
+  border-radius: var(--td-radius);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.45);
+}
 .trading-desk .td-notice .td-button {
   min-height: 44px;
 }
