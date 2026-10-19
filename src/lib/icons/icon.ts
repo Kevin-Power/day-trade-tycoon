@@ -24,6 +24,8 @@ export type GlyphPath = {
 export type IconProps = Omit<SVGProps<SVGSVGElement>, "ref" | "width" | "height" | "viewBox" | "strokeWidth"> & {
   /** CSS pixels; rounded to the nearest multiple of 15 (at least 15). */
   size?: number;
+  /** Accessible name, rendered as a <title> child. */
+  title?: string;
 };
 
 export type IconComponent = ((props: IconProps) => ReturnType<typeof createElement>) & {
@@ -35,21 +37,22 @@ export function iconSize(requested: number = ICON_GRID): number {
   return Math.max(1, Math.round(requested / ICON_GRID)) * ICON_GRID;
 }
 
-const labelled = (props: Record<string, unknown>) =>
-  Object.keys(props).some((key) => key.startsWith("aria-") || key === "role" || key === "title");
+// The grid box and the 1-unit stroke belong to the glyph; untyped callers may still pass these, so they are dropped.
+const FIXED = ["width", "height", "viewBox", "fill", "strokeWidth"];
 
 export function createIcon(name: string, paths: readonly GlyphPath[]): IconComponent {
-  const Icon = ({ size, className, children, ...rest }: IconProps) => {
+  const Icon = ({ size, className, title, children, ...rest }: IconProps) => {
     const px = iconSize(size);
-    // Decorative unless the caller names it; a named icon is announced as an image.
-    const a11y = labelled(rest)
-      ? rest["aria-label"] !== undefined && rest.role === undefined
-        ? { role: "img" }
-        : {}
-      : { "aria-hidden": true };
+    const attributes: Record<string, unknown> = { ...rest };
+    for (const key of FIXED) delete attributes[key];
+    // Decorative unless named by aria-label, aria-labelledby or a title. The title becomes a <title> child:
+    // browsers ignore a title attribute on <svg>. A named icon is announced as an image.
+    const named = title !== undefined || attributes["aria-label"] !== undefined || attributes["aria-labelledby"] !== undefined;
     return createElement(
       "svg",
       {
+        ...(named ? { role: "img" } : { "aria-hidden": true }),
+        ...attributes,
         xmlns: "http://www.w3.org/2000/svg",
         width: px,
         height: px,
@@ -57,9 +60,8 @@ export function createIcon(name: string, paths: readonly GlyphPath[]): IconCompo
         fill: "none",
         className: className ? `icon ${className}` : "icon",
         focusable: "false",
-        ...a11y,
-        ...rest,
       },
+      title !== undefined ? createElement("title", { key: "title" }, title) : null,
       ...paths.map((path, index) => createElement("path", { key: index, ...path })),
       children,
     );

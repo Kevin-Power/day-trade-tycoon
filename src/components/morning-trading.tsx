@@ -687,7 +687,7 @@ export function Ledger({
       >
         {active.count === 0 ? (
           <div className="sim-ledger-empty">
-            <Wallet aria-hidden />
+            <Wallet size={30} aria-hidden />
             <strong>
               {pane === "positions"
                 ? "目前沒有庫存"

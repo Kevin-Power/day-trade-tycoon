@@ -29,7 +29,7 @@ assertBuildPath(packRoot);
 rmSync(packRoot, { recursive: true, force: true });
 mkdirSync(join(stage, 'app'), { recursive: true });
 cpSync(dist, join(stage, 'app'), { recursive: true });
-for (const file of ['favicon.svg', 'daytrade-tycoon-manual.pdf']) {
+for (const file of ['favicon.svg', 'daytrade-tycoon-manual.pdf', 'third-party-notices.txt']) {
   const source = join(root, 'public', file);
   if (!existsSync(source)) throw new Error(`Offline package is missing required public/${file}.`);
   cpSync(source, join(stage, 'app', file));
