@@ -3,7 +3,8 @@
 // low and rests on its real close; the hero's best bid/ask always match the ladder; the clock runs through
 // the seconds; the tape's newest trade is the price on screen; replayed prices are labelled 模擬; unverified
 // volume shows no lot sizes; the main thread has no long stalls; and with 即送 armed the ladder holds still
-// under the pointer (refreshing at most once, at a new minute).
+// under the pointer (refreshing at most once, at a new minute). On entry the desk shows the lesson's approved
+// notice about the simulated replay until it is dismissed, and it stays dismissed after a reload.
 // Usage: node scripts/qa/desk-ticks.mjs <baseUrl> <label>
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -68,6 +69,21 @@ for (const viewport of [
     await page.goto(`${base}/morning`, { waitUntil: "domcontentloaded" });
     await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 });
     await page.waitForTimeout(800);
+    const notice = page.locator(".td-notice");
+    const approved = await page.evaluate(async () =>
+      (await (await fetch("/api/morning")).json()).catalog.notices.find((text) => text.includes("模擬逐筆")),
+    );
+    if (!(await notice.isVisible())) fail(`${viewport.name}: the simulated-replay notice is not shown on entry`);
+    else {
+      if (!approved || !(await notice.textContent()).includes(approved))
+        fail(`${viewport.name}: the entry notice is not the lesson's approved notice`);
+      await notice.getByRole("button", { name: "知道了" }).click();
+      if (await notice.isVisible()) fail(`${viewport.name}: 知道了 did not dismiss the notice`);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 });
+      await page.waitForTimeout(500);
+      if (await page.locator(".td-notice").isVisible()) fail(`${viewport.name}: the dismissed notice came back after a reload`);
+    }
     // 鴻海 moves inside the fixture's next minutes; 台積電 is flat there, which is real and shows no trades moving.
     await page.getByRole("button", { name: "下一檔股票" }).click();
     await page.waitForTimeout(300);
