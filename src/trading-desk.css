@@ -854,7 +854,7 @@
   font-size: 12px;
 }
 
-/* Chart and the replay's 成交明細: side by side when the centre is wide enough, stacked below otherwise. */
+/* Chart and the replay's 成交明細: side by side on desktops and wide centres, a short strip below otherwise. */
 .trading-desk .td-chart-row {
   display: flex;
   flex: 1;
@@ -865,10 +865,23 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 248px;
+  max-height: 188px;
   overflow: hidden;
   background: var(--td-panel);
   border-top: var(--td-hairline) solid var(--td-line);
+}
+.trading-desk[data-layout="desktop"] .td-chart-row {
+  flex-direction: row;
+}
+.trading-desk[data-layout="desktop"] .td-chart-row > .td-chart {
+  min-width: 0;
+}
+.trading-desk[data-layout="desktop"] .td-tape {
+  flex: none;
+  width: 168px;
+  max-height: none;
+  border-top: 0;
+  border-left: var(--td-hairline) solid var(--td-line);
 }
 @container (min-width: 640px) {
   .trading-desk .td-chart-row {
@@ -879,7 +892,7 @@
   }
   .trading-desk .td-tape {
     flex: none;
-    width: 184px;
+    width: 168px;
     max-height: none;
     border-top: 0;
     border-left: var(--td-hairline) solid var(--td-line);
