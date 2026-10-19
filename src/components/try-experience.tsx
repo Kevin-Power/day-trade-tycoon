@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, Check, CheckCircle2, ClipboardList, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, ClipboardList, RotateCcw } from "@/lib/icons";
 import { BrandMark } from "@/components/brand-mark";
 import { DisplayControls } from "@/components/display-controls";
 import {
@@ -56,7 +56,7 @@ export function TryExperience() {
             to="/"
             className="flex min-h-12 items-center gap-2 text-base text-brand underline-offset-4 hover:underline"
           >
-            <ArrowLeft className="size-5 shrink-0" aria-hidden="true" />
+            <ArrowLeft className="shrink-0" aria-hidden="true" />
             教室入口
           </Link>
         </div>
@@ -83,7 +83,7 @@ export function TryExperience() {
             >
               <span className="mx-auto mb-1 flex size-7 items-center justify-center rounded-full bg-surface font-semibold">
                 {index < currentStep || stage === "complete" ? (
-                  <Check className="size-5" aria-label="已完成" />
+                  <Check aria-label="已完成" />
                 ) : (
                   index + 1
                 )}
@@ -155,7 +155,7 @@ export function TryExperience() {
             <>
               <div className="mt-5 rounded-xl border border-brand/25 bg-brand/5 p-4">
                 <p className="flex items-center gap-2 text-lg font-semibold text-brand">
-                  <CheckCircle2 className="size-6 shrink-0" aria-hidden="true" />
+                  <CheckCircle2 size={30} className="shrink-0" aria-hidden="true" />
                   範例買進已成交
                 </p>
                 <p className="mt-3 text-lg leading-8">教學範例股 · 每股 100 元 · 1 張</p>
@@ -174,7 +174,7 @@ export function TryExperience() {
                 className={`${PRIMARY} mt-6`}
                 onClick={() => dispatch({ type: "close-position" })}
               >
-                範例平倉：賣出手上 1 張<ArrowRight className="size-5 shrink-0" aria-hidden="true" />
+                範例平倉：賣出手上 1 張<ArrowRight className="shrink-0" aria-hidden="true" />
               </button>
             </>
           ) : null}
@@ -218,7 +218,7 @@ export function TryExperience() {
                   "平倉後，把費用算進結果，留下復盤重點。",
                 ].map((text) => (
                   <li key={text} className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-1 size-6 shrink-0 text-brand" aria-hidden="true" />
+                    <CheckCircle2 size={30} className="mt-1 shrink-0 text-brand" aria-hidden="true" />
                     <span>{text}</span>
                   </li>
                 ))}
@@ -253,7 +253,7 @@ export function TryExperience() {
                             className={`${SECONDARY} mt-3`}
                             onClick={() => dispatch({ type: "retry-topic", stage: topic })}
                           >
-                            <RotateCcw className="size-5 shrink-0" aria-hidden="true" />從
+                            <RotateCcw className="shrink-0" aria-hidden="true" />從
                             {TOPICS[topic].label}再練
                           </button>
                         </li>
@@ -268,14 +268,14 @@ export function TryExperience() {
               </section>
               <Link to="/license" hash="course-inquiry" className={`${PRIMARY} mt-6`}>
                 詢問課程與操作協助
-                <ArrowRight className="size-5" aria-hidden="true" />
+                <ArrowRight aria-hidden="true" />
               </Link>
               <button
                 type="button"
                 className={`${SECONDARY} mt-3`}
                 onClick={() => dispatch({ type: "restart" })}
               >
-                <RotateCcw className="size-5" aria-hidden="true" />
+                <RotateCcw aria-hidden="true" />
                 從頭開始新一輪
               </button>
               <Link to="/" className={`${SECONDARY} mt-3`}>
@@ -296,7 +296,7 @@ function OrderCard({ status }: { status: string }) {
   return (
     <div className="my-5 rounded-xl border border-border bg-bg p-4">
       <p className="flex items-center gap-2 text-base font-semibold text-brand">
-        <ClipboardList className="size-5 shrink-0" aria-hidden="true" />
+        <ClipboardList className="shrink-0" aria-hidden="true" />
         範例委託 · {status}
       </p>
       <dl className="mt-3 divide-y divide-border text-lg leading-8">
@@ -385,7 +385,7 @@ function Question({
       ) : null}
       <button type="submit" className={`${PRIMARY} mt-5`}>
         {action}
-        <ArrowRight className="size-5 shrink-0" aria-hidden="true" />
+        <ArrowRight className="shrink-0" aria-hidden="true" />
       </button>
     </form>
   );

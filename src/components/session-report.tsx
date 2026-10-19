@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ArrowLeft, CheckCircle2, ClipboardList, MessageSquare, ReceiptText } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ClipboardList, MessageSquare, ReceiptText } from "@/lib/icons";
 import { ProvenanceMicro } from "@/components/provenance";
 import { lessonById } from "@/lib/game/curriculum";
 import { useGame } from "@/lib/game/store";
@@ -63,7 +63,7 @@ export function SessionReport({
       <header className="academy-header">
         <div className="academy-container flex flex-wrap items-center justify-between gap-3 py-4">
           <span className="flex items-center gap-2.5 text-sm font-medium">
-            <ClipboardList aria-hidden="true" className="size-5 text-brand" />
+            <ClipboardList aria-hidden="true" className="text-brand" />
             當沖大富翁<span className="border-l border-border pl-2.5 text-muted">練習復盤</span>
           </span>
           <div className="flex flex-wrap items-center gap-2">
@@ -80,7 +80,7 @@ export function SessionReport({
                 void navigate({ to: "/" });
               }}
             >
-              <ArrowLeft aria-hidden="true" className="size-4" />
+              <ArrowLeft aria-hidden="true" />
               {teacherView ? "講師工作區" : "教室大廳"}
             </button>
           </div>
@@ -134,9 +134,9 @@ export function SessionReport({
           )}
         >
           {lesson && rec.passed ? (
-            <CheckCircle2 aria-hidden="true" className="size-3.5" />
+            <CheckCircle2 aria-hidden="true" />
           ) : (
-            <ClipboardList aria-hidden="true" className="size-3.5" />
+            <ClipboardList aria-hidden="true" />
           )}
           {lesson
             ? rec.passed
@@ -406,7 +406,7 @@ export function SessionReport({
             </>
           ) : (
             <div className="px-5 py-10 text-center">
-              <ReceiptText aria-hidden="true" className="mx-auto mb-3 size-8 text-subtle" />
+              <ReceiptText size={30} aria-hidden="true" className="mx-auto mb-3 text-subtle" />
               <p className="font-medium">本盤沒有成交紀錄</p>
               <p className="mt-2 text-sm text-muted">可回看上方紀律條件，再決定下次練習的重點。</p>
             </div>
@@ -415,7 +415,7 @@ export function SessionReport({
         {lesson && (
           <section className="academy-card mt-6 p-5 sm:p-6">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <MessageSquare aria-hidden="true" className="size-5 text-brand" />
+              <MessageSquare aria-hidden="true" className="text-brand" />
               帶回課堂討論
             </h2>
             <ul className="mt-4 space-y-3 text-sm leading-7 text-muted">

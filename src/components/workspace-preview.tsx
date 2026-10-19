@@ -1,4 +1,4 @@
-import { ArrowUpRight, CandlestickChart, Check, ClipboardList } from "lucide-react";
+import { ArrowUpRight, CandlestickChart, Check, ClipboardList } from "@/lib/icons";
 
 /** A diagram of the workspace, deliberately without prices or market data. */
 export function WorkspacePreview() {
@@ -6,7 +6,7 @@ export function WorkspacePreview() {
     <figure className="workspace-preview" aria-label="交易工作台介面示意，非行情資料">
       <figcaption className="workspace-preview-heading">
         <span>
-          <CandlestickChart size={17} aria-hidden /> 交易工作台
+          <CandlestickChart aria-hidden /> 交易工作台
         </span>
         <span className="workspace-preview-tag">介面示意</span>
       </figcaption>
@@ -69,11 +69,11 @@ export function WorkspacePreview() {
       </div>
       <div className="workspace-preview-footer">
         <span>
-          <ClipboardList size={15} aria-hidden /> 寫下計畫
+          <ClipboardList aria-hidden /> 寫下計畫
         </span>
-        <ArrowUpRight size={15} aria-hidden />
+        <ArrowUpRight aria-hidden />
         <span>
-          <Check size={15} aria-hidden /> 保存復盤
+          <Check aria-hidden /> 保存復盤
         </span>
       </div>
     </figure>

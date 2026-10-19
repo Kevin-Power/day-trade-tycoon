@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarClock, RefreshCw } from "lucide-react";
+import { CalendarClock, RefreshCw } from "@/lib/icons";
 import { loadMarketDataStatus } from "@/lib/market-data";
 import type { MarketDataState, MarketDataSummary } from "@/lib/market-data-status";
 import { cn } from "@/lib/utils";
@@ -53,7 +53,7 @@ export function MarketDataCard() {
     <section className="academy-card mt-7 p-5 sm:p-6" aria-labelledby="market-data-title">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="market-data-title" className="flex items-center gap-2 text-lg font-semibold">
-          <CalendarClock aria-hidden="true" className="size-5 text-brand" />
+          <CalendarClock aria-hidden="true" className="text-brand" />
           富邦每日行情
         </h2>
         <button
@@ -61,7 +61,7 @@ export function MarketDataCard() {
           className="academy-button-secondary min-h-12"
           onClick={() => setRevision((value) => value + 1)}
         >
-          <RefreshCw aria-hidden="true" className="size-4" />
+          <RefreshCw aria-hidden="true" />
           重新讀取
         </button>
       </div>

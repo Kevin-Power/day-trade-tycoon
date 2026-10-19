@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
-import { Award, Sparkles } from "lucide-react";
+import { Award, Sparkles } from "@/lib/icons";
 import { SoundSwitch } from "@/components/display-controls";
 import { useSay } from "@/components/use-speech";
 import { playChime } from "@/lib/celebration-sound";

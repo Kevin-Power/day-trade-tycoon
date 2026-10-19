@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Inbox, RefreshCw, RotateCcw } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Inbox, RefreshCw, RotateCcw } from "@/lib/icons";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import {
@@ -198,7 +198,7 @@ function InboxContents() {
             id={`${uid}-title`}
             className="flex items-center gap-2 text-xl font-semibold outline-offset-4"
           >
-            <Inbox className="size-5 shrink-0 text-brand" aria-hidden="true" />
+            <Inbox className="shrink-0 text-brand" aria-hidden="true" />
             課程詢問
           </h2>
           <p className="mt-3 text-base leading-7 text-muted">
@@ -211,7 +211,7 @@ function InboxContents() {
           disabled={loading || controlsDisabled}
           onClick={refresh}
         >
-          <RefreshCw className="size-5 shrink-0" aria-hidden="true" />
+          <RefreshCw className="shrink-0" aria-hidden="true" />
           更新詢問
         </button>
       </div>
@@ -334,9 +334,9 @@ function InboxContents() {
                   }
                 >
                   {item.status === "new" ? (
-                    <Check className="size-5 shrink-0" aria-hidden="true" />
+                    <Check className="shrink-0" aria-hidden="true" />
                   ) : (
-                    <RotateCcw className="size-5 shrink-0" aria-hidden="true" />
+                    <RotateCcw className="shrink-0" aria-hidden="true" />
                   )}
                   {saving
                     ? "正在更新狀態…"
@@ -359,7 +359,7 @@ function InboxContents() {
                   setNotice("");
                 }}
               >
-                <ChevronLeft className="size-5 shrink-0" aria-hidden="true" />
+                <ChevronLeft className="shrink-0" aria-hidden="true" />
                 上一頁
               </button>
               <span className="text-base text-muted">
@@ -376,7 +376,7 @@ function InboxContents() {
                 }}
               >
                 下一頁
-                <ChevronRight className="size-5 shrink-0" aria-hidden="true" />
+                <ChevronRight className="shrink-0" aria-hidden="true" />
               </button>
             </nav>
           )}

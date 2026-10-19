@@ -1,4 +1,4 @@
-import { Zap } from "lucide-react";
+import { Zap } from "@/lib/icons";
 import { bookPressure, createMorningBook, type MorningBookLevel } from "@/lib/morning-book";
 import { formatPrice } from "@/lib/market/ticks";
 

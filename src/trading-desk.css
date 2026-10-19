@@ -168,27 +168,6 @@
   background: rgb(230 184 110 / 0.08);
 }
 
-/* Small icons are 16px with a 1.5 stroke on lucide's 24-unit grid: exactly one CSS pixel, so the
-   lines fill whole pixels on 1x screens instead of 1.17-1.33 blended ones. */
-.trading-desk
-  :is(
-    .td-home,
-    .td-tool,
-    .td-brand,
-    .td-replay,
-    .td-stepper,
-    .sim-ledger-toggle,
-    .td-flash,
-    .sim-side-switch,
-    .sim-stepper,
-    .td-watch-head,
-    .sim-pending,
-    .td-plan-note h3
-  )
-  svg.lucide {
-  stroke-width: 1.5;
-}
-
 /* The shared primary button (plan start, 再試一次) carries white text: same deep fill as .td-button. */
 .trading-desk .bg-brand {
   background-color: var(--td-accent-fill);
@@ -220,9 +199,11 @@
   font-size: 12px;
   font-weight: 600;
 }
+/* Icons are 15px (30px for the phone tabs and badges): their 15-unit grid and 1-unit lines then land on
+   whole pixels at 1x and 2x. Other sizes scale the lines into grey blends; see src/lib/icons/icon.ts. */
 .trading-desk :is(.td-home, .td-tool) svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 .trading-desk :is(.td-home, .td-tool):hover {
   background: rgb(255 255 255 / 0.08);
@@ -242,8 +223,8 @@
 }
 .trading-desk .td-brand svg {
   box-sizing: content-box;
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   padding: 5px;
   color: var(--td-prev);
   background: #111d28;
@@ -343,8 +324,8 @@
   background: var(--td-raised);
 }
 .trading-desk .td-replay svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 .trading-desk .td-replay button:disabled {
   opacity: 0.45;
@@ -771,8 +752,8 @@
   border-radius: var(--td-radius);
 }
 .trading-desk .td-stepper svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 .trading-desk .td-stepper select {
   max-width: 150px;
@@ -938,8 +919,8 @@
   font-weight: 600;
 }
 .trading-desk .sim-ledger-toggle svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 .trading-desk .sim-pending-badge {
   padding: 0 5px;
@@ -1442,8 +1423,8 @@
   gap: 6px;
 }
 .trading-desk .td-flash svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   color: var(--td-prev);
 }
 .trading-desk .td-switch {
@@ -1731,8 +1712,8 @@
   font-weight: 700;
 }
 .trading-desk .sim-side-switch svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 .trading-desk .sim-side-switch button[data-side="buy"][aria-pressed="true"] {
   color: var(--td-buy-fg);
@@ -1802,8 +1783,8 @@
   opacity: 0.5;
 }
 .trading-desk .sim-stepper svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 .trading-desk .morning-limit-field input {
   min-width: 0;
@@ -1889,8 +1870,8 @@
   font: 600 13px/1 var(--font-mono);
 }
 .trading-desk .sim-submit svg {
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
 }
 .trading-desk .sim-submit:disabled {
   opacity: 0.45;
@@ -2241,8 +2222,8 @@
   font-weight: 600;
 }
 .trading-desk .td-dock button svg {
-  width: 22px;
-  height: 22px;
+  width: 30px;
+  height: 30px;
 }
 .trading-desk .td-dock button[aria-pressed="true"] {
   color: #ffffff;
@@ -3214,8 +3195,8 @@
 }
 .trading-desk .td-celebrate-badges svg {
   flex: none;
-  width: 22px;
-  height: 22px;
+  width: 30px;
+  height: 30px;
   color: var(--td-prev);
 }
 .trading-desk .td-celebrate-badges span {
@@ -3435,8 +3416,8 @@
 }
 .trading-desk .td-progress-badges svg {
   flex: none;
-  width: 22px;
-  height: 22px;
+  width: 30px;
+  height: 30px;
   color: var(--td-muted);
 }
 .trading-desk .td-progress-badges li[data-earned="true"] svg {

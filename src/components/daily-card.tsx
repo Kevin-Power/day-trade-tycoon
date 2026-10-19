@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Flame } from "lucide-react";
+import { Flame } from "@/lib/icons";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { dataDateText, revealCopy } from "@/lib/daily/reveal";
 import type { WeekDot } from "@/lib/daily/progress";
@@ -58,7 +58,7 @@ export function DailyCard() {
       {progress && (
         <div className="daily-card-progress">
           <p className="daily-card-streak">
-            <Flame aria-hidden size={20} />
+            <Flame aria-hidden />
             連續 {progress.streak} 天
           </p>
           <ol className="daily-card-week" aria-label={`本週完成 ${progress.week.done}／${progress.week.total} 天`}>

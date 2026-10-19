@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useBlocker } from "@tanstack/react-router";
 import * as Dialog from "@radix-ui/react-dialog";
-import { ArrowUpRight, CheckCircle2, Send } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, Send } from "@/lib/icons";
 import { courseInquirySchema, type CourseInquiryInput } from "@/lib/course-inquiries";
 
 const INPUT =
@@ -31,7 +31,7 @@ export function CourseInquiryForm() {
           這是離線教室，無法送出課程詢問。連上網路後，請到正式網站填寫詢問表單。
         </p>
         <a href="https://rich.yilutek.com/license#course-inquiry" className={`${PRIMARY} mt-4`}>
-          前往正式網站詢問 <ArrowUpRight className="size-5 shrink-0" aria-hidden="true" />
+          前往正式網站詢問 <ArrowUpRight className="shrink-0" aria-hidden="true" />
         </a>
       </section>
     );
@@ -388,7 +388,7 @@ function InquiryContents() {
               role="status"
               className="rounded-xl border border-brand/25 bg-brand/5 p-4 text-base leading-7 outline-offset-4"
             >
-              {success && <CheckCircle2 className="mb-2 size-6 text-brand" aria-hidden="true" />}
+              {success && <CheckCircle2 size={30} className="mb-2 text-brand" aria-hidden="true" />}
               {message}
             </div>
           )}
@@ -398,7 +398,7 @@ function InquiryContents() {
             disabled={saving}
             className={`${PRIMARY} w-full sm:w-auto`}
           >
-            <Send className="size-5 shrink-0" aria-hidden="true" />
+            <Send className="shrink-0" aria-hidden="true" />
             {saving ? "正在確認送出結果…" : retryPending ? "重試確認這份詢問" : "送出課程詢問"}
           </button>
           <p className="text-base leading-7 text-muted">

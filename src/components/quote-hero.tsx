@@ -1,5 +1,5 @@
 import type { ReactNode, RefObject } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "@/lib/icons";
 import type { MorningCatalog, MorningState } from "@/lib/morning";
 import { createMorningBook } from "@/lib/morning-book";
 import { bestQuotes, quoteSummary } from "@/lib/morning-quote";

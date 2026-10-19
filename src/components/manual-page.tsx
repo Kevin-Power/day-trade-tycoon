@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Download, LogOut, Printer } from "lucide-react";
+import { ArrowLeft, Download, LogOut, Printer } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { DisplayControls } from "@/components/display-controls";
 import { SimChip } from "@/components/provenance";
@@ -35,7 +35,7 @@ export function ManualPage() {
             to="/"
             className="inline-flex h-9 items-center gap-1.5 rounded-sm px-2 text-xs text-muted hover:bg-elevated hover:text-fg"
           >
-            <ArrowLeft className="size-3.5" />
+            <ArrowLeft />
             回大廳
           </Link>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -45,11 +45,11 @@ export function ManualPage() {
               download="當沖大富翁-說明書.pdf"
               className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-border-strong bg-surface px-3 text-xs text-fg hover:bg-elevated"
             >
-              <Download className="size-3.5" />
+              <Download />
               下載真實 K 教材 PDF
             </a>
             <Button type="button" size="sm" variant="header" onClick={() => window.print()}>
-              <Printer className="size-3.5" />
+              <Printer />
               列印
             </Button>
             <button
@@ -58,7 +58,7 @@ export function ManualPage() {
               className="inline-flex size-9 items-center justify-center rounded-sm border border-border-strong bg-surface text-muted hover:bg-elevated hover:text-fg"
               aria-label="登出"
             >
-              <LogOut className="size-3.5" />
+              <LogOut />
             </button>
           </div>
         </div>

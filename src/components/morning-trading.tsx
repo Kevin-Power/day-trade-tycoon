@@ -9,7 +9,7 @@ import {
   Minus,
   Plus,
   Wallet,
-} from "lucide-react";
+} from "@/lib/icons";
 import type { MorningCatalog, MorningState } from "@/lib/morning";
 import { ledgerSummary } from "@/lib/morning-ledger";
 import { formatMoney, formatTime } from "@/lib/utils";
@@ -24,7 +24,7 @@ export function AccountSummary({ session }: { session: MorningState }) {
   return (
     <section className="sim-account" aria-label="模擬帳戶總覽">
       <div className="sim-account-label">
-        <Wallet size={18} aria-hidden />
+        <Wallet aria-hidden />
         <span>
           模擬帳戶<small>TWD · 臺股整股</small>
         </span>
@@ -274,7 +274,7 @@ export function PaperOrder({
           {pending && (
             <div role="status" className="sim-pending" ref={pendingPanel}>
               <div>
-                <Clock3 size={18} aria-hidden />
+                <Clock3 aria-hidden />
                 <strong>委託已送出 · 等待撮合</strong>
               </div>
               <p>
@@ -363,7 +363,7 @@ export function PaperOrder({
                 disabled={locked || staleReview || invalidSell}
                 onClick={() => void confirmOrder()}
               >
-                <Check size={18} aria-hidden />
+                <Check aria-hidden />
                 {busy ? "正在處理…" : `確認送出模擬${sideName}`}
               </button>
               <button
@@ -411,7 +411,7 @@ export function PaperOrder({
                     aria-pressed={side === "buy"}
                     onClick={() => setSide("buy")}
                   >
-                    <ArrowUpRight size={20} aria-hidden />
+                    <ArrowUpRight aria-hidden />
                     買進
                   </button>
                   <button
@@ -423,7 +423,7 @@ export function PaperOrder({
                       if (holdingLots > 0) changeLots(Math.min(lots, holdingLots));
                     }}
                   >
-                    <ArrowDownLeft size={20} aria-hidden />
+                    <ArrowDownLeft aria-hidden />
                     賣出
                   </button>
                 </div>
@@ -687,7 +687,7 @@ export function Ledger({
       >
         {active.count === 0 ? (
           <div className="sim-ledger-empty">
-            <Wallet size={22} aria-hidden />
+            <Wallet aria-hidden />
             <strong>
               {pane === "positions"
                 ? "目前沒有庫存"

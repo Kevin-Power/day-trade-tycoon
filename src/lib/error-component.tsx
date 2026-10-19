@@ -1,5 +1,5 @@
 import type { ErrorComponentProps } from "@tanstack/react-router";
-import { TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "@/lib/icons";
 
 export function AppErrorComponent({ error }: ErrorComponentProps) {
   return (
@@ -10,7 +10,7 @@ export function AppErrorComponent({ error }: ErrorComponentProps) {
       }
     >
       <span className="text-red-500" aria-hidden="true">
-        <TriangleAlert className="size-10" strokeWidth={2} />
+        <TriangleAlert size={45} />
       </span>
       <h1 className="text-lg font-semibold">Something went wrong</h1>
       <p className="max-w-md text-sm break-words text-zinc-500 dark:text-zinc-400">

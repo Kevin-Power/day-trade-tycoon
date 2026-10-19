@@ -8,7 +8,7 @@ import {
   RotateCcw,
   Star,
   Wallet,
-} from "lucide-react";
+} from "@/lib/icons";
 import { TapeChart } from "@/components/charts";
 import { DeskBar, HintBar, StatusBar } from "@/components/morning-desk-bar";
 import { REPLAY_DELAY, type ReplaySpeed } from "@/lib/replay-speed";
@@ -778,7 +778,7 @@ function MorningLesson({
                       <div className="td-plan-note">
                         <span className="terminal-eyebrow">TRADING PLAN</span>
                         <h3>
-                          <BookOpen size={16} aria-hidden /> 本輪作戰計畫
+                          <BookOpen aria-hidden /> 本輪作戰計畫
                         </h3>
                         <span className="terminal-plan-code">
                           {marketSession.plan.focusCode} ·{" "}
@@ -1144,7 +1144,7 @@ function MorningWatchlist({
     <section className="td-watchlist" data-compact={compact} aria-label="自選行情">
       <div className="td-titlebar td-watch-head">
         <span>
-          <CandlestickChart size={16} aria-hidden /> 自選報價
+          <CandlestickChart aria-hidden /> 自選報價
         </span>
         <span className="td-num">{catalog.symbols.length}</span>
       </div>
@@ -1234,7 +1234,7 @@ function Background({
     <div className="min-w-0 space-y-5">
       <details className={CARD} open={expanded || undefined}>
         <summary className="flex min-h-12 cursor-pointer items-center gap-3 text-xl font-semibold">
-          <BookOpen className="size-5 shrink-0 text-brand" aria-hidden />
+          <BookOpen className="shrink-0 text-brand" aria-hidden />
           先讀背景與教材規則
         </summary>
         <div className="mt-4">
@@ -1577,7 +1577,7 @@ function Completion({
             key={item}
             className="flex min-w-0 items-start gap-2 rounded-xl border border-brand/15 bg-surface p-3 text-base"
           >
-            <Check className="mt-1 size-5 shrink-0 text-brand" aria-hidden />
+            <Check className="mt-1 shrink-0 text-brand" aria-hidden />
             <span>{item}</span>
           </li>
         ))}
@@ -1594,7 +1594,7 @@ function Completion({
       <h3 className="mt-5 text-lg font-semibold">你留下的復盤</h3>
       <p className="mt-2 whitespace-pre-wrap text-base leading-relaxed">{session.reflection}</p>
       <button type="button" disabled={busy} onClick={onRestart} className={cn(SECONDARY, "mt-5")}>
-        <RotateCcw className="size-5 shrink-0" aria-hidden />
+        <RotateCcw className="shrink-0" aria-hidden />
         寫新計畫，再練一輪
       </button>
     </section>

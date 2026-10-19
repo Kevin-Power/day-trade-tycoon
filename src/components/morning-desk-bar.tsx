@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, BookOpen, CandlestickChart, CirclePause, Play } from "lucide-react";
+import { ArrowLeft, BookOpen, CandlestickChart, CirclePause, Play } from "@/lib/icons";
 import { DisplayControls } from "@/components/display-controls";
 import type { MorningAlert } from "@/lib/morning-alerts";
 import type { MorningLessonSummary, MorningState } from "@/lib/morning";

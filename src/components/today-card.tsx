@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Check } from "lucide-react";
+import { Check } from "@/lib/icons";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { resetCoachSeen } from "@/lib/coach-steps";
 import { browserStorage } from "@/lib/device-storage";
@@ -44,7 +44,7 @@ export function TodayCard() {
           return (
             <li key={label} data-state={state} aria-current={state === "now" ? "step" : undefined}>
               <span className="today-step-mark" aria-hidden="true">
-                {state === "done" ? <Check size={18} /> : index + 1}
+                {state === "done" ? <Check /> : index + 1}
               </span>
               <span className="today-step-label">{label}</span>
               {state === "done" && <span className="sr-only">已完成</span>}

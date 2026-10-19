@@ -70,7 +70,7 @@ function fixture({
       Link: "link",
       useNavigate: () => navigate,
     },
-    "lucide-react": Object.fromEntries(
+    "@/lib/icons": Object.fromEntries(
       ["ArrowLeft", "ArrowRight", "CheckCircle2", "LoaderCircle", "UserRound"].map((name) => [
         name,
         `icon-${name}`,

@@ -8,7 +8,7 @@ import {
   LogOut,
   MessageSquare,
   RefreshCw,
-} from "lucide-react";
+} from "@/lib/icons";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { authEnabled, signOut } from "@/lib/auth/client";
 import { loadMyProfile, loadMyCareer } from "@/lib/classroom-db";
@@ -106,12 +106,12 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
           {!userId || (profileLoaded && !profile) ? (
             <Link to="/login" className="academy-button-secondary">
               {userId ? "完成班級資料" : "登入／建立帳號"}
-              <ArrowRight className="size-4" aria-hidden="true" />
+              <ArrowRight aria-hidden="true" />
             </Link>
           ) : null}
           {profile?.role === "teacher" && (
             <Link to="/teacher" className="academy-button-secondary">
-              <GraduationCap className="size-4" aria-hidden="true" />
+              <GraduationCap aria-hidden="true" />
               講師工作台
             </Link>
           )}
@@ -124,7 +124,7 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
                 className="academy-button-secondary disabled:opacity-50"
               >
                 <RefreshCw
-                  className={`size-4 ${loading ? "animate-spin" : ""}`}
+                  className={loading ? "animate-spin" : undefined}
                   aria-hidden="true"
                 />
                 {loading ? "更新中…" : "更新紀錄"}
@@ -136,9 +136,9 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
                 className="academy-nav-link min-h-12 disabled:opacity-50"
               >
                 {signingOut ? (
-                  <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                  <LoaderCircle className="animate-spin" aria-hidden="true" />
                 ) : (
-                  <LogOut className="size-4" aria-hidden="true" />
+                  <LogOut aria-hidden="true" />
                 )}
                 {signingOut ? "登出中…" : "登出"}
               </button>
@@ -194,9 +194,9 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
                 params={{ id: latest.id }}
                 className="academy-button-primary"
               >
-                <BookOpen className="size-4" aria-hidden="true" />
+                <BookOpen aria-hidden="true" />
                 回看最近一次舊版練習
-                <ArrowRight className="size-4" aria-hidden="true" />
+                <ArrowRight aria-hidden="true" />
               </Link>
               {latestFeedback && (
                 <Link
@@ -205,7 +205,7 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
                   hash="instructor-feedback"
                   className="academy-button-secondary"
                 >
-                  <MessageSquare className="size-4" aria-hidden="true" />
+                  <MessageSquare aria-hidden="true" />
                   查看最近的講師回饋
                 </Link>
               )}
@@ -268,7 +268,7 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
                       </span>
                       <span className="flex items-center gap-1 text-brand">
                         查看復盤
-                        <ArrowRight className="size-4" aria-hidden="true" />
+                        <ArrowRight aria-hidden="true" />
                       </span>
                     </div>
                   </Link>

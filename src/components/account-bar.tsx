@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { BookOpen, Pause, Play, Square, Volume2, VolumeX } from "lucide-react";
+import { BookOpen, Pause, Play, Square, Volume2, VolumeX } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { toneClass } from "@/components/signed";
 import { isSoundEnabled, setSoundEnabled, unlockAudio } from "@/lib/game/audio";

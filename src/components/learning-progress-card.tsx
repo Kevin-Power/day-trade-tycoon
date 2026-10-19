@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { Check, Circle, Footprints, ArrowRight } from "lucide-react";
+import { Check, Circle, Footprints, ArrowRight } from "@/lib/icons";
 import type { ReviewBundle } from "@/lib/game/persist";
 import { deriveLearningProgress } from "@/lib/game/learning-progress";
 import { courseStepFor } from "@/lib/game/learning-path";
@@ -31,7 +31,7 @@ export function LearningProgressCard({ bundle }: { bundle: ReviewBundle }) {
       className="rounded-2xl border border-brand/25 bg-brand/5 p-4 sm:p-5"
     >
       <p className="flex items-center gap-2 text-sm font-medium text-brand">
-        <Footprints className="size-5 shrink-0" aria-hidden />
+        <Footprints className="shrink-0" aria-hidden />
         本次練習足跡
       </p>
       <h2 id={titleId} className="mt-2 text-xl font-semibold leading-8">
@@ -49,9 +49,9 @@ export function LearningProgressCard({ bundle }: { bundle: ReviewBundle }) {
           <li key={item.id} className="min-w-0 rounded-xl border border-border bg-surface p-4">
             <div className="flex items-start gap-2.5">
               {item.status === "achieved" ? (
-                <Check className="mt-0.5 size-5 shrink-0 text-brand" aria-hidden />
+                <Check className="mt-0.5 shrink-0 text-brand" aria-hidden />
               ) : (
-                <Circle className="mt-0.5 size-5 shrink-0 text-muted" aria-hidden />
+                <Circle className="mt-0.5 shrink-0 text-muted" aria-hidden />
               )}
               <div className="min-w-0">
                 <p className="text-base font-semibold leading-7">{item.title}</p>
@@ -70,7 +70,7 @@ export function LearningProgressCard({ bundle }: { bundle: ReviewBundle }) {
       </ul>
       <div className="mt-4 border-t border-brand/20 pt-4">
         <h3 className="flex items-center gap-2 text-base font-semibold">
-          <ArrowRight className="size-5 shrink-0 text-brand" aria-hidden />
+          <ArrowRight className="shrink-0 text-brand" aria-hidden />
           下一步，只帶走一件事
         </h3>
         <p className="mt-2 text-base leading-7">{next}</p>

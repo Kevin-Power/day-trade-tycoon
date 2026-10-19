@@ -13,7 +13,7 @@ import {
   Smartphone,
   Tablet,
   TextCursorInput,
-} from "lucide-react";
+} from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/brand-mark";
 import { CourseInquiryForm } from "@/components/course-inquiry-form";
@@ -63,7 +63,7 @@ export function LicensePage() {
             to="/"
             className="inline-flex min-h-12 max-w-full items-center gap-2 rounded-lg px-3 py-2 text-base text-muted hover:bg-elevated hover:text-fg"
           >
-            <ArrowLeft className="size-5 shrink-0" aria-hidden="true" />
+            <ArrowLeft className="shrink-0" aria-hidden="true" />
             {unlocked ? "回大廳" : "回入場"}
           </Link>
           <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
@@ -73,7 +73,7 @@ export function LicensePage() {
                 to="/manual"
                 className="inline-flex min-h-12 max-w-full items-center gap-2 rounded-lg border border-border-strong bg-surface px-3 py-2 text-base text-fg hover:bg-elevated"
               >
-                <BookOpen className="size-5 shrink-0" aria-hidden="true" />
+                <BookOpen className="shrink-0" aria-hidden="true" />
                 說明書
               </Link>
             ) : null}
@@ -84,7 +84,7 @@ export function LicensePage() {
               className="h-auto min-h-12 max-w-full whitespace-normal py-2 text-base"
               onClick={() => window.print()}
             >
-              <Printer className="size-5 shrink-0" aria-hidden="true" />
+              <Printer className="shrink-0" aria-hidden="true" />
               列印
             </Button>
             {unlocked ? (
@@ -94,7 +94,7 @@ export function LicensePage() {
                 className="inline-flex size-12 shrink-0 items-center justify-center rounded-lg border border-border-strong bg-surface text-muted hover:bg-elevated hover:text-fg"
                 aria-label="登出"
               >
-                <LogOut className="size-5" aria-hidden="true" />
+                <LogOut aria-hidden="true" />
               </button>
             ) : null}
           </div>
@@ -115,7 +115,7 @@ export function LicensePage() {
                     {String(index + 1).padStart(2, "0")}
                   </span>
                   <span>{item.label}</span>
-                  <ArrowRight className="ml-auto size-4 shrink-0 text-brand" aria-hidden="true" />
+                  <ArrowRight className="ml-auto shrink-0 text-brand" aria-hidden="true" />
                 </a>
               </li>
             ))}
@@ -192,13 +192,13 @@ function Cover({ unlocked }: { unlocked: boolean }) {
           三個帶得走的收穫
         </h2>
         <div className="space-y-7">
-          <Outcome number="01" icon={<ClipboardList className="size-5" />} title="說得出自己的計畫">
+          <Outcome number="01" icon={<ClipboardList />} title="說得出自己的計畫">
             操作前寫下條件與張數，讓每個決定有依據。
           </Outcome>
-          <Outcome number="02" icon={<ScanLine className="size-5" />} title="看得懂自己的紀錄">
+          <Outcome number="02" icon={<ScanLine />} title="看得懂自己的紀錄">
             把委託、成交與庫存對起來，知道發生了什麼。
           </Outcome>
-          <Outcome number="03" icon={<BookOpen className="size-5" />} title="選得出下一次的重點">
+          <Outcome number="03" icon={<BookOpen />} title="選得出下一次的重點">
             復盤留下觀察，一次練好一個動作。
           </Outcome>
         </div>
@@ -215,7 +215,7 @@ function EntryActions({ unlocked }: { unlocked: boolean }) {
     <div className="no-print mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
       <Link to="/try" className="academy-button-primary !min-h-14 !text-base">
         體驗固定委託示例
-        <ArrowRight className="size-5 shrink-0" aria-hidden="true" />
+        <ArrowRight className="shrink-0" aria-hidden="true" />
       </Link>
       <Link
         to="/"
@@ -312,7 +312,7 @@ function Courses() {
                         className="academy-button-primary mt-4 !min-h-12"
                         href={`${import.meta.env.BASE_URL === "./" ? "https://rich.yilutek.com" : ""}/morning?exercise=${encodeURIComponent(course.id)}`}
                       >
-                        練習這個主題 <ArrowRight className="size-4" aria-hidden />
+                        練習這個主題 <ArrowRight aria-hidden />
                       </a>
                     </section>
                   );
@@ -372,22 +372,22 @@ function Devices() {
     <Section id="devices" eyebrow="用熟悉的裝置，照自己的步調" title="手機、iPad 與桌機都能練">
       <div className="grid gap-4 sm:grid-cols-2">
         <Device
-          icon={<Smartphone className="size-6" />}
+          icon={<Smartphone size={30} />}
           title="手機"
           body="盤面分區切換，查看行情、委託與庫存；直向拿著也能跟著步驟操作。"
         />
         <Device
-          icon={<Tablet className="size-6" />}
+          icon={<Tablet size={30} />}
           title="iPad／平板"
           body="畫面依可用寬度調整，橫向與直向都能瀏覽課程、盤面和復盤。"
         />
         <Device
-          icon={<Monitor className="size-6" />}
+          icon={<Monitor size={30} />}
           title="桌機"
           body="較寬的畫面方便並排查看圖表與操作資訊，適合講師示範和課後複習。"
         />
         <Device
-          icon={<TextCursorInput className="size-6" />}
+          icon={<TextCursorInput size={30} />}
           title="大字模式"
           body="可把文字大小切到「大字」，放大文字和主要操作區；不用趕，先看清楚再操作。"
         />
@@ -434,7 +434,7 @@ function Enrollment() {
             "講師回饋方式、次數與提交期限",
           ].map((item) => (
             <li key={item} className="flex items-start gap-2">
-              <Check className="mt-1 size-5 shrink-0 text-brand" aria-hidden="true" />
+              <Check className="mt-1 shrink-0 text-brand" aria-hidden="true" />
               {item}
             </li>
           ))}

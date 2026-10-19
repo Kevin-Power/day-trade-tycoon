@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { loadLeaderboard } from "@/lib/classroom-db";
 import { LESSONS } from "@/lib/game/curriculum";
 import { cn, formatPct } from "@/lib/utils";
-import { AlertCircle, ArrowDownUp, LoaderCircle, RefreshCw, Trophy } from "lucide-react";
+import { AlertCircle, ArrowDownUp, LoaderCircle, RefreshCw, Trophy } from "@/lib/icons";
 import { toneClass } from "@/components/signed";
 
 export function Leaderboard() {
@@ -45,7 +45,7 @@ export function Leaderboard() {
       <div className="flex flex-col gap-5 border-b border-border px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2.5 text-lg font-semibold">
-            <Trophy aria-hidden="true" className="size-5 text-brand" />
+            <Trophy aria-hidden="true" className="text-brand" />
             班級排行榜
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
@@ -69,7 +69,7 @@ export function Leaderboard() {
         </label>
       </div>
       <p className="flex items-start gap-2 border-b border-border bg-bg/60 px-5 py-3 text-xs leading-5 text-muted sm:px-6">
-        <ArrowDownUp aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+        <ArrowDownUp aria-hidden="true" className="mt-0.5 shrink-0" />
         僅顯示本班同課練習紀錄。通過者優先，再依報酬與回撤排序。
       </p>
       {rows.length > 0 ? (
@@ -159,14 +159,15 @@ export function Leaderboard() {
           {loading ? (
             <>
               <LoaderCircle
+                size={30}
                 aria-hidden="true"
-                className="mx-auto mb-3 size-7 animate-spin text-brand"
+                className="mx-auto mb-3 animate-spin text-brand"
               />
               <p className="text-sm text-muted">正在讀取這堂課的練習紀錄…</p>
             </>
           ) : error ? (
             <>
-              <AlertCircle aria-hidden="true" className="mx-auto mb-3 size-7 text-muted" />
+              <AlertCircle size={30} aria-hidden="true" className="mx-auto mb-3 text-muted" />
               <p className="font-medium">暫時無法讀取本班排行</p>
               <p className="mt-2 text-sm text-muted">資料尚未載入，可以再試一次。</p>
               <button
@@ -174,13 +175,13 @@ export function Leaderboard() {
                 onClick={() => setRequestKey((key) => key + 1)}
                 className="academy-button-secondary mt-5"
               >
-                <RefreshCw aria-hidden="true" className="size-4" />
+                <RefreshCw aria-hidden="true" />
                 重新載入
               </button>
             </>
           ) : (
             <>
-              <Trophy aria-hidden="true" className="mx-auto mb-3 size-8 text-subtle" />
+              <Trophy size={30} aria-hidden="true" className="mx-auto mb-3 text-subtle" />
               <p className="font-medium">這堂課的排行還是空的</p>
               <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted">
                 學員完成並儲存這堂課的練習後，就能在這裡一起比較與討論。

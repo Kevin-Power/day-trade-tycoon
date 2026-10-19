@@ -15,7 +15,7 @@ import {
   ShieldCheck,
   Target,
   Timer,
-} from "lucide-react";
+} from "@/lib/icons";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { lessonById } from "@/lib/game/curriculum";
@@ -146,7 +146,7 @@ export function Lobby() {
               to="/manual"
               className="academy-nav-link inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs sm:px-3 sm:text-sm"
             >
-              <BookOpen className="hidden size-4 sm:block" aria-hidden="true" />
+              <BookOpen className="hidden sm:block" aria-hidden="true" />
               教材
             </Link>
             <Link
@@ -161,7 +161,7 @@ export function Lobby() {
               className="academy-nav-link inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted sm:px-3 sm:text-sm"
               aria-label="離開教室"
             >
-              <LogOut className="size-3.5" aria-hidden="true" />
+              <LogOut aria-hidden="true" />
               <span>離場</span>
             </button>
           </nav>
@@ -212,9 +212,9 @@ export function Lobby() {
                   params={{ id: recentReview.sessionId }}
                   className="academy-button-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold"
                 >
-                  <FileText className="size-5 shrink-0" aria-hidden="true" />
+                  <FileText className="shrink-0" aria-hidden="true" />
                   接續上次復盤
-                  <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+                  <ArrowRight className="shrink-0" aria-hidden="true" />
                 </Link>
               ) : null}
               {!CLASSROOM_OFFLINE && recentReview && (
@@ -223,7 +223,7 @@ export function Lobby() {
                   params={{ id: recentReview.sessionId }}
                   className="academy-nav-link inline-flex min-h-12 items-center gap-2 rounded-lg px-3 text-base"
                 >
-                  <FileText className="size-5 shrink-0" aria-hidden />
+                  <FileText className="shrink-0" aria-hidden />
                   接續上次復盤
                 </Link>
               )}
@@ -231,7 +231,7 @@ export function Lobby() {
                 href="#courses"
                 className="academy-nav-link inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3 text-base"
               >
-                選擇練習主題 <ArrowDown className="size-4" aria-hidden="true" />
+                選擇練習主題 <ArrowDown aria-hidden="true" />
               </a>
               <Link
                 to="/try"
@@ -261,7 +261,7 @@ export function Lobby() {
           <ol className="lobby-practice-path" aria-label="每次練習的三個步驟">
             {PRACTICE_STEPS.map(({ number, title, description, icon: Icon }) => (
               <li key={number}>
-                <Icon size={21} aria-hidden />
+                <Icon aria-hidden />
                 <div>
                   <p>
                     <span>{number}</span> {title}
@@ -299,7 +299,7 @@ export function Lobby() {
             ))}
           </div>
           <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-muted">
-            <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            <ShieldCheck className="mt-0.5 shrink-0" aria-hidden="true" />
             所有委託皆為教室模擬，不會送到券商。模擬成績不代表實際交易報酬。
           </p>
         </section>
@@ -373,14 +373,14 @@ export function Lobby() {
               to="/manual"
               className="academy-nav-link inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs"
             >
-              閱讀學員手冊 <ArrowRight className="size-3.5" aria-hidden="true" />
+              閱讀學員手冊 <ArrowRight aria-hidden="true" />
             </Link>
           </div>
           <div className="space-y-3">
             <details className="academy-card group rounded-2xl border border-border bg-surface">
               <summary className="flex min-h-20 cursor-pointer list-none items-center gap-3 rounded-2xl px-4 py-4 sm:px-5 [&::-webkit-details-marker]:hidden">
                 <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-bg">
-                  <FileText className="size-4" aria-hidden="true" />
+                  <FileText aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium">歷史教材資料參考</span>
@@ -389,7 +389,7 @@ export function Lobby() {
                   </span>
                 </span>
                 <ChevronDown
-                  className="size-4 shrink-0 text-muted transition-transform group-open:rotate-180"
+                  className="shrink-0 text-muted transition-transform group-open:rotate-180"
                   aria-hidden="true"
                 />
               </summary>
@@ -408,7 +408,7 @@ export function Lobby() {
             <details className="academy-card group rounded-2xl border border-border bg-surface">
               <summary className="flex min-h-20 cursor-pointer list-none items-center gap-3 rounded-2xl px-4 py-4 sm:px-5 [&::-webkit-details-marker]:hidden">
                 <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-bg">
-                  <Target className="size-4" aria-hidden="true" />
+                  <Target aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium">練習前，先記住這六件事</span>
@@ -417,7 +417,7 @@ export function Lobby() {
                   </span>
                 </span>
                 <ChevronDown
-                  className="size-4 shrink-0 text-muted transition-transform group-open:rotate-180"
+                  className="shrink-0 text-muted transition-transform group-open:rotate-180"
                   aria-hidden="true"
                 />
               </summary>
@@ -436,7 +436,7 @@ export function Lobby() {
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="academy-card flex min-w-0 items-start gap-3 rounded-2xl border border-border bg-surface p-4 sm:p-5">
-              <BookOpen className="mt-0.5 size-5 shrink-0 text-muted" aria-hidden="true" />
+              <BookOpen className="mt-0.5 shrink-0 text-muted" aria-hidden="true" />
               <div className="min-w-0">
                 <h3 className="text-sm font-medium">上課前，先熟悉教室</h3>
                 <p className="mt-1 text-xs leading-6 text-muted">
@@ -446,12 +446,12 @@ export function Lobby() {
                   to="/license"
                   className="academy-nav-link mt-2 inline-flex min-h-10 items-center gap-1 rounded-lg text-xs"
                 >
-                  查看課程說明 <ArrowRight className="size-3.5" aria-hidden="true" />
+                  查看課程說明 <ArrowRight aria-hidden="true" />
                 </Link>
               </div>
             </div>
             <div className="academy-card flex min-w-0 items-start gap-3 rounded-2xl border border-border bg-surface p-4 sm:p-5">
-              <HardDrive className="mt-0.5 size-5 shrink-0 text-muted" aria-hidden="true" />
+              <HardDrive className="mt-0.5 shrink-0 text-muted" aria-hidden="true" />
               <div className="min-w-0">
                 <h3 className="text-sm font-medium">離線閱讀教材</h3>
                 <p className="mt-1 text-xs leading-6 text-muted">
@@ -460,7 +460,7 @@ export function Lobby() {
                 </p>
                 {CLASSROOM_OFFLINE ? (
                   <span className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted">
-                    <Check className="size-3.5" aria-hidden="true" />
+                    <Check aria-hidden="true" />
                     目前使用離線教室
                   </span>
                 ) : (
@@ -469,7 +469,7 @@ export function Lobby() {
                     download="當沖大富翁-地端教室.zip"
                     className="academy-nav-link mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-lg text-xs"
                   >
-                    <Download className="size-3.5" aria-hidden="true" />
+                    <Download aria-hidden="true" />
                     下載離線教材
                   </a>
                 )}
@@ -506,7 +506,7 @@ function CourseCard({ exercise, index }: { exercise: MorningExercise; index: num
           {String(index + 1).padStart(2, "0")}
         </span>
         <span className="premium-course-symbol grid size-14 place-items-center rounded-2xl">
-          <CourseIcon className="size-7" strokeWidth={1.3} />
+          <CourseIcon size={30} />
         </span>
       </div>
       <div className="flex flex-1 flex-col p-4 sm:p-5">
@@ -544,7 +544,7 @@ function CourseCard({ exercise, index }: { exercise: MorningExercise; index: num
           className="academy-button-primary inline-flex min-h-12 w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold leading-relaxed"
         >
           {CLASSROOM_OFFLINE ? "連線開始練習" : "開始這個練習"}
-          <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+          <ArrowRight className="shrink-0" aria-hidden="true" />
         </a>
       </div>
     </article>
@@ -590,7 +590,7 @@ function LearningFootprints({
             >
               <p className="flex items-start gap-2 text-base font-medium">
                 {milestone.achievedSessions > 0 && (
-                  <Check className="mt-0.5 size-5 shrink-0 text-brand" aria-hidden="true" />
+                  <Check className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
                 )}
                 {milestone.title}
               </p>
@@ -712,7 +712,7 @@ function RecentPractice({
                   className="group flex min-w-0 items-center gap-3 px-4 py-4 transition-colors hover:bg-elevated focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand sm:px-5"
                 >
                   <span className="hidden size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-bg text-muted sm:flex">
-                    <FileText className="size-4" aria-hidden="true" />
+                    <FileText aria-hidden="true" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="break-words text-base font-medium">{record.scenarioName}</p>
@@ -731,7 +731,7 @@ function RecentPractice({
                     </p>
                   </div>
                   <ChevronRight
-                    className="size-4 shrink-0 text-subtle transition-transform group-hover:translate-x-0.5"
+                    className="shrink-0 text-subtle transition-transform group-hover:translate-x-0.5"
                     aria-hidden="true"
                   />
                 </Link>

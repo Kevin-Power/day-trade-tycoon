@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useRef } from "react";
-import { ArrowRight, BookOpen, CheckCircle2, ChevronRight, RotateCcw } from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle2, ChevronRight, RotateCcw } from "@/lib/icons";
 import { Link } from "@tanstack/react-router";
 import { lessonById, nextLesson } from "@/lib/game/curriculum";
 import { useGame } from "@/lib/game/store";
@@ -66,7 +66,7 @@ export function ResultScreen() {
         >
           <header className="shrink-0 border-b border-border px-5 py-5 sm:px-7">
             <p className="academy-eyebrow flex flex-wrap items-center gap-2">
-              <CheckCircle2 aria-hidden="true" className="size-4" />
+              <CheckCircle2 aria-hidden="true" />
               練習已結算
               <span aria-hidden="true" className="text-subtle">
                 /
@@ -167,7 +167,7 @@ export function ResultScreen() {
             {lesson && (
               <div className="mt-5 rounded-xl border border-border bg-bg/60 p-4">
                 <h3 className="flex items-center gap-2 text-sm font-semibold">
-                  <BookOpen aria-hidden="true" className="size-4 text-brand" />
+                  <BookOpen aria-hidden="true" className="text-brand" />
                   這次值得回看的地方
                 </h3>
                 <ul className="mt-3 space-y-2 text-sm leading-6 text-muted">
@@ -195,13 +195,13 @@ export function ResultScreen() {
                 onClick={leave}
                 className="academy-button-primary"
               >
-                <BookOpen aria-hidden="true" className="size-4" />
+                <BookOpen aria-hidden="true" />
                 看復盤，選下一步
-                <ArrowRight aria-hidden="true" className="size-4" />
+                <ArrowRight aria-hidden="true" />
               </Link>
               <button type="button" className="academy-button-secondary" onClick={leave}>
                 回教室看學習足跡
-                <ChevronRight aria-hidden="true" className="size-4" />
+                <ChevronRight aria-hidden="true" />
               </button>
             </div>
             <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
@@ -212,7 +212,7 @@ export function ResultScreen() {
                 className="academy-nav-link min-h-12 text-sm"
                 onClick={leave}
               >
-                <RotateCcw aria-hidden="true" className="size-3.5" />
+                <RotateCcw aria-hidden="true" />
                 選好重點，再練本課
               </Link>
               {nxt && (

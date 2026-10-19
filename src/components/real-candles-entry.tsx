@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/lib/icons";
 import { useGame } from "@/lib/game/store";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +35,7 @@ export function RealCandlesLink({
       )}
     >
       {children ?? "改用真實 K 線"}
-      <ArrowRight className="size-5 shrink-0" aria-hidden />
+      <ArrowRight className="shrink-0" aria-hidden />
     </Link>
   );
 }

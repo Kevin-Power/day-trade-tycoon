@@ -8,7 +8,7 @@ import {
   KeyRound,
   LoaderCircle,
   LockKeyhole,
-} from "lucide-react";
+} from "@/lib/icons";
 import { AuthPasswordInput, ClassroomAuthLayout } from "@/components/classroom-auth-layout";
 
 export const Route = createFileRoute("/setup")({ component: AdminSetup });
@@ -89,14 +89,14 @@ function AdminSetup() {
       footer={
         !done ? (
           <Link to="/login" className="academy-nav-link inline-flex items-center gap-2">
-            <ArrowLeft className="size-3.5" aria-hidden="true" />
+            <ArrowLeft aria-hidden="true" />
             已有帳號？回到登入
           </Link>
         ) : undefined
       }
     >
       <p className="academy-eyebrow flex items-center gap-2">
-        <KeyRound className="size-3.5" aria-hidden="true" />
+        <KeyRound aria-hidden="true" />
         講師專用 / 首次設定
       </p>
       <h1 className="mt-3 text-2xl font-semibold tracking-tight text-fg">
@@ -105,7 +105,7 @@ function AdminSetup() {
       {done ? (
         <div className="mt-6">
           <div className="rounded-xl border border-[var(--color-brand)]/20 bg-[var(--color-brand)]/5 p-5">
-            <CircleCheck className="size-8 text-[var(--color-brand)]" aria-hidden="true" />
+            <CircleCheck size={30} className="text-[var(--color-brand)]" aria-hidden="true" />
             <p className="mt-3 text-base font-medium text-fg" role="status">
               講師帳號已建立
             </p>
@@ -115,12 +115,12 @@ function AdminSetup() {
           </div>
           <Link to="/login" className="academy-button-primary mt-6 w-full">
             前往登入
-            <ArrowRight className="size-4" aria-hidden="true" />
+            <ArrowRight aria-hidden="true" />
           </Link>
         </div>
       ) : status && !status.available ? (
         <div className="mt-6 rounded-xl border border-border bg-bg p-5">
-          <LockKeyhole className="size-6 text-muted" aria-hidden="true" />
+          <LockKeyhole size={30} className="text-muted" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium text-fg">目前無法進行首次設定</p>
           <p className="mt-2 text-sm leading-6 text-muted">
             初始化入口已關閉或尚未設定。既有講師請直接登入。
@@ -131,7 +131,7 @@ function AdminSetup() {
           className="mt-6 flex items-center gap-3 rounded-xl border border-border bg-bg p-5 text-sm text-muted"
           role="status"
         >
-          {!error ? <LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> : null}
+          {!error ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
           {error ? "尚未取得帳號設定" : "正在讀取帳號設定…"}
         </div>
       ) : (
@@ -144,7 +144,7 @@ function AdminSetup() {
             <p className="mt-1.5 break-all text-sm font-medium text-fg">{status.email}</p>
             {fromLink ? (
               <p className="mt-3 flex items-center gap-1.5 text-xs text-[var(--color-brand)]">
-                <Check className="size-3.5" aria-hidden="true" />
+                <Check aria-hidden="true" />
                 已從專屬連結帶入初始化憑證
               </p>
             ) : null}
@@ -219,9 +219,9 @@ function AdminSetup() {
             className="academy-button-primary w-full"
             disabled={busy || !tos || !status.available}
           >
-            {busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+            {busy ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
             {busy ? "正在建立帳號…" : "建立講師帳號"}
-            {!busy ? <ArrowRight className="size-4" aria-hidden="true" /> : null}
+            {!busy ? <ArrowRight aria-hidden="true" /> : null}
           </button>
         </form>
       )}

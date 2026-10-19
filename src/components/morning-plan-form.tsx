@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/lib/icons";
 import type { MorningCatalog, MorningPlan } from "@/lib/morning";
 import { GUEST_TERMS_TEXT } from "@/lib/morning-access";
 import {
@@ -87,7 +87,7 @@ export function PlanForm({
       {guest && <p className="td-guest-terms text-base leading-relaxed">{GUEST_TERMS_TEXT}</p>}
       <button type="submit" disabled={busy} className={cn(PRIMARY, "w-full")}>
         {busy ? "正在保存…" : choice === "custom" ? "保存計畫，進入 09:00 練習" : "用這個計畫開始"}
-        <ArrowRight className="size-5 shrink-0" aria-hidden />
+        <ArrowRight className="shrink-0" aria-hidden />
       </button>
     </>
   );

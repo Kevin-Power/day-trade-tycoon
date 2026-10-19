@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Smartphone } from "lucide-react";
+import { Smartphone } from "@/lib/icons";
 import { useInstallPrompt } from "@/components/pwa-effect";
 import { browserStorage, readDeviceValue, writeDeviceValue } from "@/lib/device-storage";
 import { INSTALL_DISMISSED_KEY, installMode, type InstallMode } from "@/lib/install-mode";
@@ -31,7 +31,7 @@ export function InstallCard() {
   return (
     <section className="install-card" aria-labelledby="install-title">
       <h2 id="install-title">
-        <Smartphone aria-hidden size={22} />
+        <Smartphone aria-hidden />
         加到主畫面，下次一點就開
       </h2>
       {mode === "android-prompt" ? (

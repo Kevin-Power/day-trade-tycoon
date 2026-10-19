@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useId, useRef, useState } from "react";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { useGame } from "@/lib/game/store";
 import type { ReviewBundle } from "@/lib/game/persist";

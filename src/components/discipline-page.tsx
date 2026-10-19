@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Award, Lock } from "lucide-react";
+import { ArrowLeft, Award, Lock } from "@/lib/icons";
 import { AccessCard } from "@/components/access-card";
 import { DisplayControls, SoundSwitch } from "@/components/display-controls";
 import { useGuestBootstrap } from "@/components/use-guest-bootstrap";

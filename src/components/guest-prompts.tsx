@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { UserPlus } from "lucide-react";
+import { UserPlus } from "@/lib/icons";
 import { authClient } from "@/lib/auth/client";
 import { PRACTICE_PATH } from "@/lib/morning-access";
 import { loginHref } from "@/lib/safe-next";
@@ -23,7 +23,7 @@ export function GuestBanner() {
       <p>目前是訪客，建立帳號才會保存練習與之後的連續天數</p>
       <div className="td-banner-actions">
         <a className="td-button" data-variant="primary" href={SIGN_UP}>
-          <UserPlus aria-hidden size={16} />
+          <UserPlus aria-hidden />
           建立帳號
         </a>
         <button type="button" className="td-button" disabled={switching} onClick={() => void switchLearner()}>

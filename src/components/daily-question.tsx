@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Flame } from "lucide-react";
+import { ArrowLeft, Flame } from "@/lib/icons";
 import { TapeChart } from "@/components/charts";
 import { DisplayControls } from "@/components/display-controls";
 import { DisciplineCelebration } from "@/components/discipline-celebration";
@@ -339,7 +339,7 @@ function DailyReveal({ data, teacher, headline }: { data: DailyResponse; teacher
       </div>
       {!teacher && (
         <p className="td-daily-progress">
-          <Flame aria-hidden size={18} />
+          <Flame aria-hidden />
           連續 {data.progress.streak} 天 · 本週 {data.progress.week.done}／{data.progress.week.total} 天
         </p>
       )}

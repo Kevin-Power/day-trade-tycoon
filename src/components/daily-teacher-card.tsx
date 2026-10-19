@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ListChecks, RefreshCw } from "lucide-react";
+import { ListChecks, RefreshCw } from "@/lib/icons";
 import { loadDailyForTeacher } from "@/lib/daily-teacher";
 import { DAILY_REASONS } from "@/lib/daily/answer";
 import { dataDateText, priceText, revealCopy, timeText } from "@/lib/daily/reveal";
@@ -34,11 +34,11 @@ export function DailyTeacherCard() {
     <section className="academy-card daily-teacher-card mt-7 p-5 sm:p-6" aria-labelledby="daily-teacher-title">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="daily-teacher-title" className="flex items-center gap-2 text-lg font-semibold">
-          <ListChecks aria-hidden="true" className="size-5 text-brand" />
+          <ListChecks aria-hidden="true" className="text-brand" />
           每日一題
         </h2>
         <button type="button" className="academy-button-secondary min-h-12" onClick={() => setRevision((value) => value + 1)}>
-          <RefreshCw aria-hidden="true" className="size-4" />
+          <RefreshCw aria-hidden="true" />
           重新讀取
         </button>
       </div>

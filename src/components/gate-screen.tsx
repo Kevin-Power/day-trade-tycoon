@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, LoaderCircle, LockKeyhole, ScrollText } from "lucide-react";
+import { ArrowRight, LoaderCircle, LockKeyhole, ScrollText } from "@/lib/icons";
 import { AuthPasswordInput, ClassroomAuthLayout } from "@/components/classroom-auth-layout";
 import { CONSENT, DISCLAIMER } from "@/lib/provenance";
 import { LICENSE_QUOTE } from "@/lib/license";
@@ -56,7 +56,7 @@ export function GateScreen({ onOpen, submit }: Props) {
       footer={
         <>
           <Link to="/license" className="academy-nav-link inline-flex items-center gap-1.5">
-            <ScrollText className="size-3.5" aria-hidden="true" />
+            <ScrollText aria-hidden="true" />
             教室授權說明
           </Link>
           <p className="mt-1">無須入場碼即可查看 · {LICENSE_QUOTE}</p>
@@ -65,7 +65,7 @@ export function GateScreen({ onOpen, submit }: Props) {
     >
       <div className="mb-6">
         <p className="academy-eyebrow flex items-center gap-2">
-          <LockKeyhole className="size-3.5" aria-hidden="true" />
+          <LockKeyhole aria-hidden="true" />
           01 / 教室入場
         </p>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight text-fg">進入交易教室</h1>
@@ -81,7 +81,7 @@ export function GateScreen({ onOpen, submit }: Props) {
         </p>
         <Link to="/try" className="academy-button-primary mt-4 !min-h-14 w-full !text-base">
           先體驗模擬操作
-          <ArrowRight className="size-5" aria-hidden="true" />
+          <ArrowRight aria-hidden="true" />
         </Link>
       </div>
 
@@ -133,9 +133,9 @@ export function GateScreen({ onOpen, submit }: Props) {
           className="academy-button-primary mt-6 w-full"
           disabled={busy || !agreed}
         >
-          {busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+          {busy ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
           {busy ? "正在核對入場碼…" : "進入教室"}
-          {!busy ? <ArrowRight className="size-4" aria-hidden="true" /> : null}
+          {!busy ? <ArrowRight aria-hidden="true" /> : null}
         </button>
         <p className="mt-3 text-center text-xs leading-5 text-muted">
           僅供模擬教學 · 不會送出真實交易委託

@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, Clock3 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock3 } from "@/lib/icons";
 import type { RuleVerdict } from "@/lib/game/pass-rules";
 import { groupReviewVerdicts } from "@/lib/game/review-presentation";
 import { cn, formatTime } from "@/lib/utils";
@@ -30,9 +30,9 @@ export function ReviewConditions({
                   className="flex items-start gap-3 rounded-xl border border-border bg-bg/50 p-4 text-base"
                 >
                   {verdict.passed ? (
-                    <CheckCircle2 aria-hidden className="mt-0.5 size-5 shrink-0 text-brand" />
+                    <CheckCircle2 aria-hidden className="mt-0.5 shrink-0 text-brand" />
                   ) : (
-                    <AlertCircle aria-hidden className="mt-0.5 size-5 shrink-0 text-muted" />
+                    <AlertCircle aria-hidden className="mt-0.5 shrink-0 text-muted" />
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -44,7 +44,7 @@ export function ReviewConditions({
                     <p className="mt-1.5 text-sm leading-6 text-muted">{verdict.detail}</p>
                     {verdict.at !== undefined ? (
                       <p className="mt-2 flex items-center gap-1.5 font-mono text-sm text-subtle">
-                        <Clock3 aria-hidden className="size-3.5" />
+                        <Clock3 aria-hidden />
                         {formatTime(verdict.at)}
                       </p>
                     ) : null}

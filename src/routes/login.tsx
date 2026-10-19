@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, LoaderCircle, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, LoaderCircle, UserRound } from "@/lib/icons";
 import { authClient, authEnabled, signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { loadMyProfile, upsertMyProfile } from "@/lib/classroom-db";
@@ -44,7 +44,7 @@ function Login() {
     <LoginLayout>
       {isPending && !justAuthenticated ? (
         <p role="status" className="flex items-center gap-3 py-8 text-base leading-7">
-          <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
+          <LoaderCircle className="animate-spin" aria-hidden="true" />
           正在確認登入狀態…
         </p>
       ) : account ? (
@@ -70,7 +70,7 @@ function LoginLayout({ children }: { children: ReactNode }) {
       features={FEATURES}
       footer={
         <Link to="/" className="academy-nav-link inline-flex min-h-12 items-center gap-2">
-          <ArrowLeft className="size-4" aria-hidden="true" />
+          <ArrowLeft aria-hidden="true" />
           回教室大廳
         </Link>
       }
@@ -124,7 +124,7 @@ function AccountCredentials({
   return (
     <>
       <p className="academy-eyebrow flex items-center gap-2">
-        <UserRound className="size-4" aria-hidden="true" />1 / 2 · 個人學習帳號
+        <UserRound aria-hidden="true" />1 / 2 · 個人學習帳號
       </p>
       <h1 className="mt-3 text-2xl font-semibold tracking-tight text-fg">
         {mode === "up" ? "建立學員帳號" : "歡迎回到教室"}
@@ -225,9 +225,9 @@ function AccountCredentials({
           className="academy-button-primary min-h-12 w-full whitespace-normal text-base"
         >
           {busy ? (
-            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+            <LoaderCircle className="animate-spin" aria-hidden="true" />
           ) : (
-            <ArrowRight className="size-4" aria-hidden="true" />
+            <ArrowRight aria-hidden="true" />
           )}
           {busy ? "確認帳號中…" : mode === "up" ? "建立帳號，繼續下一步" : "登入，繼續下一步"}
         </button>
@@ -356,7 +356,7 @@ function ProfileCompletion({ account, next }: { account: VerifiedAccount; next: 
   return (
     <>
       <p className="academy-eyebrow flex items-center gap-2">
-        <CheckCircle2 className="size-4" aria-hidden="true" />2 / 2 · 完成班級資料
+        <CheckCircle2 aria-hidden="true" />2 / 2 · 完成班級資料
       </p>
       <h1 className="mt-3 text-2xl font-semibold tracking-tight text-fg">
         帳號已登入，再完成這一步
@@ -438,9 +438,9 @@ function ProfileCompletion({ account, next }: { account: VerifiedAccount; next: 
           className="academy-button-primary min-h-12 w-full whitespace-normal text-base"
         >
           {busy ? (
-            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+            <LoaderCircle className="animate-spin" aria-hidden="true" />
           ) : (
-            <ArrowRight className="size-4" aria-hidden="true" />
+            <ArrowRight aria-hidden="true" />
           )}
           {busy ? "儲存班級資料中…" : "儲存資料，進入教室"}
         </button>

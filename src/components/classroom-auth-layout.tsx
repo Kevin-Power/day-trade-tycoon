@@ -1,5 +1,5 @@
 import { useState, type InputHTMLAttributes, type ReactNode, type Ref } from "react";
-import { Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, ArrowRight } from "@/lib/icons";
 import { Link } from "@tanstack/react-router";
 import { BrandMark } from "@/components/brand-mark";
 import { SimChip } from "@/components/provenance";
@@ -39,7 +39,7 @@ export function ClassroomAuthLayout({
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Link to="/try" className="access-demo-link">
-              免費體驗 <ArrowRight size={16} aria-hidden />
+              免費體驗 <ArrowRight aria-hidden />
             </Link>
             <SimChip
               label="模擬教學"
@@ -133,9 +133,9 @@ export function AuthPasswordInput({
           className="absolute inset-y-0 right-1 my-auto inline-flex size-10 items-center justify-center rounded-lg text-muted transition-colors hover:bg-elevated hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)] disabled:opacity-50"
         >
           {visible ? (
-            <EyeOff className="size-[18px]" aria-hidden="true" />
+            <EyeOff aria-hidden="true" />
           ) : (
-            <Eye className="size-[18px]" aria-hidden="true" />
+            <Eye aria-hidden="true" />
           )}
         </button>
       </div>

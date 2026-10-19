@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useBlocker } from "@tanstack/react-router";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Target } from "lucide-react";
+import { Target } from "@/lib/icons";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import {
   PRACTICE_FOCUSES,
@@ -43,7 +43,7 @@ export function PracticeGoalReminder() {
       aria-label="上次保存的練習重點"
     >
       <p className="flex items-center gap-2 text-base font-semibold">
-        <Target className="size-5 text-brand" aria-hidden />
+        <Target className="text-brand" aria-hidden />
         下次練習，先做好這一件事
       </p>
       <p className="mt-3 text-lg font-semibold text-brand">

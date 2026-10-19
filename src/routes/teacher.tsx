@@ -4,7 +4,7 @@ import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { loadTeacherRoster } from "@/lib/classroom-db";
 import { TeacherWorkspaceView } from "@/components/teacher-workspace";
-import { ArrowLeft, LoaderCircle, RefreshCw, ShieldCheck } from "lucide-react";
+import { ArrowLeft, LoaderCircle, RefreshCw, ShieldCheck } from "@/lib/icons";
 
 export const Route = createFileRoute("/teacher")({ component: TeacherPage });
 type Roster = Awaited<ReturnType<typeof loadTeacherRoster>> | { ok: false; reason: string };
@@ -41,7 +41,7 @@ function TeacherPage() {
     return (
       <main className="academy-page flex items-center justify-center px-4 py-16">
         <div className="academy-card w-full max-w-lg p-7 sm:p-9">
-          <ShieldCheck aria-hidden="true" className="mb-5 size-9 text-brand" />
+          <ShieldCheck size={30} aria-hidden="true" className="mb-5 text-brand" />
           <p className="academy-eyebrow">講師專區</p>
           <h1 className="mt-2 text-2xl font-semibold">目前無法開啟班級資料</h1>
           <p className="mt-4 text-base leading-7 text-muted">{loaded.data.reason}</p>
@@ -54,11 +54,11 @@ function TeacherPage() {
               className="academy-button-secondary min-h-12"
               onClick={() => setRevision((value) => value + 1)}
             >
-              <RefreshCw aria-hidden="true" className="size-4" />
+              <RefreshCw aria-hidden="true" />
               重新載入
             </button>
             <Link to="/" className="academy-button-secondary min-h-12">
-              <ArrowLeft aria-hidden="true" className="size-4" />
+              <ArrowLeft aria-hidden="true" />
               回教室大廳
             </Link>
           </div>
@@ -78,7 +78,7 @@ function TeacherLoading({ message }: { message: string }) {
   return (
     <main className="academy-page flex items-center justify-center px-4 py-20">
       <div role="status" className="academy-card flex items-center gap-3 p-6 text-base text-muted">
-        <LoaderCircle aria-hidden="true" className="size-5 animate-spin text-brand" />
+        <LoaderCircle aria-hidden="true" className="animate-spin text-brand" />
         {message}
       </div>
     </main>

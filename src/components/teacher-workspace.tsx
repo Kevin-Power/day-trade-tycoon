@@ -10,7 +10,7 @@ import {
   Search,
   ShieldCheck,
   Users,
-} from "lucide-react";
+} from "@/lib/icons";
 import { DisplayControls } from "@/components/display-controls";
 import { BrandMark } from "@/components/brand-mark";
 import { CourseInquiryInbox } from "@/components/course-inquiry-inbox";
@@ -82,7 +82,7 @@ export function TeacherWorkspaceView({
           <div className="flex flex-wrap items-center gap-3">
             <DisplayControls compact />
             <Link to="/" className="academy-nav-link min-h-12">
-              <ArrowLeft aria-hidden="true" className="size-4" />
+              <ArrowLeft aria-hidden="true" />
               教室大廳
             </Link>
           </div>
@@ -97,13 +97,13 @@ export function TeacherWorkspaceView({
               找到一份練習，指出一個做得清楚的動作，再留下下一次的練習重點。
             </p>
             <p className="mt-4 inline-flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-muted">
-              <ShieldCheck aria-hidden="true" className="size-4 text-brand" />
+              <ShieldCheck aria-hidden="true" className="text-brand" />
               本班代碼 <strong className="break-all font-mono text-fg">{data.classCode}</strong>
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <button type="button" className="academy-button-secondary min-h-12" onClick={onRefresh}>
-              <RefreshCw aria-hidden="true" className="size-4" />
+              <RefreshCw aria-hidden="true" />
               更新班級紀錄
             </button>
             <button
@@ -111,7 +111,7 @@ export function TeacherWorkspaceView({
               className="academy-button-secondary min-h-12"
               onClick={() => exportCsv(model)}
             >
-              <Download aria-hidden="true" className="size-4" />
+              <Download aria-hidden="true" />
               匯出所有練習 CSV
             </button>
           </div>
@@ -164,7 +164,7 @@ export function TeacherWorkspaceView({
 
         <section className="academy-card mt-8 p-5 sm:p-6" aria-labelledby="teacher-find-title">
           <h2 id="teacher-find-title" className="flex items-center gap-2 text-lg font-semibold">
-            <Search aria-hidden="true" className="size-5 text-brand" />
+            <Search aria-hidden="true" className="text-brand" />
             找學員、找課程
           </h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -351,7 +351,7 @@ function OverviewCard({
   return (
     <article className="academy-card p-5">
       <p className="flex items-center gap-2 text-base font-medium">
-        <Icon aria-hidden="true" className="size-5 shrink-0 text-brand" />
+        <Icon aria-hidden="true" className="shrink-0 text-brand" />
         {title}
       </p>
       <p className="mt-3">
@@ -486,7 +486,7 @@ function StudentList({
                 </span>
                 <ChevronDown
                   aria-hidden="true"
-                  className="size-5 shrink-0 transition-transform group-open:rotate-180"
+                  className="shrink-0 transition-transform group-open:rotate-180"
                 />
               </div>
             </summary>
@@ -659,7 +659,7 @@ function Pagination({
 function EmptyState({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="academy-card px-5 py-9 text-center">
-      <Users aria-hidden="true" className="mx-auto mb-3 size-7 text-brand" />
+      <Users size={30} aria-hidden="true" className="mx-auto mb-3 text-brand" />
       <p className="text-lg font-semibold">{title}</p>
       <p className="mx-auto mt-2 max-w-xl text-base leading-7 text-muted">{detail}</p>
     </div>

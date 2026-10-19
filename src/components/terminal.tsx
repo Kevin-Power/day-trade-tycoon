@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChartNoAxesCombined, ListFilter, Moon, Package, PanelTop, Sun, Zap } from "lucide-react";
+import { ChartNoAxesCombined, ListFilter, Moon, Package, PanelTop, Sun, Zap } from "@/lib/icons";
 import { AccountBar, EndPracticeButton, NewsBar } from "@/components/account-bar";
 import { TapeChart } from "@/components/charts";
 import { LessonCard } from "@/components/lesson-card";
@@ -307,7 +307,7 @@ function TerminalNavigation({ active, onSelect, singlePane }: { active: MobileTa
         <button key={tab.id} id={`mobile-tab-${tab.id}`} type="button" onClick={() => onSelect(tab.id)}
           aria-current={active === tab.id ? "page" : undefined}
           className={cn("flex min-h-12 min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-2 text-base font-medium", active === tab.id ? "border-brand bg-brand/10 text-brand" : "border-transparent text-muted")}>
-          <tab.icon className="size-5 shrink-0" aria-hidden />
+          <tab.icon className="shrink-0" aria-hidden />
           <span>{tab.label}</span>
         </button>
       ))}
@@ -362,7 +362,7 @@ function ThemeButton({ theme, onToggle }: { theme: "light" | "dark"; onToggle: (
     <button type="button" onClick={onToggle}
       aria-label={theme === "dark" ? "切換明亮看盤" : "切換深色看盤"}
       className="inline-flex min-h-12 shrink-0 items-center gap-2 rounded-lg border border-border px-3 py-2 text-base text-fg">
-      {theme === "dark" ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
+      {theme === "dark" ? <Sun aria-hidden /> : <Moon aria-hidden />}
       {theme === "dark" ? "明亮" : "深色"}
     </button>
   );

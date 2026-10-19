@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Award, ChevronRight } from "lucide-react";
+import { Award, ChevronRight } from "@/lib/icons";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { levelProgress, progressText } from "@/lib/discipline/copy";
 import type { DisciplineSummary } from "@/lib/discipline/score";
@@ -44,10 +44,10 @@ export function LevelStrip() {
         <small>{next}</small>
       </span>
       <span className="level-strip-badges" aria-hidden="true">
-        <Award size={18} />
+        <Award />
         徽章 {earned}／{data.badges.length}
       </span>
-      <ChevronRight className="level-strip-go" size={20} aria-hidden="true" />
+      <ChevronRight className="level-strip-go" aria-hidden="true" />
     </Link>
   );
 }
