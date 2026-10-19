@@ -55,7 +55,7 @@ export function ManualPage() {
             <button
               type="button"
               onClick={lock}
-              className="inline-flex size-9 items-center justify-center rounded-sm border border-border-strong bg-surface text-muted hover:bg-elevated hover:text-fg"
+              className="icon-only inline-flex size-9 items-center justify-center rounded-sm border border-border-strong bg-surface text-muted hover:bg-elevated hover:text-fg"
               aria-label="登出"
             >
               <LogOut />

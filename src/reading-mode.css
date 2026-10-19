@@ -37,6 +37,8 @@ html[data-reading-mode="senior"] :is(button, [role="button"], input:not([type="c
   line-height: 1.5;
 }
 html[data-reading-mode="senior"] :is(button, summary) { white-space: normal; }
+/* Icon-only buttons show nothing but the icon, so it doubles with the larger text (30px keeps the 15px icon grid). */
+html[data-reading-mode="senior"] .icon-only > svg.icon { width: 30px; height: 30px; }
 html[data-reading-mode="senior"] input:is([type="checkbox"], [type="radio"]) { width: 1.2rem; height: 1.2rem; flex-shrink: 0; }
 html:not([data-reading-mode="senior"]) .terminal-shell {
   --text-2xs: .75rem;

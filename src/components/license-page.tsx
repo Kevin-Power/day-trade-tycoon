@@ -91,7 +91,7 @@ export function LicensePage() {
               <button
                 type="button"
                 onClick={lock}
-                className="inline-flex size-12 shrink-0 items-center justify-center rounded-lg border border-border-strong bg-surface text-muted hover:bg-elevated hover:text-fg"
+                className="icon-only inline-flex size-12 shrink-0 items-center justify-center rounded-lg border border-border-strong bg-surface text-muted hover:bg-elevated hover:text-fg"
                 aria-label="登出"
               >
                 <LogOut aria-hidden="true" />

@@ -130,7 +130,7 @@ export function AuthPasswordInput({
           aria-label={visible ? `隱藏${label}` : `顯示${label}`}
           aria-pressed={visible}
           disabled={props.disabled}
-          className="absolute inset-y-0 right-1 my-auto inline-flex size-10 items-center justify-center rounded-lg text-muted transition-colors hover:bg-elevated hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)] disabled:opacity-50"
+          className="icon-only absolute inset-y-0 right-1 my-auto inline-flex size-10 items-center justify-center rounded-lg text-muted transition-colors hover:bg-elevated hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand)] disabled:opacity-50"
         >
           {visible ? (
             <EyeOff aria-hidden="true" />
