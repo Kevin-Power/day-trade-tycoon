@@ -4,6 +4,7 @@
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { iconGrid, iconGridFailures } from "./icon-grid.mjs";
 
 const [base = "http://127.0.0.1:18821", outArg = "artifacts/premium-ui/check"] = process.argv.slice(2);
 const out = resolve(outArg);
@@ -169,6 +170,7 @@ for (const item of cases) {
     await page.screenshot({ path: `${out}/${item.name}-market.png` });
     rows.push({ case: item.name, screen: "market", ...first });
     if (first.small.length) fail(`${first.small.length} texts below 11px (${first.small.slice(0, 3).join(" | ")})`);
+    for (const message of iconGridFailures(await page.evaluate(iconGrid, null), { requireIcons: true })) fail(`market: ${message}`);
     if (first.offscreen.length || first.overflowX > 0) fail(`horizontal overflow (${first.offscreen.slice(0, 3).join(" | ")})`);
     // Touch layouts (phones, tablets, large text) need 44px targets (56px in large text).
     if (item.width < 1200 || item.senior)
@@ -224,6 +226,7 @@ for (const item of cases) {
       rows.push({ case: item.name, screen: "trade", ...trade });
       if (trade.offscreen.length || trade.overflowX > 0) fail(`trade tab overflow (${trade.offscreen.slice(0, 3).join(" | ")})`);
       if (trade.small.length) fail(`trade tab: ${trade.small.length} texts below 11px`);
+      for (const message of iconGridFailures(await page.evaluate(iconGrid, null), { requireIcons: true })) fail(`trade tab: ${message}`);
       if (trade.fauxBold.length) fail(`trade tab synthesised bold (${trade.fauxBold.slice(0, 3).join(" | ")})`);
       if (trade.factBaselines.length) fail(`trade tab order facts off baseline (${trade.factBaselines.join(" | ")})`);
       if (trade.lowContrast.length) fail(`trade tab low contrast (${trade.lowContrast.slice(0, 4).join(" | ")})`);
@@ -235,6 +238,7 @@ for (const item of cases) {
       await page.screenshot({ path: `${out}/${item.name}-positions.png` });
       rows.push({ case: item.name, screen: "positions", ...positions });
       if (positions.offscreen.length || positions.overflowX > 0) fail(`positions tab overflow (${positions.offscreen.slice(0, 3).join(" | ")})`);
+      for (const message of iconGridFailures(await page.evaluate(iconGrid, null))) fail(`positions tab: ${message}`);
       if (!(await page.getByText("參考損益（未含費稅）").first().isVisible())) fail("reference P&L missing on the positions tab");
     }
 

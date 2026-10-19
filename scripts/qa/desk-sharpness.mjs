@@ -1,9 +1,11 @@
-// Chart sharpness at genuine device scale factors (Chrome flag, not CDP emulation).
-// Counts anti-aliased blend pixels inside the plot of the real trading-desk chart.
+// Chart and icon sharpness at genuine device scale factors (Chrome flag, not CDP emulation).
+// Counts anti-aliased blend pixels inside the plot of the real trading-desk chart, checks every icon sits
+// on its 15px grid, and saves the replay toolbar for an icon before/after comparison.
 // Usage: node scripts/qa/desk-sharpness.mjs <baseUrl> <label>
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { iconGrid, iconGridFailures } from "./icon-grid.mjs";
 
 const [base = "http://127.0.0.1:18811", label = "run"] = process.argv.slice(2);
 const out = fileURLToPath(new URL(`../../artifacts/trading-desk-qa/${label}/`, import.meta.url));
@@ -50,6 +52,7 @@ async function dashRowSoft(page, png, palette, lines, x0f, x1f) {
 
 const rows = [];
 const dashFailures = [];
+const iconFailures = [];
 for (const ratio of [1, 1.25, 1.5, 2]) {
   const browser = await launch([`--force-device-scale-factor=${ratio}`, "--window-size=1400,1000"]);
   const page = await (await browser.newContext({ viewport: null })).newPage();
@@ -72,6 +75,10 @@ for (const ratio of [1, 1.25, 1.5, 2]) {
   });
   const png = await canvas.screenshot();
   writeFileSync(`${out}sharp-dpr${ratio}.png`, png);
+  for (const message of iconGridFailures(await page.evaluate(iconGrid, null), { requireIcons: true }))
+    iconFailures.push(`dpr ${ratio}: ${message}`);
+  const toolbar = page.locator(".td-replay").first();
+  if (await toolbar.count()) writeFileSync(`${out}icons-dpr${ratio}.png`, await toolbar.screenshot());
   const stats = await page.evaluate(
     async ({ b64, ratio, palette }) => {
       const image = new Image();
@@ -135,3 +142,7 @@ if (dashFailures.length) {
   console.log(`DASH FAILURES:\n${dashFailures.join("\n")}`);
   process.exitCode = 1;
 } else console.log("All dashed reference lines are sharp.");
+if (iconFailures.length) {
+  console.log(`ICON FAILURES:\n${iconFailures.join("\n")}`);
+  process.exitCode = 1;
+} else console.log("All icons sit on their 15px grid.");

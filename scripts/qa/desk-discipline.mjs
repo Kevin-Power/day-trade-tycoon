@@ -6,6 +6,7 @@
 import { chromium } from "playwright";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { iconGrid, iconGridFailures } from "./icon-grid.mjs";
 
 const [label = "discipline", proxyPort = "18811"] = process.argv.slice(2);
 const state = JSON.parse(
@@ -133,6 +134,7 @@ for (const item of cases) {
     if (report.lowContrast.length) fail(`${screen}: low contrast (${report.lowContrast.slice(0, 4).join(" | ")})`);
     if (item.width < 1200 && report.short.length) fail(`${screen}: controls below 44px (${report.short.slice(0, 4).join(" | ")})`);
     if (report.shortLarge.length) fail(`${screen}: large-text controls below 56px (${report.shortLarge.slice(0, 4).join(" | ")})`);
+    for (const message of iconGridFailures(await page.evaluate(iconGrid, scope))) fail(`${screen}: ${message}`);
   };
   const shoot = async (screen, locator = null) => {
     if (locator) await locator.scrollIntoViewIfNeeded();
