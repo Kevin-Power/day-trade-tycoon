@@ -5,7 +5,9 @@ import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const preservedLessonSha256 = '71b5294b2f484708e7506506688195eeb0e07c346d68c2feb9fe22797df4490a';
+// 10/06 lesson bytes, pinned. Changed 2026-10-20 with the owner's approval for a notice-only revision (the
+// simulated in-minute replay); lessonId and bars unchanged. See docs/lesson-notice-2026-10-20.md.
+const preservedLessonSha256 = 'a0b490f7b6102dfbc28550664c301c885b8bbda964d920aea95f79b00298eb1d';
 export const expansionDirectory = 'research/daily-market/2026-10-07-morning-expansion';
 export const expansionDates = ['2026-10-02', '2026-10-05', '2026-10-07'];
 export const expansionCodes = ['2330', '2317', '2454', '2382', '2308'];
@@ -195,7 +197,7 @@ export function buildMorningExpansion(root = workspace) {
         '前五個完整交易日收盤均值僅作歷史參考；EMA11 週期與計算口徑未確認，不自動加入訊號。',
       ],
       notices: [
-        `價格來源：Yahoo Finance ${date} 歷史 1 分鐘原始 OHLC；每檔 09:00–10:29 共 90 根，最後一根於 10:30 可見。`,
+        `價格來源：Yahoo Finance ${date} 歷史 1 分鐘原始 OHLC；每檔 09:00–10:29 共 90 根，最後一根於 10:30 可見。每分鐘揭露後以約 2 秒的模擬逐筆重播，收在真實收盤價；成交明細與五檔是教學模擬，不是真實逐筆或委託簿。`,
         '當日盤前背景與影片尚未取得；不以其他日期內容冒充，也未驗證當時盤前可得性。',
         '昨收與前五個完整交易日收盤均值由保留的 TWSE 日資料核對，不使用 Yahoo 多日期回應的整段昨收欄位。',
         '分鐘量保留原值，零量不改寫；量單位與完整性尚未核對，不顯示量柱、VWAP 或量能訊號。',
