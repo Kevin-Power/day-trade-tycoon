@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Zap } from "@/lib/icons";
+import { useTickFlash } from "@/components/use-tick-flash";
 import { bookPressure, createMorningBook, type MorningBookLevel } from "@/lib/morning-book";
 import { formatPrice } from "@/lib/market/ticks";
 
@@ -9,6 +11,7 @@ export function MorningOrderBook({
   cursor,
   last,
   previousClose,
+  trade,
   lots,
   holdingLots,
   flash,
@@ -21,6 +24,8 @@ export function MorningOrderBook({
   cursor: number;
   last?: number;
   previousClose: number;
+  /** The latest replayed trade: which side the last price sits on, and the trade's place in the minute. */
+  trade?: { index: number; side: "ask" | "bid" };
   lots: number;
   holdingLots: number;
   flash: boolean;
@@ -29,7 +34,20 @@ export function MorningOrderBook({
   onFlash: (enabled: boolean) => void;
   onPick: (price: number, side: "buy" | "sell") => void;
 }) {
-  const book = createMorningBook(code, cursor, last ?? 0, previousClose);
+  const live = { code, last, book: createMorningBook(code, cursor, last ?? 0, previousClose, trade) };
+  // With 即送 armed the ladder holds still under the pointer or keyboard focus, so a click sends the price
+  // that was on screen while trades keep coming in; it moves again once the pointer or focus leaves.
+  const [held, setHeld] = useState<typeof live | null>(null);
+  useEffect(() => {
+    if (!flash) setHeld(null);
+  }, [flash]);
+  const holding = flash && held?.code === code ? held : null;
+  const { book } = holding ?? live;
+  const shownLast = (holding ?? live).last;
+  const hold = () => {
+    if (flash && !holding) setHeld(live);
+  };
+  const tick = useTickFlash(shownLast, code);
   const maxLots = Math.max(
     1,
     ...book.asks.map((level) => level.lots),
@@ -39,7 +57,20 @@ export function MorningOrderBook({
   const tone = (price: number): Tone =>
     price > previousClose ? "up" : price < previousClose ? "down" : "flat";
   return (
-    <div className="td-book" data-flash={flash}>
+    <div
+      className="td-book"
+      data-flash={flash}
+      data-held={Boolean(holding)}
+      onPointerMove={hold}
+      onPointerDown={hold}
+      onPointerLeave={() => setHeld(null)}
+      onFocus={(event) => {
+        if ((event.target as HTMLElement).classList.contains("td-level")) hold();
+      }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setHeld(null);
+      }}
+    >
       <div className="td-book-head">
         <span className="td-chip" data-kind="sim">
           教學模擬五檔
@@ -61,11 +92,13 @@ export function MorningOrderBook({
         tone={tone}
         disabled={disabled}
         onPick={onPick}
-        empty={last ? "漲停範圍內無價位" : "等待第一分鐘"}
+        empty={shownLast ? "漲停範圍內無價位" : "等待第一分鐘"}
       />
-      <div className="td-ladder-mid" data-tone={last ? tone(last) : "flat"}>
-        <span>最新分鐘收價</span>
-        <strong>{last ? formatPrice(last) : "—"}</strong>
+      <div className="td-ladder-mid" data-tone={shownLast ? tone(shownLast) : "flat"}>
+        <span>最新成交價</span>
+        <strong key={tick.key} data-flash={tick.flash}>
+          {shownLast ? formatPrice(shownLast) : "—"}
+        </strong>
       </div>
       <BookLevels
         levels={book.bids}
@@ -75,7 +108,7 @@ export function MorningOrderBook({
         tone={tone}
         disabled={disabled || holdingLots < lots}
         onPick={onPick}
-        empty={last ? "跌停範圍內無價位" : "等待第一分鐘"}
+        empty={shownLast ? "跌停範圍內無價位" : "等待第一分鐘"}
       />
       <div
         className="td-pressure"
@@ -119,7 +152,11 @@ export function MorningOrderBook({
         ))}
       </div>
       <p className="td-book-hint" role="status">
-        {flash ? `點價即送 ${lots} 張限價模擬委託` : "點價格核對委託；開啟閃電可直接送單"}
+        {holding
+          ? `五檔暫停跳動，點價即送 ${lots} 張；移開恢復跳動`
+          : flash
+            ? `點價即送 ${lots} 張限價模擬委託`
+            : "點價格核對委託；開啟閃電可直接送單"}
       </p>
       <p className="td-book-source">五檔價量為教學生成，非真實委託簿。</p>
     </div>

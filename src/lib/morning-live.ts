@@ -14,7 +14,8 @@ export type LiveMorningState = MorningState & {
 };
 
 export type LastTrade = Tick & { index: number; second: number };
-export type RecentTrade = Pick<Tick, "price" | "lots" | "side"> & { second: number; move: "up" | "down" | "same" };
+/** `id` names the trade (minute start and its place in the minute), stable while the tape scrolls. */
+export type RecentTrade = Pick<Tick, "price" | "lots" | "side"> & { id: string; second: number; move: "up" | "down" | "same" };
 
 const cache = new Map<string, Tick[]>();
 
@@ -75,19 +76,26 @@ export function recentTrades(session: LiveMorningState, code: string, limit: num
   const source = sourceOf(session);
   const fraction = fractionOf(session);
   const bars = source.bars[code] ?? [];
-  const minutes: Tick[][] = [];
+  const minutes: Omit<RecentTrade, "move">[][] = [];
   let count = 0;
   // One trade more than shown, so the oldest shown trade still compares with the one before it.
   for (let i = bars.length - 1; i >= 0 && count <= limit; i--) {
     const ticks = ticksOf(source.lessonId, code, bars[i]);
     const shown = i === bars.length - 1 ? ticks.filter((tick, k) => k === 0 || tick.at <= fraction) : ticks;
-    minutes.unshift(shown.map((tick) => ({ ...tick, at: bars[i].t + Math.floor(tick.at * 60) })));
+    minutes.unshift(
+      shown.map((tick, k) => ({
+        id: `${bars[i].t}:${k}`,
+        second: bars[i].t + Math.floor(tick.at * 60),
+        price: tick.price,
+        lots: tick.lots,
+        side: tick.side,
+      })),
+    );
     count += shown.length;
   }
-  const trades = minutes.flat().map((tick, i, all): RecentTrade => {
-    const before = all[i - 1]?.price ?? tick.price;
-    const move = tick.price > before ? "up" : tick.price < before ? "down" : "same";
-    return { second: tick.at, price: tick.price, lots: tick.lots, side: tick.side, move };
+  const trades = minutes.flat().map((trade, i, all): RecentTrade => {
+    const before = all[i - 1]?.price ?? trade.price;
+    return { ...trade, move: trade.price > before ? "up" : trade.price < before ? "down" : "same" };
   });
   return trades.slice(-limit).reverse();
 }

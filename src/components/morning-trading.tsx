@@ -12,6 +12,7 @@ import {
 } from "@/lib/icons";
 import type { MorningCatalog, MorningState } from "@/lib/morning";
 import { ledgerSummary } from "@/lib/morning-ledger";
+import { lastTrade } from "@/lib/morning-live";
 import { formatMoney, formatTime } from "@/lib/utils";
 import { estimateRoundTripCost, formatPrice, stepTick } from "@/lib/market/ticks";
 import { validMorningLimit } from "@/lib/morning-book";
@@ -152,6 +153,7 @@ export function PaperOrder({
   }, [pendingId]);
   const symbol = catalog.symbols.find((item) => item.code === code);
   const last = session?.bars[code]?.at(-1);
+  const latestTrade = session ? lastTrade(session, code) : null;
   const holdingLots = (position?.shares ?? 0) / 1000;
   const invalidSell = side === "sell" && lots > holdingLots;
   const ready = Boolean(session && session.cursor >= 1 && !session.completed && !atEnd);
@@ -253,6 +255,7 @@ export function PaperOrder({
             cursor={session?.cursor ?? 0}
             last={last?.c}
             previousClose={symbol?.previousClose ?? 0}
+            trade={latestTrade ? { index: latestTrade.index, side: latestTrade.side } : undefined}
             lots={lots}
             holdingLots={holdingLots}
             flash={flash}

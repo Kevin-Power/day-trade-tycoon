@@ -854,6 +854,142 @@
   font-size: 12px;
 }
 
+/* Chart and the replay's 成交明細: side by side when the centre is wide enough, stacked below otherwise. */
+.trading-desk .td-chart-row {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.trading-desk .td-tape {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 248px;
+  overflow: hidden;
+  background: var(--td-panel);
+  border-top: var(--td-hairline) solid var(--td-line);
+}
+@container (min-width: 640px) {
+  .trading-desk .td-chart-row {
+    flex-direction: row;
+  }
+  .trading-desk .td-chart-row > .td-chart {
+    min-width: 0;
+  }
+  .trading-desk .td-tape {
+    flex: none;
+    width: 184px;
+    max-height: none;
+    border-top: 0;
+    border-left: var(--td-hairline) solid var(--td-line);
+  }
+}
+.trading-desk .td-tape-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 7px 10px 5px;
+}
+.trading-desk .td-tape-head h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.trading-desk :is(.td-tape-labels, .td-tape-rows li) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 44px;
+  gap: 8px;
+  padding: 0 10px;
+}
+.trading-desk .td-tape-labels {
+  padding-bottom: 4px;
+  color: var(--td-muted);
+  font-size: 11px;
+  border-bottom: var(--td-hairline) solid var(--td-line);
+}
+.trading-desk .td-tape-labels span:not(:first-child) {
+  text-align: right;
+}
+.trading-desk .td-tape-rows {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 2px 0;
+  overflow: hidden;
+  list-style: none;
+  font: 500 12px/20px var(--font-mono);
+}
+.trading-desk .td-tape-rows time {
+  color: var(--td-muted);
+}
+.trading-desk .td-tape-rows li > span {
+  text-align: right;
+}
+.trading-desk .td-tape-rows [data-tone="up"],
+.trading-desk .td-tape-lots[data-side="ask"] {
+  color: var(--td-up);
+}
+.trading-desk .td-tape-rows [data-tone="down"],
+.trading-desk .td-tape-lots[data-side="bid"] {
+  color: var(--td-down);
+}
+.trading-desk .td-tape-rows li:first-child {
+  animation: td-tape-in 0.5s ease-out;
+}
+.trading-desk .td-tape-empty {
+  margin: 0;
+  padding: 16px 10px;
+  color: var(--td-muted);
+  font-size: 12px;
+}
+@keyframes td-tape-in {
+  from {
+    background-color: rgb(255 255 255 / 0.1);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+/* A replayed trade moved the price: a short red (up) or green (down) flash behind the number. */
+.trading-desk :is(.td-hero-price strong, .td-watch-price, .td-ladder-mid strong) {
+  border-radius: 3px;
+}
+.trading-desk [data-flash="up"] {
+  animation: td-flash-up 0.45s ease-out;
+}
+.trading-desk [data-flash="down"] {
+  animation: td-flash-down 0.45s ease-out;
+}
+@keyframes td-flash-up {
+  from {
+    background-color: rgb(255 84 104 / 0.38);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+@keyframes td-flash-down {
+  from {
+    background-color: rgb(28 215 138 / 0.32);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trading-desk :is([data-flash="up"], [data-flash="down"], .td-tape-rows li:first-child) {
+    animation: none;
+  }
+}
+
+/* 即送 armed and the pointer on the book: the ladder holds still, framed so it reads as paused. */
+.trading-desk .td-book[data-held="true"] :is(.td-ladder, .td-ladder-mid) {
+  box-shadow: inset 0 0 0 1px rgb(230 184 110 / 0.55);
+}
+
 /* Ledger */
 .trading-desk .sim-ledger {
   display: flex;

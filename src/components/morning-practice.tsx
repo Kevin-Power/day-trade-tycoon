@@ -12,6 +12,9 @@ import {
 import { TapeChart } from "@/components/charts";
 import { DeskBar, HintBar, StatusBar } from "@/components/morning-desk-bar";
 import { REPLAY_DELAY, type ReplaySpeed } from "@/lib/replay-speed";
+import { TickPrice } from "@/components/tick-price";
+import { TradeTape } from "@/components/trade-tape";
+import { useTickReplay } from "@/components/use-tick-replay";
 import {
   AccountSummary,
   PaperOrder,
@@ -589,11 +592,13 @@ function MorningLesson({
 
   const showPlan = !session || newPlan;
   const marketSession = newPlan ? null : session;
+  // What the desk shows: a newly revealed minute plays trade by trade. Orders use the same run and revision.
+  const liveMarket = useTickReplay(marketSession ?? null, REPLAY_DELAY[speed] * 0.9);
   const orderTicket = catalog ? (
     <PaperOrder
       key={`${marketSession?.id ?? "preview"}:${code}`}
       catalog={catalog}
-      session={marketSession ?? null}
+      session={liveMarket}
       code={code}
       busy={Boolean(busy || error || notice)}
       atEnd={atEnd && !showPlan}
@@ -628,7 +633,7 @@ function MorningLesson({
             lessons={data.lessons ?? [catalog]}
             lessonId={catalog.lessonId}
             exercise={exercise}
-            session={marketSession ?? null}
+            session={liveMarket}
             showPlan={showPlan}
             cursor={cursor}
             completed={completed}
@@ -769,7 +774,7 @@ function MorningLesson({
                   <aside className="td-watch">
                     <MorningWatchlist
                       catalog={catalog}
-                      session={marketSession ?? null}
+                      session={liveMarket}
                       code={code}
                       compact={layout === "tablet"}
                       onSelect={setSelected}
@@ -803,7 +808,7 @@ function MorningLesson({
                     <>
                       <QuoteHero
                         catalog={catalog}
-                        session={marketSession ?? null}
+                        session={liveMarket}
                         code={code}
                         titleRef={practiceHeading}
                       />
@@ -812,17 +817,20 @@ function MorningLesson({
                   )}
                   <div className="td-pane">
                     {(!singlePane || activePane === "market") && (
-                      <MorningChart
-                        catalog={catalog}
-                        session={marketSession ?? null}
-                        code={code}
-                        candles={chartMode === "chart"}
-                      />
+                      <div className="td-chart-row">
+                        <MorningChart
+                          catalog={catalog}
+                          session={liveMarket}
+                          code={code}
+                          candles={chartMode === "chart"}
+                        />
+                        {!showPlan && <TradeTape catalog={catalog} session={liveMarket} code={code} />}
+                      </div>
                     )}
                     {singlePane && activePane === "watch" && (
                       <MorningWatchlist
                         catalog={catalog}
-                        session={marketSession ?? null}
+                        session={liveMarket}
                         code={code}
                         onSelect={(next) => {
                           setSelected(next);
@@ -832,7 +840,7 @@ function MorningLesson({
                     )}
                     {singlePane && activePane === "trade" && (
                       <div className="td-mobile-ticket">
-                        <QuoteLine catalog={catalog} session={marketSession ?? null} code={code} />
+                        <QuoteLine catalog={catalog} session={liveMarket} code={code} />
                         {orderTicket}
                       </div>
                     )}
@@ -840,10 +848,10 @@ function MorningLesson({
                       activePane === "positions" &&
                       (marketSession && !showPlan ? (
                         <div className="td-mobile-ticket">
-                          <AccountSummary session={marketSession} />
+                          <AccountSummary session={liveMarket ?? marketSession} />
                           <Ledger
                             catalog={catalog}
-                            session={marketSession}
+                            session={liveMarket ?? marketSession}
                             busy={Boolean(busy)}
                             onCancel={cancel}
                             cards
@@ -892,7 +900,7 @@ function MorningLesson({
                   <div className="td-ledger" data-open={ledgerOpen} data-coach="ledger">
                     <Ledger
                       catalog={catalog}
-                      session={session}
+                      session={liveMarket ?? session}
                       busy={Boolean(busy)}
                       onCancel={cancel}
                       collapsible={{ open: ledgerOpen, onOpenChange: setLedgerOpen }}
@@ -1164,9 +1172,9 @@ function MorningWatchlist({
                 <span>{symbol.name}</span>
                 <small>{symbol.code}</small>
               </span>
-              <strong className="td-watch-price">
+              <TickPrice className="td-watch-price" value={quote.last} identity={symbol.code}>
                 {quote.last === null ? "—" : formatPrice(quote.last)}
-              </strong>
+              </TickPrice>
               <span className="td-watch-change">
                 {quote.last === null ? (
                   "尚未揭露"

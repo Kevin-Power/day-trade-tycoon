@@ -1,17 +1,19 @@
 import type { ReactNode, RefObject } from "react";
 import { ChevronLeft, ChevronRight } from "@/lib/icons";
-import type { MorningCatalog, MorningState } from "@/lib/morning";
+import type { MorningCatalog } from "@/lib/morning";
 import { createMorningBook } from "@/lib/morning-book";
+import { lastTrade, type LiveMorningState } from "@/lib/morning-live";
 import { bestQuotes, quoteSummary } from "@/lib/morning-quote";
 import { formatPrice } from "@/lib/market/ticks";
 import { formatTime } from "@/lib/utils";
+import { useTickFlash } from "@/components/use-tick-flash";
 
 const arrow = (tone: "up" | "down" | "flat") => (tone === "up" ? "▲" : tone === "down" ? "▼" : "");
 const price = (value: number | null) => (value === null ? "—" : formatPrice(value));
 
 /**
- * The selected stock's quote: last completed-minute close, change, the teaching book's best bid and
- * ask, and the day's revealed open/high/low. Display only; every value comes from the session.
+ * The selected stock's quote: the latest trade (the minute's close at rest), change, the teaching book's
+ * best bid and ask, and the day's revealed open/high/low. Display only; every value comes from the session.
  */
 export function QuoteHero({
   catalog,
@@ -20,16 +22,24 @@ export function QuoteHero({
   titleRef,
 }: {
   catalog: MorningCatalog;
-  session: MorningState | null;
+  session: LiveMorningState | null;
   code: string;
   titleRef?: RefObject<HTMLHeadingElement | null>;
 }) {
   const symbol = catalog.symbols.find((item) => item.code === code) ?? catalog.symbols[0];
+  const tick = useTickFlash(symbol ? session?.bars[symbol.code]?.at(-1)?.c : null, symbol?.code ?? "");
   if (!symbol) return null;
   const bars = session?.bars[symbol.code] ?? [];
   const quote = quoteSummary(bars, symbol.previousClose);
+  const trade = session ? lastTrade(session, symbol.code) : null;
   const best = bestQuotes(
-    createMorningBook(symbol.code, session?.cursor ?? 0, quote.last ?? 0, symbol.previousClose),
+    createMorningBook(
+      symbol.code,
+      session?.cursor ?? 0,
+      quote.last ?? 0,
+      symbol.previousClose,
+      trade ? { index: trade.index, side: trade.side } : undefined,
+    ),
   );
   const toneOf = (value: number | null) =>
     value === null || value === symbol.previousClose
@@ -47,6 +57,10 @@ export function QuoteHero({
         <p className="td-hero-stamp">
           {quote.last === null ? (
             "待揭露第一分鐘"
+          ) : session?.replay && trade ? (
+            <>
+              <time>{formatTime(trade.second)}</time> 成交 · 歷史重播
+            </>
           ) : (
             <>
               <time>{formatTime(bars.at(-1)!.t + 60).slice(0, 5)}</time> 收價 · 歷史重播
@@ -54,8 +68,10 @@ export function QuoteHero({
           )}
         </p>
       </div>
-      <p className="td-hero-price" title="最新完整分鐘收價">
-        <strong>{price(quote.last)}</strong>
+      <p className="td-hero-price" title={session?.replay ? "最新模擬成交價" : "最新完整分鐘收價"}>
+        <strong key={tick.key} data-flash={tick.flash}>
+          {price(quote.last)}
+        </strong>
         {quote.last !== null && (
           <span className="td-hero-change">
             <span>
@@ -106,7 +122,7 @@ export function QuoteLine({
   code,
 }: {
   catalog: MorningCatalog;
-  session: MorningState | null;
+  session: LiveMorningState | null;
   code: string;
 }) {
   const symbol = catalog.symbols.find((item) => item.code === code);

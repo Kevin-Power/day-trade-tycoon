@@ -4,6 +4,7 @@ import { ArrowLeft, BookOpen, CandlestickChart, CirclePause, Play } from "@/lib/
 import { DisplayControls } from "@/components/display-controls";
 import type { MorningAlert } from "@/lib/morning-alerts";
 import type { MorningLessonSummary, MorningState } from "@/lib/morning";
+import { replayClock } from "@/lib/morning-live";
 import type { MorningExercise } from "@/lib/morning-exercises";
 import { formatMoney, formatTime } from "@/lib/utils";
 import { REPLAY_DELAY, type ReplaySpeed } from "@/lib/replay-speed";
@@ -95,7 +96,7 @@ export function StatusBar({
       </span>
       <span className="td-clock" data-state={state}>
         <i aria-hidden />
-        <strong>{showPlan ? "09:00" : formatTime(cursor * 60).slice(0, 5)}</strong>
+        <strong>{showPlan ? "09:00:00" : formatTime(session ? replayClock(session) : cursor * 60)}</strong>
         <small>
           {showPlan ? "待開始" : completed ? "已完成" : auto ? "重播中" : "已暫停"}
         </small>
