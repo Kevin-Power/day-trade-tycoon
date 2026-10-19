@@ -87,6 +87,49 @@ result.sellWithoutHolding = {
 };
 assert.equal(result.sellWithoutHolding.submitDisabled, true);
 
+// 4. The send fails once (network) and 「重試這次操作」 resends it: one order only, and the reviewed confirm card
+//    closes instead of staying open as 「行情或帳戶已更新」 over the ticket (found by the workbook acceptance, B-07).
+// 鴻海 (about 259,000 a lot): the fixture has already spent most of the cash on 台積電.
+await page.getByRole("combobox", { name: "下單商品" }).selectOption("2317");
+await page.getByRole("button", { name: "買進", exact: true }).click();
+state = await api();
+const ordersBefore = state.orders.length;
+let aborted = 0;
+await page.route("**/api/morning**", (route) => {
+  if (route.request().method() === "POST" && aborted === 0) {
+    aborted += 1;
+    return route.abort("internetdisconnected");
+  }
+  return route.continue();
+});
+await page.getByRole("button", { name: /^核對模擬買進/ }).click();
+await page.getByRole("button", { name: "確認送出模擬買進" }).click();
+await page.getByRole("button", { name: "重試這次操作" }).click();
+state = await until(async () => {
+  const next = await api();
+  return next.orders.length > ordersBefore && next;
+}, "retried order missing").catch(async (error) => {
+  await page.screenshot({ path: `${out}retried-send-failed.png` });
+  throw error;
+});
+await page.unroute("**/api/morning**");
+await page.waitForTimeout(800);
+result.retriedSend = {
+  newOrders: state.orders.length - ordersBefore,
+  confirmCardOpen: await page.locator(".sim-confirm").isVisible(),
+  pendingShown: await page.getByText("委託已送出 · 等待撮合").isVisible(),
+};
+assert.equal(result.retriedSend.newOrders, 1);
+assert.equal(result.retriedSend.confirmCardOpen, false, "the confirm card stayed open after the retried send");
+assert.equal(result.retriedSend.pendingShown, true, "the waiting order is not shown after the retried send");
+// Withdraw it so the scripts that run after this one see the same desk as before this case was added.
+await page.locator(".sim-pending").getByRole("button", { name: "撤回委託" }).click();
+state = await until(async () => {
+  const next = await api();
+  return next.orders.at(-1)?.status === "cancelled" && next;
+}, "retried order not withdrawn");
+result.retriedSend.withdrawn = state.orders.at(-1).status;
+
 await page.screenshot({ path: `${out}orders-final.png` });
 await browser.close();
 writeFileSync(`${out}orders.json`, JSON.stringify(result, null, 2));
