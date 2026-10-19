@@ -240,6 +240,11 @@
   border-radius: 4px;
   font: 500 12px/1 var(--font-mono);
 }
+/* The clock shows seconds while a minute replays; on narrow desktops the lesson title gives way, never the
+   reading-size switch at the end of the bar. */
+.trading-desk .td-bar > .display-controls {
+  flex-shrink: 0;
+}
 .trading-desk .td-subject {
   display: inline-flex;
   align-items: baseline;
