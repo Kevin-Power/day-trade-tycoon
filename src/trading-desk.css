@@ -3155,8 +3155,8 @@
   border-radius: var(--td-radius);
 }
 .trading-desk .td-celebrate-spark {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   color: var(--td-prev);
 }
 .trading-desk .td-celebrate-levelup p {
