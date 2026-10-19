@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import type { Bar } from "@/lib/game/types";
-import type { MorningCatalog, MorningState } from "@/lib/morning";
+import type { MorningCatalog } from "@/lib/morning";
+import { settledSession, type LiveMorningState } from "@/lib/morning-live";
 import { formatPrice } from "@/lib/market/ticks";
 import { useDeviceCanvas } from "@/components/use-device-canvas";
 import {
@@ -112,7 +113,7 @@ export function MorningQuoteDetail({
   selectionDisabled,
 }: {
   catalog: MorningCatalog;
-  session: MorningState | null;
+  session: LiveMorningState | null;
   code: string;
   book?: ReactNode;
   onPaneChange?: () => void;
@@ -127,6 +128,8 @@ export function MorningQuoteDetail({
   const symbol = catalog.symbols.find((item) => item.code === code);
   if (!symbol) return null;
   const bars = session?.bars[code] ?? [];
+  // The minute table lists completed minutes only, never the one being replayed.
+  const minuteBars = session ? (settledSession(session).bars[code] ?? []) : [];
   const last = bars.at(-1);
   const change = last ? last.c - symbol.previousClose : null;
   const tone = change === null || change === 0 ? "flat" : change > 0 ? "up" : "down";
@@ -189,7 +192,7 @@ export function MorningQuoteDetail({
               </span>
             </div>
             <div className="terminal-detail-stamp">
-              <span>最新完整分鐘收價</span>
+              <span>{session?.replay ? "分鐘內模擬成交" : "最新完整分鐘收價"}</span>
               <time>{last ? formatTime(last.t + 60).slice(0, 5) : "09:00"}</time>
             </div>
             <dl className="terminal-detail-stats">
@@ -234,7 +237,7 @@ export function MorningQuoteDetail({
                 </tr>
               </thead>
               <tbody>
-                {bars
+                {minuteBars
                   .slice(-10)
                   .reverse()
                   .map((bar) => (
@@ -247,7 +250,7 @@ export function MorningQuoteDetail({
                   ))}
               </tbody>
             </table>
-            {!last && <p className="terminal-tape-empty">前進一分鐘後顯示行情明細</p>}
+            {!minuteBars.length && <p className="terminal-tape-empty">前進一分鐘後顯示行情明細</p>}
           </div>
         )}
       </div>

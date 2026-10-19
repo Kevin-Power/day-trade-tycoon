@@ -31,7 +31,7 @@ export function QuoteHero({
   if (!symbol) return null;
   const bars = session?.bars[symbol.code] ?? [];
   const quote = quoteSummary(bars, symbol.previousClose);
-  const trade = session ? lastTrade(session, symbol.code) : null;
+  const trade = session ? lastTrade(session, symbol.code, catalog) : null;
   const best = bestQuotes(
     createMorningBook(
       symbol.code,
@@ -59,7 +59,7 @@ export function QuoteHero({
             "待揭露第一分鐘"
           ) : session?.replay && trade ? (
             <>
-              <time>{formatTime(trade.second)}</time> 成交 · 歷史重播
+              <time>{formatTime(trade.second)}</time> 模擬成交 · 歷史重播
             </>
           ) : (
             <>
@@ -68,7 +68,7 @@ export function QuoteHero({
           )}
         </p>
       </div>
-      <p className="td-hero-price" title={session?.replay ? "最新模擬成交價" : "最新完整分鐘收價"}>
+      <p className="td-hero-price" title={session?.replay ? "分鐘內模擬成交價，這分鐘結束時為真實收盤價" : "最新完整分鐘收價"}>
         <strong key={tick.key} data-flash={tick.flash}>
           {price(quote.last)}
         </strong>

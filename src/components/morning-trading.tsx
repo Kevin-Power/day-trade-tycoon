@@ -12,7 +12,7 @@ import {
 } from "@/lib/icons";
 import type { MorningCatalog, MorningState } from "@/lib/morning";
 import { ledgerSummary } from "@/lib/morning-ledger";
-import { lastTrade } from "@/lib/morning-live";
+import { lastTrade, serverSession } from "@/lib/morning-live";
 import { formatMoney, formatTime } from "@/lib/utils";
 import { estimateRoundTripCost, formatPrice, stepTick } from "@/lib/market/ticks";
 import { validMorningLimit } from "@/lib/morning-book";
@@ -109,7 +109,10 @@ export function PaperOrder({
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [lots, setLots] = useState(1);
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
-  const [limitDraft, setLimitDraft] = useState(() => String(session?.bars[code]?.at(-1)?.c ?? ""));
+  // Limit defaults and the reference amount use the revealed close, never a replayed in-minute price.
+  const [limitDraft, setLimitDraft] = useState(() =>
+    String((session ? serverSession(session) : null)?.bars[code]?.at(-1)?.c ?? ""),
+  );
   const [flash, setFlash] = useState(false);
   const flashRef = useRef(false);
   const [review, setReview] = useState<OrderReview | null>(null);
@@ -153,7 +156,8 @@ export function PaperOrder({
   }, [pendingId]);
   const symbol = catalog.symbols.find((item) => item.code === code);
   const last = session?.bars[code]?.at(-1);
-  const latestTrade = session ? lastTrade(session, code) : null;
+  const revealed = session ? serverSession(session).bars[code]?.at(-1) : undefined;
+  const latestTrade = session ? lastTrade(session, code, catalog) : null;
   const holdingLots = (position?.shares ?? 0) / 1000;
   const invalidSell = side === "sell" && lots > holdingLots;
   const ready = Boolean(session && session.cursor >= 1 && !session.completed && !atEnd);
@@ -170,8 +174,8 @@ export function PaperOrder({
       ? invalidLimit
         ? null
         : limitPrice * lots * 1000
-      : last
-        ? last.c * lots * 1000
+      : revealed
+        ? revealed.c * lots * 1000
         : null;
 
   function focusReview() {
@@ -256,6 +260,8 @@ export function PaperOrder({
             last={last?.c}
             previousClose={symbol?.previousClose ?? 0}
             trade={latestTrade ? { index: latestTrade.index, side: latestTrade.side } : undefined}
+            revision={session?.revision ?? 0}
+            simulated={Boolean(session && "replay" in session && session.replay)}
             lots={lots}
             holdingLots={holdingLots}
             flash={flash}
@@ -444,7 +450,7 @@ export function PaperOrder({
                       aria-pressed={orderType === "limit"}
                       onClick={() => {
                         setOrderType("limit");
-                        if (!limitDraft && last) setLimitDraft(formatPrice(last.c));
+                        if (!limitDraft && revealed) setLimitDraft(formatPrice(revealed.c));
                       }}
                     >
                       限價
@@ -595,7 +601,7 @@ export function PaperOrder({
             </p>
             <p>
               教材手續費買賣各 0.0855%（最低 20 元），賣出稅費
-              0.15%，逐筆四捨五入。五檔價量為教學生成，不代表真實排隊或成交量；不依分鐘高低價推算盤中成交。
+              0.15%，逐筆四捨五入。五檔價量與分鐘內的逐筆跳動都是教學模擬，不代表真實排隊、成交或成交量；撮合不依分鐘高低價或模擬逐筆推算盤中成交。
             </p>
           </details>
           <p className="sim-ticket-footnote">教學模擬・不連接券商、不送出真實委託</p>
@@ -795,7 +801,7 @@ function ledgerRecords(
               maximumFractionDigits: 2,
             }),
           },
-          { label: "已揭露收盤價", value: lastClose === undefined ? "—" : formatPrice(lastClose) },
+          { label: "最新價", value: lastClose === undefined ? "—" : formatPrice(lastClose) },
           {
             label: "參考損益（未含費稅）",
             value:

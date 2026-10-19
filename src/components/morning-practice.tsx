@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   BookOpen,
   CandlestickChart,
@@ -43,6 +43,7 @@ import type { Celebration } from "@/lib/discipline/score";
 import { useLedgerPreferences } from "@/lib/ledger-preferences";
 import { useTerminalLayout, type TerminalLayout } from "@/lib/use-terminal-layout";
 import { deriveMorningAlerts } from "@/lib/morning-alerts";
+import { settledSession, type LiveMorningState } from "@/lib/morning-live";
 import type {
   MorningAction,
   MorningCatalog,
@@ -593,7 +594,9 @@ function MorningLesson({
   const showPlan = !session || newPlan;
   const marketSession = newPlan ? null : session;
   // What the desk shows: a newly revealed minute plays trade by trade. Orders use the same run and revision.
-  const liveMarket = useTickReplay(marketSession ?? null, REPLAY_DELAY[speed] * 0.9);
+  const liveMarket = useTickReplay(marketSession ?? null, catalog, REPLAY_DELAY[speed] * 0.9);
+  // Alerts and minute tables wait for the replaying minute to finish, so nothing is announced ahead of it.
+  const settled = liveMarket ? settledSession(liveMarket) : null;
   const orderTicket = catalog ? (
     <PaperOrder
       key={`${marketSession?.id ?? "preview"}:${code}`}
@@ -620,7 +623,10 @@ function MorningLesson({
       onSelect={setSelected}
     />
   ) : null;
-  const alerts = catalog && marketSession ? deriveMorningAlerts(catalog, marketSession) : [];
+  const alerts = useMemo(
+    () => (catalog && settled ? deriveMorningAlerts(catalog, settled) : []),
+    [catalog, settled?.cursor, settled?.revision, settled?.id],
+  );
   const latestAlert = alerts.at(-1);
   const latestFill = [...alerts].reverse().find((alert) => alert.kind === "fill");
 
@@ -1052,7 +1058,7 @@ function MorningLesson({
                     <SavedPlan plan={session.plan} catalog={catalog} />
                   </details>
                 )}
-                <MorningDataDetails catalog={catalog} session={marketSession ?? null} code={code} />
+                <MorningDataDetails catalog={catalog} session={settled} code={code} />
                 <details className="td-section">
                   <summary>資料來源與本課使用說明</summary>
                   <ul className="list-disc space-y-2 px-6 pb-4 text-sm text-muted">
@@ -1199,7 +1205,7 @@ function MorningWatchlist({
           );
         })}
       </div>
-      {!compact && <p className="td-watch-foot">已揭露分鐘收價 · 虛線為昨收</p>}
+      {!compact && <p className="td-watch-foot">分鐘內跳動為模擬逐筆 · 虛線為昨收</p>}
     </section>
   );
 }
@@ -1300,7 +1306,7 @@ function MorningChart({
   candles,
 }: {
   catalog: MorningCatalog;
-  session: MorningState | null;
+  session: LiveMorningState | null;
   code: string;
   candles: boolean;
 }) {
@@ -1312,7 +1318,11 @@ function MorningChart({
   const view = candles
     ? candleWindow(session?.cursor ?? 0)
     : { startT: 0, endT: catalog.maxCursor * 60 };
-  const swingHighs = deriveSwingHighs(bars, now, 0, catalog.maxCursor * 60).confirmed;
+  // Swing highs and the spoken summary use completed minutes only, not the minute being replayed.
+  const settled = session ? settledSession(session) : null;
+  const settledBars = settled?.bars[code] ?? [];
+  const lastComplete = settledBars.at(-1);
+  const swingHighs = deriveSwingHighs(settledBars, (settled?.cursor ?? 0) * 60, 0, catalog.maxCursor * 60).confirmed;
   const fills = (session?.fills ?? [])
     .filter((fill) => fill.code === symbol.code)
     .map((fill) => ({ t: fill.t, p: fill.price, side: fill.side }));
@@ -1342,7 +1352,7 @@ function MorningChart({
             appendCurrentQuote={false}
             completedBarSeconds={60}
             interactive
-            ariaLabel={`${catalog.date} ${code} ${symbol.name}歷史${candles ? "一分鐘K線" : "分鐘收價連線"}，只包含目前已完成分鐘，${sourceBacked ? "含均價與成交量（張）" : "不顯示成交量或均價"}。最新完整分鐘 ${formatTime(last.t).slice(0, 5)} 開 ${formatPrice(last.o)} 高 ${formatPrice(last.h)} 低 ${formatPrice(last.l)} 收 ${formatPrice(last.c)}。`}
+            ariaLabel={`${catalog.date} ${code} ${symbol.name}歷史${candles ? "一分鐘K線" : "分鐘收價連線"}，只包含已揭露分鐘，最新一分鐘以模擬逐筆重播後收在真實收盤價，${sourceBacked ? "含均價與成交量（張）" : "不顯示成交量或均價"}。${lastComplete ? `最新完整分鐘 ${formatTime(lastComplete.t).slice(0, 5)} 開 ${formatPrice(lastComplete.o)} 高 ${formatPrice(lastComplete.h)} 低 ${formatPrice(lastComplete.l)} 收 ${formatPrice(lastComplete.c)}。` : "第一分鐘重播中。"}`}
           />
         ) : (
           <div className="td-chart-waiting">
@@ -1422,13 +1432,13 @@ function MorningDataDetails({
         )}
         <p>
           K
-          線直接使用來源開高低收，該分鐘完成後才揭露整根。分時只連接各分鐘收價，點位標在分鐘結束時間，不代表分鐘內逐筆路徑；缺漏區間保留斷線。點按圖表或用左右方向鍵查看資料。
+          線直接使用來源開高低收，該分鐘完成後才揭露。揭露後，交易台用約 2 秒的模擬逐筆重播這一分鐘：價格只在這分鐘真實的最高與最低之間跳動，最後收在真實收盤價；成交明細與分鐘內的跳動都是模擬，不是真實逐筆紀錄，撮合仍以下一分鐘開盤價為準。分時只連接各分鐘收價，點位標在分鐘結束時間；缺漏區間保留斷線。點按圖表或用左右方向鍵查看資料。
         </p>
         <p>
           來源：Yahoo Finance 歷史 1 分鐘 OHLC。這是真實歷史分鐘 K，尚非富邦即時或逐筆江波行情。
         </p>
         <p>
-          分鐘量尚未核對，不顯示量柱、均價或量能訊號；沒有真實五檔。資料缺漏不會以生成價格補齊。
+          分鐘量尚未核對，不顯示量柱、均價或量能訊號，成交明細也不顯示張數；沒有真實五檔或逐筆。資料缺漏不會以生成價格補齊。
         </p>
       </div>
     </details>

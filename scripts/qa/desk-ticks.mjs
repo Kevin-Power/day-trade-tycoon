@@ -1,8 +1,9 @@
 // Trade-by-trade replay on a disposable desk-server runtime (after desk-seed). Plays the desk and samples it
 // every 100 ms: the price moves several times inside each minute, stays inside that minute's real high and
 // low and rests on its real close; the hero's best bid/ask always match the ladder; the clock runs through
-// the seconds; the tape's newest trade is the price on screen; the main thread has no long stalls; and with
-// 即送 armed the ladder holds still under the pointer.
+// the seconds; the tape's newest trade is the price on screen; replayed prices are labelled 模擬; unverified
+// volume shows no lot sizes; the main thread has no long stalls; and with 即送 armed the ladder holds still
+// under the pointer (refreshing at most once, at a new minute).
 // Usage: node scripts/qa/desk-ticks.mjs <baseUrl> <label>
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -37,6 +38,8 @@ const sample = () => {
     clock: text(".td-clock strong"),
     tapeTop: text(".td-tape-rows li:first-child span"),
     tapeRows: document.querySelectorAll(".td-tape-rows li").length,
+    tapeLots: document.querySelectorAll(".td-tape-lots").length,
+    stamp: text(".td-hero-stamp"),
     flashing: document.querySelectorAll('[data-flash="up"], [data-flash="down"]').length,
   };
 };
@@ -111,6 +114,11 @@ for (const viewport of [
       if (s.tapeTop && s.tapeTop !== s.price) fail(`${viewport.name}: newest trade ${s.tapeTop} but price ${s.price}`);
     }
     if (!samples.some((s) => s.flashing)) fail(`${viewport.name}: no price flash seen while playing`);
+    // While a minute replays the hero says the price is simulated; at rest it is the minute's real close.
+    if (!samples.some((s) => s.stamp.includes("模擬成交"))) fail(`${viewport.name}: replayed prices are not labelled 模擬`);
+    if (!rest.stamp.includes("收價")) fail(`${viewport.name}: at rest the hero stamp reads "${rest.stamp}"`);
+    // The lesson's volume is unverified: the tape shows ticks, not lot sizes.
+    if (samples.some((s) => s.tapeLots)) fail(`${viewport.name}: the tape shows lot sizes from unverified volume`);
     if (!rest.tapeRows) fail(`${viewport.name}: the trade tape is empty`);
     const stalled = longTasks.filter((ms) => ms >= 100);
     const busy = Math.round(longTasks.reduce((sum, ms) => sum + ms, 0));
@@ -124,13 +132,19 @@ for (const viewport of [
       await page.getByRole("button", { name: "自動重播", exact: true }).click();
       await page.locator(".td-ladder-mid").hover();
       const held = [];
-      for (let i = 0; i < 12; i++) {
+      const hero = [];
+      for (let i = 0; i < 15; i++) {
         held.push(await page.evaluate(() => [...document.querySelectorAll(".td-level-price")].map((el) => el.textContent).join(",")));
+        hero.push(await page.evaluate(() => document.querySelector(".td-hero-price strong")?.textContent));
         await page.waitForTimeout(100);
       }
-      const heroMoves = await page.evaluate(() => document.querySelector(".td-book")?.dataset.held);
-      if (new Set(held).size !== 1) fail(`${viewport.name}: the ladder moved under the pointer with 即送 armed`);
-      if (heroMoves !== "true") fail(`${viewport.name}: the book is not marked as held`);
+      const marked = await page.evaluate(() => document.querySelector(".td-book")?.dataset.held);
+      // 1.5 s spans at most one new minute, which refreshes the held ladder once.
+      const changes = held.filter((value, i) => i > 0 && value !== held[i - 1]).length;
+      if (changes > 1) fail(`${viewport.name}: the ladder moved ${changes} times under the pointer with 即送 armed`);
+      if (marked !== "true") fail(`${viewport.name}: the book is not marked as held`);
+      rows.at(-1).heldChanges = changes;
+      rows.at(-1).heroChangesWhileHeld = hero.filter((value, i) => i > 0 && value !== hero[i - 1]).length;
       await page.mouse.move(5, 5);
       await page.getByRole("button", { name: "暫停重播", exact: true }).click();
       await page.getByRole("switch", { name: "閃電即送" }).click();
