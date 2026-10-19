@@ -54,6 +54,12 @@ function move(price: number, ticks: number): number {
   return p;
 }
 
+/** How many trades a minute shows: more with more volume, between 10 and 22 when it traded at all. */
+function busyTrades(bar: Bar): number {
+  const lots = Math.round(bar.v / 1000);
+  return lots <= 0 ? 2 : Math.min(22, Math.max(10, 6 + Math.round(Math.sqrt(lots) / 3)));
+}
+
 function pricePath(bar: Bar, rand: () => number): number[] {
   const legs = bar.c >= bar.o ? [bar.l, bar.h, bar.c] : [bar.h, bar.l, bar.c];
   const path = [bar.o];
@@ -78,6 +84,20 @@ function pricePath(bar: Bar, rand: () => number): number[] {
     }
   }
   while (path.length < 2) path.push(bar.o);
+  // A busy minute trades often even when its range is one or two ticks: fill in trades at the same price or
+  // bouncing one tick between bid and ask, never past the minute's real high or low.
+  const inside = (price: number) => price >= bar.l && price <= bar.h;
+  for (const busy = busyTrades(bar); path.length < busy; ) {
+    const at = 1 + Math.floor(rand() * (path.length - 1));
+    const before = path[at - 1];
+    let price = before;
+    if (rand() < 0.6) {
+      // At the edge of the range the bounce goes the only way it can.
+      const dir = rand() < 0.5 ? 1 : -1;
+      price = inside(move(before, dir)) ? move(before, dir) : inside(move(before, -dir)) ? move(before, -dir) : before;
+    }
+    path.splice(at, 0, price);
+  }
   // Drop same-price repeats first if a very wide minute still has too many trades.
   for (let i = path.length - 2; path.length > MAX_TRADES && i > 0; i--) if (path[i] === path[i - 1]) path.splice(i, 1);
   return path;

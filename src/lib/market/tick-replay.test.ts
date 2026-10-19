@@ -43,6 +43,17 @@ describe("minuteTicks", () => {
     });
   }
 
+  it("trades busily even in a narrow minute: more volume, more trades, bouncing between neighbouring prices", () => {
+    // 台積電 moved only 2575–2590 (three 5-point ticks) but traded 2,100 lots in this minute.
+    const narrow = minuteTicks(CASES[2][1], tickSeed("lesson", "2330", 5));
+    assert.ok(narrow.length >= 14, `${narrow.length} trades`);
+    const moves = narrow.filter((t, i) => i > 0 && t.price !== narrow[i - 1].price).length;
+    assert.ok(moves >= 6, `${moves} price changes`);
+    const quiet = minuteTicks(bar(258, 258.5, 258, 258, 120_000), tickSeed("lesson", "2317", 5));
+    assert.ok(quiet.length >= 10 && quiet.length < narrow.length, `${quiet.length} trades in a quiet minute`);
+    assert.ok(minuteTicks(CASES[0][1], tickSeed("lesson", "2317", 5)).length <= 30, "a busy minute stays readable");
+  });
+
   it("keeps a minute readable: no more than 60 trades, at least 2 even when the price never moves", () => {
     assert.ok(minuteTicks(CASES[6][1], tickSeed("lesson", "2317", 4)).length <= 60);
     const flat = minuteTicks(CASES[5][1], tickSeed("lesson", "2317", 4));
