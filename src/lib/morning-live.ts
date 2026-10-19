@@ -67,15 +67,19 @@ export function liveSession(session: MorningState, fraction: number, catalog: Re
   return { ...session, bars, equity: session.equity + revaluation, replay: { fraction, source: session } };
 }
 
+/** The session one minute earlier: without its newest minute. */
+export function withoutNewestMinute(session: MorningState): MorningState {
+  return {
+    ...session,
+    cursor: session.cursor - 1,
+    bars: Object.fromEntries(Object.entries(session.bars).map(([code, list]) => [code, list.slice(0, -1)])),
+  };
+}
+
 /** While a minute replays: the server's session without that minute, for alerts, swing highs and minute tables. */
 export function settledSession(session: LiveMorningState): MorningState {
   const source = session.replay?.source;
-  if (!source) return session;
-  return {
-    ...source,
-    cursor: source.cursor - 1,
-    bars: Object.fromEntries(Object.entries(source.bars).map(([code, list]) => [code, list.slice(0, -1)])),
-  };
+  return source ? withoutNewestMinute(source) : session;
 }
 
 /** The newest trade of a stock: the one the replay has reached, or the minute's last one at rest. */

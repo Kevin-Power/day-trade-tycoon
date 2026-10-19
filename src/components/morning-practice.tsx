@@ -12,6 +12,7 @@ import {
 import { TapeChart } from "@/components/charts";
 import { DeskBar, HintBar, StatusBar } from "@/components/morning-desk-bar";
 import { REPLAY_DELAY, type ReplaySpeed } from "@/lib/replay-speed";
+import { ReplayNotice } from "@/components/replay-notice";
 import { TickPrice } from "@/components/tick-price";
 import { TradeTape } from "@/components/trade-tape";
 import { useTickReplay } from "@/components/use-tick-replay";
@@ -43,7 +44,7 @@ import type { Celebration } from "@/lib/discipline/score";
 import { useLedgerPreferences } from "@/lib/ledger-preferences";
 import { useTerminalLayout, type TerminalLayout } from "@/lib/use-terminal-layout";
 import { deriveMorningAlerts } from "@/lib/morning-alerts";
-import { settledSession, type LiveMorningState } from "@/lib/morning-live";
+import { settledSession, withoutNewestMinute, type LiveMorningState } from "@/lib/morning-live";
 import type {
   MorningAction,
   MorningCatalog,
@@ -596,7 +597,13 @@ function MorningLesson({
   // What the desk shows: a newly revealed minute plays trade by trade. Orders use the same run and revision.
   const liveMarket = useTickReplay(marketSession ?? null, catalog, REPLAY_DELAY[speed] * 0.9);
   // Alerts and minute tables wait for the replaying minute to finish, so nothing is announced ahead of it.
-  const settled = liveMarket ? settledSession(liveMarket) : null;
+  const replaying = Boolean(liveMarket?.replay);
+  const settled = useMemo(
+    () => (marketSession && replaying ? withoutNewestMinute(marketSession) : (marketSession ?? null)),
+    [marketSession, replaying],
+  );
+  // The lesson's approved notice about the simulated replay greets learners at the top of the desk.
+  const replayNotice = catalog?.notices.find((text) => text.includes("模擬逐筆"));
   const orderTicket = catalog ? (
     <PaperOrder
       key={`${marketSession?.id ?? "preview"}:${code}`}
@@ -625,7 +632,7 @@ function MorningLesson({
   ) : null;
   const alerts = useMemo(
     () => (catalog && settled ? deriveMorningAlerts(catalog, settled) : []),
-    [catalog, settled?.cursor, settled?.revision, settled?.id],
+    [catalog, settled],
   );
   const latestAlert = alerts.at(-1);
   const latestFill = [...alerts].reverse().find((alert) => alert.kind === "fill");
@@ -805,6 +812,7 @@ function MorningLesson({
                   </aside>
                 )}
                 <div className="td-center">
+                  {replayNotice && <ReplayNotice key={replayNotice} text={replayNotice} />}
                   {singlePane && activePane !== "market" && (
                     <h1 className="sr-only" ref={practiceHeading} tabIndex={-1}>
                       真實歷史行情・模擬交易工作台

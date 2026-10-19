@@ -404,6 +404,44 @@
 .trading-desk .td-feedback {
   color: #9ce6ce;
 }
+/* The lesson's notice about the simulated replay, at the top of the centre column until dismissed; the order
+   column beside it keeps its full height. */
+.trading-desk .td-notice {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 14px;
+  background: rgb(230 184 110 / 0.08);
+  border-bottom: var(--td-hairline) solid rgb(230 184 110 / 0.35);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.trading-desk .td-notice p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--td-fg);
+}
+.trading-desk .td-notice :is(.td-chip, .td-button) {
+  flex: none;
+}
+.trading-desk .td-notice .td-button {
+  min-height: 44px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-notice {
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-notice p {
+  flex-basis: 100%;
+}
+.trading-desk[data-layout="senior"] .td-notice {
+  font-size: 16px;
+}
+.trading-desk[data-layout="senior"] .td-notice .td-button {
+  min-height: 56px;
+}
 .trading-desk .td-banner {
   display: flex;
   flex-basis: 100%;
