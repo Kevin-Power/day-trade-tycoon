@@ -12,12 +12,17 @@ export function validMorningLimit(price: number, previousClose: number): boolean
   );
 }
 
-/** Illustrative depth only: no source volume, future bars, network feed or fill authority. */
+/**
+ * Illustrative depth only: no source volume, future bars, network feed or fill authority. With the latest
+ * replayed trade, the last price sits on the side that trade took (an uptick lifted the ask, a downtick hit
+ * the bid) and the quantities shift from trade to trade; without it, 買1 is the last price.
+ */
 export function createMorningBook(
   code: string,
   cursor: number,
   last: number,
   previousClose: number,
+  trade?: { index: number; side: "ask" | "bid" },
 ): {
   bids: MorningBookLevel[];
   asks: MorningBookLevel[];
@@ -25,11 +30,13 @@ export function createMorningBook(
   if (cursor < 1 || !Number.isFinite(last) || last <= 0) return { bids: [], asks: [] };
   const center = roundToTick(last);
   const seed = [...code].reduce((sum, character) => sum * 31 + character.charCodeAt(0), 0) >>> 0;
+  const lifted = trade?.side === "ask";
+  const shift = trade ? trade.index * 13 : 0;
   const levels = (ask: boolean) =>
     Array.from({ length: 5 }, (_, index) => ({
       level: index + 1,
-      price: stepTick(center, ask ? index + 1 : -index),
-      lots: 3 + ((seed + cursor * 17 + index * 29 + (ask ? 41 : 0)) % 78),
+      price: stepTick(center, ask ? (lifted ? index : index + 1) : lifted ? -(index + 1) : -index),
+      lots: 3 + ((seed + cursor * 17 + index * 29 + (ask ? 41 : 0) + shift) % 78),
     })).filter((level) => validMorningLimit(level.price, previousClose));
   return { bids: levels(false), asks: levels(true) };
 }
