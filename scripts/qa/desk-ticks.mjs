@@ -130,21 +130,38 @@ for (const viewport of [
       // 即送 armed: the ladder holds still while the pointer is on it, then moves again.
       await page.getByRole("switch", { name: "閃電即送" }).click();
       await page.getByRole("button", { name: "自動重播", exact: true }).click();
+      // Auto-play advances after its first interval; hover once a minute is replaying.
+      await page.locator(".td-hero-stamp", { hasText: "模擬成交" }).waitFor({ timeout: 8000 });
       await page.locator(".td-ladder-mid").hover();
+      // Prices and quantities: in a bid/ask bounce the quotes stay put while the quantities still shift.
+      const ladder = () => page.evaluate(() => [...document.querySelectorAll(".td-level")].map((el) => el.textContent).join("|"));
+      const heroPrice = () => page.evaluate(() => document.querySelector(".td-hero-price strong")?.textContent);
       const held = [];
       const hero = [];
-      for (let i = 0; i < 15; i++) {
-        held.push(await page.evaluate(() => [...document.querySelectorAll(".td-level-price")].map((el) => el.textContent).join(",")));
-        hero.push(await page.evaluate(() => document.querySelector(".td-hero-price strong")?.textContent));
+      for (let i = 0; i < 25; i++) {
+        held.push(await ladder());
+        hero.push(await heroPrice());
         await page.waitForTimeout(100);
       }
       const marked = await page.evaluate(() => document.querySelector(".td-book")?.dataset.held);
-      // 1.5 s spans at most one new minute, which refreshes the held ladder once.
+      // 2.5 s spans at most two new minutes, each refreshing the held ladder once, while trades keep coming.
       const changes = held.filter((value, i) => i > 0 && value !== held[i - 1]).length;
-      if (changes > 1) fail(`${viewport.name}: the ladder moved ${changes} times under the pointer with 即送 armed`);
+      const heroChanges = hero.filter((value, i) => i > 0 && value !== hero[i - 1]).length;
+      if (changes > 2) fail(`${viewport.name}: the ladder moved ${changes} times under the pointer with 即送 armed`);
+      if (heroChanges < 3) fail(`${viewport.name}: only ${heroChanges} trades while held, so the hold was not tested`);
       if (marked !== "true") fail(`${viewport.name}: the book is not marked as held`);
+      // Off the book it moves with the trades again.
+      await page.mouse.move(5, 5);
+      const free = [];
+      for (let i = 0; i < 15; i++) {
+        free.push(await ladder());
+        await page.waitForTimeout(100);
+      }
+      const freeChanges = free.filter((value, i) => i > 0 && value !== free[i - 1]).length;
+      if (freeChanges < 3) fail(`${viewport.name}: the ladder moved only ${freeChanges} times after the pointer left`);
       rows.at(-1).heldChanges = changes;
-      rows.at(-1).heroChangesWhileHeld = hero.filter((value, i) => i > 0 && value !== hero[i - 1]).length;
+      rows.at(-1).heroChangesWhileHeld = heroChanges;
+      rows.at(-1).ladderChangesFree = freeChanges;
       await page.mouse.move(5, 5);
       await page.getByRole("button", { name: "暫停重播", exact: true }).click();
       await page.getByRole("switch", { name: "閃電即送" }).click();
