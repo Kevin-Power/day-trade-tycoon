@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   BookOpen,
-  CandlestickChart,
   Check,
   ChartCandlestick,
   ListOrdered,
@@ -13,7 +12,6 @@ import { TapeChart } from "@/components/charts";
 import { DeskBar, HintBar, StatusBar } from "@/components/morning-desk-bar";
 import { REPLAY_DELAY, type ReplaySpeed } from "@/lib/replay-speed";
 import { ReplayNotice } from "@/components/replay-notice";
-import { TickPrice } from "@/components/tick-price";
 import { TradeTape } from "@/components/trade-tape";
 import { useTickReplay } from "@/components/use-tick-replay";
 import {
@@ -22,7 +20,8 @@ import {
   Ledger,
   type MorningOrderOptions,
 } from "@/components/morning-trading";
-import { MorningSparkline } from "@/components/morning-quotes";
+import { IndexPanel } from "@/components/index-panel";
+import { WatchTable } from "@/components/watch-table";
 import { ChartToolbar, QuoteHero, QuoteLine } from "@/components/quote-hero";
 import { useGuestBootstrap } from "@/components/use-guest-bootstrap";
 import { AccessCard } from "@/components/access-card";
@@ -41,10 +40,14 @@ import { useDisplayPreferences } from "@/lib/display-preferences";
 import { unlockChime } from "@/lib/celebration-sound";
 import { DisciplineCelebration } from "@/components/discipline-celebration";
 import type { Celebration } from "@/lib/discipline/score";
-import { useLedgerPreferences } from "@/lib/ledger-preferences";
 import { useTerminalLayout, type TerminalLayout } from "@/lib/use-terminal-layout";
 import { deriveMorningAlerts } from "@/lib/morning-alerts";
-import { settledSession, withoutNewestMinute, type LiveMorningState } from "@/lib/morning-live";
+import {
+  replayClock,
+  settledSession,
+  withoutNewestMinute,
+  type LiveMorningState,
+} from "@/lib/morning-live";
 import type {
   MorningAction,
   MorningCatalog,
@@ -55,7 +58,6 @@ import type {
 import { cn, formatTime } from "@/lib/utils";
 import { formatPrice } from "@/lib/market/ticks";
 import { candleWindow, showVolumeAndAverage } from "@/lib/market/chart-data";
-import { quoteSummary } from "@/lib/morning-quote";
 import { deriveSwingHighs } from "@/lib/market/swing-highs";
 import {
   MORNING_EXERCISES,
@@ -350,12 +352,8 @@ function MorningLesson({
     ? selected
     : (session?.plan.focusCode ?? catalog?.symbols[0]?.code ?? "");
   const singlePane = layout === "phone" || layout === "senior";
-  const ledgerOpen = useLedgerPreferences((value) => value.open);
-  const setLedgerOpen = useLedgerPreferences((value) => value.setOpen);
-
-  useEffect(() => {
-    useLedgerPreferences.getState().hydrate();
-  }, []);
+  // Clicking the TAIEX row on a desktop points at the index pane (it is always shown there).
+  const [indexPing, setIndexPing] = useState(0);
 
   useEffect(() => {
     setAuto(false);
@@ -678,6 +676,20 @@ function MorningLesson({
       hints={
         data && catalog ? (
           <HintBar
+            plan={
+              marketSession && !showPlan
+                ? {
+                    code: marketSession.plan.focusCode,
+                    label:
+                      marketSession.plan.bias === "bullish"
+                        ? "偏多觀察"
+                        : marketSession.plan.bias === "bearish"
+                          ? "偏空觀察"
+                          : "等待條件",
+                    onOpen: () => setResourcesOpen(true),
+                  }
+                : undefined
+            }
             tip={exercise?.principle}
             alert={latestAlert}
             announcement={latestFill?.text}
@@ -784,34 +796,28 @@ function MorningLesson({
                 aria-label={showPlan ? "當沖大富翁交易盤預覽" : "真實 K 線模擬交易盤"}
               >
                 {!singlePane && (
-                  <aside className="td-watch">
-                    <MorningWatchlist
+                  <div className="td-watch" data-pane="watch">
+                    <WatchTable
                       catalog={catalog}
                       session={liveMarket}
                       code={code}
                       compact={layout === "tablet"}
                       onSelect={setSelected}
+                      onIndex={() => setIndexPing((value) => value + 1)}
                     />
-                    {layout === "desktop" && marketSession && (
-                      <div className="td-plan-note">
-                        <span className="terminal-eyebrow">TRADING PLAN</span>
-                        <h3>
-                          <BookOpen aria-hidden /> 本輪作戰計畫
-                        </h3>
-                        <span className="terminal-plan-code">
-                          {marketSession.plan.focusCode} ·{" "}
-                          {marketSession.plan.bias === "bullish"
-                            ? "偏多觀察"
-                            : marketSession.plan.bias === "bearish"
-                              ? "偏空觀察"
-                              : "等待條件"}
-                        </span>
-                        <p>{marketSession.plan.entry}</p>
-                      </div>
-                    )}
-                  </aside>
+                  </div>
                 )}
-                <div className="td-center">
+                {layout === "desktop" && (
+                  <div className="td-index" data-pane="index">
+                    {indexPing > 0 && <span key={indexPing} className="td-index-ping" aria-hidden />}
+                    <IndexPanel
+                      series={liveMarket?.index}
+                      clock={liveMarket ? formatTime(replayClock(liveMarket)) : "09:00:00"}
+                      placeholder={marketSession ? "本教材沒有大盤資料" : "開始練習後顯示大盤"}
+                    />
+                  </div>
+                )}
+                <div className="td-center" data-pane="center">
                   {singlePane && replayNotice && <ReplayNotice key={replayNotice} text={replayNotice} />}
                   {singlePane && activePane !== "market" && (
                     <h1 className="sr-only" ref={practiceHeading} tabIndex={-1}>
@@ -845,14 +851,16 @@ function MorningLesson({
                       </div>
                     )}
                     {singlePane && activePane === "watch" && (
-                      <MorningWatchlist
+                      <WatchTable
                         catalog={catalog}
                         session={liveMarket}
                         code={code}
+                        compact
                         onSelect={(next) => {
                           setSelected(next);
                           setActivePane("market");
                         }}
+                        onIndex={() => setActivePane("market")}
                       />
                     )}
                     {singlePane && activePane === "trade" && (
@@ -914,13 +922,12 @@ function MorningLesson({
                   </div>
                 )}
                 {!singlePane && session && !newPlan && (
-                  <div className="td-ledger" data-open={ledgerOpen} data-coach="ledger">
+                  <div className="td-ledger" data-pane="ledger" data-coach="ledger">
                     <Ledger
                       catalog={catalog}
                       session={liveMarket ?? session}
                       busy={Boolean(busy)}
                       onCancel={cancel}
-                      collapsible={{ open: ledgerOpen, onOpenChange: setLedgerOpen }}
                     />
                   </div>
                 )}
@@ -1149,75 +1156,6 @@ function MobileDock({
         </button>
       ))}
     </nav>
-  );
-}
-
-function MorningWatchlist({
-  catalog,
-  session,
-  code,
-  onSelect,
-  compact = false,
-}: {
-  catalog: MorningCatalog;
-  session: MorningState | null;
-  code: string;
-  onSelect: (code: string) => void;
-  compact?: boolean;
-}) {
-  return (
-    <section className="td-watchlist" data-compact={compact} aria-label="自選行情">
-      <div className="td-titlebar td-watch-head">
-        <span>
-          <CandlestickChart aria-hidden /> 自選報價
-        </span>
-        <span className="td-num">{catalog.symbols.length}</span>
-      </div>
-      <div className="td-watch-list" role="group" aria-label="選擇重播商品">
-        {catalog.symbols.map((symbol) => {
-          const quote = quoteSummary(session?.bars[symbol.code] ?? [], symbol.previousClose);
-          return (
-            <button
-              type="button"
-              key={symbol.code}
-              className="td-watch-item"
-              data-tone={quote.tone}
-              aria-pressed={code === symbol.code}
-              onClick={() => onSelect(symbol.code)}
-            >
-              <span className="td-watch-name">
-                <span>{symbol.name}</span>
-                <small>{symbol.code}</small>
-              </span>
-              <TickPrice className="td-watch-price" value={quote.last} identity={symbol.code}>
-                {quote.last === null ? "—" : formatPrice(quote.last)}
-              </TickPrice>
-              <span className="td-watch-change">
-                {quote.last === null ? (
-                  "尚未揭露"
-                ) : (
-                  <>
-                    <span>
-                      {quote.tone === "up" ? "▲" : quote.tone === "down" ? "▼" : ""}
-                      {quote.changeText}
-                    </span>
-                    <span>{quote.percentText}</span>
-                  </>
-                )}
-              </span>
-              {!compact && (
-                <MorningSparkline
-                  bars={session?.bars[symbol.code] ?? []}
-                  previous={symbol.previousClose}
-                  endT={catalog.maxCursor * 60}
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
-      {!compact && <p className="td-watch-foot">分鐘內跳動為模擬逐筆 · 虛線為昨收</p>}
-    </section>
   );
 }
 

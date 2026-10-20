@@ -180,12 +180,15 @@ export function StatusBar({
 }
 
 export function HintBar({
+  plan,
   tip,
   alert,
   feedback,
   announcement,
   children,
 }: {
+  /** The round's plan in one chip (stock and stance); opens the full plan in 教材. */
+  plan?: { code: string; label: string; onOpen: () => void };
   tip?: string;
   alert?: MorningAlert;
   feedback?: string;
@@ -195,6 +198,12 @@ export function HintBar({
 }) {
   return (
     <section className="td-hints" aria-label="教學提示與快訊">
+      {plan && (
+        <button type="button" className="td-plan-chip" onClick={plan.onOpen}>
+          <span>本輪計畫</span>
+          {plan.code} {plan.label}
+        </button>
+      )}
       {tip && (
         <p className="td-tip">
           <span>教學</span>

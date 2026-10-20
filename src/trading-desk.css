@@ -542,7 +542,8 @@
   font: 500 15px/1 var(--font-mono);
 }
 
-/* Workbench grid */
+/* Workbench grid: the 2026-10-20 meeting's four panes on desktops —
+   左上 自選報價 · 右上 大盤 · 左下 個股（圖、報價明細、五檔）· 右下 下單與委託成交紀錄. */
 .trading-desk .td-workbench {
   position: relative;
   min-width: 0;
@@ -550,32 +551,60 @@
 .trading-desk[data-layout="desktop"] .td-workbench {
   display: grid;
   height: 100%;
-  grid-template-columns: 256px minmax(0, 1fr) 340px;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 300px clamp(380px, 30vw, 500px);
+  grid-template-rows: clamp(188px, 25vh, 272px) auto minmax(0, 1fr);
   grid-template-areas:
-    "watch center trade"
-    "watch ledger trade";
+    "watch watch index"
+    "center book ticket"
+    "center book ledger";
 }
 .trading-desk[data-layout="tablet"] .td-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 38%);
-  grid-template-rows: auto minmax(460px, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 40%);
+  grid-template-rows: auto minmax(440px, auto) auto auto;
   grid-template-areas:
     "watch watch"
-    "center trade"
-    "ledger trade";
+    "center book"
+    "center ticket"
+    "ledger ledger";
 }
 .trading-desk .td-watch {
   grid-area: watch;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
+  overflow: auto;
   background: var(--td-panel);
-  border-right: 1px solid var(--td-line);
-}
-.trading-desk[data-layout="tablet"] .td-watch {
-  border-right: 0;
   border-bottom: 1px solid var(--td-line);
+}
+.trading-desk .td-index {
+  grid-area: index;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--td-panel);
+  border-bottom: 1px solid var(--td-line);
+  border-left: 1px solid var(--td-line);
+}
+.trading-desk .td-index-ping {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border: 2px solid var(--td-accent);
+  animation: td-index-ping 900ms ease-out forwards;
+}
+@keyframes td-index-ping {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 .trading-desk .td-center {
   grid-area: center;
@@ -591,12 +620,18 @@
   flex-direction: column;
   min-height: 0;
 }
+/* The order station spans the book and ticket areas until its parts take their own areas. */
 .trading-desk .td-trade {
-  grid-area: trade;
+  grid-row: 2 / 4;
+  grid-column: 2 / 3;
   min-height: 0;
   overflow: auto;
   background: var(--td-panel);
   border-left: 1px solid var(--td-line);
+}
+.trading-desk[data-layout="tablet"] .td-trade {
+  grid-row: 2 / 4;
+  grid-column: 2 / 3;
 }
 .trading-desk .td-ledger {
   grid-area: ledger;
@@ -604,17 +639,13 @@
   overflow: auto;
   background: var(--td-panel);
   border-top: 1px solid var(--td-line);
+  border-left: 1px solid var(--td-line);
 }
-.trading-desk .td-ledger[data-open="true"] {
-  height: 190px;
-}
-.trading-desk .td-ledger[data-open="false"] {
-  overflow: hidden;
+.trading-desk[data-layout="tablet"] .td-ledger {
+  max-height: 320px;
+  border-left: 0;
 }
 .trading-desk .td-workbench:not(:has(.td-ledger)) .td-center {
-  grid-row: 1 / 3;
-}
-.trading-desk[data-layout="tablet"] .td-workbench:not(:has(.td-ledger)) .td-center {
   grid-row: 2 / 4;
 }
 .trading-desk .td-plan {
@@ -624,10 +655,10 @@
   background: rgb(5 8 13 / 0.97);
 }
 .trading-desk[data-layout="desktop"] .td-plan {
-  grid-area: 1 / 2 / 3 / 4;
+  grid-area: 2 / 1 / 4 / 4;
 }
 .trading-desk[data-layout="tablet"] .td-plan {
-  grid-area: 2 / 1 / 4 / 3;
+  grid-area: 2 / 1 / 5 / 3;
 }
 .trading-desk .td-plan-close {
   margin-bottom: 12px;
@@ -645,8 +676,8 @@
 }
 .trading-desk .td-hero {
   display: grid;
-  grid-template-columns: minmax(0, auto) auto minmax(0, 1fr) auto;
-  grid-template-areas: "id price stats book";
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+  grid-template-areas: "id price book";
   align-items: center;
   gap: 4px 18px;
   padding: 5px 14px;
@@ -777,9 +808,6 @@
     grid-template-areas:
       "id book"
       "price book";
-  }
-  .trading-desk .td-hero-stats {
-    display: none;
   }
 }
 .trading-desk .td-chartbar {
@@ -1348,164 +1376,13 @@
 }
 
 /* Watchlist */
-.trading-desk .td-watchlist {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-}
 .trading-desk .td-watch-head span:first-child {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
-.trading-desk .td-watch-head .td-num {
-  padding: 0 6px;
-  background: rgb(0 0 0 / 0.3);
-  border-radius: 2px;
-  font-size: 11px;
-}
-.trading-desk .td-watch-list {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-.trading-desk .td-watch-item {
-  display: grid;
-  grid-template-areas:
-    "name price"
-    "name change"
-    "spark spark";
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: 8px;
-  width: 100%;
-  padding: 8px 10px 8px 9px;
-  color: var(--td-fg);
-  text-align: left;
-  background: transparent;
-  border: 0;
-  border-bottom: var(--td-hairline) solid var(--td-line);
-  border-left: 3px solid transparent;
-}
-.trading-desk .td-watch-item:hover {
-  background: var(--td-raised);
-}
-.trading-desk .td-watch-item[aria-pressed="true"] {
-  background: linear-gradient(90deg, rgb(75 165 241 / 0.16), rgb(75 165 241 / 0.05) 85%);
-  border-left-color: var(--td-accent);
-}
-.trading-desk .td-watch-name {
-  grid-area: name;
-  display: flex;
-  flex-direction: column;
-  align-self: start;
-  gap: 2px;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 600;
-}
-.trading-desk .td-watch-name small {
-  color: var(--td-muted);
-  font: 500 11px/1.6 var(--font-mono);
-}
-.trading-desk .td-watch-price {
-  grid-area: price;
-  justify-self: end;
-  color: var(--td-tone);
-  font: 600 24px/1.1 var(--font-mono);
-}
-.trading-desk .td-watch-change {
-  grid-area: change;
-  justify-self: end;
-  display: flex;
-  gap: 10px;
-  color: var(--td-tone);
-  font: 500 12px/1.3 var(--font-mono);
-  white-space: nowrap;
-}
-.trading-desk .td-spark {
-  grid-area: spark;
-  display: block;
-  width: 100%;
-  height: 56px;
-  margin-top: 6px;
-}
-.trading-desk .td-spark-empty {
-  display: grid;
-  place-items: center;
-  color: var(--td-muted);
-  font-size: 11px;
-}
-.trading-desk .td-watch-foot {
-  margin: 0;
-  padding: 8px 12px;
-  color: var(--td-muted);
-  font-size: 11px;
-  border-top: var(--td-hairline) solid var(--td-line);
-}
-.trading-desk .td-plan-note {
-  padding: 10px 12px;
-  color: var(--td-muted);
-  font-size: 12px;
-  border-top: 1px solid var(--td-line);
-}
-.trading-desk .td-plan-note .terminal-eyebrow {
-  display: block;
-  color: var(--td-prev);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-}
-.trading-desk .td-plan-note h3 {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 4px 0;
-  color: var(--td-fg);
-  font-size: 13px;
-}
-.trading-desk .td-plan-note .terminal-plan-code {
-  color: var(--td-accent);
-  font-family: var(--font-mono);
-}
-.trading-desk .td-plan-note p {
-  display: -webkit-box;
-  margin: 4px 0 0;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-}
 
 /* Tablet: watchlist becomes a horizontal quote strip */
-.trading-desk .td-watchlist[data-compact="true"] .td-watch-list {
-  display: flex;
-  overflow-x: auto;
-}
-.trading-desk .td-watchlist[data-compact="true"] .td-watch-item {
-  flex: 0 0 132px;
-  grid-template-areas:
-    "name"
-    "price"
-    "change";
-  grid-template-columns: minmax(0, 1fr);
-  border-bottom: 0;
-  border-left: 0;
-  border-right: var(--td-hairline) solid var(--td-line);
-  border-top: 2px solid transparent;
-}
-.trading-desk .td-watchlist[data-compact="true"] .td-watch-name {
-  flex-direction: row;
-  justify-content: space-between;
-}
-.trading-desk .td-watchlist[data-compact="true"] :is(.td-watch-price, .td-watch-change) {
-  justify-self: start;
-}
-.trading-desk .td-watchlist[data-compact="true"] .td-watch-item[aria-pressed="true"] {
-  border-top-color: var(--td-accent);
-}
-.trading-desk .td-watchlist[data-compact="true"] .td-watch-price {
-  font-size: 20px;
-}
 
 /* Order book ladder */
 .trading-desk .td-book {
@@ -2402,31 +2279,6 @@
   grid-template-columns: 44px minmax(0, 1fr) 44px;
   min-height: 44px;
 }
-/* Phone watchlist: one compact row per stock — name, sparkline, price and change. */
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-item {
-  grid-template-areas:
-    "name spark price"
-    "name spark change";
-  grid-template-columns: minmax(0, 1fr) minmax(72px, 30%) auto;
-  column-gap: 14px;
-  min-height: 68px;
-  padding: 10px 14px 10px 13px;
-}
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-name {
-  align-self: center;
-  font-size: 16px;
-}
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-name small {
-  font-size: 12px;
-}
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-item .td-spark {
-  align-self: center;
-  height: 40px;
-  margin-top: 0;
-}
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-price {
-  font-size: 22px;
-}
 
 /* Bottom tabs (phone and large text): 自選／行情／下單／庫存, within thumb reach */
 .trading-desk .td-dock {
@@ -2543,13 +2395,6 @@
 .trading-desk[data-layout="senior"] :is(.sim-stepper, .morning-limit-field > div) {
   grid-template-columns: 56px minmax(0, 1fr) 56px;
   min-height: 56px;
-}
-.trading-desk[data-layout="senior"] .td-watch-price {
-  font-size: 28px;
-}
-.trading-desk[data-layout="senior"] .td-spark,
-.trading-desk[data-layout="senior"] .td-watch-item .td-spark {
-  height: 52px;
 }
 .trading-desk[data-layout="senior"] :is(.td-hints, .td-hero-stats, .sim-order-facts dt, .td-book-hint, .td-book-source, .terminal-data-status, .td-chartbar-source, .td-level-rank) {
   font-size: 15px;
@@ -3733,4 +3578,270 @@
 }
 .trading-desk[data-layout="senior"] :is(.td-progress-badges small, .td-progress-note, .td-progress-next, .td-progress-scores dt) {
   font-size: 15px;
+}
+
+/* Broker panes (2026-10-21): 自選報價 table, 簡易 K 線, 大盤, 報價明細, 個股分頁, 本輪計畫 chip */
+.trading-desk .td-watch-table {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.trading-desk .td-watch-note {
+  overflow: hidden;
+  color: var(--td-muted);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.trading-desk :is(.td-watch-cols, .td-watch-row) {
+  display: grid;
+  grid-template-columns: minmax(104px, 1.3fr) repeat(7, minmax(54px, 1fr)) minmax(110px, 1.5fr);
+  align-items: center;
+  column-gap: 10px;
+  padding: 0 12px;
+}
+.trading-desk .td-watch-table[data-compact="true"] :is(.td-watch-cols, .td-watch-row) {
+  grid-template-columns: minmax(88px, 1.2fr) minmax(64px, 1fr) minmax(60px, 0.9fr) minmax(84px, 1.2fr);
+}
+.trading-desk .td-watch-cols {
+  min-height: 24px;
+  color: var(--td-muted);
+  font-size: 11px;
+  border-bottom: 1px solid var(--td-line);
+}
+.trading-desk .td-watch-cols span:not(:first-child) {
+  text-align: right;
+}
+.trading-desk .td-watch-cols span:last-child {
+  text-align: center;
+}
+.trading-desk .td-watch-rows {
+  display: flex;
+  flex-direction: column;
+}
+.trading-desk .td-watch-row {
+  min-height: 28px;
+  color: var(--td-fg);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--td-line);
+  font: inherit;
+  text-align: right;
+  cursor: pointer;
+}
+.trading-desk .td-watch-row:hover {
+  background: rgb(255 255 255 / 0.04);
+}
+.trading-desk .td-watch-row[data-code="TAIEX"] {
+  background: rgb(230 194 90 / 0.05);
+}
+.trading-desk .td-watch-row[aria-pressed="true"] {
+  background: var(--td-select-bg);
+  box-shadow: inset 3px 0 0 var(--td-accent);
+}
+.trading-desk .td-watch-row .td-watch-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  text-align: left;
+  white-space: nowrap;
+}
+.trading-desk .td-watch-row .td-watch-name span {
+  font-weight: 600;
+}
+.trading-desk .td-watch-row .td-watch-name small {
+  color: var(--td-muted);
+  font: 500 11px/1 var(--font-mono);
+}
+.trading-desk .td-watch-row :is(.td-watch-price, .td-watch-cell) {
+  color: var(--td-tone);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.trading-desk .td-watch-row .td-watch-price {
+  font-weight: 600;
+}
+.trading-desk .td-watch-row .td-watch-muted {
+  color: var(--td-muted);
+}
+.trading-desk .td-mini {
+  display: block;
+  width: 100%;
+  height: 24px;
+}
+.trading-desk .td-mini-empty {
+  height: auto;
+  color: var(--td-muted);
+  font-size: 11px;
+  text-align: center;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-row {
+  min-height: 52px;
+}
+.trading-desk[data-layout="senior"] .td-watch-row {
+  min-height: 60px;
+}
+.trading-desk[data-layout="senior"] .td-watch-row :is(.td-watch-price, .td-watch-cell, .td-watch-name span) {
+  font-size: 17px;
+}
+
+.trading-desk .td-index-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.trading-desk .td-index-head small {
+  color: var(--td-muted);
+  font: 500 11px/1 var(--font-mono);
+}
+.trading-desk .td-index-quote {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 12px 0;
+  color: var(--td-tone);
+  white-space: nowrap;
+}
+.trading-desk .td-index-value {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+.trading-desk .td-index-change {
+  font-size: 13px;
+}
+.trading-desk .td-index-quote time {
+  margin-left: auto;
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk .td-index-chart {
+  display: block;
+  flex: 1;
+  width: 100%;
+  min-height: 72px;
+}
+.trading-desk .td-index-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 4px 12px 6px;
+  border-top: 1px solid var(--td-line);
+}
+.trading-desk .td-index-stats div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.trading-desk .td-index-stats dt {
+  color: var(--td-muted);
+  font-size: 11px;
+}
+.trading-desk .td-index-stats dd {
+  margin: 0;
+  font-size: 12px;
+}
+.trading-desk .td-index-empty {
+  margin: auto;
+  padding: 16px;
+  color: var(--td-muted);
+  text-align: center;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-index-panel {
+  min-height: 360px;
+}
+
+.trading-desk .td-quote-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+  margin: 0;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--td-line);
+}
+.trading-desk .td-quote-grid div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 22px;
+}
+.trading-desk .td-quote-grid dt {
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk .td-quote-grid dd {
+  margin: 0;
+  color: var(--td-tone);
+  font-size: 13px;
+  font-weight: 600;
+}
+.trading-desk[data-layout="senior"] .td-quote-grid :is(dt, dd) {
+  font-size: 17px;
+}
+
+.trading-desk .td-stock-tabs {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.trading-desk .td-stock-tabs-nav {
+  display: flex;
+  gap: 2px;
+  padding: 0 8px;
+  background: var(--td-title);
+  box-shadow: inset 0 calc(-1 * var(--td-hairline)) 0 var(--td-title-line);
+}
+.trading-desk .td-stock-tabs-nav button {
+  min-height: 32px;
+  padding: 0 12px;
+  color: var(--td-muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font-weight: 600;
+}
+.trading-desk .td-stock-tabs-nav button[aria-pressed="true"] {
+  color: var(--td-fg);
+  border-bottom-color: var(--td-accent);
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-stock-tabs-nav button {
+  flex: 1;
+  min-height: 44px;
+}
+.trading-desk[data-layout="senior"] .td-stock-tabs-nav button {
+  min-height: 56px;
+  font-size: 17px;
+}
+.trading-desk .td-stock-tabs-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.trading-desk .td-plan-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 10px;
+  color: var(--td-fg);
+  background: var(--td-raised);
+  border: 1px solid var(--td-line-strong);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.trading-desk .td-plan-chip span {
+  color: var(--td-accent);
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-plan-chip {
+  min-height: 44px;
 }

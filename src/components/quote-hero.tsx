@@ -82,21 +82,6 @@ export function QuoteHero({
           </span>
         )}
       </p>
-      <dl className="td-hero-stats" aria-label="已揭露行情摘要">
-        {(
-          [
-            ["昨收", symbol.previousClose],
-            ["開盤", quote.open],
-            ["最高", quote.high],
-            ["最低", quote.low],
-          ] as const
-        ).map(([label, value]) => (
-          <div key={label} data-tone={label === "昨收" ? "flat" : toneOf(value)}>
-            <dt>{label}</dt>
-            <dd>{price(value)}</dd>
-          </div>
-        ))}
-      </dl>
       <dl className="td-hero-book" aria-label="教學模擬五檔的最佳買價與賣價">
         <div data-side="bid" data-tone={toneOf(best.bid)}>
           <dt>
