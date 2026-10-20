@@ -48,7 +48,7 @@ const scan = (senior) => {
   // Prices use the monospaced face (every digit the same width), so columns line up.
   const numbers = [];
   for (const el of document.querySelectorAll(
-    ".td-hero-price strong, .td-hero-book dd, .td-watch-price, .td-level-price, .sim-order-facts dd, .td-hero-stats dd",
+    ".td-hero-price strong, .td-hero-book dd, .td-watch-price, .td-book-price, .td-book-last strong, .td-index-value, .sim-order-facts dd",
   )) {
     if (!visible(el)) continue;
     const style = getComputedStyle(el);
@@ -91,10 +91,13 @@ const scan = (senior) => {
     if ((family === "IBM Plex Mono" && weight > 600) || (family === "Noto Sans TC" && weight > 700))
       fauxBold.push(`${weight} ${id(el)}`);
   }
-  // The label and the amount of each order fact share one baseline.
+  // The label and the amount of each order fact share one baseline when they sit side by side (the desk's
+  // two-column ticket stacks them, label over amount, where a shared baseline does not apply).
   const factBaselines = [];
   for (const row of document.querySelectorAll(".sim-order-facts > div")) {
     if (!visible(row)) continue;
+    const [label, amount] = [row.querySelector(":scope > dt"), row.querySelector(":scope > dd")];
+    if (label && amount && amount.getBoundingClientRect().top >= label.getBoundingClientRect().bottom - 1) continue;
     const probes = [...row.querySelectorAll(":scope > dt, :scope > dd")].map((cell) => {
       const probe = document.createElement("span");
       probe.style.cssText = "display:inline-block;width:0;height:0";
@@ -138,7 +141,8 @@ const scan = (senior) => {
         }
       : null,
     heroBookBottom: book ? Math.round(book.bottom) : null,
-    chartHeight: Math.round(document.querySelector('main canvas[role="img"]')?.getBoundingClientRect().height ?? 0),
+    // The stock chart; the 大盤 pane has its own canvas with an image role.
+    chartHeight: Math.round(document.querySelector('.td-chart canvas[role="img"]')?.getBoundingClientRect().height ?? 0),
     pageScroll: document.documentElement.scrollHeight - innerHeight,
   };
 };
@@ -193,11 +197,11 @@ for (const item of cases) {
     if (first.signedZero.length) fail(`signed zero shown (${first.signedZero.join(" | ")})`);
     if (first.numbers.length) fail(`prices not in the monospaced face (${first.numbers.slice(0, 3).join(" | ")})`);
     if (!first.labels.real) fail("real-history data label not visible");
-    if (!first.labels.heroSim) fail("買價／賣價 not labelled 模擬");
+    if (!first.labels.heroSim) fail("買進／賣出 not labelled 模擬");
     if (!/^台積電/.test(first.hero ?? "")) fail(`hero shows ${first.hero}`);
     if (item.width >= 1200 && !item.senior) {
       if (first.pageScroll > 1) fail(`desktop page scrolls by ${first.pageScroll}px`);
-      if (item.name === "1366x900" && first.chartHeight < 700) fail(`chart ${first.chartHeight}px, needs 700`);
+      if (item.name === "1366x900" && first.chartHeight < 420) fail(`chart ${first.chartHeight}px, needs 420`);
       if (!first.labels.bookSim || !first.labels.paper || !first.labels.noBroker) fail(`order-side labels missing ${JSON.stringify(first.labels)}`);
     }
     if (phone) {
@@ -209,14 +213,14 @@ for (const item of cases) {
       )
         fail(`bottom tabs wrong ${JSON.stringify(first.dock)}`);
       if (!item.senior && first.heroBookBottom > item.height - 60)
-        fail(`買價／賣價 end at ${first.heroBookBottom}px, below the first screen`);
+        fail(`買進／賣出 end at ${first.heroBookBottom}px, below the first screen`);
     }
 
-    // The hero's best bid/ask must equal the ladder's 買1/賣1 (one teaching book, no second set of values).
+    // The hero's best bid/ask must equal the book's 買1/賣1 (one teaching book, no second set of values).
     if (phone) await page.getByRole("button", { name: "下單", exact: true }).click();
     const ladder = await page.evaluate(() => ({
-      bid: document.querySelector('.td-ladder[data-side="sell"] .td-level .td-level-price')?.textContent?.trim(),
-      ask: [...document.querySelectorAll('.td-ladder[data-side="buy"] .td-level .td-level-price')].at(-1)?.textContent?.trim(),
+      bid: document.querySelector('.td-book-cell[data-side="bid"][data-level="1"] .td-book-price')?.textContent?.trim(),
+      ask: document.querySelector('.td-book-cell[data-side="ask"][data-level="1"] .td-book-price')?.textContent?.trim(),
     }));
     if (ladder.bid !== first.heroBid || ladder.ask !== first.heroAsk)
       fail(`hero bid/ask ${first.heroBid}/${first.heroAsk} differ from ladder 買1/賣1 ${ladder.bid}/${ladder.ask}`);
@@ -245,22 +249,23 @@ for (const item of cases) {
     // Switch to 鴻海 2317: quote, chart, book and order ticket all follow.
     if (phone) {
       await page.getByRole("button", { name: "自選", exact: true }).click();
-      await page.locator(".td-watch-item", { hasText: "鴻海" }).click();
+      await page.locator(".td-watch-row", { hasText: "鴻海" }).click();
     } else {
-      await page.locator(".td-watch .td-watch-item", { hasText: "鴻海" }).click();
+      await page.locator(".td-watch .td-watch-row", { hasText: "鴻海" }).click();
     }
     await page.waitForTimeout(400);
     const synced = await page.evaluate(() => ({
       hero: document.querySelector(".td-hero h1")?.textContent ?? null,
-      chart: document.querySelector('main canvas[role="img"]')?.getAttribute("aria-label") ?? "",
+      chart: document.querySelector('.td-chart canvas[role="img"]')?.getAttribute("aria-label") ?? "",
       stepper: document.querySelector('.td-stepper select')?.value ?? null,
       ticket: document.querySelector('select[aria-label="下單商品"]')?.value ?? null,
-      watch: document.querySelector('.td-watch-item[aria-pressed="true"] .td-watch-name small')?.textContent ?? null,
+      watch: document.querySelector('.td-watch-row[aria-pressed="true"] .td-watch-name small')?.textContent ?? null,
       bid: document.querySelector('.td-hero-book [data-side="bid"] dd')?.textContent?.trim(),
     }));
     if (!/^鴻海/.test(synced.hero ?? "")) fail(`hero did not follow the watchlist (${synced.hero})`);
     if (!synced.chart.includes("2317")) fail("chart did not follow the watchlist");
-    if (synced.stepper !== "2317") fail(`stepper shows ${synced.stepper}`);
+    // Phones step from the quote block (◀ ▶), desks from the chart toolbar's stepper.
+    if (!phone && synced.stepper !== "2317") fail(`stepper shows ${synced.stepper}`);
     if (!phone && (synced.ticket !== "2317" || synced.watch !== "2317")) fail(`ticket/watch not synced ${JSON.stringify(synced)}`);
     await page.screenshot({ path: `${out}/${item.name}-switched.png` });
     if (phone) {
@@ -268,10 +273,10 @@ for (const item of cases) {
       const ticket = await page.evaluate(() => ({
         line: document.querySelector(".td-quote-line")?.textContent ?? "",
         select: document.querySelector('select[aria-label="下單商品"]')?.value ?? null,
-        bid: document.querySelector('.td-ladder[data-side="sell"] .td-level .td-level-price')?.textContent?.trim(),
+        bid: document.querySelector('.td-book-cell[data-side="bid"][data-level="1"] .td-book-price')?.textContent?.trim(),
       }));
       if (!ticket.line.includes("鴻海") || ticket.select !== "2317") fail(`order tab not synced ${JSON.stringify(ticket)}`);
-      if (ticket.bid !== synced.bid) fail(`order tab 買1 ${ticket.bid} differs from hero 買價 ${synced.bid}`);
+      if (ticket.bid !== synced.bid) fail(`order tab 買1 ${ticket.bid} differs from hero 買進 ${synced.bid}`);
     }
     // The ticket's own selector drives the rest too.
     if (!phone) {

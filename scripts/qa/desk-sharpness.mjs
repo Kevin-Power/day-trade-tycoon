@@ -57,7 +57,8 @@ for (const ratio of [1, 1.25, 1.5, 2]) {
   const browser = await launch([`--force-device-scale-factor=${ratio}`, "--window-size=1400,1000"]);
   const page = await (await browser.newContext({ viewport: null })).newPage();
   await page.goto(`${base}/morning?panel=trade`, { waitUntil: "domcontentloaded" });
-  const canvas = page.locator('main canvas[role="img"]');
+  // The stock chart; the 大盤 pane has its own canvas with an image role.
+  const canvas = page.locator('.td-chart canvas[role="img"]');
   await canvas.waitFor({ timeout: 20000 });
   await page.waitForTimeout(1500);
   const palette = await canvas.evaluate((el) => {
@@ -110,7 +111,7 @@ for (const ratio of [1, 1.25, 1.5, 2]) {
     },
     { b64: png.toString("base64"), ratio, palette },
   );
-  const spark = page.locator('.td-watch-item[aria-pressed="false"] canvas.td-spark').first();
+  const spark = page.locator('.td-watch-row[aria-pressed="false"] canvas.td-mini').first();
   let sparkDash = null;
   if (await spark.count()) {
     const sparkPng = await spark.screenshot();
@@ -118,19 +119,30 @@ for (const ratio of [1, 1.25, 1.5, 2]) {
     // The right part of the sparkline is the not-yet-replayed session: only the previous-close dash.
     sparkDash = await dashRowSoft(page, sparkPng, [null, palette[4], palette[2], palette[3]], [palette[4]], 0.55, 0.98);
   }
+  // 大盤 pane: past the revealed minutes only the previous-close dash crosses the plot (hour grid lines may cross it).
+  const indexChart = page.locator(".td-index-chart");
+  let indexDash = null;
+  if (await indexChart.count()) {
+    const indexPng = await indexChart.screenshot();
+    writeFileSync(`${out}index-dpr${ratio}.png`, indexPng);
+    // The pane sits on the window's right edge, so its corner pixel can be outside the page: use the panel colour.
+    indexDash = await dashRowSoft(page, indexPng, [palette[0], palette[4], palette[1]], [palette[4]], 0.45, 0.8);
+  }
   // Intraday (分時) tab: the previous close, 前高 and current-price dashes cross the empty future area.
   await page.getByRole("button", { name: "分時", exact: true }).first().click();
   await page.waitForTimeout(800);
   const quotePng = await canvas.screenshot();
   writeFileSync(`${out}quote-dpr${ratio}.png`, quotePng);
   const quoteDash = await dashRowSoft(page, quotePng, palette, [palette[4], palette[6], palette[2], palette[3]], 0.5, 0.75);
-  for (const [name, dash] of [["sparkline", sparkDash], ["intraday", quoteDash]])
+  for (const [name, dash] of [["sparkline", sparkDash], ["index", indexDash], ["intraday", quoteDash]])
     if (!dash || dash.rows === 0 || dash.soft > 0) dashFailures.push(`dpr ${ratio} ${name}: ${JSON.stringify(dash)}`);
   rows.push({
     dpr: ratio,
     ...stats,
     softPct: Number(((100 * stats.soft) / Math.max(1, stats.drawn)).toFixed(1)),
     sparkDashSoft: sparkDash?.soft ?? null,
+    indexDashRows: indexDash?.rows ?? null,
+    indexDashSoft: indexDash?.soft ?? null,
     quoteDashRows: quoteDash.rows,
     quoteDashSoft: quoteDash.soft,
   });

@@ -10,7 +10,9 @@ const out = fileURLToPath(new URL(`../../artifacts/trading-desk-qa/${label}/`, i
 mkdirSync(out, { recursive: true });
 const cases = [
   [1920, 1080, false],
+  [1440, 900, false],
   [1366, 900, false],
+  [1366, 768, false],
   [1280, 800, false],
   [1200, 800, false],
   [820, 900, false],
@@ -66,12 +68,13 @@ const scan = () => {
   let submitVisible = null;
   if (submit && visible(submit)) {
     const rect = submit.getBoundingClientRect();
-    const column = submit.closest(".td-trade");
+    const column = submit.closest('[data-pane="ticket"]') ?? submit.closest(".td-mobile-ticket");
     const bottom = Math.min(innerHeight, column ? column.getBoundingClientRect().bottom : innerHeight);
     submitVisible = rect.bottom <= bottom + 1;
   }
   const main = document.querySelector("main");
-  const canvas = document.querySelector('main canvas[role="img"]');
+  // The stock chart; the 大盤 pane has its own canvas with an image role.
+  const canvas = document.querySelector('.td-chart canvas[role="img"]');
   return {
     minFont: minFont === Infinity ? null : minFont,
     smallTargets: [...new Set(smallTargets)],
@@ -84,13 +87,13 @@ const scan = () => {
     mainScroll: main ? main.scrollHeight - main.clientHeight : null,
     chartRatio: canvas ? Number((canvas.getBoundingClientRect().height / innerHeight).toFixed(3)) : null,
     chartHeight: canvas ? Math.round(canvas.getBoundingClientRect().height) : null,
-    sparkSize: (() => {
-      const spark = document.querySelector(".td-watch-item .td-spark");
-      if (!spark) return null;
-      const rect = spark.getBoundingClientRect();
+    chartWidth: canvas ? Math.round(canvas.getBoundingClientRect().width) : null,
+    miniSize: (() => {
+      const mini = document.querySelector('.td-watch-row:not([data-code="TAIEX"]) .td-mini');
+      if (!mini) return null;
+      const rect = mini.getBoundingClientRect();
       return [Math.round(rect.width), Math.round(rect.height)];
     })(),
-    ledgerExpanded: document.querySelector(".td-ledger .sim-ledger-toggle")?.getAttribute("aria-expanded") ?? null,
     ledgerHeight: Math.round(document.querySelector(".td-ledger")?.getBoundingClientRect().height ?? 0),
   };
 };
@@ -109,17 +112,7 @@ for (const [width, height, senior] of cases) {
   const report = await page.evaluate(scan);
   const name = `${width}x${height}${senior ? "-senior" : ""}`;
   await page.screenshot({ path: `${out}${name}.png`, fullPage: true });
-  let ledgerToggle = null;
-  const toggle = page.locator(".td-ledger .sim-ledger-toggle");
-  if (await toggle.count()) {
-    await toggle.click();
-    await page.waitForTimeout(200);
-    ledgerToggle = await page.evaluate(() => ({
-      expanded: document.querySelector(".td-ledger .sim-ledger-toggle")?.getAttribute("aria-expanded"),
-      height: Math.round(document.querySelector(".td-ledger")?.getBoundingClientRect().height ?? 0),
-    }));
-  }
-  rows.push({ name, width, height, senior, ...report, ledgerToggle });
+  rows.push({ name, width, height, senior, ...report });
   await context.close();
 }
 await browser.close();
@@ -135,7 +128,8 @@ console.table(
     docScroll: row.documentScroll,
     mainScroll: row.mainScroll,
     chart: row.chartRatio,
-    chartPx: row.chartHeight,
+    chartPx: row.chartHeight && `${row.chartWidth}x${row.chartHeight}`,
+    ledger: row.ledgerHeight,
   })),
 );
 const failures = [];
@@ -145,22 +139,28 @@ for (const row of rows) {
     failures.push(`${row.name}: horizontal overflow or clipped text`);
   if (row.width < 768 && row.smallTargets.length)
     failures.push(`${row.name}: ${row.smallTargets.length} controls below 44px (${row.smallTargets.slice(0, 4).join(" | ")})`);
-  const minChart = { "1366x900": 700, "1920x1080": 880 }[row.name];
+  // The stock chart's floor on desktops (spec 4.1), and it stays wider than tall.
+  const minChart = {
+    "1920x1080": 600,
+    "1440x900": 420,
+    "1366x900": 420,
+    "1366x768": 300,
+    "1280x800": 360,
+    "1200x800": 340,
+  }[row.name];
   if (minChart && !(row.chartHeight >= minChart))
     failures.push(`${row.name}: chart ${row.chartHeight}px, needs ${minChart}px`);
-  if (!row.senior && row.width >= 1200 && !(row.sparkSize && row.sparkSize[0] >= 200 && row.sparkSize[1] >= 48))
-    failures.push(`${row.name}: sparkline ${JSON.stringify(row.sparkSize)}, needs 200x48`);
-  if (!row.senior && row.width >= 768) {
-    // One compact row when collapsed; tablets get 44px touch targets in that row.
-    if (row.ledgerExpanded !== "false" || row.ledgerHeight > (row.width < 1200 ? 48 : 40))
-      failures.push(`${row.name}: ledger not collapsed by default (${row.ledgerExpanded}, ${row.ledgerHeight}px)`);
-    if (row.ledgerToggle?.expanded !== "true" || row.ledgerToggle.height < 150)
-      failures.push(`${row.name}: ledger did not expand (${JSON.stringify(row.ledgerToggle)})`);
-  }
-  if (!row.senior && row.width >= 1200 && row.height >= 800) {
-    if (row.submitVisible === false) failures.push(`${row.name}: order button below the fold`);
+  if (minChart && !(row.chartWidth >= 1.2 * row.chartHeight))
+    failures.push(`${row.name}: chart ${row.chartWidth}x${row.chartHeight} is not 1.2 times wider than tall`);
+  if (!row.senior && row.width >= 768 && !(row.miniSize && row.miniSize[0] >= 100 && row.miniSize[1] >= 24))
+    failures.push(`${row.name}: 簡易K線 ${JSON.stringify(row.miniSize)}, needs 100x24`);
+  // The ledger is always open on desks and tablets; desks keep at least 150px for it.
+  if (!row.senior && row.width >= 768 && !(row.ledgerHeight >= (row.width >= 1200 ? 150 : 100)))
+    failures.push(`${row.name}: ledger ${row.ledgerHeight}px`);
+  // Every desktop size fits without page scroll and keeps the send button in its pane (Review Focus 5).
+  if (!row.senior && row.width >= 1200) {
+    if (row.submitVisible !== true) failures.push(`${row.name}: order button not visible (${row.submitVisible})`);
     if (row.documentScroll > 1 || (row.mainScroll ?? 0) > 1) failures.push(`${row.name}: page scrolls`);
-    if (!(row.chartRatio >= 0.5)) failures.push(`${row.name}: chart height ratio ${row.chartRatio}`);
   }
 }
 if (failures.length) {

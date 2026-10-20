@@ -1,5 +1,6 @@
-// Screenshots of trading states on a seeded desk-server: order review, pending order and its
-// cancel, flash order armed, limit price, expanded ledger and the phone 教材 drawer.
+// Screenshots of trading states on a seeded desk-server: order review (with the large-order tick when one lot is
+// half the cash or more), pending order and its cancel, flash order armed, limit price, the ledger's 委託 tab and
+// the phone 教材 drawer.
 // Leaves one cancelled order behind. Usage: node scripts/qa/desk-states.mjs <baseUrl> <outDir>
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
@@ -32,6 +33,7 @@ for (const [width, height] of [
     await page.getByRole("button", { name: /^核對模擬買進/ }).click();
     await page.getByRole("button", { name: "確認送出模擬買進" }).waitFor();
     await shot("review");
+    if (await page.locator("#sim-large-ack").isVisible()) await page.locator("#sim-large-ack").check();
     await page.getByRole("button", { name: "確認送出模擬買進" }).click();
     await page.getByText("委託已送出 · 等待撮合").waitFor();
     await shot("pending");
@@ -48,7 +50,6 @@ for (const [width, height] of [
       await page.locator("#td-resources-title").waitFor();
       await shot("resources");
     } else {
-      await page.locator(".td-ledger .sim-ledger-toggle").click();
       await page.locator(".td-ledger").getByRole("button", { name: /^委託/ }).click();
       await shot("ledger");
     }

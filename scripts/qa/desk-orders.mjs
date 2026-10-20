@@ -29,6 +29,10 @@ const result = {};
 let state = await api();
 const fillsBefore = state.fills.length;
 await page.getByRole("button", { name: /^核對模擬買進/ }).click();
+// One lot can be half the seeded cash or more: the confirm card then asks for the large-order tick first.
+await page.locator(".sim-confirm").waitFor();
+const large = await page.locator("#sim-large-ack").isVisible();
+if (large) await page.locator("#sim-large-ack").check();
 await page.getByRole("button", { name: "確認送出模擬買進" }).click();
 await page.getByText("委託已送出 · 等待撮合").waitFor();
 await page.getByRole("button", { name: "前進一分鐘撮合" }).click();
@@ -37,6 +41,7 @@ state = await until(async () => {
   return next.fills.length > fillsBefore && next;
 }, "market buy was not filled");
 result.marketBuy = {
+  largeConfirmed: large,
   newFills: state.fills.length - fillsBefore,
   side: state.fills.at(-1).side,
   shares: state.fills.at(-1).shares,
@@ -46,26 +51,25 @@ await until(async () => /你的委託成交/.test((await page.locator(".td-alert
 const announced = await page.locator('.td-hints [aria-live="polite"]').textContent();
 assert.match(announced ?? "", /你的委託成交/);
 
-// 2. Lightning sell from the bid side of the ladder, then withdraw it.
+// 2. Lightning sell from the right column (委賣, 賣1) of the book after the buy, then withdraw it.
 const lightning = page.getByRole("switch", { name: "閃電即送" });
 await lightning.click();
 await until(async () => (await lightning.getAttribute("aria-checked")) === "true", "lightning did not arm");
-await page.getByRole("button", { name: /^買1 價格/ }).click();
+await page.getByRole("button", { name: /^賣1 .*限價賣出/ }).click();
 state = await until(async () => {
   const next = await api();
   const order = next.orders.at(-1);
   return order?.status === "pending" && order.entryMode === "lightning" && next;
 }, "lightning order missing");
-// The ledger starts collapsed; a pending order is flagged, and the 委託 tab opens it.
+assert.equal(state.orders.at(-1).side, "sell", "the right column did not sell");
+// The ledger is always open: a pending order is flagged, and the 委託 tab lists it.
 const ledger = page.locator(".td-ledger");
-const ledgerToggle = ledger.locator(".sim-ledger-toggle");
-assert.equal(await ledgerToggle.getAttribute("aria-expanded"), "false");
 await until(
   async () => /1 待成交/.test((await ledger.locator(".sim-pending-badge").textContent().catch(() => "")) ?? ""),
-  "pending badge missing while the ledger is collapsed",
+  "pending badge missing in the ledger",
 );
 await ledger.getByRole("button", { name: /^委託/ }).click();
-await until(async () => (await ledgerToggle.getAttribute("aria-expanded")) === "true", "ledger did not open");
+await until(async () => /待成交|待撮合/.test((await ledger.locator("table").textContent().catch(() => "")) ?? ""), "the 委託 tab does not list the waiting order");
 await page.getByRole("button", { name: "撤回委託" }).first().click();
 state = await until(async () => {
   const next = await api();
@@ -75,7 +79,7 @@ result.lightning = {
   side: state.orders.at(-1).side,
   status: state.orders.at(-1).status,
   entryMode: state.orders.at(-1).entryMode,
-  ledgerOpenedFromTab: true,
+  listedInLedger: true,
 };
 
 // 3. Selling a symbol without holdings is refused before submission.
