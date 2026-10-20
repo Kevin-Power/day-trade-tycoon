@@ -192,6 +192,7 @@ class StoreTest(unittest.TestCase):
 TICK_ENTRY = {"code": "2330", "name": "台積電", "trades": 2, "volume": 6449, "close": 2425}
 TRADES = {"2330": [[0, 2420, 6446, 2415, 2420], [1250, 2425, 3, 2420, 2425]]}
 PAGES = [{"date": DATE, "symbol": "2330", "data": [{"price": 2420, "size": 6446, "time": 1, "serial": 11}]}]
+META = {"name": "台積電", "tradeVolume": 6449, "close": 2425}
 
 
 class TickStoreTest(unittest.TestCase):
@@ -203,16 +204,37 @@ class TickStoreTest(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def publish(self, warnings=()):
-        self.store.save_tick_raw(DATE, "2330", PAGES)
-        return self.store.publish_ticks(DATE, [TICK_ENTRY], TRADES, list(warnings), NOW, "fubon-neo test", "abc123")
+    def publish(self, warnings=(), rejected=()):
+        self.store.save_tick_raw(DATE, "2330", PAGES, META)
+        return self.store.publish_ticks(DATE, [TICK_ENTRY], TRADES, list(rejected), list(warnings), NOW,
+                                        "fubon-neo test", "abc123")
 
     def test_raw_pages_wait_in_staging_until_published(self):
         self.assertIsNone(self.store.load_tick_raw(DATE, "2330"))
-        self.store.save_tick_raw(DATE, "2330", PAGES)
-        self.assertEqual(self.store.load_tick_raw(DATE, "2330"), PAGES)
+        self.store.save_tick_raw(DATE, "2330", PAGES, META)
+        self.assertEqual(self.store.load_tick_raw(DATE, "2330"), (PAGES, META))
+        self.assertEqual(self.store.tick_raw_codes(DATE), ["2330"])
         self.assertFalse(self.store.has_ticks(DATE))
         self.assertFalse((self.root / "days").exists())
+
+    def test_an_unreadable_cached_answer_is_dropped(self):
+        self.store.save_tick_raw(DATE, "2330", PAGES, META)
+        (self.root / "staging-ticks" / DATE / "raw" / "2330.json.gz").write_bytes(b"not gzip")
+        self.assertIsNone(self.store.load_tick_raw(DATE, "2330"))
+        self.assertEqual(self.store.tick_raw_codes(DATE), [])
+
+    def test_days_left_in_staging_are_listed_until_published(self):
+        self.store.save_tick_raw("2026-10-14", "2330", PAGES, META)
+        self.store.save_tick_raw(DATE, "2330", PAGES, META)
+        self.assertEqual(self.store.pending_tick_days(before=DATE), ["2026-10-14"])
+        self.assertEqual(self.store.pending_tick_days(before="2026-10-16"), ["2026-10-14", DATE])
+
+    def test_rejected_answers_are_published_with_the_reason(self):
+        self.store.save_tick_raw(DATE, "2317", PAGES, {**META, "name": "鴻海"})
+        manifest = self.publish(rejected=[{"code": "2317", "error": "time: 不在交易時段"}])
+        self.assertEqual(manifest["rejected"], [{"code": "2317", "error": "time: 不在交易時段"}])
+        self.assertEqual(sorted(item["path"] for item in manifest["files"]),
+                         ["raw/2317.json.gz", "raw/2330.json.gz", "symbols/2330.json.gz"])
 
     def test_publish_moves_trades_and_raw_pages_together(self):
         manifest = self.publish(warnings=[{"code": "2330", "kind": "close", "detail": "x"}])
@@ -248,7 +270,7 @@ class TickStoreTest(unittest.TestCase):
 
     def test_reconcile_clears_staging_of_published_ticks(self):
         self.publish()
-        self.store.save_tick_raw(DATE, "2317", PAGES)
+        self.store.save_tick_raw(DATE, "2317", PAGES, META)
         self.store.reconcile()
         self.assertFalse((self.root / "staging-ticks" / DATE).exists())
         self.assertTrue(self.store.has_ticks(DATE))

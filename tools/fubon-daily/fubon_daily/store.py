@@ -155,17 +155,48 @@ class MarketStore:
     def _tick_raw_path(self, day: str, code: str) -> Path:
         return self.root / "staging-ticks" / day / "raw" / f"{code}.json.gz"
 
-    def save_tick_raw(self, day: str, code: str, pages: list) -> None:
+    def _tick_meta_path(self, day: str, code: str) -> Path:
+        return self.root / "staging-ticks" / day / "meta" / f"{code}.json"
+
+    def save_tick_raw(self, day: str, code: str, pages: list, meta: dict) -> None:
+        """Fubon's answer as received, with the snapshot facts (name, volume, close) needed to check it later."""
+        _write_atomic(self._tick_meta_path(day, code), _json_bytes(meta))
         _write_atomic(self._tick_raw_path(day, code), gzip.compress(_json_bytes(pages), mtime=0))
 
-    def load_tick_raw(self, day: str, code: str) -> list | None:
-        path = self._tick_raw_path(day, code)
-        if not path.is_file():
+    def load_tick_raw(self, day: str, code: str) -> tuple[list, dict] | None:
+        """The cached answer and its facts; an unreadable one is dropped, so it is fetched again."""
+        raw, meta = self._tick_raw_path(day, code), self._tick_meta_path(day, code)
+        if not (raw.is_file() and meta.is_file()):
             return None
-        return json.loads(gzip.decompress(path.read_bytes()))
+        try:
+            return json.loads(gzip.decompress(raw.read_bytes())), json.loads(meta.read_text(encoding="utf-8"))
+        except (OSError, EOFError, ValueError):
+            self.drop_tick_raw(day, code)
+            return None
 
-    def publish_ticks(self, day: str, entries: list[dict], trades: dict[str, list], warnings: list[dict],
-                      published_at: datetime, source: str, version: str) -> dict:
+    def drop_tick_raw(self, day: str, code: str) -> None:
+        self._tick_raw_path(day, code).unlink(missing_ok=True)
+        self._tick_meta_path(day, code).unlink(missing_ok=True)
+
+    def tick_raw_codes(self, day: str) -> list[str]:
+        folder = self.root / "staging-ticks" / day / "raw"
+        if not folder.is_dir():
+            return []
+        return sorted(path.name[: -len(".json.gz")] for path in folder.glob("*.json.gz")
+                      if self._tick_meta_path(day, path.name[: -len(".json.gz")]).is_file())
+
+    def pending_tick_days(self, before: str) -> list[str]:
+        """Days whose trades wait in staging, unpublished, earlier than `before`."""
+        staging = self.root / "staging-ticks"
+        if not staging.is_dir():
+            return []
+        return sorted(folder.name for folder in staging.iterdir()
+                      if DAY_NAME.match(folder.name) and folder.name < before and not self.has_ticks(folder.name)
+                      and self.tick_raw_codes(folder.name))
+
+    def publish_ticks(self, day: str, entries: list[dict], trades: dict[str, list], rejected: list[dict],
+                      warnings: list[dict], published_at: datetime, source: str, version: str) -> dict:
+        """Publishes the checked trades plus every answer received, rejected ones included with their reason."""
         target = self.root / "ticks" / day
         if target.exists():
             raise FileExistsError(day)
@@ -184,13 +215,12 @@ class MarketStore:
             payload = {"schema": 1, "code": code, "date": day, "sizeUnit": "lot",
                        "fields": ["msAfter0900", "price", "size", "bid", "ask"], "trades": trades[code]}
             put(f"symbols/{code}.json.gz", gzip.compress(_json_bytes(payload), mtime=0))
-            raw = self._tick_raw_path(day, code)
-            if raw.is_file():
-                put(f"raw/{code}.json.gz", raw.read_bytes())
+        for code in self.tick_raw_codes(day):
+            put(f"raw/{code}.json.gz", self._tick_raw_path(day, code).read_bytes())
         manifest = {"schema": 1, "date": day, "createdAt": published_at.isoformat(timespec="seconds"),
                     "version": version, "source": source, "sizeUnit": "lot",
                     "counts": {"symbols": len(entries), "trades": sum(len(rows) for rows in trades.values())},
-                    "symbols": entries, "warnings": warnings, "files": files}
+                    "symbols": entries, "rejected": rejected, "warnings": warnings, "files": files}
         (out / "manifest.json").write_bytes(_json_bytes(manifest, indent=1))
         target.parent.mkdir(parents=True, exist_ok=True)
         _replace(out, target)

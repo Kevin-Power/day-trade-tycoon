@@ -9,9 +9,11 @@ TAIPEI = timezone(timedelta(hours=8))
 SESSION_OPEN_SECONDS = 9 * 3600
 LAST_CONTINUOUS_T = 4 * 3600 + 24 * 60  # 13:24
 CLOSING_AUCTION_T = 4 * 3600 + 30 * 60  # 13:30
-# Trades are stamped in microseconds since the epoch; the closing auction may carry a few seconds past 13:30.
+# Trades are stamped in microseconds since the epoch. TWSE may postpone a closing match by about two minutes,
+# and fixed-price trades run 14:00-14:30, so the day's trades may run until 14:30; later ones are noted.
 TRADE_TIME_PER_SECOND = 1_000_000
-TRADE_SESSION_END_T = CLOSING_AUCTION_T + 60
+TRADE_SESSION_END_T = 5 * 3600 + 31 * 60  # 14:31
+LATE_TRADE_MS = (4 * 3600 + 35 * 60) * 1000  # 13:35
 
 
 class ValidationError(Exception):
@@ -194,4 +196,7 @@ def tick_warnings(code: str, trades: list[list], trade_volume: int, close: float
         warnings.append({"code": code, "kind": "volume", "detail": f"逐筆量 {total} 與當日量 {trade_volume} 不同"})
     if trades and close is not None and trades[-1][1] != close:
         warnings.append({"code": code, "kind": "close", "detail": f"最後成交 {trades[-1][1]} 與快照收盤 {close} 不同"})
+    late = sum(1 for trade in trades if trade[0] >= LATE_TRADE_MS)
+    if late:
+        warnings.append({"code": code, "kind": "late", "detail": f"13:35 以後有 {late} 筆成交"})
     return warnings

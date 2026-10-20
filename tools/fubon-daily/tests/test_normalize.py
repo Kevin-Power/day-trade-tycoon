@@ -159,10 +159,16 @@ class TradeRowsTest(unittest.TestCase):
         self.assertKind([trades_page("2330", "2026-10-14", [])], "time")
         self.assertKind([trades_page("2330", DATE, [trade("2026-10-14", 10, 0, 0, 100, 1, 1)])], "time")
 
-    def test_trades_outside_the_session_are_rejected(self):
+    def test_trades_outside_the_trading_day_are_rejected(self):
         self.assertKind([trades_page("2330", DATE, [trade(DATE, 8, 59, 59, 100, 1, 1)])], "time")
-        self.assertKind([trades_page("2330", DATE, [trade(DATE, 13, 31, 0, 100, 1, 1)])], "time")
+        self.assertKind([trades_page("2330", DATE, [trade(DATE, 14, 31, 0, 100, 1, 1)])], "time")
         self.assertKind(self.with_row(time="09:00:01"), "time")
+
+    def test_a_delayed_close_and_the_fixed_price_session_are_kept(self):
+        # TWSE may postpone a closing match by about two minutes; fixed-price trades run 14:00-14:30.
+        rows = [trade(DATE, 13, 32, 0, 100, 1, 1, volume=1), trade(DATE, 14, 30, 0, 100, 2, 2, volume=3)]
+        trades = trade_rows([trades_page("2330", DATE, rows)], "2330", DATE)
+        self.assertEqual([item[0] for item in trades], [16_320_000, 19_800_000])
 
     def test_prices_and_sizes_are_checked(self):
         self.assertKind(self.with_row(price=0), "price")
@@ -195,6 +201,13 @@ class TickWarningsTest(unittest.TestCase):
         trades = trade_rows(opening_pages(), "2330", DATE)
         kinds = [warning["kind"] for warning in tick_warnings("2330", trades, 12283, 2435)]
         self.assertEqual(kinds, ["volume", "close"])
+
+    def test_trades_after_1335_are_noted(self):
+        rows = [trade(DATE, 13, 30, 0, 100, 1, 1, volume=1), trade(DATE, 14, 30, 0, 100, 2, 2, volume=3)]
+        trades = trade_rows([trades_page("2330", DATE, rows)], "2330", DATE)
+        warnings = tick_warnings("2330", trades, 3, None)
+        self.assertEqual([(warning["kind"], warning["detail"]) for warning in warnings],
+                         [("late", "13:35 以後有 1 筆成交")])
 
 
 if __name__ == "__main__":

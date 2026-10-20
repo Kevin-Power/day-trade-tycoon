@@ -19,8 +19,10 @@ EVENING = datetime(2026, 10, 15, 19, 0, tzinfo=TAIPEI)
 
 class FakeClient:
     def __init__(self, snapshot_payload=None, minutes=None, dailies=None, login_error=None, trades=None,
-                 trade_errors=None):
+                 trade_errors=None, snapshot_error=None, disposition_error=None):
         self.snapshot_payload = snapshot() if snapshot_payload is None else snapshot_payload
+        self.snapshot_error = snapshot_error
+        self.disposition_error = disposition_error
         self.minutes = minutes or {}
         self.dailies = dailies or {}
         self.login_error = login_error
@@ -49,10 +51,14 @@ class FakeClient:
 
     def snapshot_quotes(self):
         self.calls.append("snapshot")
+        if self.snapshot_error:
+            raise self.snapshot_error
         return self.snapshot_payload
 
     def disposition_list(self):
         self.calls.append("disposition")
+        if self.disposition_error:
+            raise self.disposition_error
         return DISPOSITION
 
     def minute_candles(self, symbol, date):
@@ -65,7 +71,7 @@ class FakeClient:
 
     def trades(self, symbol, offset, limit):
         self.calls.append(("trades", symbol, offset))
-        errors = self.trade_errors.get(symbol)
+        errors = self.trade_errors.get((symbol, offset)) or self.trade_errors.get(symbol)
         if errors:
             raise errors.pop(0) if isinstance(errors, list) else errors
         if symbol not in self.trade_table:
@@ -151,7 +157,7 @@ class PipelineTest(PipelineHarness, unittest.TestCase):
         self.assertEqual(client.calls[-1], "logout")
         self.assertEqual(self.notices, [])
         # Historical calls keep 1.1 s apart; today's trades (intraday limit 300 a minute) 0.25 s.
-        self.assertEqual([round(seconds, 2) for seconds in self.clock.sleeps], [1.1, 0.25, 0.25, 0.25, 0.35, 1.1])
+        self.assertEqual([round(seconds, 2) for seconds in self.clock.sleeps], [0.25, 0.25, 0.25, 0.35, 1.1, 1.1])
         self.assertNoSecretsOnDisk()
 
     def test_holiday_is_recorded_as_closed(self):
@@ -363,13 +369,14 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         manifest = self.tick_manifest()
         self.assertEqual([entry["code"] for entry in manifest["symbols"]], ["2330", "1413"])
         self.assertEqual(manifest["symbols"][0], {"code": "2330", "name": "台積電", "trades": 1, "volume": 58487,
-                                                  "close": 2440})
-        self.assertEqual(manifest["warnings"], [])
+                                                  "close": 2440, "complete": True})
+        self.assertEqual((manifest["warnings"], manifest["rejected"]), ([], []))
         ticks = self.status()["ticks"]
         self.assertEqual((ticks["date"], ticks["outcome"], ticks["trades"]), (DATE, "ok", 2))
         self.assertEqual(ticks["symbols"], {"total": 2, "fetched": 2, "failed": 0})
-        first_minute = client.calls.index(("minute", "2330"))
-        self.assertTrue(all(client.calls.index(call) < first_minute for call in self.trade_calls(client)))
+        # Before the candle-only disposition list, so nothing the candles need can stop the trades.
+        disposition = client.calls.index("disposition")
+        self.assertTrue(all(client.calls.index(call) < disposition for call in self.trade_calls(client)))
         self.assertEqual(self.status()["lastRun"]["outcome"], "ok")
         self.assertIn("逐筆", (self.data / "logs" / f"{DATE}.log").read_text(encoding="utf-8"))
 
@@ -378,7 +385,7 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         rows[-1]["size"] = 58483
         rows[-1]["volume"] = 58487
         client = FakeClient(minutes=good_minutes(), trades={"2330": rows})
-        with mock.patch("fubon_daily.pipeline.TRADE_PAGE_SIZE", 2):
+        with mock.patch("fubon_daily.ticks.TRADE_PAGE_SIZE", 2):
             self.assertEqual(self.run_once(client), 0)
         self.assertEqual([call[2] for call in self.trade_calls(client) if call[1] == "2330"], [0, 2, 4, 5])
         self.assertEqual(self.tick_manifest()["symbols"][0]["trades"], 5)
@@ -420,13 +427,111 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         self.assertEqual(len(self.notices), 1)
         self.assertIn("逐筆", self.notices[0][1])
 
-    def test_invalid_trades_are_not_kept(self):
+    def test_answers_that_fail_the_checks_are_kept_and_published_last(self):
         broken = [trade(DATE, 13, 30, 0, 9.44, 26, 1, volume=27)]
         client = FakeClient(minutes=good_minutes(), trades={"1413": broken})
         self.assertEqual(self.run_once(client), 0)
         self.assertIn("1413", self.status()["ticks"]["reason"])
-        self.assertIsNone(MarketStore(self.data).load_tick_raw(DATE, "1413"))
-        self.assertIsNotNone(MarketStore(self.data).load_tick_raw(DATE, "2330"))
+        self.assertFalse((self.data / "ticks").exists())
+        self.assertIsNotNone(MarketStore(self.data).load_tick_raw(DATE, "1413"))
+        last = FakeClient()
+        self.assertEqual(self.run_once(last, at=EVENING), 0)
+        self.assertEqual(self.trade_calls(last), [])  # the kept answer is checked again, not fetched again
+        manifest = self.tick_manifest()
+        self.assertEqual([entry["code"] for entry in manifest["symbols"]], ["2330"])
+        self.assertEqual([item["code"] for item in manifest["rejected"]], ["1413"])
+        self.assertIn("volume", manifest["rejected"][0]["error"])
+        self.assertTrue((self.data / "ticks" / DATE / "raw" / "1413.json.gz").is_file())
+        self.assertEqual(self.status()["ticks"]["outcome"], "partial")
+
+    def test_a_traded_stock_without_trades_is_fetched_again(self):
+        for missing in (NotFound("404", 404), None):
+            with self.subTest(missing=missing):
+                self.tearDown()
+                self.setUp()
+                options = {"trade_errors": {"1413": missing}} if missing else {"trades": {"1413": []}}
+                self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), **options)), 0)
+                self.assertFalse((self.data / "ticks").exists())
+                self.assertIn("1413", self.status()["ticks"]["reason"])
+                self.assertIsNone(MarketStore(self.data).load_tick_raw(DATE, "1413"))
+                second = FakeClient()
+                self.assertEqual(self.run_once(second, at=datetime(2026, 10, 15, 17, 30, tzinfo=TAIPEI)), 0)
+                self.assertEqual({call[1] for call in self.trade_calls(second)}, {"1413"})
+                self.assertEqual(self.status()["ticks"]["outcome"], "ok")
+
+    def test_a_404_partway_through_the_pages_is_a_failure(self):
+        rows = [trade(DATE, 9, 0, second, 2440, 1, second + 1, volume=second + 1) for second in range(5)]
+        client = FakeClient(minutes=good_minutes(), trades={"2330": rows},
+                            trade_errors={("2330", 2): NotFound("404", 404)})
+        with mock.patch("fubon_daily.ticks.TRADE_PAGE_SIZE", 2):
+            self.assertEqual(self.run_once(client), 0)
+        self.assertIn("2330", self.status()["ticks"]["reason"])
+        self.assertIsNone(MarketStore(self.data).load_tick_raw(DATE, "2330"))
+
+    def test_trades_short_of_the_days_volume_are_fetched_again_then_kept_as_incomplete(self):
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short)), 0)
+        self.assertFalse((self.data / "ticks").exists())
+        self.assertIn("2330", self.status()["ticks"]["reason"])
+        self.assertIsNone(MarketStore(self.data).load_tick_raw(DATE, "2330"))
+        last = FakeClient(trades=short)
+        self.assertEqual(self.run_once(last, at=EVENING), 0)
+        self.assertIn(("trades", "2330", 0), last.calls)
+        manifest = self.tick_manifest()
+        self.assertEqual([(entry["code"], entry["complete"]) for entry in manifest["symbols"]],
+                         [("2330", False), ("1413", True)])
+        self.assertEqual(self.status()["ticks"]["outcome"], "partial")
+
+    def test_a_trades_only_retry_that_fails_keeps_the_candle_run(self):
+        client = FakeClient(minutes=good_minutes(), trade_errors={"1413": [ApiError("500", 500)] * 3})
+        self.assertEqual(self.run_once(client), 0)
+        before = self.status()
+        broken = FakeClient(snapshot_error=ApiError("503", 503))
+        self.assertEqual(self.run_once(broken, at=EVENING), 1)
+        after = self.status()
+        self.assertEqual((after["lastRun"], after["history"]), (before["lastRun"], before["history"]))
+        self.assertEqual(after["ticks"]["outcome"], "failed")
+        self.assertIn("503", after["ticks"]["reason"])
+        self.assertEqual(len(self.notices), 1)
+        self.assertIn("逐筆", self.notices[0][1])
+        self.assertNotIn("每日行情抓取失敗", self.notices[0][1])
+
+    def test_trades_left_in_staging_are_published_by_a_later_run(self):
+        client = FakeClient(minutes=good_minutes(), trade_errors={"1413": [ApiError("500", 500)] * 3})
+        self.assertEqual(self.run_once(client), 0)
+        self.assertFalse((self.data / "ticks").exists())
+        # The evening runs never happened; the next day's first run cannot even log in.
+        next_day = FakeClient(login_error=LoginError("down"))
+        self.assertEqual(self.run_once(next_day, at=datetime(2026, 10, 16, 16, 45, tzinfo=TAIPEI)), 2)
+        manifest = self.tick_manifest()
+        self.assertEqual([entry["code"] for entry in manifest["symbols"]], ["2330"])
+        self.assertFalse((self.data / "staging-ticks" / DATE).exists())
+        self.assertIn(DATE, (self.data / "logs" / f"{DATE}.log").read_text(encoding="utf-8"))
+
+    def test_a_disposition_failure_does_not_stop_the_trades(self):
+        client = FakeClient(minutes=good_minutes(), disposition_error=NotFound("404", 404))
+        self.assertEqual(self.run_once(client), 1)
+        self.assertEqual(self.status()["lastRun"]["outcome"], "failed")
+        self.assertEqual(self.status()["ticks"]["outcome"], "ok")
+        self.assertTrue((self.data / "ticks" / DATE / "manifest.json").is_file())
+
+    def test_the_time_budget_leaves_the_rest_for_the_next_run(self):
+        client = FakeClient(minutes=good_minutes())
+        with mock.patch("fubon_daily.ticks.TICK_BUDGET_SECONDS", 0.1):
+            self.assertEqual(self.run_once(client), 0)
+        self.assertEqual({call[1] for call in self.trade_calls(client)}, {"2330"})
+        self.assertIn("1413", self.status()["ticks"]["reason"])
+        self.assertTrue((self.data / "days" / DATE / "manifest.json").is_file())
+        second = FakeClient()
+        self.assertEqual(self.run_once(second, at=datetime(2026, 10, 15, 17, 30, tzinfo=TAIPEI)), 0)
+        self.assertEqual({call[1] for call in self.trade_calls(second)}, {"1413"})
+        self.assertEqual(self.status()["ticks"]["outcome"], "ok")
+
+    def test_one_broken_symbol_does_not_stop_the_others(self):
+        client = FakeClient(minutes=good_minutes(), trade_errors={"2330": TypeError("odd answer")})
+        self.assertEqual(self.run_once(client, at=EVENING), 0)
+        self.assertEqual([entry["code"] for entry in self.tick_manifest()["symbols"]], ["1413"])
+        self.assertIn("2330", self.status()["ticks"]["reason"])
 
     def test_an_unexpected_tick_error_still_publishes_the_candles(self):
         client = FakeClient(minutes=good_minutes(), trade_errors={"2330": RuntimeError("disk is busy")})
@@ -446,7 +551,7 @@ class TicksTest(PipelineHarness, unittest.TestCase):
 
     def test_trade_warnings_are_recorded(self):
         client = FakeClient(minutes=good_minutes(),
-                            trades={"2330": [trade(DATE, 13, 30, 0, 2435, 58000, 1, volume=58000)]})
+                            trades={"2330": [trade(DATE, 13, 30, 0, 2435, 58490, 1, volume=58490)]})
         self.assertEqual(self.run_once(client), 0)
         kinds = [warning["kind"] for warning in self.tick_manifest()["warnings"]]
         self.assertEqual(kinds, ["volume", "close"])
