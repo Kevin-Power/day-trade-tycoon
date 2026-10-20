@@ -563,12 +563,17 @@
 .trading-desk[data-layout="tablet"] .td-workbench {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 40%);
-  grid-template-rows: auto minmax(440px, auto) auto auto;
+  grid-template-rows: auto auto auto auto;
   grid-template-areas:
     "watch watch"
-    "center book"
     "center ticket"
+    "book ticket"
     "ledger ledger";
+}
+/* The tablet centre sits in an auto row, so its chart takes a set height instead of stretching. */
+.trading-desk[data-layout="tablet"] .td-chart-canvas {
+  flex: none;
+  height: clamp(300px, 36vh, 480px);
 }
 .trading-desk .td-watch {
   grid-area: watch;
@@ -751,31 +756,6 @@
   font-weight: 500;
   line-height: 1.15;
 }
-.trading-desk .td-hero-stats {
-  grid-area: stats;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, max-content));
-  justify-content: end;
-  gap: 2px 16px;
-  margin: 0;
-  font-size: 12px;
-}
-.trading-desk .td-hero-stats div {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-.trading-desk .td-hero-stats dt {
-  color: var(--td-muted);
-}
-.trading-desk .td-hero-stats dd {
-  min-width: 5ch;
-  margin: 0;
-  color: var(--td-tone);
-  font: 500 13px/1.35 var(--font-mono);
-  text-align: right;
-}
 .trading-desk .td-hero-book {
   grid-area: book;
   display: grid;
@@ -953,7 +933,7 @@
   font-size: 12px;
 }
 
-/* Chart and the replay's 成交明細: side by side on desktops and wide centres, a short strip below otherwise. */
+/* The chart fills the centre; the replay's 成交明細 is the 明細 tab beside (desk) or under (phone) the book. */
 .trading-desk .td-chart-row {
   display: flex;
   flex: 1;
@@ -964,38 +944,16 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 188px;
   overflow: hidden;
   background: var(--td-panel);
-  border-top: var(--td-hairline) solid var(--td-line);
 }
-.trading-desk[data-layout="desktop"] .td-chart-row {
-  flex-direction: row;
+/* Desks: the tab fills the book pane and the oldest rows clip at its foot. Elsewhere the page scrolls, so the
+   tab shows about eighteen trades. */
+.trading-desk[data-layout="desktop"] .td-stock-tabs-body > .td-tape {
+  height: 100%;
 }
-.trading-desk[data-layout="desktop"] .td-chart-row > .td-chart {
-  min-width: 0;
-}
-.trading-desk[data-layout="desktop"] .td-tape {
-  flex: none;
-  width: 168px;
-  max-height: none;
-  border-top: 0;
-  border-left: var(--td-hairline) solid var(--td-line);
-}
-@container (min-width: 640px) {
-  .trading-desk .td-chart-row {
-    flex-direction: row;
-  }
-  .trading-desk .td-chart-row > .td-chart {
-    min-width: 0;
-  }
-  .trading-desk .td-tape {
-    flex: none;
-    width: 168px;
-    max-height: none;
-    border-top: 0;
-    border-left: var(--td-hairline) solid var(--td-line);
-  }
+.trading-desk:is([data-layout="tablet"], [data-layout="phone"], [data-layout="senior"]) .td-tape {
+  max-height: 420px;
 }
 .trading-desk .td-tape-head {
   display: flex;
@@ -2096,9 +2054,40 @@
     "id"
     "price"
     "book"
-    "stats";
+    "line";
   gap: 8px;
-  padding: 12px 16px 10px;
+  padding: 10px 16px;
+}
+/* Phones put the price beside the two boxes, like a broker app's quote block. */
+.trading-desk[data-layout="phone"] .td-hero {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "id id"
+    "price book"
+    "line line";
+  align-items: center;
+  gap: 6px 10px;
+}
+.trading-desk[data-layout="phone"] .td-hero-price {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.trading-desk[data-layout="phone"] .td-hero-price strong {
+  font-size: clamp(38px, 11vw, 46px);
+}
+.trading-desk[data-layout="phone"] .td-hero-change {
+  font-size: 15px;
+}
+.trading-desk[data-layout="phone"] .td-hero-book {
+  grid-template-columns: repeat(2, minmax(78px, auto));
+  gap: 6px;
+}
+.trading-desk[data-layout="phone"] .td-hero-book > div {
+  padding: 5px 9px 6px;
+}
+.trading-desk[data-layout="phone"] .td-hero-book dd {
+  font-size: 22px;
 }
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-id {
   display: flex;
@@ -2137,30 +2126,17 @@
   font-size: 26px;
   text-align: left;
 }
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  justify-content: stretch;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: var(--td-hairline) solid var(--td-line);
-}
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-stats div {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-}
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-stats dd {
-  min-width: 0;
-  font-size: 15px;
-  text-align: left;
-}
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-chartbar {
   padding: 8px 12px;
 }
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-chartbar-source {
   width: 100%;
   margin-left: 0;
+}
+/* Phones step from the quote block, so the toolbar is 分時／K線 and the data label on one row when it fits. */
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-chartbar[data-stepper="false"] .td-chartbar-source {
+  width: auto;
+  margin-left: auto;
 }
 .trading-desk:is([data-layout="phone"], [data-layout="senior"])
   :is(.td-stepper button, .td-stepper select, .td-segment button) {
@@ -2322,7 +2298,7 @@
   grid-template-columns: 56px minmax(0, 1fr) 56px;
   min-height: 56px;
 }
-.trading-desk[data-layout="senior"] :is(.td-hints, .td-hero-stats, .sim-order-facts dt, .td-book-hint, .td-book-source, .td-chartbar-source, .sim-reports li) {
+.trading-desk[data-layout="senior"] :is(.td-hints, .sim-order-facts dt, .td-book-hint, .td-book-source, .td-chartbar-source, .sim-reports li) {
   font-size: 15px;
 }
 .trading-desk[data-layout="senior"] .td-account dd {
@@ -2331,11 +2307,8 @@
 .trading-desk[data-layout="senior"] .td-hero h1 {
   font-size: 28px;
 }
-.trading-desk[data-layout="senior"] :is(.td-hero-stamp, .td-hero-book dt, .td-hero-stats dt) {
+.trading-desk[data-layout="senior"] :is(.td-hero-stamp, .td-hero-book dt, .td-hero-line) {
   font-size: 15px;
-}
-.trading-desk[data-layout="senior"] .td-hero-stats dd {
-  font-size: 18px;
 }
 .trading-desk[data-layout="senior"] .td-hero-book dd {
   font-size: 30px;
@@ -2462,28 +2435,6 @@
 .trading-desk[data-layout="tablet"] .sim-order-help summary {
   display: flex;
   align-items: center;
-}
-.trading-desk[data-layout="tablet"] .td-hero {
-  grid-template-areas:
-    "id book"
-    "price book"
-    "stats stats";
-}
-.trading-desk[data-layout="tablet"] .td-hero-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  justify-content: stretch;
-  gap: 8px;
-  padding-top: 6px;
-  border-top: var(--td-hairline) solid var(--td-line);
-}
-.trading-desk[data-layout="tablet"] .td-hero-stats div {
-  justify-content: flex-start;
-  gap: 8px;
-}
-.trading-desk[data-layout="tablet"] .td-hero-stats dd {
-  min-width: 0;
-  text-align: left;
 }
 
 /* Senior mode and very narrow phones: replay controls on two rows so 2x and 復盤 are not cut. */
@@ -3959,4 +3910,85 @@
 .trading-desk[data-layout="senior"] .sim-large input {
   width: 24px;
   height: 24px;
+}
+
+/* Phones (2026-10-21): ◀ ▶ around the name, the code-and-time line, the 行情 tabs, and the 下單 page while the
+   index is shown. */
+.trading-desk .td-hero-step {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.trading-desk .td-hero-step button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--td-fg);
+  background: var(--td-raised);
+  border: 1px solid var(--td-line-strong);
+  border-radius: var(--td-radius);
+}
+.trading-desk .td-hero-step svg {
+  width: 15px;
+  height: 15px;
+}
+.trading-desk[data-layout="senior"] .td-hero-step button {
+  width: 56px;
+  height: 56px;
+}
+/* The code moves to the line under the quote, beside the date and the replay clock. */
+.trading-desk .td-hero[data-stepper="true"] h1 small {
+  display: none;
+}
+.trading-desk .td-hero-line {
+  grid-area: line;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0;
+  color: var(--td-muted);
+  font: 500 13px/1.3 var(--font-mono);
+}
+.trading-desk .td-hero-line span {
+  color: var(--td-fg);
+  font-weight: 600;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-pane > .td-stock-tabs {
+  border-top: var(--td-hairline) solid var(--td-line);
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-pane > .td-index-panel {
+  min-height: 420px;
+}
+.trading-desk .td-index-no-order {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 36px 16px;
+  text-align: center;
+}
+.trading-desk .td-index-no-order p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.trading-desk .td-index-no-order .td-button {
+  min-height: 44px;
+}
+.trading-desk[data-layout="senior"] .td-index-no-order p {
+  font-size: 20px;
+}
+.trading-desk[data-layout="senior"] .td-index-no-order .td-button {
+  min-height: 56px;
+  font-size: 18px;
+}
+
+/* Tablets show the index only as the first 自選 row: a plain row, not a button. */
+.trading-desk .td-watch-row[data-static="true"] {
+  cursor: default;
+}
+.trading-desk .td-watch-row[data-static="true"]:hover {
+  background: rgb(230 194 90 / 0.05);
 }

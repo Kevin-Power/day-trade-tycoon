@@ -16,10 +16,12 @@ import { TradeTape } from "@/components/trade-tape";
 import { useTickReplay } from "@/components/use-tick-replay";
 import {
   AccountSummary,
+  DisplayBook,
   PaperOrder,
   Ledger,
   type MorningOrderOptions,
 } from "@/components/morning-trading";
+import { MinuteTable, QuoteDetailGrid, StockTabs } from "@/components/stock-detail";
 import { IndexPanel } from "@/components/index-panel";
 import { WatchTable } from "@/components/watch-table";
 import { ChartToolbar, QuoteHero, QuoteLine } from "@/components/quote-hero";
@@ -361,6 +363,13 @@ function MorningLesson({
   const singlePane = layout === "phone" || layout === "senior";
   // Clicking the TAIEX row on a desktop points at the index pane (it is always shown there).
   const [indexPing, setIndexPing] = useState(0);
+  // Phones: the TAIEX row in 自選 turns 行情 into the index view until a stock is picked.
+  const [indexView, setIndexView] = useState(false);
+  // Phones: a price tapped in the 行情 book, handed to 下單 (filled in, never sent).
+  const [prefill, setPrefill] = useState<{ price: number; side: "buy" | "sell"; nonce: number }>();
+  useEffect(() => {
+    if (activePane !== "trade") setPrefill(undefined);
+  }, [activePane]);
 
   useEffect(() => {
     setAuto(false);
@@ -647,6 +656,7 @@ function MorningLesson({
       onCancel={cancel}
       failures={failures}
       variant={singlePane ? "phone" : "desk"}
+      prefill={singlePane ? prefill : undefined}
     />
   ) : null;
   const chartBar = catalog ? (
@@ -656,8 +666,17 @@ function MorningLesson({
       mode={chartMode}
       onMode={setChartMode}
       onSelect={setSelected}
+      stepper={!singlePane}
     />
   ) : null;
+  const replayClockText = liveMarket ? formatTime(replayClock(liveMarket)) : "09:00:00";
+  const indexPanel = (
+    <IndexPanel
+      series={liveMarket?.index}
+      clock={replayClockText}
+      placeholder={marketSession ? "本教材沒有大盤資料" : "開始練習後顯示大盤"}
+    />
+  );
   const alerts = useMemo(
     () => (catalog && settled ? deriveMorningAlerts(catalog, settled) : []),
     [catalog, settled],
@@ -833,7 +852,9 @@ function MorningLesson({
                       code={code}
                       compact={layout === "tablet"}
                       onSelect={setSelected}
-                      onIndex={() => setIndexPing((value) => value + 1)}
+                      onIndex={
+                        layout === "desktop" ? () => setIndexPing((value) => value + 1) : undefined
+                      }
                     />
                   </div>
                 )}
@@ -842,35 +863,34 @@ function MorningLesson({
                     {indexPing > 0 && (
                       <span key={indexPing} className="td-index-ping" aria-hidden />
                     )}
-                    <IndexPanel
-                      series={liveMarket?.index}
-                      clock={liveMarket ? formatTime(replayClock(liveMarket)) : "09:00:00"}
-                      placeholder={marketSession ? "本教材沒有大盤資料" : "開始練習後顯示大盤"}
-                    />
+                    {indexPanel}
                   </div>
                 )}
                 <div className="td-center" data-pane="center">
                   {singlePane && replayNotice && (
                     <ReplayNotice key={replayNotice} text={replayNotice} />
                   )}
-                  {singlePane && activePane !== "market" && (
+                  {singlePane && (activePane !== "market" || indexView) && (
                     <h1 className="sr-only" ref={practiceHeading} tabIndex={-1}>
                       真實歷史行情・模擬交易工作台
                     </h1>
                   )}
-                  {(!singlePane || activePane === "market") && (
+                  {(!singlePane || (activePane === "market" && !indexView)) && (
                     <>
                       <QuoteHero
                         catalog={catalog}
                         session={liveMarket}
                         code={code}
                         titleRef={practiceHeading}
+                        onSelect={singlePane ? setSelected : undefined}
+                        clock={singlePane ? replayClockText : undefined}
                       />
                       {chartBar}
                     </>
                   )}
                   <div className="td-pane">
-                    {(!singlePane || activePane === "market") && (
+                    {singlePane && activePane === "market" && indexView && indexPanel}
+                    {(!singlePane || (activePane === "market" && !indexView)) && (
                       <div className="td-chart-row">
                         {!singlePane && replayNotice && (
                           <ReplayNotice key={replayNotice} text={replayNotice} floating />
@@ -881,10 +901,50 @@ function MorningLesson({
                           code={code}
                           candles={chartMode === "chart"}
                         />
-                        {!showPlan && singlePane && (
-                          <TradeTape catalog={catalog} session={liveMarket} code={code} />
-                        )}
                       </div>
+                    )}
+                    {singlePane && activePane === "market" && !indexView && (
+                      <StockTabs
+                        tabs={[
+                          {
+                            id: "book",
+                            label: "五檔",
+                            content: (
+                              <DisplayBook
+                                catalog={catalog}
+                                session={liveMarket}
+                                code={code}
+                                onPick={(price, side) => {
+                                  setPrefill({ price, side, nonce: Date.now() });
+                                  setActivePane("trade");
+                                  window.scrollTo({ top: 0, behavior: "auto" });
+                                }}
+                              />
+                            ),
+                          },
+                          {
+                            id: "tape",
+                            label: "明細",
+                            content: (
+                              <TradeTape catalog={catalog} session={liveMarket} code={code} />
+                            ),
+                          },
+                          {
+                            id: "detail",
+                            label: "詳細",
+                            content: (
+                              <>
+                                <QuoteDetailGrid
+                                  catalog={catalog}
+                                  session={liveMarket}
+                                  code={code}
+                                />
+                                <MinuteTable session={liveMarket} code={code} />
+                              </>
+                            ),
+                          },
+                        ]}
+                      />
                     )}
                     {singlePane && activePane === "watch" && (
                       <WatchTable
@@ -892,17 +952,37 @@ function MorningLesson({
                         session={liveMarket}
                         code={code}
                         compact
+                        indexSelected={indexView}
                         onSelect={(next) => {
                           setSelected(next);
+                          setIndexView(false);
                           setActivePane("market");
                         }}
-                        onIndex={() => setActivePane("market")}
+                        onIndex={() => {
+                          setIndexView(true);
+                          setActivePane("market");
+                        }}
                       />
                     )}
                     {singlePane && activePane === "trade" && (
                       <div className="td-mobile-ticket">
-                        <QuoteLine catalog={catalog} session={liveMarket} code={code} />
-                        {orderTicket}
+                        {indexView ? (
+                          <div className="td-index-no-order" role="status">
+                            <p>指數不能下單，請選一檔股票</p>
+                            <button
+                              type="button"
+                              className="td-button"
+                              onClick={() => setActivePane("watch")}
+                            >
+                              到自選選股票
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <QuoteLine catalog={catalog} session={liveMarket} code={code} />
+                            {orderTicket}
+                          </>
+                        )}
                       </div>
                     )}
                     {singlePane &&

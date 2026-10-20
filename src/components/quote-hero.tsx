@@ -20,14 +20,23 @@ export function QuoteHero({
   session,
   code,
   titleRef,
+  onSelect,
+  clock,
 }: {
   catalog: MorningCatalog;
   session: LiveMorningState | null;
   code: string;
   titleRef?: RefObject<HTMLHeadingElement | null>;
+  /** Phones: ◀ ▶ on both sides of the name step through the lesson's stocks. */
+  onSelect?: (code: string) => void;
+  /** Phones: the replay clock (HH:MM:SS) for the code-and-time line under the quote. */
+  clock?: string;
 }) {
   const symbol = catalog.symbols.find((item) => item.code === code) ?? catalog.symbols[0];
-  const tick = useTickFlash(symbol ? session?.bars[symbol.code]?.at(-1)?.c : null, symbol?.code ?? "");
+  const tick = useTickFlash(
+    symbol ? session?.bars[symbol.code]?.at(-1)?.c : null,
+    symbol?.code ?? "",
+  );
   if (!symbol) return null;
   const bars = session?.bars[symbol.code] ?? [];
   const quote = quoteSummary(bars, symbol.previousClose);
@@ -47,13 +56,31 @@ export function QuoteHero({
       : value > symbol.previousClose
         ? "up"
         : "down";
+  const at = catalog.symbols.indexOf(symbol);
+  const step = (by: number) =>
+    onSelect?.(catalog.symbols[(at + by + catalog.symbols.length) % catalog.symbols.length].code);
+  const title = (
+    <h1 ref={titleRef} tabIndex={-1} id="morning-practice-title">
+      {symbol.name}
+      <small>{symbol.code}</small>
+    </h1>
+  );
   return (
-    <header className="td-hero" data-tone={quote.tone}>
+    <header className="td-hero" data-tone={quote.tone} data-stepper={Boolean(onSelect)}>
       <div className="td-hero-id">
-        <h1 ref={titleRef} tabIndex={-1} id="morning-practice-title">
-          {symbol.name}
-          <small>{symbol.code}</small>
-        </h1>
+        {onSelect ? (
+          <div className="td-hero-step">
+            <button type="button" aria-label="上一檔股票" onClick={() => step(-1)}>
+              <ChevronLeft aria-hidden />
+            </button>
+            {title}
+            <button type="button" aria-label="下一檔股票" onClick={() => step(1)}>
+              <ChevronRight aria-hidden />
+            </button>
+          </div>
+        ) : (
+          title
+        )}
         <p className="td-hero-stamp">
           {quote.last === null ? (
             "待揭露第一分鐘"
@@ -68,7 +95,10 @@ export function QuoteHero({
           )}
         </p>
       </div>
-      <p className="td-hero-price" title={session?.replay ? "分鐘內模擬成交價，這分鐘結束時為真實收盤價" : "最新完整分鐘收價"}>
+      <p
+        className="td-hero-price"
+        title={session?.replay ? "分鐘內模擬成交價，這分鐘結束時為真實收盤價" : "最新完整分鐘收價"}
+      >
         <strong key={tick.key} data-flash={tick.flash}>
           {price(quote.last)}
         </strong>
@@ -85,17 +115,25 @@ export function QuoteHero({
       <dl className="td-hero-book" aria-label="教學模擬五檔的最佳買價與賣價">
         <div data-side="bid" data-tone={toneOf(best.bid)}>
           <dt>
-            買價<span className="td-sim-tag">模擬</span>
+            買進<span className="td-sim-tag">模擬</span>
           </dt>
           <dd>{price(best.bid)}</dd>
         </div>
         <div data-side="ask" data-tone={toneOf(best.ask)}>
           <dt>
-            賣價<span className="td-sim-tag">模擬</span>
+            賣出<span className="td-sim-tag">模擬</span>
           </dt>
           <dd>{price(best.ask)}</dd>
         </div>
       </dl>
+      {clock && (
+        <p className="td-hero-line">
+          <span>{symbol.code}</span>
+          <time>
+            {catalog.date.slice(5).replace("-", "/")} {clock}
+          </time>
+        </p>
+      )}
     </header>
   );
 }
@@ -137,12 +175,15 @@ export function ChartToolbar({
   mode,
   onMode,
   onSelect,
+  stepper = true,
 }: {
   catalog: MorningCatalog;
   code: string;
   mode: "quote" | "chart";
   onMode: (mode: "quote" | "chart") => void;
   onSelect: (code: string) => void;
+  /** Phones step from the quote block's ◀ ▶ instead. */
+  stepper?: boolean;
 }): ReactNode {
   const index = Math.max(
     0,
@@ -153,26 +194,28 @@ export function ChartToolbar({
       catalog.symbols[(index + step + catalog.symbols.length) % catalog.symbols.length].code,
     );
   return (
-    <div className="td-chartbar">
-      <div className="td-stepper" role="group" aria-label="切換股票">
-        <button type="button" onClick={() => move(-1)} aria-label="上一檔股票">
-          <ChevronLeft aria-hidden />
-        </button>
-        <select
-          aria-label="選擇股票"
-          value={code}
-          onChange={(event) => onSelect(event.target.value)}
-        >
-          {catalog.symbols.map((item) => (
-            <option key={item.code} value={item.code}>
-              {item.code} {item.name}
-            </option>
-          ))}
-        </select>
-        <button type="button" onClick={() => move(1)} aria-label="下一檔股票">
-          <ChevronRight aria-hidden />
-        </button>
-      </div>
+    <div className="td-chartbar" data-stepper={stepper}>
+      {stepper && (
+        <div className="td-stepper" role="group" aria-label="切換股票">
+          <button type="button" onClick={() => move(-1)} aria-label="上一檔股票">
+            <ChevronLeft aria-hidden />
+          </button>
+          <select
+            aria-label="選擇股票"
+            value={code}
+            onChange={(event) => onSelect(event.target.value)}
+          >
+            {catalog.symbols.map((item) => (
+              <option key={item.code} value={item.code}>
+                {item.code} {item.name}
+              </option>
+            ))}
+          </select>
+          <button type="button" onClick={() => move(1)} aria-label="下一檔股票">
+            <ChevronRight aria-hidden />
+          </button>
+        </div>
+      )}
       <nav aria-label="看盤分頁" className="td-segment">
         {(
           [

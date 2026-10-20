@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { CandlestickChart } from "@/lib/icons";
 import type { MorningCatalog } from "@/lib/morning";
 import { createMorningBook } from "@/lib/morning-book";
@@ -6,7 +6,12 @@ import { formatIndexValue, indexSummary } from "@/lib/morning-index";
 import { lastTrade, type LiveMorningState } from "@/lib/morning-live";
 import { bestQuotes, quoteSummary } from "@/lib/morning-quote";
 import { formatPrice } from "@/lib/market/ticks";
-import { deviceDashPattern, hairlineDevicePixels, jiangboPriceRange, snapStroke } from "@/lib/market/chart-data";
+import {
+  deviceDashPattern,
+  hairlineDevicePixels,
+  jiangboPriceRange,
+  snapStroke,
+} from "@/lib/market/chart-data";
 import { TickPrice } from "@/components/tick-price";
 import { useDeviceCanvas } from "@/components/use-device-canvas";
 
@@ -35,7 +40,8 @@ export function WatchTable({
   compact?: boolean;
   indexSelected?: boolean;
   onSelect: (code: string) => void;
-  onIndex: () => void;
+  /** Where the index can be shown (the desktop's 大盤 pane, the phone's 行情 page); without it the row is static. */
+  onIndex?: () => void;
 }) {
   const index = session?.index;
   const indexQuote = index ? indexSummary(index.bars, index.previousClose) : null;
@@ -57,14 +63,7 @@ export function WatchTable({
         ))}
       </div>
       <div className="td-watch-rows" role="group" aria-label="選擇商品">
-        <button
-          type="button"
-          className="td-watch-row"
-          data-code="TAIEX"
-          data-tone={indexQuote?.tone ?? "flat"}
-          aria-pressed={indexSelected}
-          onClick={onIndex}
-        >
+        <IndexRow tone={indexQuote?.tone ?? "flat"} selected={indexSelected} onIndex={onIndex}>
           <span className="td-watch-name">
             <span>{index?.name ?? "加權指數"}</span>
             <small>TAIEX</small>
@@ -74,7 +73,9 @@ export function WatchTable({
           </TickPrice>
           {!compact && (
             <span className="td-watch-cell">
-              {indexQuote?.last == null ? dash : `${arrow(indexQuote.tone)}${indexQuote.changeText}`}
+              {indexQuote?.last == null
+                ? dash
+                : `${arrow(indexQuote.tone)}${indexQuote.changeText}`}
             </span>
           )}
           <span className="td-watch-cell">{indexQuote?.percentText || dash}</span>
@@ -82,16 +83,22 @@ export function WatchTable({
             <>
               <span className="td-watch-cell td-watch-muted">{dash}</span>
               <span className="td-watch-cell td-watch-muted">{dash}</span>
-              <span className="td-watch-cell" data-tone={toneOf(indexQuote?.high, index?.previousClose ?? 0)}>
+              <span
+                className="td-watch-cell"
+                data-tone={toneOf(indexQuote?.high, index?.previousClose ?? 0)}
+              >
                 {indexQuote?.high == null ? dash : formatIndexValue(indexQuote.high)}
               </span>
-              <span className="td-watch-cell" data-tone={toneOf(indexQuote?.low, index?.previousClose ?? 0)}>
+              <span
+                className="td-watch-cell"
+                data-tone={toneOf(indexQuote?.low, index?.previousClose ?? 0)}
+              >
                 {indexQuote?.low == null ? dash : formatIndexValue(indexQuote.low)}
               </span>
             </>
           )}
           <MiniCandles bars={index?.bars ?? []} previous={index?.previousClose ?? 0} endT={endT} />
-        </button>
+        </IndexRow>
         {catalog.symbols.map((symbol) => {
           const bars = session?.bars[symbol.code] ?? [];
           const quote = quoteSummary(bars, symbol.previousClose);
@@ -130,16 +137,28 @@ export function WatchTable({
               <span className="td-watch-cell">{quote.percentText || dash}</span>
               {!compact && (
                 <>
-                  <span className="td-watch-cell" data-tone={toneOf(best.bid, symbol.previousClose)}>
+                  <span
+                    className="td-watch-cell"
+                    data-tone={toneOf(best.bid, symbol.previousClose)}
+                  >
                     {best.bid === null ? dash : formatPrice(best.bid)}
                   </span>
-                  <span className="td-watch-cell" data-tone={toneOf(best.ask, symbol.previousClose)}>
+                  <span
+                    className="td-watch-cell"
+                    data-tone={toneOf(best.ask, symbol.previousClose)}
+                  >
                     {best.ask === null ? dash : formatPrice(best.ask)}
                   </span>
-                  <span className="td-watch-cell" data-tone={toneOf(quote.high, symbol.previousClose)}>
+                  <span
+                    className="td-watch-cell"
+                    data-tone={toneOf(quote.high, symbol.previousClose)}
+                  >
                     {quote.high === null ? dash : formatPrice(quote.high)}
                   </span>
-                  <span className="td-watch-cell" data-tone={toneOf(quote.low, symbol.previousClose)}>
+                  <span
+                    className="td-watch-cell"
+                    data-tone={toneOf(quote.low, symbol.previousClose)}
+                  >
                     {quote.low === null ? dash : formatPrice(quote.low)}
                   </span>
                 </>
@@ -153,15 +172,63 @@ export function WatchTable({
   );
 }
 
+/** The TAIEX row: a button where the index can be opened, a plain row where it cannot (tablets). */
+function IndexRow({
+  tone,
+  selected,
+  onIndex,
+  children,
+}: {
+  tone: "up" | "down" | "flat";
+  selected: boolean;
+  onIndex?: () => void;
+  children: ReactNode;
+}) {
+  return onIndex ? (
+    <button
+      type="button"
+      className="td-watch-row"
+      data-code="TAIEX"
+      data-tone={tone}
+      aria-pressed={selected}
+      onClick={onIndex}
+    >
+      {children}
+    </button>
+  ) : (
+    <div className="td-watch-row" data-code="TAIEX" data-tone={tone} data-static="true">
+      {children}
+    </div>
+  );
+}
+
 /** 簡易 K 線: five-minute candles of the revealed minutes against the previous close (dashed). */
-export function MiniCandles({ bars, previous, endT }: { bars: readonly Candle[]; previous: number; endT: number }) {
+export function MiniCandles({
+  bars,
+  previous,
+  endT,
+}: {
+  bars: readonly Candle[];
+  previous: number;
+  endT: number;
+}) {
   if (!bars.length) return <span className="td-mini td-mini-empty">等待開盤</span>;
   return <MiniCanvas bars={bars} previous={previous} endT={endT} />;
 }
 
-function MiniCanvas({ bars, previous, endT }: { bars: readonly Candle[]; previous: number; endT: number }) {
+function MiniCanvas({
+  bars,
+  previous,
+  endT,
+}: {
+  bars: readonly Candle[];
+  previous: number;
+  endT: number;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
-  useDeviceCanvas(ref, (ctx, width, height) => paintMiniCandles(ctx, width, height, bars, previous, endT));
+  useDeviceCanvas(ref, (ctx, width, height) =>
+    paintMiniCandles(ctx, width, height, bars, previous, endT),
+  );
   return <canvas ref={ref} className="td-mini" aria-hidden="true" />;
 }
 
@@ -195,7 +262,12 @@ function paintMiniCandles(
     }
   }
   const all = [...candles.values()];
-  const range = jiangboPriceRange(previous, Math.max(...all.map((c) => c.h)), Math.min(...all.map((c) => c.l)), 0.005);
+  const range = jiangboPriceRange(
+    previous,
+    Math.max(...all.map((c) => c.h)),
+    Math.min(...all.map((c) => c.l)),
+    0.005,
+  );
   const pad = 2;
   const span = Math.max(range.max - range.min, Number.EPSILON);
   const yOf = (value: number) => pad + ((range.max - value) / span) * (height - pad * 2);
@@ -219,9 +291,19 @@ function paintMiniCandles(
     const color = candle.c > candle.o ? up : candle.c < candle.o ? down : flat;
     ctx.fillStyle = color;
     const wickX = Math.round(x * scale) / scale;
-    ctx.fillRect(wickX - hairline / scale / 2, yOf(candle.h), hairline / scale, Math.max(1 / scale, yOf(candle.l) - yOf(candle.h)));
+    ctx.fillRect(
+      wickX - hairline / scale / 2,
+      yOf(candle.h),
+      hairline / scale,
+      Math.max(1 / scale, yOf(candle.l) - yOf(candle.h)),
+    );
     const top = yOf(Math.max(candle.o, candle.c));
     const bottom = yOf(Math.min(candle.o, candle.c));
-    ctx.fillRect(Math.round((x - body / 2) * scale) / scale, top, body, Math.max(1 / scale, bottom - top));
+    ctx.fillRect(
+      Math.round((x - body / 2) * scale) / scale,
+      top,
+      body,
+      Math.max(1 / scale, bottom - top),
+    );
   }
 }

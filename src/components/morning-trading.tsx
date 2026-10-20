@@ -77,6 +77,42 @@ type OrderReview = {
   limitPrice?: number;
 };
 
+/**
+ * The phone's 行情 book: the same teaching book, display only. A tap hands its price and direction to 下單
+ * (a bid buys, an ask sells); nothing is sent from here.
+ */
+export function DisplayBook({
+  catalog,
+  session,
+  code,
+  onPick,
+}: {
+  catalog: MorningCatalog;
+  session: MorningState | null;
+  code: string;
+  onPick: (price: number, side: "buy" | "sell") => void;
+}) {
+  const symbol = catalog.symbols.find((item) => item.code === code);
+  const trade = session ? lastTrade(session, code, catalog) : null;
+  return (
+    <MorningOrderBook
+      mode="display"
+      code={code}
+      cursor={session?.cursor ?? 0}
+      last={session?.bars[code]?.at(-1)?.c}
+      previousClose={symbol?.previousClose ?? 0}
+      trade={trade ? { index: trade.index, side: trade.side } : undefined}
+      revision={session?.revision ?? 0}
+      simulated={Boolean(session && "replay" in session && session.replay)}
+      lots={1}
+      holdingLots={0}
+      flash={false}
+      disabled={false}
+      onPick={onPick}
+    />
+  );
+}
+
 export function PaperOrder({
   catalog,
   session,
