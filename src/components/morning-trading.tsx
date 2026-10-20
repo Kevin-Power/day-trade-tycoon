@@ -903,7 +903,7 @@ export function Ledger({
                 <th scope="col">商品</th>
                 {records[0].cells.map((cell) => (
                   <th key={cell.label} scope="col">
-                    {cell.label}
+                    <ColumnLabel text={cell.label} />
                   </th>
                 ))}
               </tr>
@@ -932,6 +932,18 @@ export function Ledger({
         )}
       </div>
     </section>
+  );
+}
+
+/** A column head with its （…） qualifier on a second line, so the desk ledger fits its column. */
+function ColumnLabel({ text }: { text: string }) {
+  const at = text.indexOf("（");
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      <small>{text.slice(at)}</small>
+    </>
   );
 }
 

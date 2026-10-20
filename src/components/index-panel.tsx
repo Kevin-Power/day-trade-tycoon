@@ -5,6 +5,7 @@ import {
   deviceDashPattern,
   hairlineDevicePixels,
   jiangboPriceRange,
+  snapEdge,
   snapStroke,
   splitPriceLine,
 } from "@/lib/market/chart-data";
@@ -49,7 +50,9 @@ export function IndexPanel({
     <section className="td-index-panel" data-tone={quote.tone} aria-label="大盤指數">
       {head}
       <div className="td-index-quote">
-        <strong className="td-index-value td-num">{quote.last === null ? "—" : formatIndexValue(quote.last)}</strong>
+        <strong className="td-index-value td-num">
+          {quote.last === null ? "—" : formatIndexValue(quote.last)}
+        </strong>
         <span className="td-index-change td-num">
           {arrow(quote.tone)}
           {quote.changeText} {quote.percentText}
@@ -78,8 +81,12 @@ export function IndexPanel({
 
 function IndexChart({ series }: { series: MorningIndexSeries }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const points = series.bars.flatMap((bar) => bar.p.map((value, index) => ({ t: bar.t + (index + 1) * 5, p: value })));
-  useDeviceCanvas(ref, (ctx, width, height) => paintIndex(ctx, width, height, points, series.previousClose));
+  const points = series.bars.flatMap((bar) =>
+    bar.p.map((value, index) => ({ t: bar.t + (index + 1) * 5, p: value })),
+  );
+  useDeviceCanvas(ref, (ctx, width, height) =>
+    paintIndex(ctx, width, height, points, series.previousClose),
+  );
   const last = points.at(-1);
   return (
     <canvas
@@ -105,8 +112,12 @@ function paintIndex(
   const tape = read("--color-tape", "#e6c25a");
   const muted = read("--color-muted", "#9eacb9");
   const grid = read("--color-border", "#1a232e");
-  const scale = ctx.getTransform().a || 1;
-  const hairline = hairlineDevicePixels(scale);
+  // Device pixels per CSS pixel on each axis (they differ slightly when the CSS width is fractional): vertical
+  // rules snap with the horizontal scale, horizontal rules with the vertical one.
+  const transform = ctx.getTransform();
+  const sx = transform.a > 0 ? transform.a : 1;
+  const sy = transform.d > 0 ? transform.d : 1;
+  const hairline = hairlineDevicePixels(Math.min(sx, sy));
   const left = 4;
   const right = width - 58;
   const top = 6;
@@ -125,7 +136,7 @@ function paintIndex(
   // Hour grid and labels.
   ctx.fillStyle = muted;
   ctx.strokeStyle = grid;
-  ctx.lineWidth = hairline / scale;
+  ctx.lineWidth = hairline / sx;
   for (const [t, label] of [
     [0, "09"],
     [3600, "10"],
@@ -133,7 +144,7 @@ function paintIndex(
     [10800, "12"],
     [14400, "13"],
   ] as const) {
-    const x = snapStroke(xOf(t), scale, hairline);
+    const x = snapStroke(xOf(t), sx, hairline);
     ctx.beginPath();
     ctx.moveTo(x, top);
     ctx.lineTo(x, bottom);
@@ -144,11 +155,13 @@ function paintIndex(
   // Previous close (dashed) and the price labels on the right.
   ctx.save();
   ctx.strokeStyle = tape;
-  ctx.setLineDash(deviceDashPattern([3, 3], scale));
-  const base = snapStroke(yOf(previous), scale, hairline);
+  ctx.lineWidth = hairline / sy;
+  ctx.setLineDash(deviceDashPattern([3, 3], sx));
+  const base = snapStroke(yOf(previous), sy, hairline);
   ctx.beginPath();
-  ctx.moveTo(left, base);
-  ctx.lineTo(right, base);
+  // The dash starts on a whole device pixel, so every dash (whole device pixels long) has crisp ends.
+  ctx.moveTo(snapEdge(left, sx), base);
+  ctx.lineTo(snapEdge(right, sx), base);
   ctx.stroke();
   ctx.restore();
   ctx.textAlign = "left";
@@ -158,7 +171,11 @@ function paintIndex(
     [range.min, down],
   ] as const) {
     ctx.fillStyle = color;
-    ctx.fillText(formatIndexValue(value).replace(/\.\d+$/, ""), right + 6, Math.min(bottom, Math.max(top + 5, yOf(value))));
+    ctx.fillText(
+      formatIndexValue(value).replace(/\.\d+$/, ""),
+      right + 6,
+      Math.min(bottom, Math.max(top + 5, yOf(value))),
+    );
   }
   if (!points.length) return;
   const runs = splitPriceLine(points, previous, 30);

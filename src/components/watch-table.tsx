@@ -10,6 +10,8 @@ import {
   deviceDashPattern,
   hairlineDevicePixels,
   jiangboPriceRange,
+  snapColumn,
+  snapEdge,
   snapStroke,
 } from "@/lib/market/chart-data";
 import { TickPrice } from "@/components/tick-price";
@@ -248,8 +250,12 @@ function paintMiniCandles(
   const down = read("--color-down", "#1cd78a");
   const flat = read("--color-fg", "#f3f6f9");
   const tape = read("--color-tape", "#e6c25a");
-  const scale = ctx.getTransform().a || 1;
-  const hairline = hairlineDevicePixels(scale);
+  // Device pixels per CSS pixel on each axis: a fractional CSS width makes them differ slightly, so y is
+  // snapped with the vertical scale and x with the horizontal one.
+  const transform = ctx.getTransform();
+  const sx = transform.a > 0 ? transform.a : 1;
+  const sy = transform.d > 0 ? transform.d : 1;
+  const hairline = hairlineDevicePixels(Math.min(sx, sy));
   const candles = new Map<number, Candle>();
   for (const bar of bars) {
     const slot = Math.floor(bar.t / SLOT);
@@ -273,13 +279,12 @@ function paintMiniCandles(
   const yOf = (value: number) => pad + ((range.max - value) / span) * (height - pad * 2);
   const slots = Math.max(1, Math.ceil(endT / SLOT));
   const slotWidth = (width - pad * 2) / slots;
-  const body = Math.max(1 / scale, Math.floor(slotWidth * 0.6 * scale) / scale);
   if (previous > 0) {
     ctx.save();
     ctx.strokeStyle = tape;
-    ctx.lineWidth = hairline / scale;
-    ctx.setLineDash(deviceDashPattern([2, 3], scale));
-    const y = snapStroke(yOf(previous), scale, hairline);
+    ctx.lineWidth = hairline / sy;
+    ctx.setLineDash(deviceDashPattern([2, 3], sx));
+    const y = snapStroke(yOf(previous), sy, hairline);
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(width, y);
@@ -290,20 +295,18 @@ function paintMiniCandles(
     const x = pad + (candle.t / SLOT) * slotWidth + slotWidth / 2;
     const color = candle.c > candle.o ? up : candle.c < candle.o ? down : flat;
     ctx.fillStyle = color;
-    const wickX = Math.round(x * scale) / scale;
+    // Wick and body on whole device pixels, the body centred on its wick.
+    const column = snapColumn(x, slotWidth * 0.6, sx, hairline);
+    const high = snapEdge(yOf(candle.h), sy);
+    const low = snapEdge(yOf(candle.l), sy);
     ctx.fillRect(
-      wickX - hairline / scale / 2,
-      yOf(candle.h),
-      hairline / scale,
-      Math.max(1 / scale, yOf(candle.l) - yOf(candle.h)),
+      column.center - hairline / sx / 2,
+      high,
+      hairline / sx,
+      Math.max(1 / sy, low - high),
     );
-    const top = yOf(Math.max(candle.o, candle.c));
-    const bottom = yOf(Math.min(candle.o, candle.c));
-    ctx.fillRect(
-      Math.round((x - body / 2) * scale) / scale,
-      top,
-      body,
-      Math.max(1 / scale, bottom - top),
-    );
+    const top = snapEdge(yOf(Math.max(candle.o, candle.c)), sy);
+    const bottom = snapEdge(yOf(Math.min(candle.o, candle.c)), sy);
+    ctx.fillRect(column.left, top, column.width, Math.max(1 / sy, bottom - top));
   }
 }

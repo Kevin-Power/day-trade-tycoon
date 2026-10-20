@@ -1219,6 +1219,18 @@
 .trading-desk .terminal-record-table tbody th small {
   color: var(--td-muted);
   font-size: 11px;
+  /* The row head is bold; Plex Mono has no 700, so the code stays at a weight the face can draw. */
+  font-weight: 500;
+}
+/* Column heads put their （…） qualifier on a second line; desks and tablets use tighter cells so the whole
+   table fits the right-hand column without scrolling sideways. */
+.trading-desk .terminal-record-table thead th small {
+  display: block;
+  color: var(--td-muted);
+  font-size: 11px;
+}
+.trading-desk .td-ledger .terminal-record-table :is(th, td) {
+  padding: 5px 8px;
 }
 .trading-desk .terminal-record-table tbody tr:hover {
   background: var(--td-raised);
@@ -3557,6 +3569,10 @@
 }
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-row {
   min-height: 52px;
+}
+/* Tablets are touch screens: 44px rows and plan chip. */
+.trading-desk[data-layout="tablet"] :is(.td-watch-row, .td-plan-chip) {
+  min-height: 44px;
 }
 .trading-desk[data-layout="senior"] .td-watch-row {
   min-height: 60px;
