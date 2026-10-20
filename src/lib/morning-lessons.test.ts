@@ -45,6 +45,33 @@ test("every lesson's notices say each revealed minute is replayed with simulated
   }
 });
 
+test("every lesson carries the real TAIEX: 90 bars of 12 five-second points", () => {
+  const expected: Record<string, { previousClose: number; open: number }> = {
+    "2026-10-05": { previousClose: 48475.74, open: 48574.95 },
+    "2026-10-06": { previousClose: 49712.04, open: 49736.37 },
+  };
+  for (const source of morningSources) {
+    const index = source.index;
+    assert.ok(index, `${source.catalog.date} has no TAIEX`);
+    assert.equal(index.code, "TAIEX");
+    assert.equal(index.bars.length, 90);
+    assert.equal(index.bars[0].t, 0);
+    assert.ok(index.bars.every((bar) => bar.p.length === 12));
+    assert.match(index.source, /TWSE|證交所/);
+    assert.equal(index.previousClose, expected[source.catalog.date].previousClose);
+    assert.equal(index.bars[0].o, expected[source.catalog.date].open);
+  }
+});
+
+test("every lesson's notices explain the TAIEX source and its 09:00:05 open", () => {
+  for (const source of morningSources) {
+    const notice = source.catalog.notices.find((text) => text.includes("加權指數"));
+    assert.ok(notice, `${source.catalog.date} notices must describe the TAIEX`);
+    assert.match(notice, /證交所/);
+    assert.match(notice, /09:00:05/);
+  }
+});
+
 test("notice edits never change a lesson's identity or its real minute bars", () => {
   // Pinned when the notices were revised (2026-10-20); a change here is a data change, not a copy edit.
   const pinned: Record<string, [string, string]> = {

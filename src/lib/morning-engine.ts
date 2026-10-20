@@ -1,14 +1,25 @@
 import { z } from "zod";
 import { commission, DAYTRADE_TAX, LOT_SHARES } from "./market/ticks.ts";
 import type { Bar } from "./game/types.ts";
-import type { MorningAction, MorningCatalog, MorningPlan, MorningState } from "./morning.ts";
+import type {
+  MorningAction,
+  MorningCatalog,
+  MorningIndexSeries,
+  MorningPlan,
+  MorningState,
+} from "./morning.ts";
 import { validMorningLimit } from "./morning-book.ts";
 
 export const MORNING_STARTING_CASH = 10_000_000;
 export const MORNING_ADVANCE_INTERVAL = 1_000;
 export const MORNING_MAX_ORDERS = 200;
 export type MorningStoredState = Omit<MorningState, "bars">;
-export type MorningSource = { catalog: MorningCatalog; bars: Record<string, Bar[]> };
+export type MorningSource = {
+  catalog: MorningCatalog;
+  bars: Record<string, Bar[]>;
+  /** The lesson's real TAIEX, when the lesson carries one. Never read by matching, validation or P&L. */
+  index?: MorningIndexSeries;
+};
 export class MorningError extends Error {
   readonly status: number;
   constructor(status: number, message: string) {

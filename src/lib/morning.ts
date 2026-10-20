@@ -24,6 +24,16 @@ export type MorningCatalog = {
   /** Present only when the source documents whole-share minute volume in lots (張). */
   volumeUnit?: "lot";
 };
+/** One TAIEX minute built from TWSE's twelve 5-second values after the minute starts (`p`, oldest first). */
+export type MorningIndexBar = { t: number; o: number; h: number; l: number; c: number; p: number[] };
+/** The lesson's real TAIEX (TWSE 5-second index); revealed minute by minute like the stock bars. */
+export type MorningIndexSeries = {
+  code: "TAIEX";
+  name: string;
+  previousClose: number;
+  source: string;
+  bars: MorningIndexBar[];
+};
 export type MorningLessonSummary = Pick<
   MorningCatalog,
   "lessonId" | "title" | "date" | "start" | "end" | "maxCursor"

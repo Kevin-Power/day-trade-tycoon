@@ -1,6 +1,6 @@
 import dataset from "../../server/data/morning-2026-10-06.json" with { type: "json" };
 import octoberFifth from "../../server/data/morning-2026-10-05.json" with { type: "json" };
-import { summarizeMorningLesson, type MorningCatalog } from "./morning.ts";
+import { summarizeMorningLesson, type MorningCatalog, type MorningIndexSeries } from "./morning.ts";
 import type { Bar } from "./game/types";
 import { MorningError, type MorningSource } from "./morning-engine.ts";
 
@@ -8,12 +8,13 @@ import { MorningError, type MorningSource } from "./morning-engine.ts";
 // shared store, public directory or offline classroom bundle.
 export const morningCatalog: MorningCatalog = dataset.catalog;
 export const morningBars: Record<string, Bar[]> = dataset.bars;
+const morningIndex = dataset.index as MorningIndexSeries;
 
 // Explicit, reviewed sources only. Missing/unapproved dates never fall back to
 // another lesson, a file-system lookup, or generated prices.
 export const morningSources: readonly MorningSource[] = [
-  { catalog: octoberFifth.catalog, bars: octoberFifth.bars },
-  { catalog: morningCatalog, bars: morningBars },
+  { catalog: octoberFifth.catalog, bars: octoberFifth.bars, index: octoberFifth.index as MorningIndexSeries },
+  { catalog: morningCatalog, bars: morningBars, index: morningIndex },
 ];
 export const morningLessons = morningSources.map(source => summarizeMorningLesson(source.catalog));
 

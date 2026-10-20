@@ -3,11 +3,14 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseTwseIndex5s, taiexMinuteBars } from './lib/taiex-minutes.mjs';
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // 10/06 lesson bytes, pinned. Changed 2026-10-20 with the owner's approval for a notice-only revision (the
 // simulated in-minute replay); lessonId and bars unchanged. See docs/lesson-notice-2026-10-20.md.
-const preservedLessonSha256 = 'a0b490f7b6102dfbc28550664c301c885b8bbda964d920aea95f79b00298eb1d';
+// 2026-10-21 approved by the product owner (「想辦法做到好」): TAIEX added; stock bars and lesson IDs unchanged.
+// See docs/lesson-index-2026-10-21.md.
+const preservedLessonSha256 = '0e8ce9fc9a46e579b925a83e32d2f7daeca3f22f96464dfb99cf2463c61c77e3';
 export const expansionDirectory = 'research/daily-market/2026-10-07-morning-expansion';
 export const expansionDates = ['2026-10-02', '2026-10-05', '2026-10-07'];
 export const expansionCodes = ['2330', '2317', '2454', '2382', '2308'];
@@ -17,6 +20,18 @@ const previousDates = {
   '2026-10-05': ['2026-09-24', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02'],
   '2026-10-07': ['2026-09-30', '2026-10-01', '2026-10-02', '2026-10-05', '2026-10-06'],
 };
+// TAIEX (added 2026-10-21, approved by the product owner: 「想辦法做到好」). TWSE's official 5-second index for
+// each ready lesson date; 09:00:00 repeats the previous close and is left out (scripts/lib/taiex-minutes.mjs).
+// Stock bars and lesson IDs are unchanged.
+const taiexDirectory = 'research/daily-market/2026-10-06-collection/taiwan/raw';
+const taiexDaily = { path: `${taiexDirectory}/twse-indexdaily-202610.json`,
+  sha256: '5ef2353dbb11721239ce0fdd6ace91739755fb27fd9b4e9d98426168682bb054' };
+const taiexSources = {
+  '2026-10-05': { path: `${taiexDirectory}/twse-index5s-20261005.json`,
+    sha256: 'cdfcde9033334832e7e8a50bad1d2a6a31ac342f40cfd14416e4aa244864cb1f', previousRocDate: '115/10/02', rocDate: '115/10/05' },
+};
+export const TAIEX_NOTICE =
+  '大盤：證交所每 5 秒加權指數，每分鐘揭露後依真實 5 秒值重播；09:00:00 是前一日收盤的佔位值，不列入，開盤取 09:00:05 第一個計算值。';
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = (root, path) => JSON.parse(readFileSync(resolve(root, path), 'utf8'));
 const localTime = stamp => new Date(stamp * 1000 + 28_800_000).toISOString().slice(11, 19);
@@ -177,6 +192,20 @@ export function buildMorningExpansion(root = workspace) {
         completeSymbols: sources.map(source => source.code), failedSymbols: failures, priorDailyReferences: references });
       continue;
     }
+    const taiexSource = taiexSources[date];
+    assert.ok(taiexSource, `A ready lesson needs retained TAIEX evidence: ${date}`);
+    const taiexDailyRows = JSON.parse(evidenceBytes(root, taiexDaily.path, taiexDaily.sha256).toString('utf8')).data;
+    const taiexClose = rocDate => {
+      const row = taiexDailyRows.find(item => item[0] === rocDate);
+      assert.ok(row, `TAIEX daily close missing for ${rocDate}`);
+      return Number(row[4].replaceAll(',', ''));
+    };
+    const taiexPoints = parseTwseIndex5s(JSON.parse(evidenceBytes(root, taiexSource.path, taiexSource.sha256).toString('utf8')));
+    assert.equal(taiexPoints.at(-1).time, '13:30:00');
+    assert.equal(taiexPoints.at(-1).value, taiexClose(taiexSource.rocDate), 'TAIEX 13:30 must equal the official close');
+    const index = { code: 'TAIEX', name: '加權指數', previousClose: taiexClose(taiexSource.previousRocDate),
+      source: '證交所 MI_5MINS_INDEX 每 5 秒發行量加權股價指數',
+      bars: taiexMinuteBars(taiexPoints, { previousClose: taiexClose(taiexSource.previousRocDate), minutes: 90 }) };
     const minuteHash = digest(JSON.stringify({ date, sources, bars }));
     const dailyHash = digest(JSON.stringify(references));
     const sourceHash = digest(JSON.stringify({ version: 1, date, minuteHash, dailyHash }));
@@ -203,12 +232,15 @@ export function buildMorningExpansion(root = workspace) {
         '分鐘量保留原值，零量不改寫；量單位與完整性尚未核對，不顯示量柱、VWAP 或量能訊號。',
         '紙上成交依下一分鐘開盤價模擬，不代表真實排隊、滑價、委託深度或券商成交。',
         '僅提供這份已保存的歷史教材，尚非每日自動更新、即時券商行情或真實下單。',
+        TAIEX_NOTICE,
       ], videoUrl: null,
     };
     const sourcePaths = [...new Set([...sources.map(source => source.sourcePath), ...references.map(row => row.sourcePath)])];
-    const dataset = { catalog, bars, provenance: {
+    const dataset = { catalog, bars, index, provenance: {
       minuteSourceSha256: minuteHash, dailySourceSha256: dailyHash, sourceSha256: sourceHash,
       minuteSource: 'Yahoo Finance', dailySource: 'TWSE STOCK_DAY', volumeVerified: false,
+      indexSourcePath: taiexSource.path, indexSourceSha256: taiexSource.sha256,
+      indexDailyPath: taiexDaily.path, indexDailySha256: taiexDaily.sha256,
       sourcePaths, sourceUrls: [...new Set([...sources.map(source => source.sourceUrl), ...references.map(row => row.sourceUrl)])],
       minuteSources: sources, priorDailyReferences: references,
       evidenceNote: 'Original Yahoo minute quote arrays and official prior daily closes; no independent official minute-by-minute verification.',

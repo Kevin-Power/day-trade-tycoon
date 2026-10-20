@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import assert from "node:assert/strict";
+import { parseTwseIndex5s, taiexMinuteBars } from "./lib/taiex-minutes.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const supplement = "research/daily-market/2026-10-06-strategy-supplement/";
@@ -54,6 +55,31 @@ context.push(
   { label: "融資金額增減", value: (taiwan.margin.rows.find(row => row.unit === "TWD_thousands").balanceChange / 1e5).toFixed(2) + " 億元", asOf: "10/05 上市・TWSE" },
   { label: "融券餘額增減", value: taiwan.margin.rows.find(row => row.name.startsWith("融券")).balanceChange.toLocaleString("en-US") + " 交易單位", asOf: "10/05 上市・TWSE 原始單位" },
 );
+// TAIEX (added 2026-10-21, approved by the product owner: 「想辦法做到好」). TWSE's official 5-second index;
+// 09:00:00 repeats the previous close and is left out (scripts/lib/taiex-minutes.mjs). Stock bars and the
+// lessonId are unchanged.
+const TAIEX_NOTICE =
+  "大盤：證交所每 5 秒加權指數，每分鐘揭露後依真實 5 秒值重播；09:00:00 是前一日收盤的佔位值，不列入，開盤取 09:00:05 第一個計算值。";
+const indexPath = collection + "taiwan/raw/twse-index5s-20261006.json";
+const INDEX_5S_SHA256 = "6863c329125b815a5265a3fc21ad89eab2661af3b5930e6d47b9d7dcf000e988";
+assert.equal(digest(read(indexPath)), INDEX_5S_SHA256, "TAIEX 5-second source must match retained evidence");
+const indexDailyPath = collection + "taiwan/raw/twse-indexdaily-202610.json";
+const INDEX_DAILY_SHA256 = "5ef2353dbb11721239ce0fdd6ace91739755fb27fd9b4e9d98426168682bb054";
+assert.equal(digest(read(indexDailyPath)), INDEX_DAILY_SHA256, "TAIEX daily closes must match retained evidence");
+const indexDaily = json(indexDailyPath);
+const indexClose = rocDate => {
+  const row = indexDaily.data.find(item => item[0] === rocDate);
+  assert.ok(row, "TAIEX daily close missing for " + rocDate);
+  return Number(row[4].replaceAll(",", ""));
+};
+const indexPoints = parseTwseIndex5s(json(indexPath));
+assert.equal(indexPoints.at(-1).time, "13:30:00");
+assert.equal(indexPoints.at(-1).value, indexClose("115/10/06"), "TAIEX 13:30 must equal the official close");
+const index = {
+  code: "TAIEX", name: "加權指數", previousClose: indexClose("115/10/05"),
+  source: "證交所 MI_5MINS_INDEX 每 5 秒發行量加權股價指數",
+  bars: taiexMinuteBars(indexPoints, { previousClose: indexClose("115/10/05"), minutes: 90 }),
+};
 const catalog = {
   lessonId: "morning-20261006-v1-" + manifest.sha256.slice(0, 12), title: "先讀背景，再等自己的出手機會", date: "2026-10-06",
   start: "09:00", end: "10:30", maxCursor: 90, symbols, context,
@@ -70,14 +96,17 @@ const catalog = {
     "尚未取得當日盤前影片；目前以文字教材練習，不會把其他日期或晚間影片當作當日盤前分析。",
     "委託採下一分鐘開盤價的教學撮合模型，沒有真實排隊、滑價或深度；費用是固定教材估算，與券商實際帳單可能不同。",
     "本課為單日歷史資料試行；後續每日更新、授權行情與富邦串接仍在準備中。目前只提供模擬下單。",
+    TAIEX_NOTICE,
   ], videoUrl: null,
 };
-const result = { catalog, bars, provenance: {
+const result = { catalog, bars, index, provenance: {
   minuteSourceSha256: manifest.sha256,
   dailySourceSha256: digest(read(dailyPath)),
   minuteSource: "Yahoo Finance", dailySource: "TWSE STOCK_DAY", volumeVerified: false,
   sourcePaths: [sourcePath, dailyPath],
   sourceUrls: manifest.reports.map(row => row.sourceUrl),
+  indexSourcePath: indexPath, indexSourceSha256: INDEX_5S_SHA256,
+  indexDailyPath, indexDailySha256: INDEX_DAILY_SHA256,
 } };
 const serialized = JSON.stringify(result, null, 2) + "\n";
 const destination = resolve(root, "server/data/morning-2026-10-06.json");

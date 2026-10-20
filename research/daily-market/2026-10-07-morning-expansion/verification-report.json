@@ -695,7 +695,7 @@
           "fetchedAt": "2026-10-06T09:19:30.728Z"
         }
       ],
-      "datasetSha256": "18ab907bffd985ee59e4d1a31f3e46dacbdec25df4cdf0650c7021efcc9b06d2"
+      "datasetSha256": "aa1e263fcfcc596471c6a050a2d252476c3ce8c063565167f07e5ce2d5bf357e"
     },
     {
       "date": "2026-10-07",
@@ -1009,7 +1009,7 @@
   ],
   "preservedExisting": {
     "path": "server/data/morning-2026-10-06.json",
-    "sha256": "a0b490f7b6102dfbc28550664c301c885b8bbda964d920aea95f79b00298eb1d"
+    "sha256": "0e8ce9fc9a46e579b925a83e32d2f7daeca3f22f96464dfb99cf2463c61c77e3"
   },
   "limitations": [
     "Source gaps reject the whole five-stock lesson; no interpolation, rounding, substituted OHLC or replacement symbols.",
