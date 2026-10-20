@@ -552,7 +552,9 @@
   display: grid;
   height: 100%;
   grid-template-columns: minmax(0, 1fr) 300px clamp(380px, 30vw, 500px);
-  grid-template-rows: clamp(188px, 25vh, 272px) auto minmax(0, 1fr);
+  /* The ticket row gives way (its pane scrolls, the send button stays pinned) before the ledger drops
+     under 150px. */
+  grid-template-rows: clamp(188px, 25vh, 272px) minmax(0, auto) minmax(150px, 1fr);
   grid-template-areas:
     "watch watch index"
     "center book ticket"
@@ -620,18 +622,31 @@
   flex-direction: column;
   min-height: 0;
 }
-/* The order station spans the book and ticket areas until its parts take their own areas. */
-.trading-desk .td-trade {
-  grid-row: 2 / 4;
-  grid-column: 2 / 3;
+/* The order station's two sections (book pane, ticket) take their own areas. */
+.trading-desk:is([data-layout="desktop"], [data-layout="tablet"]) :is(.td-trade, .morning-order-station) {
+  display: contents;
+}
+.trading-desk:is([data-layout="desktop"], [data-layout="tablet"]) .td-book-pane {
+  grid-area: book;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   min-height: 0;
   overflow: auto;
   background: var(--td-panel);
   border-left: 1px solid var(--td-line);
 }
-.trading-desk[data-layout="tablet"] .td-trade {
+.trading-desk:is([data-layout="desktop"], [data-layout="tablet"]) .sim-ticket[data-pane="ticket"] {
+  grid-area: ticket;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--td-panel);
+  border-left: 1px solid var(--td-line);
+}
+/* Before a run starts there is no ledger: the ticket takes the whole right column. */
+.trading-desk[data-layout="desktop"] .td-workbench:not(:has(.td-ledger)) .sim-ticket[data-pane="ticket"] {
   grid-row: 2 / 4;
-  grid-column: 2 / 3;
 }
 .trading-desk .td-ledger {
   grid-area: ledger;
@@ -1073,13 +1088,13 @@
 }
 
 /* A replayed trade moved the price: a short red (up) or green (down) flash behind the number. */
-.trading-desk :is(.td-hero-price strong, .td-watch-price, .td-ladder-mid strong) {
+.trading-desk :is(.td-hero-price strong, .td-watch-price, .td-book-last strong) {
   border-radius: 3px;
 }
-.trading-desk :is(.td-hero-price strong, .td-watch-price, .td-ladder-mid strong)[data-flash="up"] {
+.trading-desk :is(.td-hero-price strong, .td-watch-price, .td-book-last strong)[data-flash="up"] {
   animation: td-flash-up 0.45s ease-out;
 }
-.trading-desk :is(.td-hero-price strong, .td-watch-price, .td-ladder-mid strong)[data-flash="down"] {
+.trading-desk :is(.td-hero-price strong, .td-watch-price, .td-book-last strong)[data-flash="down"] {
   animation: td-flash-down 0.45s ease-out;
 }
 @keyframes td-flash-up {
@@ -1099,13 +1114,13 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .trading-desk :is(.td-hero-price strong, .td-watch-price, .td-ladder-mid strong, .td-tape-rows li:first-child) {
+  .trading-desk :is(.td-hero-price strong, .td-watch-price, .td-book-last strong, .td-tape-rows li:first-child) {
     animation: none;
   }
 }
 
-/* 即送 armed and the pointer on the book: the ladder holds still, framed so it reads as paused. */
-.trading-desk .td-book[data-held="true"] :is(.td-ladder, .td-ladder-mid) {
+/* 即送 armed and the pointer on the book: the levels hold still, framed so it reads as paused. */
+.trading-desk .td-book[data-held="true"] .td-book-rows {
   box-shadow: inset 0 0 0 1px rgb(230 184 110 / 0.55);
 }
 .trading-desk .td-book-held {
@@ -1384,7 +1399,8 @@
 
 /* Tablet: watchlist becomes a horizontal quote strip */
 
-/* Order book ladder */
+/* 五檔, side by side like a broker's book: 委買 on the left (bar, lots, price), 委賣 on the right (price, lots,
+   bar), best levels on the top row; 委買 bars red and 委賣 bars green, prices coloured against 昨收. */
 .trading-desk .td-book {
   display: flex;
   flex-direction: column;
@@ -1403,31 +1419,68 @@
   /* Plex Mono ships 400-600; the default bold (700) would be synthesised. */
   font-weight: 600;
 }
-.trading-desk .td-ladder-labels,
-.trading-desk .td-level {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 72px;
-  align-items: center;
+/* One line in every state (see MorningOrderBook): if it ever runs short the chip gives way, never the levels. */
+.trading-desk .td-book-head {
+  flex-wrap: nowrap;
+  min-width: 0;
+  white-space: nowrap;
 }
-.trading-desk .td-ladder-labels {
-  padding: 2px 10px;
+.trading-desk .td-book-head .td-chip {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.trading-desk .td-book-last {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.trading-desk .td-book-last strong {
+  padding: 0 3px;
+  color: var(--td-tone);
+  font: 600 16px/1.2 var(--font-mono);
+}
+.trading-desk .td-book-holding {
+  white-space: nowrap;
+}
+.trading-desk .td-book-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   color: var(--td-muted);
   font-size: 11px;
   border-bottom: var(--td-hairline) solid var(--td-line);
 }
-.trading-desk .td-ladder-labels span:not(:first-child) {
+.trading-desk .td-book-cols span {
+  padding: 2px 10px;
+}
+.trading-desk .td-book-cols span:first-child {
+  color: var(--td-buy-fg);
+}
+.trading-desk .td-book-cols span:last-child {
+  color: var(--td-sell-fg);
   text-align: right;
 }
-.trading-desk .td-ladder {
+.trading-desk .td-book-rows {
   display: flex;
   flex-direction: column;
 }
-.trading-desk .td-level {
+.trading-desk .td-book-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.trading-desk .td-book-cell {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
   min-height: 28px;
   padding: 0 10px;
   color: var(--td-fg);
-  text-align: right;
   background: transparent;
   border: 0;
   border-bottom: var(--td-hairline) solid rgb(28 38 54 / 0.7);
@@ -1435,59 +1488,47 @@
   font-size: 14px;
   cursor: pointer;
 }
-.trading-desk .td-level:hover:not(:disabled) {
+.trading-desk .td-book-cell[data-side="bid"] {
+  box-shadow: inset calc(-1 * var(--td-hairline)) 0 0 var(--td-line-strong);
+}
+.trading-desk .td-book-cell[data-side="ask"] {
+  flex-direction: row-reverse;
+}
+.trading-desk .td-book-fill {
+  position: absolute;
+  inset: 3px auto 3px 0;
+  background: var(--td-up-wash);
+  pointer-events: none;
+}
+.trading-desk .td-book-cell[data-side="ask"] .td-book-fill {
+  inset: 3px 0 3px auto;
+  background: var(--td-down-wash);
+}
+.trading-desk :is(.td-book-lots, .td-book-price) {
+  position: relative;
+}
+.trading-desk .td-book-price {
+  color: var(--td-tone);
+  font-weight: 600;
+}
+.trading-desk .td-book-cell:hover:not(:disabled) {
   background: var(--td-raised);
   outline: 1px solid var(--td-accent);
   outline-offset: -1px;
 }
-.trading-desk .td-level:disabled {
-  opacity: 0.55;
+/* Trading: the outline says which way a click goes — red buys on the left, green sells on the right. */
+.trading-desk .td-book[data-mode="trade"] .td-book-cell[data-side="bid"]:hover:not(:disabled) {
+  outline-color: var(--td-up);
 }
-.trading-desk .td-level-fill {
-  position: absolute;
-  inset: 3px 0 3px auto;
-  pointer-events: none;
+.trading-desk .td-book[data-mode="trade"] .td-book-cell[data-side="ask"]:hover:not(:disabled) {
+  outline-color: var(--td-down);
 }
-.trading-desk .td-level[data-side="buy"] .td-level-fill {
-  background: var(--td-down-wash);
+.trading-desk .td-book-cell:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
-.trading-desk .td-level[data-side="sell"] .td-level-fill {
-  background: var(--td-up-wash);
-}
-.trading-desk .td-level-rank {
-  position: relative;
-  text-align: left;
-  font: 500 11px/1 var(--font-sans);
-}
-.trading-desk .td-level[data-side="buy"] .td-level-rank {
-  color: var(--td-down);
-}
-.trading-desk .td-level[data-side="sell"] .td-level-rank {
-  color: var(--td-up);
-}
-.trading-desk .td-level-price {
-  position: relative;
-  color: var(--td-tone);
-  font-weight: 600;
-}
-.trading-desk .td-level-lots {
-  position: relative;
-}
-.trading-desk .td-ladder-mid {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  padding: 6px 10px;
-  background: var(--td-raised);
-  border-block: 1px solid var(--td-line-strong);
-}
-.trading-desk .td-ladder-mid span {
-  color: var(--td-muted);
-  font-size: 11px;
-}
-.trading-desk .td-ladder-mid strong {
-  color: var(--td-tone);
-  font: 600 20px/1 var(--font-mono);
+.trading-desk .td-book-cell-empty {
+  cursor: default;
 }
 .trading-desk .td-ladder-empty {
   margin: 0;
@@ -1615,113 +1656,11 @@
   border-top: var(--td-hairline) solid var(--td-line);
 }
 
-/* Right column: quote detail tabs */
+/* Phones: the order station is one column (book over ticket). */
 .trading-desk .morning-order-station {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-}
-.trading-desk .terminal-quote-detail {
-  display: flex;
-  flex-direction: column;
-  border-bottom: 1px solid var(--td-line);
-}
-.trading-desk .terminal-pane-bar nav {
-  display: flex;
-  align-self: stretch;
-}
-.trading-desk .terminal-pane-bar nav button {
-  padding: 0 12px;
-  color: var(--td-muted);
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  font-size: 13px;
-  font-weight: 600;
-}
-.trading-desk .terminal-pane-bar nav button[aria-pressed="true"] {
-  color: #ffffff;
-  border-bottom-color: var(--td-accent);
-}
-.trading-desk .terminal-pane-bar select {
-  max-width: 140px;
-  height: 26px;
-  color: var(--td-fg);
-  background: var(--td-panel);
-  border: 1px solid var(--td-line-strong);
-  border-radius: 4px;
-  font-size: 12px;
-}
-.trading-desk .terminal-pane-bar > span {
-  font-size: 12px;
-}
-.trading-desk .terminal-detail-price {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 10px 12px 4px;
-  color: var(--td-tone);
-  font-family: var(--font-mono);
-}
-.trading-desk .terminal-detail-price strong {
-  font-size: 28px;
-  font-weight: 600;
-  line-height: 1;
-}
-.trading-desk .terminal-detail-price span {
-  font-size: 13px;
-}
-.trading-desk .terminal-detail-stamp {
-  display: flex;
-  justify-content: space-between;
-  padding: 0 12px 6px;
-  color: var(--td-muted);
-  font-size: 11px;
-}
-.trading-desk .terminal-detail-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px 16px;
-  margin: 0;
-  padding: 6px 12px;
-}
-.trading-desk .terminal-detail-stats div {
-  display: flex;
-  justify-content: space-between;
-}
-.trading-desk .terminal-detail-stats dt {
-  color: var(--td-muted);
-  font-size: 12px;
-}
-.trading-desk .terminal-detail-stats dd {
-  margin: 0;
-  font-family: var(--font-mono);
-}
-.trading-desk .terminal-price-range {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 6px 12px 10px;
-  color: var(--td-muted);
-  font: 500 11px/1.2 var(--font-mono);
-}
-.trading-desk .terminal-price-range span:nth-of-type(2) {
-  text-align: right;
-}
-.trading-desk .terminal-price-range div {
-  position: relative;
-  grid-column: 1 / -1;
-  height: 4px;
-  background: var(--td-line-strong);
-  border-radius: 2px;
-}
-.trading-desk .terminal-price-range i {
-  position: absolute;
-  top: -3px;
-  width: 2px;
-  height: 10px;
-  background: var(--td-fg);
-  transform: translateX(-1px);
 }
 .trading-desk .terminal-minute-tape {
   max-height: 300px;
@@ -1750,26 +1689,6 @@
   color: var(--td-muted);
   font-size: 12px;
 }
-.trading-desk .terminal-data-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  padding: 5px 12px;
-  color: var(--td-muted);
-  font-size: 11px;
-  border-top: var(--td-hairline) solid var(--td-line);
-}
-.trading-desk .terminal-data-status i {
-  width: 6px;
-  height: 6px;
-  background: var(--td-down);
-  border-radius: 50%;
-}
-.trading-desk .terminal-data-status span {
-  margin-left: auto;
-}
-
 /* Order ticket */
 .trading-desk .sim-ticket {
   display: flex;
@@ -1982,8 +1901,17 @@
   width: 15px;
   height: 15px;
 }
+/* Solid, not faded: the button is pinned over the card when it runs long, and must hide what is under it. */
 .trading-desk .sim-submit:disabled {
-  opacity: 0.45;
+  color: rgb(255 255 255 / 0.5);
+  background: #691f2e;
+}
+.trading-desk .sim-ticket[data-side="sell"] .sim-submit:disabled {
+  color: rgb(4 18 10 / 0.7);
+  background: #146b4d;
+}
+.trading-desk .sim-submit:disabled span {
+  border-left-color: rgb(255 255 255 / 0.2);
 }
 .trading-desk :is(.sim-back, .sim-prepare, .sim-pending-actions button, .morning-flash-ready button) {
   min-height: 36px;
@@ -2272,7 +2200,7 @@
   inset: 0;
   width: 100vw;
 }
-.trading-desk[data-layout="phone"] :is(.td-level, .td-lots button, .morning-order-type button, .sim-side-switch button) {
+.trading-desk[data-layout="phone"] :is(.td-book-cell, .td-lots button, .morning-order-type button, .sim-side-switch button) {
   min-height: 44px;
 }
 .trading-desk[data-layout="phone"] :is(.sim-stepper, .morning-limit-field > div) {
@@ -2379,13 +2307,11 @@
 .trading-desk[data-layout="senior"] {
   font-size: 16px;
 }
-.trading-desk[data-layout="senior"] .td-level {
-  grid-template-columns: 56px minmax(0, 1fr) 80px;
+.trading-desk[data-layout="senior"] .td-book-cell {
   min-height: 56px;
   font-size: 18px;
 }
-.trading-desk[data-layout="senior"] .td-ladder-labels {
-  grid-template-columns: 56px minmax(0, 1fr) 80px;
+.trading-desk[data-layout="senior"] .td-book-cols {
   font-size: 14px;
 }
 .trading-desk[data-layout="senior"] :is(.sim-submit, .sim-side-switch button, .td-lots button, .morning-order-type button) {
@@ -2396,7 +2322,7 @@
   grid-template-columns: 56px minmax(0, 1fr) 56px;
   min-height: 56px;
 }
-.trading-desk[data-layout="senior"] :is(.td-hints, .td-hero-stats, .sim-order-facts dt, .td-book-hint, .td-book-source, .terminal-data-status, .td-chartbar-source, .td-level-rank) {
+.trading-desk[data-layout="senior"] :is(.td-hints, .td-hero-stats, .sim-order-facts dt, .td-book-hint, .td-book-source, .td-chartbar-source, .sim-reports li) {
   font-size: 15px;
 }
 .trading-desk[data-layout="senior"] .td-account dd {
@@ -2465,7 +2391,7 @@
 }
 
 /* Tablet, and tab labels that must never wrap into vertical text */
-.trading-desk :is(.td-segment button, .td-dock button, .sim-ledger-header nav button, .terminal-pane-bar nav button) {
+.trading-desk :is(.td-segment button, .td-dock button, .sim-ledger-header nav button, .td-stock-tabs-nav button) {
   white-space: nowrap;
 }
 .trading-desk .sim-ledger-header {
@@ -2495,7 +2421,8 @@
     .td-replay :is(button, .td-speed),
     .td-stepper :is(button, select),
     .td-segment button,
-    .terminal-pane-bar :is(nav button, select),
+    .td-stock-tabs-nav button,
+    .sim-ticket-header select,
     .td-lots button,
     .morning-order-type button,
     .sim-side-switch button,
@@ -2510,7 +2437,7 @@
 .trading-desk[data-layout="tablet"] .td-stepper select {
   height: 44px;
 }
-.trading-desk[data-layout="tablet"] .td-level {
+.trading-desk[data-layout="tablet"] .td-book-cell {
   min-height: 44px;
 }
 .trading-desk[data-layout="tablet"] :is(.sim-stepper, .morning-limit-field > div) {
@@ -2589,7 +2516,7 @@
 .trading-desk[data-layout="phone"]
   :is(
     .td-bar :is(button, select, a),
-    .terminal-pane-bar :is(nav button, select),
+    .sim-ticket-header select,
     .td-switch,
     .sim-back,
     .sim-prepare,
@@ -2602,7 +2529,6 @@
   ) {
   min-height: 44px;
 }
-.trading-desk[data-layout="phone"] .terminal-pane-bar,
 .trading-desk[data-layout="phone"] .sim-ledger-header {
   min-height: 44px;
 }
@@ -2626,14 +2552,11 @@
 
 /* Short desktops: keep the order button in view without scrolling the right column. */
 @media (max-height: 1000px) {
-  .trading-desk[data-layout="desktop"] .td-level {
-    min-height: 23px;
+  .trading-desk[data-layout="desktop"] .td-book-cell {
+    min-height: 24px;
   }
-  .trading-desk[data-layout="desktop"] :is(.td-book-head, .td-ladder-mid) {
+  .trading-desk[data-layout="desktop"] .td-book-head {
     padding-block: 3px;
-  }
-  .trading-desk[data-layout="desktop"] .td-ladder-mid strong {
-    font-size: 18px;
   }
   .trading-desk[data-layout="desktop"] .td-pressure {
     height: 16px;
@@ -2649,7 +2572,7 @@
   .trading-desk[data-layout="desktop"] .td-lots button {
     min-height: 26px;
   }
-  .trading-desk[data-layout="desktop"] :is(.td-book-hint, .terminal-data-status) {
+  .trading-desk[data-layout="desktop"] .td-book-hint {
     display: none;
   }
   .trading-desk[data-layout="desktop"] .td-book-source {
@@ -2661,6 +2584,9 @@
   }
   .trading-desk[data-layout="desktop"] .sim-order-fields {
     gap: 6px;
+  }
+  .trading-desk[data-layout="desktop"] .sim-reports ol {
+    max-height: 68px;
   }
   .trading-desk[data-layout="desktop"] .sim-side-switch button {
     min-height: 32px;
@@ -3844,4 +3770,193 @@
 }
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-plan-chip {
   min-height: 44px;
+}
+
+/* Ticket (2026-10-21): the 下單商品 picker in the title bar, a two-column desktop ticket (spec 4.2), 委託回報
+   under it and the large-order block in the confirm card. */
+.trading-desk .sim-ticket-header select {
+  min-width: 0;
+  max-width: 150px;
+  height: 26px;
+  margin-left: auto;
+  color: var(--td-fg);
+  background: var(--td-panel);
+  border: 1px solid var(--td-line-strong);
+  border-radius: 4px;
+  font-size: 12px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="tablet"]) .sim-ticket-header select {
+  height: 44px;
+}
+.trading-desk[data-layout="senior"] .sim-ticket-header select {
+  height: 56px;
+  font-size: 16px;
+}
+
+/* Desktop: 買／賣 across the top; 市價／限價 beside the lots (market) or above price and lots side by side
+   (limit); the three facts in one row; then the button. */
+.trading-desk[data-layout="desktop"] .sim-order-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-auto-flow: row dense;
+  gap: 6px 10px;
+}
+.trading-desk[data-layout="desktop"] .sim-order-fields > * {
+  grid-column: 1 / -1;
+}
+.trading-desk[data-layout="desktop"] .sim-order-fields .morning-limit-field {
+  display: contents;
+}
+.trading-desk[data-layout="desktop"] .morning-limit-field > :is(label, div) {
+  grid-column: 1;
+}
+.trading-desk[data-layout="desktop"] .morning-limit-field > label {
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk[data-layout="desktop"] .morning-limit-field > [role="alert"] {
+  grid-column: 1 / -1;
+  font-size: 12px;
+}
+.trading-desk[data-layout="desktop"] .sim-order-fields > :is(.sim-quantity-heading, .sim-stepper) {
+  grid-column: 2;
+}
+.trading-desk[data-layout="desktop"] .sim-order-fields:not(:has(.morning-limit-field)) > .sim-execution {
+  grid-column: 1;
+  grid-row: span 2;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+}
+.trading-desk[data-layout="desktop"] .sim-order-fields > .sim-order-facts {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.trading-desk[data-layout="desktop"] .sim-order-fields > .sim-order-facts div {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0;
+  min-width: 0;
+}
+.trading-desk[data-layout="desktop"] .sim-order-fields > .sim-order-facts dt small {
+  display: block;
+}
+.trading-desk[data-layout="desktop"] .sim-confirm .sim-order-facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+}
+.trading-desk[data-layout="desktop"] .sim-confirm .sim-order-facts div {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+
+/* 委託回報: newest first; a failed send is red (meeting item 9). */
+.trading-desk .sim-reports {
+  display: grid;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: var(--td-hairline) solid var(--td-line);
+}
+.trading-desk .sim-reports header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.trading-desk .sim-reports h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.trading-desk .sim-reports small,
+.trading-desk .sim-reports > p {
+  margin: 0;
+  color: var(--td-muted);
+  font-size: 11px;
+}
+.trading-desk .sim-reports ol {
+  display: grid;
+  gap: 2px;
+  /* Five events on tall screens; short desktops show the newest and scroll the rest (see the media rule). */
+  max-height: 118px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.trading-desk .sim-reports li {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 6px;
+  padding: 2px 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  background: rgb(255 255 255 / 0.02);
+  border-left: 2px solid var(--td-report, var(--td-line-strong));
+}
+.trading-desk .sim-reports time {
+  color: var(--td-muted);
+}
+.trading-desk .sim-reports li[data-tone="sent"] {
+  --td-report: var(--td-accent);
+}
+.trading-desk .sim-reports li[data-tone="filled"] {
+  --td-report: var(--td-prev);
+}
+.trading-desk .sim-reports li[data-tone="closed"] {
+  color: var(--td-muted);
+}
+.trading-desk .sim-reports li[data-tone="failed"] {
+  --td-report: var(--td-up);
+  color: var(--td-alert-fg);
+  background: var(--td-alert-bg);
+}
+.trading-desk[data-layout="senior"] .sim-reports li {
+  grid-template-columns: 52px minmax(0, 1fr);
+}
+
+/* 大額委託: a buy of half the cash or more needs a tick before 確認送出 works. */
+.trading-desk .sim-large {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgb(230 184 110 / 0.1);
+  border: 1px solid var(--td-warn);
+  border-radius: 4px;
+}
+.trading-desk .sim-large strong {
+  color: var(--td-warn);
+  font-size: 13px;
+}
+.trading-desk .sim-large p {
+  margin: 0;
+  font-size: 12px;
+}
+.trading-desk .sim-large label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.trading-desk .sim-large input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--td-warn);
+}
+.trading-desk:is([data-layout="phone"], [data-layout="tablet"]) .sim-large label {
+  min-height: 44px;
+}
+.trading-desk[data-layout="senior"] .sim-large label {
+  min-height: 56px;
+  font-size: 17px;
+}
+.trading-desk[data-layout="senior"] .sim-large input {
+  width: 24px;
+  height: 24px;
 }

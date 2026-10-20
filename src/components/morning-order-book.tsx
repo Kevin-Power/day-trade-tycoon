@@ -6,6 +6,12 @@ import { formatPrice } from "@/lib/market/ticks";
 
 type Tone = "up" | "down" | "flat";
 
+/**
+ * 教學模擬五檔, side by side like a broker's book: 委買 on the left, 委賣 on the right, best levels on the top
+ * row. Lightning goes left-to-buy, right-to-sell (the 10/20 meeting): a left cell buys at its price, a right cell
+ * sells at its price. `mode="display"` shows the same book without the lightning controls (the phone's 行情 page,
+ * where a tap hands the price to the ticket).
+ */
 export function MorningOrderBook({
   code,
   cursor,
@@ -18,6 +24,7 @@ export function MorningOrderBook({
   holdingLots,
   flash,
   disabled,
+  mode = "trade",
   onLots,
   onFlash,
   onPick,
@@ -28,7 +35,7 @@ export function MorningOrderBook({
   previousClose: number;
   /** The latest replayed trade: which side the last price sits on, and the trade's place in the minute. */
   trade?: { index: number; side: "ask" | "bid" };
-  /** The session's revision: an order or fill refreshes a held ladder. */
+  /** The session's revision: an order or fill refreshes a held book. */
   revision: number;
   /** A minute is replaying, so the last price is a simulated trade. */
   simulated: boolean;
@@ -36,19 +43,24 @@ export function MorningOrderBook({
   holdingLots: number;
   flash: boolean;
   disabled: boolean;
-  onLots: (lots: number) => void;
-  onFlash: (enabled: boolean) => void;
+  mode?: "trade" | "display";
+  onLots?: (lots: number) => void;
+  onFlash?: (enabled: boolean) => void;
   onPick: (price: number, side: "buy" | "sell") => void;
 }) {
   const key = `${code}:${cursor}:${revision}`;
-  const live = { key, last, book: createMorningBook(code, cursor, last ?? 0, previousClose, trade) };
-  // With 即送 armed the ladder holds still while the mouse is on it, a ladder price has keyboard focus, or a
-  // finger is down on it, so a click sends the price that was on screen while trades keep coming in. A new
-  // minute, an order or another stock refreshes the held ladder once; leaving releases it.
+  const live = {
+    key,
+    last,
+    book: createMorningBook(code, cursor, last ?? 0, previousClose, trade),
+  };
+  // With 即送 armed the book holds still while the mouse is on it, a price has keyboard focus, or a finger is down
+  // on it, so a click sends the price that was on screen while trades keep coming in. A new minute, an order or
+  // another stock refreshes the held book once; leaving releases it.
   const [inside, setInside] = useState(false);
   const [held, setHeld] = useState<typeof live | null>(null);
   const touch = useRef(false);
-  const wantHold = flash && inside;
+  const wantHold = mode === "trade" && flash && inside;
   if (wantHold && held?.key !== key) setHeld(live);
   else if (!wantHold && held) setHeld(null);
   const holding = wantHold && held?.key === key ? held : null;
@@ -70,9 +82,11 @@ export function MorningOrderBook({
   const pressure = bookPressure(book);
   const tone = (price: number): Tone =>
     price > previousClose ? "up" : price < previousClose ? "down" : "flat";
+  const trading = mode === "trade";
   return (
     <div
       className="td-book"
+      data-mode={mode}
       data-flash={flash}
       data-held={Boolean(holding)}
       onPointerMove={(event) => {
@@ -90,56 +104,75 @@ export function MorningOrderBook({
         setInside(false);
       }}
       onFocus={(event) => {
-        if ((event.target as HTMLElement).classList.contains("td-level")) setInside(true);
+        if ((event.target as HTMLElement).classList.contains("td-book-cell")) setInside(true);
       }}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setInside(false);
       }}
     >
+      {/* One line whatever the state: holding swaps the price's label instead of adding one, so the levels
+          never move under a pointer that is about to click. */}
       <div className="td-book-head">
         <span className="td-chip" data-kind="sim">
           教學模擬五檔
         </span>
-        {holding && (
-          <span className="td-book-held" aria-hidden="true">
-            暫停跳動
+        <span className="td-book-last" data-tone={shownLast ? tone(shownLast) : "flat"}>
+          {holding ? (
+            <span className="td-book-held" aria-hidden="true">
+              暫停跳動
+            </span>
+          ) : simulated ? (
+            "模擬成交"
+          ) : (
+            "最新"
+          )}
+          <strong key={tick.key} data-flash={tick.flash} className="td-num">
+            {shownLast ? formatPrice(shownLast) : "—"}
+          </strong>
+        </span>
+        {trading && (
+          <span className="td-book-holding">
+            可賣 <b className="td-num">{holdingLots}</b> 張
           </span>
         )}
-        <span>
-          可賣 <b className="td-num">{holdingLots}</b> 張
-        </span>
       </div>
-      <div className="td-ladder-labels" aria-hidden="true">
-        <span>檔位</span>
-        <span>價格</span>
-        <span>模擬量</span>
+      <div className="td-book-cols" aria-hidden="true">
+        <span>{trading ? "委買｜點價買進" : "委買"}</span>
+        <span>{trading ? "委賣｜點價賣出" : "委賣"}</span>
       </div>
-      <BookLevels
-        levels={[...book.asks].reverse()}
-        side="buy"
-        lots={lots}
-        maxLots={maxLots}
-        tone={tone}
-        disabled={disabled}
-        onPick={pick}
-        empty={shownLast ? "漲停範圍內無價位" : "等待第一分鐘"}
-      />
-      <div className="td-ladder-mid" data-tone={shownLast ? tone(shownLast) : "flat"}>
-        <span>{simulated && !holding ? "模擬成交價" : "最新成交價"}</span>
-        <strong key={tick.key} data-flash={tick.flash}>
-          {shownLast ? formatPrice(shownLast) : "—"}
-        </strong>
+      <div
+        className="td-book-rows"
+        role="group"
+        aria-label={trading ? "五檔：左邊點價買進，右邊點價賣出" : "五檔：點價帶入下單"}
+      >
+        {Array.from({ length: 5 }, (_, row) => (
+          <div className="td-book-row" key={row}>
+            <BookCell
+              level={book.bids[row]}
+              side="bid"
+              lots={lots}
+              maxLots={maxLots}
+              tone={tone}
+              trading={trading}
+              disabled={trading && disabled}
+              onPick={pick}
+            />
+            <BookCell
+              level={book.asks[row]}
+              side="ask"
+              lots={lots}
+              maxLots={maxLots}
+              tone={tone}
+              trading={trading}
+              disabled={trading && (disabled || holdingLots < lots)}
+              onPick={pick}
+            />
+          </div>
+        ))}
       </div>
-      <BookLevels
-        levels={book.bids}
-        side="sell"
-        lots={lots}
-        maxLots={maxLots}
-        tone={tone}
-        disabled={disabled || holdingLots < lots}
-        onPick={pick}
-        empty={shownLast ? "跌停範圍內無價位" : "等待第一分鐘"}
-      />
+      {!book.bids.length && !book.asks.length && (
+        <p className="td-ladder-empty">{shownLast ? "漲跌停範圍內無價位" : "等待第一分鐘"}</p>
+      )}
       <div
         className="td-pressure"
         role="img"
@@ -147,106 +180,106 @@ export function MorningOrderBook({
       >
         <span style={{ width: `${pressure.bidShare * 100}%` }} />
         <small>委買 {pressure.bidLots}</small>
+        <small>模擬</small>
         <small>委賣 {pressure.askLots}</small>
       </div>
-      <div className="td-flash">
-        <span>
-          <Zap aria-hidden />
-          閃電下單
-        </span>
-        <button
-          type="button"
-          role="switch"
-          className="td-switch"
-          aria-label="閃電即送"
-          aria-checked={flash}
-          disabled={!flash && disabled}
-          onClick={() => onFlash(!flash)}
-        >
-          <i aria-hidden />
-          {flash ? "已開啟" : "開啟即送"}
-        </button>
-      </div>
-      <div className="td-lots" role="group" aria-label="五檔下單張數">
-        <span>每筆張數</span>
-        {[1, 2, 3].map((value) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={lots === value}
-            disabled={disabled}
-            onClick={() => onLots(value)}
-          >
-            {value} 張
-          </button>
-        ))}
-      </div>
-      <p className="td-book-hint" role="status">
-        {flash ? `點價即送 ${lots} 張限價模擬委託；游標停在五檔上時暫停跳動` : "點價格核對委託；開啟閃電可直接送單"}
-      </p>
+      {trading && (
+        <>
+          <div className="td-flash">
+            <span>
+              <Zap aria-hidden />
+              閃電下單
+            </span>
+            <button
+              type="button"
+              role="switch"
+              className="td-switch"
+              aria-label="閃電即送"
+              aria-checked={flash}
+              disabled={!flash && disabled}
+              onClick={() => onFlash?.(!flash)}
+            >
+              <i aria-hidden />
+              {flash ? "已開啟" : "開啟即送"}
+            </button>
+          </div>
+          <div className="td-lots" role="group" aria-label="五檔下單張數">
+            <span>每筆張數</span>
+            {[1, 2, 3].map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={lots === value}
+                disabled={disabled}
+                onClick={() => onLots?.(value)}
+              >
+                {value} 張
+              </button>
+            ))}
+          </div>
+          <p className="td-book-hint" role="status">
+            {flash
+              ? `左邊點價即送 ${lots} 張限價買進、右邊點價即送賣出；游標停在五檔上時暫停跳動`
+              : "左邊點價買進、右邊點價賣出，先核對再送出；開啟閃電可直接送單"}
+          </p>
+        </>
+      )}
       <p className="td-book-source">五檔價量為教學生成，非真實委託簿。</p>
     </div>
   );
 }
 
-function BookLevels({
-  levels,
+function BookCell({
+  level,
   side,
   lots,
   maxLots,
   tone,
+  trading,
   disabled,
   onPick,
-  empty,
 }: {
-  levels: MorningBookLevel[];
-  side: "buy" | "sell";
+  level: MorningBookLevel | undefined;
+  side: "bid" | "ask";
   lots: number;
   maxLots: number;
   tone: (price: number) => Tone;
+  trading: boolean;
   disabled: boolean;
   onPick: (price: number, side: "buy" | "sell") => void;
-  empty: string;
 }) {
-  const ask = side === "buy";
+  if (!level)
+    return <span className="td-book-cell td-book-cell-empty" data-side={side} aria-hidden="true" />;
+  const buy = side === "bid";
+  const name = `${buy ? "買" : "賣"}${level.level} ${formatPrice(level.price)}`;
   return (
-    <div
-      className="td-ladder"
+    <button
+      type="button"
+      className="td-book-cell"
       data-side={side}
-      role="group"
-      aria-label={ask ? "賣方五檔，點價模擬買進" : "買方五檔，點價模擬賣出"}
+      data-level={level.level}
+      data-price={level.price}
+      data-tone={tone(level.price)}
+      disabled={disabled}
+      aria-label={
+        trading
+          ? `${name}，點擊以 ${formatPrice(level.price)} 限價${buy ? "買進" : "賣出"} ${lots} 張`
+          : `${name}，點擊帶入下單（${buy ? "買進" : "賣出"}）`
+      }
+      onKeyDown={(event) => {
+        if (event.repeat && (event.key === "Enter" || event.key === " ")) event.preventDefault();
+      }}
+      onClick={(event) => {
+        if (event.detail < 2) onPick(level.price, buy ? "buy" : "sell");
+      }}
     >
-      {levels.map((level) => (
-        <button
-          type="button"
-          key={level.level}
-          className="td-level"
-          data-side={side}
-          data-tone={tone(level.price)}
-          disabled={disabled}
-          aria-label={`${ask ? "賣" : "買"}${level.level} 價格 ${formatPrice(level.price)}，模擬${ask ? "買進" : "賣出"} ${lots} 張`}
-          onKeyDown={(event) => {
-            if (event.repeat && (event.key === "Enter" || event.key === " "))
-              event.preventDefault();
-          }}
-          onClick={(event) => {
-            if (event.detail < 2) onPick(level.price, side);
-          }}
-        >
-          <i
-            className="td-level-fill"
-            style={{ width: `${(level.lots / maxLots) * 100}%` }}
-            aria-hidden
-          />
-          <span className="td-level-rank">
-            {ask ? "賣" : "買"}
-            {level.level}
-          </span>
-          <strong className="td-level-price">{formatPrice(level.price)}</strong>
-          <span className="td-level-lots">{level.lots}</span>
-        </button>
-      ))}
-      {!levels.length && <p className="td-ladder-empty">{empty}</p>}
-    </div>
+      <i
+        className="td-book-fill"
+        style={{ width: `${(level.lots / maxLots) * 100}%` }}
+        aria-hidden
+      />
+      <span className="td-book-lots td-num">{level.lots}</span>
+      <strong className="td-book-price td-num">{formatPrice(level.price)}</strong>
+    </button>
   );
 }

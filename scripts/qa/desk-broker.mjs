@@ -162,6 +162,17 @@ await check("5-lightning-left-buy", async () => {
   await selectStock(desktop, "2317");
   await arm(desktop, true);
   const cell = desktop.locator('.td-book-cell[data-side="bid"][data-level="1"]');
+  // Armed, the book holds still under the pointer; holding must not move a single cell, or a click lands on
+  // another price than the one aimed at.
+  await desktop.mouse.move(5, 5);
+  await desktop.waitForTimeout(300);
+  const away = await cell.boundingBox();
+  const head = await desktop.locator(".td-book-head").boundingBox();
+  await desktop.mouse.move(head.x + head.width / 2, head.y + head.height / 2);
+  await desktop.waitForTimeout(300);
+  const over = await cell.boundingBox();
+  if (Math.abs(away.y - over.y) > 0.5 || Math.abs(away.x - over.x) > 0.5)
+    throw new Error(`hovering the armed book moved 買1 from ${away.x},${away.y} to ${over.x},${over.y}`);
   const price = Number(await cell.getAttribute("data-price", { timeout: 4000 }));
   const before = (await api()).orders.length;
   await cell.click();
@@ -201,6 +212,9 @@ await check("7-large-order", async () => {
   await desktop.locator(".sim-large").waitFor({ timeout: 4000 });
   const send = desktop.getByRole("button", { name: "確認送出模擬買進" });
   if (await send.isEnabled()) throw new Error("large order can be sent before ticking the confirmation");
+  // The send button is pinned over the card when it runs long: disabled, it must still hide what is under it.
+  const opacity = await send.evaluate((button) => getComputedStyle(button).opacity);
+  if (opacity !== "1") throw new Error(`the disabled pinned send button is see-through (opacity ${opacity})`);
   await desktop.locator("#sim-large-ack").check();
   if (!(await send.isEnabled())) throw new Error("ticking the confirmation did not enable sending");
   await desktop.getByRole("button", { name: "返回修改" }).click();

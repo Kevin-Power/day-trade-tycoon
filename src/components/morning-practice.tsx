@@ -42,6 +42,7 @@ import { DisciplineCelebration } from "@/components/discipline-celebration";
 import type { Celebration } from "@/lib/discipline/score";
 import { useTerminalLayout, type TerminalLayout } from "@/lib/use-terminal-layout";
 import { deriveMorningAlerts } from "@/lib/morning-alerts";
+import type { LocalOrderFailure } from "@/lib/morning-orders";
 import {
   replayClock,
   settledSession,
@@ -113,6 +114,7 @@ function useMorningData(lessonId: string) {
   const serial = useRef(0);
   const controller = useRef<AbortController | null>(null);
   const retryAction = useRef<MorningAction | undefined>(undefined);
+  const lastError = useRef("");
   const endpoint = lessonId
     ? `/api/morning?lesson=${encodeURIComponent(lessonId)}`
     : "/api/morning";
@@ -132,6 +134,7 @@ function useMorningData(lessonId: string) {
       }, 20_000);
       setBusy(action?.action ?? "load");
       setError("");
+      lastError.current = "";
       setNotice("");
       retryAction.current = action;
       try {
@@ -191,16 +194,17 @@ function useMorningData(lessonId: string) {
         retryAction.current = undefined;
         return next;
       } catch (failure) {
-        if (current())
-          setError(
-            timedOut
-              ? "教室回應超過 20 秒，已停止等待。請核對進度，或重試同一筆操作。"
-              : failure instanceof TypeError
-                ? "暫時連不上教室，請重試同一筆操作或重新載入進度。"
-                : failure instanceof Error
-                  ? failure.message
-                  : "暫時連不上教室，請重試。",
-          );
+        if (current()) {
+          const message = timedOut
+            ? "教室回應超過 20 秒，已停止等待。請核對進度，或重試同一筆操作。"
+            : failure instanceof TypeError
+              ? "暫時連不上教室，請重試同一筆操作或重新載入進度。"
+              : failure instanceof Error
+                ? failure.message
+                : "暫時連不上教室，請重試。";
+          lastError.current = message;
+          setError(message);
+        }
         return null;
       } finally {
         window.clearTimeout(deadline);
@@ -230,6 +234,7 @@ function useMorningData(lessonId: string) {
     access,
     request,
     retry: () => request(retryAction.current),
+    lastError: () => lastError.current,
   };
 }
 
@@ -300,7 +305,7 @@ function MorningLesson({
   onLessonChange: (lessonId: string) => void;
   onExerciseChange: (exerciseId: string) => void;
 }) {
-  const { data, busy, error, notice, access, request, retry } = useMorningData(lessonId);
+  const { data, busy, error, notice, access, request, retry, lastError } = useMorningData(lessonId);
   const [linkNotice, setLinkNotice] = useState<LinkNotice | null>(null);
   useEffect(() => {
     const value = readLinkNotice(document.cookie);
@@ -328,6 +333,8 @@ function MorningLesson({
   const coachPending = useRef(coach);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
+  // Sends that failed in this visit (server refusal or a dropped connection), listed in 委託回報.
+  const [failures, setFailures] = useState<LocalOrderFailure[]>([]);
   const [speed, setSpeed] = useState<ReplaySpeed>(1);
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const resourcesHeading = useRef<HTMLHeadingElement>(null);
@@ -362,6 +369,7 @@ function MorningLesson({
     setExtended(false);
     setReviewOpen(false);
     setFeedback("");
+    setFailures([]);
   }, [sessionId]);
 
   useEffect(() => {
@@ -554,6 +562,25 @@ function MorningLesson({
     });
     if (next?.state)
       setFeedback("紙上委託已記錄，尚未代表成交。前進一分鐘後，請核對委託與成交紀錄。");
+    else {
+      const message = lastError();
+      if (message)
+        setFailures((list) =>
+          [
+            ...list,
+            {
+              id: crypto.randomUUID(),
+              cursor: session.cursor,
+              second: liveMarket ? replayClock(liveMarket) : session.cursor * 60,
+              code,
+              side,
+              lots,
+              ...(options?.limitPrice === undefined ? {} : { limitPrice: options.limitPrice }),
+              message,
+            },
+          ].slice(-20),
+        );
+    }
     return Boolean(next?.state);
   }
 
@@ -597,7 +624,8 @@ function MorningLesson({
   // Alerts and minute tables wait for the replaying minute to finish, so nothing is announced ahead of it.
   const replaying = Boolean(liveMarket?.replay);
   const settled = useMemo(
-    () => (marketSession && replaying ? withoutNewestMinute(marketSession) : (marketSession ?? null)),
+    () =>
+      marketSession && replaying ? withoutNewestMinute(marketSession) : (marketSession ?? null),
     [marketSession, replaying],
   );
   // The lesson's approved notice about the simulated replay greets learners at the top of the desk.
@@ -617,6 +645,8 @@ function MorningLesson({
       onAdvance={advance}
       onOrder={order}
       onCancel={cancel}
+      failures={failures}
+      variant={singlePane ? "phone" : "desk"}
     />
   ) : null;
   const chartBar = catalog ? (
@@ -809,7 +839,9 @@ function MorningLesson({
                 )}
                 {layout === "desktop" && (
                   <div className="td-index" data-pane="index">
-                    {indexPing > 0 && <span key={indexPing} className="td-index-ping" aria-hidden />}
+                    {indexPing > 0 && (
+                      <span key={indexPing} className="td-index-ping" aria-hidden />
+                    )}
                     <IndexPanel
                       series={liveMarket?.index}
                       clock={liveMarket ? formatTime(replayClock(liveMarket)) : "09:00:00"}
@@ -818,7 +850,9 @@ function MorningLesson({
                   </div>
                 )}
                 <div className="td-center" data-pane="center">
-                  {singlePane && replayNotice && <ReplayNotice key={replayNotice} text={replayNotice} />}
+                  {singlePane && replayNotice && (
+                    <ReplayNotice key={replayNotice} text={replayNotice} />
+                  )}
                   {singlePane && activePane !== "market" && (
                     <h1 className="sr-only" ref={practiceHeading} tabIndex={-1}>
                       真實歷史行情・模擬交易工作台
@@ -847,7 +881,9 @@ function MorningLesson({
                           code={code}
                           candles={chartMode === "chart"}
                         />
-                        {!showPlan && <TradeTape catalog={catalog} session={liveMarket} code={code} />}
+                        {!showPlan && singlePane && (
+                          <TradeTape catalog={catalog} session={liveMarket} code={code} />
+                        )}
                       </div>
                     )}
                     {singlePane && activePane === "watch" && (
@@ -887,11 +923,7 @@ function MorningLesson({
                       ))}
                   </div>
                 </div>
-                {!singlePane && (
-                  <aside className="td-trade" data-coach="ticket">
-                    {orderTicket}
-                  </aside>
-                )}
+                {!singlePane && <aside className="td-trade">{orderTicket}</aside>}
                 {showPlan && planOpen && (
                   <div className="td-plan" ref={planRegion}>
                     <button
@@ -1271,7 +1303,12 @@ function MorningChart({
   const settled = session ? settledSession(session) : null;
   const settledBars = settled?.bars[code] ?? [];
   const lastComplete = settledBars.at(-1);
-  const swingHighs = deriveSwingHighs(settledBars, (settled?.cursor ?? 0) * 60, 0, catalog.maxCursor * 60).confirmed;
+  const swingHighs = deriveSwingHighs(
+    settledBars,
+    (settled?.cursor ?? 0) * 60,
+    0,
+    catalog.maxCursor * 60,
+  ).confirmed;
   const fills = (session?.fills ?? [])
     .filter((fill) => fill.code === symbol.code)
     .map((fill) => ({ t: fill.t, p: fill.price, side: fill.side }));
@@ -1380,8 +1417,8 @@ function MorningDataDetails({
           </div>
         )}
         <p>
-          K
-          線直接使用來源開高低收，該分鐘完成後才揭露。揭露後，交易台用約 2 秒的模擬逐筆重播這一分鐘：價格只在這分鐘真實的最高與最低之間跳動，最後收在真實收盤價；成交明細與分鐘內的跳動都是模擬，不是真實逐筆紀錄，撮合仍以下一分鐘開盤價為準。分時只連接各分鐘收價，點位標在分鐘結束時間；缺漏區間保留斷線。點按圖表或用左右方向鍵查看資料。
+          K 線直接使用來源開高低收，該分鐘完成後才揭露。揭露後，交易台用約 2
+          秒的模擬逐筆重播這一分鐘：價格只在這分鐘真實的最高與最低之間跳動，最後收在真實收盤價；成交明細與分鐘內的跳動都是模擬，不是真實逐筆紀錄，撮合仍以下一分鐘開盤價為準。分時只連接各分鐘收價，點位標在分鐘結束時間；缺漏區間保留斷線。點按圖表或用左右方向鍵查看資料。
         </p>
         <p>
           來源：Yahoo Finance 歷史 1 分鐘 OHLC。這是真實歷史分鐘 K，尚非富邦即時或逐筆江波行情。

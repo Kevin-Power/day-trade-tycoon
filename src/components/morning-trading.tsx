@@ -17,8 +17,11 @@ import { formatMoney, formatTime } from "@/lib/utils";
 import { estimateRoundTripCost, formatPrice, stepTick } from "@/lib/market/ticks";
 import { validMorningLimit } from "@/lib/morning-book";
 import { positionMark } from "@/lib/morning-quote";
-import { MorningQuoteDetail } from "@/components/morning-quotes";
 import { MorningOrderBook } from "@/components/morning-order-book";
+import { OrderReports } from "@/components/order-reports";
+import { MinuteTable, QuoteDetailGrid, StockTabs } from "@/components/stock-detail";
+import { TradeTape } from "@/components/trade-tape";
+import { isLargeOrder, orderReports, type LocalOrderFailure } from "@/lib/morning-orders";
 
 export function AccountSummary({ session }: { session: MorningState }) {
   const profit = session.equity - session.startingCash;
@@ -81,6 +84,9 @@ export function PaperOrder({
   busy,
   atEnd,
   canAdvance,
+  variant = "desk",
+  failures = [],
+  prefill,
   onSelect,
   onPrepare,
   onReview,
@@ -94,6 +100,12 @@ export function PaperOrder({
   busy: boolean;
   atEnd: boolean;
   canAdvance: boolean;
+  /** desk: quote grid + 五檔/明細/分鐘 tabs beside the ticket; phone: only the tradable book above the ticket. */
+  variant?: "desk" | "phone";
+  /** Sends that failed in this visit, for 委託回報. */
+  failures?: readonly LocalOrderFailure[];
+  /** A price and side handed over from the display book on the phone's 行情 page (not sent). */
+  prefill?: { price: number; side: "buy" | "sell"; nonce: number };
   onSelect: (code: string) => void;
   onPrepare: () => void;
   onReview: () => void;
@@ -116,6 +128,10 @@ export function PaperOrder({
   const [flash, setFlash] = useState(false);
   const flashRef = useRef(false);
   const [review, setReview] = useState<OrderReview | null>(null);
+  // The large-order tick belongs to one review: a new or changed review starts unticked.
+  const [largeAckFor, setLargeAckFor] = useState<OrderReview | null>(null);
+  // Lightning hands a large order to the confirm card with a note; the note belongs to that review only.
+  const [largeNoticeFor, setLargeNoticeFor] = useState<OrderReview | null>(null);
   const submitting = useRef(false);
   const confirmHeading = useRef<HTMLHeadingElement>(null);
   const pendingPanel = useRef<HTMLDivElement>(null);
@@ -145,6 +161,12 @@ export function PaperOrder({
       document.removeEventListener("visibilitychange", hidden);
     };
   }, []);
+  useEffect(() => {
+    if (!prefill) return;
+    setSide(prefill.side);
+    setOrderType("limit");
+    setLimitDraft(formatPrice(prefill.price));
+  }, [prefill]);
   const position = session?.positions.find((item) => item.code === code);
   const pending = session?.orders.find((item) => item.status === "pending");
   const pendingId = pending?.id;
@@ -178,6 +200,26 @@ export function PaperOrder({
         ? revealed.c * lots * 1000
         : null;
 
+  const names = Object.fromEntries(catalog.symbols.map((item) => [item.code, item.name]));
+  const reports = orderReports(session ? serverSession(session) : null, names, failures);
+  const reviewAmount = review
+    ? (review.limitPrice ?? revealed?.c ?? Number.NaN) * review.lots * 1000
+    : null;
+  const reviewLarge = Boolean(
+    review &&
+    session &&
+    isLargeOrder({
+      side: review.side,
+      amount: reviewAmount !== null && Number.isFinite(reviewAmount) ? reviewAmount : null,
+      availableCash: session.cash,
+    }),
+  );
+  const largeAck = Boolean(review && largeAckFor === review);
+  const largeShare =
+    reviewLarge && session && reviewAmount !== null
+      ? Math.round((reviewAmount / session.cash) * 100)
+      : null;
+
   function focusReview() {
     window.requestAnimationFrame(() => {
       confirmHeading.current?.focus({ preventScroll: true });
@@ -201,6 +243,23 @@ export function PaperOrder({
     setOrderType("limit");
     setLimitDraft(formatPrice(price));
     onReview();
+    if (
+      flashRef.current &&
+      isLargeOrder({ side: pickedSide, amount: price * lots * 1000, availableCash: session.cash })
+    ) {
+      // Lightning never sends a large order: it opens the confirm card instead.
+      const next = {
+        side: pickedSide,
+        lots,
+        revision: session.revision,
+        sessionId: session.id,
+        limitPrice: price,
+      };
+      setLargeNoticeFor(next);
+      setReview(next);
+      focusReview();
+      return;
+    }
     if (flashRef.current) {
       submitting.current = true;
       try {
@@ -227,7 +286,15 @@ export function PaperOrder({
   }
 
   async function confirmOrder() {
-    if (!review || staleReview || locked || invalidSell || submitting.current) return;
+    if (
+      !review ||
+      staleReview ||
+      locked ||
+      invalidSell ||
+      submitting.current ||
+      (reviewLarge && !largeAck)
+    )
+      return;
     submitting.current = true;
     try {
       if (
@@ -244,39 +311,77 @@ export function PaperOrder({
     }
   }
 
+  const book = (
+    <MorningOrderBook
+      code={code}
+      cursor={session?.cursor ?? 0}
+      last={last?.c}
+      previousClose={symbol?.previousClose ?? 0}
+      trade={latestTrade ? { index: latestTrade.index, side: latestTrade.side } : undefined}
+      revision={session?.revision ?? 0}
+      simulated={Boolean(session && "replay" in session && session.replay)}
+      lots={lots}
+      holdingLots={holdingLots}
+      flash={flash}
+      disabled={locked || Boolean(review)}
+      onLots={changeLots}
+      onFlash={changeFlash}
+      onPick={(price, pickedSide) => {
+        void pickBookPrice(price, pickedSide);
+      }}
+    />
+  );
+
   return (
-    <div className="morning-order-station" data-flash={flash}>
-      <MorningQuoteDetail
-        catalog={catalog}
-        session={session}
-        code={code}
-        onPaneChange={() => changeFlash(false)}
-        onSelect={onSelect}
-        selectionDisabled={busy || Boolean(review)}
-        book={
-          <MorningOrderBook
-            code={code}
-            cursor={session?.cursor ?? 0}
-            last={last?.c}
-            previousClose={symbol?.previousClose ?? 0}
-            trade={latestTrade ? { index: latestTrade.index, side: latestTrade.side } : undefined}
-            revision={session?.revision ?? 0}
-            simulated={Boolean(session && "replay" in session && session.replay)}
-            lots={lots}
-            holdingLots={holdingLots}
-            flash={flash}
-            disabled={locked || Boolean(review)}
-            onLots={changeLots}
-            onFlash={changeFlash}
-            onPick={(price, pickedSide) => {
-              void pickBookPrice(price, pickedSide);
-            }}
-          />
-        }
-      />
-      <section className="sim-ticket" data-side={side} aria-labelledby="morning-order-title">
+    <div className="morning-order-station" data-flash={flash} data-variant={variant}>
+      <section className="td-book-pane" data-pane="book" aria-label="個股報價與五檔">
+        {variant === "desk" ? (
+          <>
+            <QuoteDetailGrid catalog={catalog} session={session} code={code} />
+            <StockTabs
+              onChange={(id) => {
+                if (id !== "book") changeFlash(false);
+              }}
+              tabs={[
+                { id: "book", label: "五檔", content: book },
+                {
+                  id: "tape",
+                  label: "明細",
+                  content: <TradeTape catalog={catalog} session={session} code={code} />,
+                },
+                {
+                  id: "minutes",
+                  label: "分鐘",
+                  content: <MinuteTable session={session} code={code} />,
+                },
+              ]}
+            />
+          </>
+        ) : (
+          book
+        )}
+      </section>
+      <section
+        className="sim-ticket"
+        data-pane="ticket"
+        data-coach="ticket"
+        data-side={side}
+        aria-labelledby="morning-order-title"
+      >
         <header className="sim-ticket-header td-titlebar">
           <h2 id="morning-order-title">模擬下單</h2>
+          <select
+            aria-label="下單商品"
+            value={code}
+            disabled={busy || Boolean(review)}
+            onChange={(event) => onSelect(event.target.value)}
+          >
+            {catalog.symbols.map((item) => (
+              <option key={item.code} value={item.code}>
+                {item.code} {item.name}
+              </option>
+            ))}
+          </select>
           <span className="sim-paper-tag">紙上交易</span>
         </header>
         <div className="sim-ticket-body">
@@ -355,6 +460,26 @@ export function PaperOrder({
                   </dd>
                 </div>
               </dl>
+              {reviewLarge && (
+                <div className="sim-large" role="alert">
+                  <strong>
+                    大額委託：參考金額 {formatMoney(reviewAmount ?? 0, 0)}，占可用資金 {largeShare}%
+                  </strong>
+                  <p>
+                    {largeNoticeFor === review && "大額委託需要確認，閃電即送不會直接送出。"}
+                    一筆用掉一半以上的資金，請再看一次計畫。
+                  </p>
+                  <label htmlFor="sim-large-ack">
+                    <input
+                      id="sim-large-ack"
+                      type="checkbox"
+                      checked={largeAck}
+                      onChange={(event) => setLargeAckFor(event.target.checked ? review : null)}
+                    />
+                    我已確認這是大額委託
+                  </label>
+                </div>
+              )}
               <p className="sim-help">
                 {review.limitPrice === undefined
                   ? "參考金額依已揭露收盤價計算，下一分鐘開盤價撮合。"
@@ -369,7 +494,7 @@ export function PaperOrder({
               <button
                 type="button"
                 className="sim-submit"
-                disabled={locked || staleReview || invalidSell}
+                disabled={locked || staleReview || invalidSell || (reviewLarge && !largeAck)}
                 onClick={() => void confirmOrder()}
               >
                 <Check aria-hidden />
@@ -387,7 +512,7 @@ export function PaperOrder({
           ) : !pending && flash ? (
             <div className="morning-flash-ready" role="status">
               <strong>閃電即送已開啟 · 每筆 {lots} 張</strong>
-              <p>點上方賣價買進、買價賣出。每次一筆待撮合委託。</p>
+              <p>點五檔左邊的委買價買進、右邊的委賣價賣出。每次一筆待撮合委託。</p>
               <button type="button" onClick={() => changeFlash(false)}>
                 關閉閃電，使用一般委託
               </button>
@@ -593,6 +718,7 @@ export function PaperOrder({
               ) : null}
             </form>
           ) : null}
+          <OrderReports reports={reports} />
           <details className="sim-order-help">
             <summary>撮合方式與教材費用</summary>
             <p>
