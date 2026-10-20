@@ -14,6 +14,7 @@ import {
   settledSession,
   startReplay,
   type ReplayCatalog,
+  withoutNewestMinute,
 } from "./morning-live.ts";
 import { minuteTicks, tickSeed } from "./market/tick-replay.ts";
 
@@ -153,4 +154,37 @@ test("the teaching book follows the latest trade: an uptick lifted the ask, a do
   const next = createMorningBook("2317", 3, 262, 254, { index: 5, side: "bid" });
   assert.notDeepEqual(next.bids.map((l) => l.lots), hit.bids.map((l) => l.lots));
   assert.deepEqual(createMorningBook("2317", 3, 262, 254, { index: 5, side: "bid" }), next);
+});
+
+const indexBar = (minute: number) => {
+  const p = Array.from({ length: 12 }, (_, point) => 49700 + minute * 10 + ((point * 7) % 12));
+  return { t: minute * 60, o: p[0], h: Math.max(...p), l: Math.min(...p), c: p[11], p };
+};
+const INDEX = {
+  code: "TAIEX" as const,
+  name: "加權指數",
+  previousClose: 49712.04,
+  source: "fixture",
+  bars: [indexBar(0), indexBar(1), indexBar(2)],
+};
+
+test("while a minute replays, the index's newest minute shows its real 5-second values so far", () => {
+  const live = liveSession(session({ index: INDEX }), 0.25, CATALOG);
+  const newest = live.index!.bars.at(-1)!;
+  assert.equal(newest.c, INDEX.bars[2].p[2]);
+  assert.equal(newest.h, Math.max(...INDEX.bars[2].p.slice(0, 3)));
+  assert.deepEqual(live.index!.bars.slice(0, 2), INDEX.bars.slice(0, 2));
+  assert.deepEqual(serverSession(live).index, INDEX);
+});
+
+test("a run without index data replays and settles without one", () => {
+  const live = liveSession(session(), 0.4, CATALOG);
+  assert.equal(live.index, undefined);
+  assert.equal(withoutNewestMinute(session()).index, undefined);
+  assert.equal(settledSession(live).index, undefined);
+});
+
+test("the settled run leaves out the replaying index minute too", () => {
+  assert.equal(withoutNewestMinute(session({ index: INDEX })).index!.bars.length, 2);
+  assert.equal(settledSession(liveSession(session({ index: INDEX }), 0.5, CATALOG)).index!.bars.length, 2);
 });

@@ -8,6 +8,7 @@
 import type { Bar } from "./game/types.ts";
 import type { MorningCatalog, MorningState } from "./morning.ts";
 import { formingBar, minuteTicks, tickSeed, type Tick } from "./market/tick-replay.ts";
+import { formingIndexBar } from "./morning-index.ts";
 
 export type LiveMorningState = MorningState & {
   /** Present only while a minute is playing: how far through it, and the server's session. */
@@ -64,7 +65,19 @@ export function liveSession(session: MorningState, fraction: number, catalog: Re
     const latest = bars[position.code]?.at(-1)?.c;
     return settled === undefined || latest === undefined ? sum : sum + position.shares * (latest - settled);
   }, 0);
-  return { ...session, bars, equity: session.equity + revaluation, replay: { fraction, source: session } };
+  // The TAIEX minute replays with its real 5-second values, in step with the stocks.
+  const indexBars = session.index?.bars;
+  const index =
+    session.index && indexBars?.length
+      ? { ...session.index, bars: [...indexBars.slice(0, -1), formingIndexBar(indexBars.at(-1)!, fraction)] }
+      : session.index;
+  return {
+    ...session,
+    bars,
+    ...(index ? { index } : {}),
+    equity: session.equity + revaluation,
+    replay: { fraction, source: session },
+  };
 }
 
 /** The session one minute earlier: without its newest minute. */
@@ -73,6 +86,7 @@ export function withoutNewestMinute(session: MorningState): MorningState {
     ...session,
     cursor: session.cursor - 1,
     bars: Object.fromEntries(Object.entries(session.bars).map(([code, list]) => [code, list.slice(0, -1)])),
+    ...(session.index ? { index: { ...session.index, bars: session.index.bars.slice(0, -1) } } : {}),
   };
 }
 
