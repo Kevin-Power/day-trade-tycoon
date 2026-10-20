@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .client import ApiError
-from .normalize import ValidationError, tick_warnings, trade_rows
+from .normalize import ValidationError, split_session, tick_warnings, trade_rows
 
 if TYPE_CHECKING:
     from .pipeline import Run
@@ -40,13 +40,15 @@ def assess(pages: list, code: str, day: str, meta: dict) -> dict:
         trades = trade_rows(pages, code, day)
     except ValidationError as error:
         return {"code": code, "name": meta["name"], "status": "rejected", "error": str(error)}
+    trades, after_hours = split_session(trades)
     if not trades:
-        return {"code": code, "name": meta["name"], "status": "rejected", "error": "沒有任何成交"}
+        return {"code": code, "name": meta["name"], "status": "rejected", "error": "一般交易時段沒有任何成交"}
     total = sum(trade[2] for trade in trades)
     status = "incomplete" if total < meta["tradeVolume"] else "ok"
     error = f"逐筆量 {total} 少於當日量 {meta['tradeVolume']}" if status == "incomplete" else None
     return {"code": code, "name": meta["name"], "status": status, "error": error, "trades": trades,
-            "warnings": tick_warnings(code, trades, meta["tradeVolume"], meta["close"])}
+            "afterHours": after_hours,
+            "warnings": tick_warnings(code, trades, meta["tradeVolume"], meta["close"], after_hours)}
 
 
 class Ticks:
@@ -142,11 +144,14 @@ class Ticks:
             return
         entries = [{"code": result["code"], "name": result["name"], "trades": len(result["trades"]),
                     "volume": sum(trade[2] for trade in result["trades"]), "close": result["trades"][-1][1],
-                    "complete": result["status"] == "ok"} for result in kept]
+                    "complete": result["status"] == "ok",
+                    "afterHours": {"trades": len(result["afterHours"]),
+                                   "volume": sum(trade[2] for trade in result["afterHours"])}} for result in kept]
         trades = {result["code"]: result["trades"] for result in kept}
         warnings = [warning for result in kept for warning in result["warnings"]]
         self.store.publish_ticks(day, entries, trades, rejected, warnings, self.runtime.now(), TICK_SOURCE,
-                                 self.runtime.version)
+                                 self.runtime.version,
+                                 after_hours={result["code"]: result["afterHours"] for result in kept})
         record["trades"] = sum(len(rows) for rows in trades.values())
         record["outcome"] = "ok" if all(result["status"] == "ok" for result in results) else "partial"
         self.store.log(day, f"逐筆：上架 {day} {len(entries)} 檔、{record['trades']} 筆，"

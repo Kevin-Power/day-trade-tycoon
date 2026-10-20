@@ -195,7 +195,8 @@ class MarketStore:
                       and self.tick_raw_codes(folder.name))
 
     def publish_ticks(self, day: str, entries: list[dict], trades: dict[str, list], rejected: list[dict],
-                      warnings: list[dict], published_at: datetime, source: str, version: str) -> dict:
+                      warnings: list[dict], published_at: datetime, source: str, version: str,
+                      after_hours: dict[str, list] | None = None) -> dict:
         """Publishes the checked trades plus every answer received, rejected ones included with their reason."""
         target = self.root / "ticks" / day
         if target.exists():
@@ -213,7 +214,8 @@ class MarketStore:
 
         for code in sorted(trades):
             payload = {"schema": 1, "code": code, "date": day, "sizeUnit": "lot",
-                       "fields": ["msAfter0900", "price", "size", "bid", "ask"], "trades": trades[code]}
+                       "fields": ["msAfter0900", "price", "size", "bid", "ask"], "trades": trades[code],
+                       "afterHours": (after_hours or {}).get(code, [])}
             put(f"symbols/{code}.json.gz", gzip.compress(_json_bytes(payload), mtime=0))
         for code in self.tick_raw_codes(day):
             put(f"raw/{code}.json.gz", self._tick_raw_path(day, code).read_bytes())

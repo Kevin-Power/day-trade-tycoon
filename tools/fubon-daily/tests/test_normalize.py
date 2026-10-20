@@ -10,6 +10,7 @@ from fubon_daily.normalize import (
     reference_price,
     snapshot_listing,
     symbol_warnings,
+    split_session,
     tick_warnings,
     trade_rows,
 )
@@ -170,6 +171,17 @@ class TradeRowsTest(unittest.TestCase):
         trades = trade_rows([trades_page("2330", DATE, rows)], "2330", DATE)
         self.assertEqual([item[0] for item in trades], [16_320_000, 19_800_000])
 
+    def test_the_fixed_price_trade_as_fubon_sends_it_is_accepted(self):
+        # Seen 2026-10-20: no running volume, no quotes and serial 99999999 at 14:30.
+        fixed = {"price": 2405, "size": 34, "time": trade(DATE, 14, 30, 0, 1, 1, 1)["time"], "serial": 99999999}
+        pages = opening_pages()
+        pages[1]["data"] += [fixed, dict(fixed)]
+        trades = trade_rows(pages, "2330", DATE)
+        self.assertEqual(trades[-1], [19_800_000, 2405, 34, None, None])
+        regular, after_hours = split_session(trades)
+        self.assertEqual((len(regular), len(after_hours)), (3, 2))
+        self.assertEqual(regular[-1][0], 16_200_000)
+
     def test_prices_and_sizes_are_checked(self):
         self.assertKind(self.with_row(price=0), "price")
         self.assertKind(self.with_row(price="2425"), "price")
@@ -202,12 +214,17 @@ class TickWarningsTest(unittest.TestCase):
         kinds = [warning["kind"] for warning in tick_warnings("2330", trades, 12283, 2435)]
         self.assertEqual(kinds, ["volume", "close"])
 
-    def test_trades_after_1335_are_noted(self):
-        rows = [trade(DATE, 13, 30, 0, 100, 1, 1, volume=1), trade(DATE, 14, 30, 0, 100, 2, 2, volume=3)]
-        trades = trade_rows([trades_page("2330", DATE, rows)], "2330", DATE)
-        warnings = tick_warnings("2330", trades, 3, None)
+    def test_the_fixed_price_session_is_left_out_of_the_checks(self):
+        rows = [trade(DATE, 13, 30, 0, 100, 1, 1, volume=1), trade(DATE, 14, 30, 0, 101, 2, 2)]
+        regular, _ = split_session(trade_rows([trades_page("2330", DATE, rows)], "2330", DATE))
+        self.assertEqual(tick_warnings("2330", regular, 1, 100), [])
+
+    def test_trades_between_the_close_and_the_fixed_price_session_are_noted(self):
+        rows = [trade(DATE, 13, 30, 0, 100, 1, 1, volume=1), trade(DATE, 13, 40, 0, 100, 2, 2, volume=3)]
+        _, after_hours = split_session(trade_rows([trades_page("2330", DATE, rows)], "2330", DATE))
+        warnings = tick_warnings("2330", [], 0, None, after_hours)
         self.assertEqual([(warning["kind"], warning["detail"]) for warning in warnings],
-                         [("late", "13:35 以後有 1 筆成交")])
+                         [("late", "13:35–14:00 之間有 1 筆成交")])
 
 
 if __name__ == "__main__":

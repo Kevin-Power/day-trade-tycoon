@@ -1,3 +1,4 @@
+import gzip
 import json
 import tempfile
 import unittest
@@ -369,7 +370,8 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         manifest = self.tick_manifest()
         self.assertEqual([entry["code"] for entry in manifest["symbols"]], ["2330", "1413"])
         self.assertEqual(manifest["symbols"][0], {"code": "2330", "name": "台積電", "trades": 1, "volume": 58487,
-                                                  "close": 2440, "complete": True})
+                                                  "close": 2440, "complete": True,
+                                                  "afterHours": {"trades": 0, "volume": 0}})
         self.assertEqual((manifest["warnings"], manifest["rejected"]), ([], []))
         ticks = self.status()["ticks"]
         self.assertEqual((ticks["date"], ticks["outcome"], ticks["trades"]), (DATE, "ok", 2))
@@ -548,6 +550,19 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         second = FakeClient(minutes=good_minutes())
         self.assertEqual(self.run_once(second, at=datetime(2026, 10, 15, 17, 30, tzinfo=TAIPEI)), 0)
         self.assertEqual(self.trade_calls(second), [])
+
+    def test_the_fixed_price_trade_is_kept_apart(self):
+        fixed = {"price": 2440, "size": 34, "time": trade(DATE, 14, 30, 0, 1, 1, 1)["time"], "serial": 99999999}
+        rows = [trade(DATE, 13, 30, 0, 2440, 58487, 1, volume=58487), fixed]
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades={"2330": rows})), 0)
+        manifest = self.tick_manifest()
+        entry = manifest["symbols"][0]
+        self.assertEqual((entry["trades"], entry["volume"], entry["complete"], entry["afterHours"]),
+                         (1, 58487, True, {"trades": 1, "volume": 34}))
+        self.assertEqual(manifest["warnings"], [])
+        payload = json.loads(gzip.decompress((self.data / "ticks" / DATE / "symbols" / "2330.json.gz").read_bytes()))
+        self.assertEqual(payload["afterHours"], [[19_800_000, 2440, 34, None, None]])
+        self.assertEqual(len(payload["trades"]), 1)
 
     def test_trade_warnings_are_recorded(self):
         client = FakeClient(minutes=good_minutes(),

@@ -13,7 +13,10 @@ CLOSING_AUCTION_T = 4 * 3600 + 30 * 60  # 13:30
 # and fixed-price trades run 14:00-14:30, so the day's trades may run until 14:30; later ones are noted.
 TRADE_TIME_PER_SECOND = 1_000_000
 TRADE_SESSION_END_T = 5 * 3600 + 31 * 60  # 14:31
+# Trades from 13:35 on are outside the regular session: the 14:30 fixed-price match arrives without a running
+# volume or quotes and with serial 99999999 (seen 2026-10-20), and the day's volume in the snapshot excludes it.
 LATE_TRADE_MS = (4 * 3600 + 35 * 60) * 1000  # 13:35
+FIXED_PRICE_FROM_MS = 5 * 3600 * 1000  # 14:00
 
 
 class ValidationError(Exception):
@@ -157,6 +160,7 @@ def trade_rows(pages: list, symbol: str, date: str) -> list[list]:
     trades: list[list] = []
     previous_time = previous_serial = None
     running = 0
+    late_from = LATE_TRADE_MS * (TRADE_TIME_PER_SECOND // 1000)
     for page in pages:
         rows = _rows(page, symbol)
         if page.get("date") != date:
@@ -172,9 +176,14 @@ def trade_rows(pages: list, symbol: str, date: str) -> list[list]:
                 raise ValidationError("time", f"成交時間不在 {date} 交易時段：{moment}")
             if not isinstance(serial, int) or isinstance(serial, bool):
                 raise ValidationError("structure", f"流水號不是整數：{serial!r}")
-            if previous_serial is not None and (serial <= previous_serial or moment < previous_time):
-                raise ValidationError("order", f"成交重複或倒序：流水號 {serial}")
-            previous_time, previous_serial = moment, serial
+            late = offset >= late_from
+            if previous_time is not None and moment < previous_time:
+                raise ValidationError("order", f"成交時間倒序：流水號 {serial}")
+            if not late:
+                if previous_serial is not None and serial <= previous_serial:
+                    raise ValidationError("order", f"成交重複或倒序：流水號 {serial}")
+                previous_serial = serial
+            previous_time = moment
             price, size = item.get("price"), item.get("size")
             if not (_number(price) and price > 0):
                 raise ValidationError("price", f"流水號 {serial} 成交價不是正數")
@@ -182,21 +191,29 @@ def trade_rows(pages: list, symbol: str, date: str) -> list[list]:
                 raise ValidationError("volume", f"流水號 {serial} 單量不是正整數")
             running += size
             volume = item.get("volume")
-            if volume is not None and volume != running:
+            if not late and volume is not None and volume != running:
                 raise ValidationError("volume", f"流水號 {serial} 累計量 {volume} 與逐筆加總 {running} 不同")
             trades.append([offset // (TRADE_TIME_PER_SECOND // 1000), price, size,
                            _quote_side(item.get("bid"), "買價"), _quote_side(item.get("ask"), "賣價")])
     return trades
 
 
-def tick_warnings(code: str, trades: list[list], trade_volume: int, close: float | None) -> list[dict]:
+def split_session(trades: list[list]) -> tuple[list[list], list[list]]:
+    """The regular session's trades (up to a delayed close) and those from 13:35 on (the fixed-price match)."""
+    return ([trade for trade in trades if trade[0] < LATE_TRADE_MS],
+            [trade for trade in trades if trade[0] >= LATE_TRADE_MS])
+
+
+def tick_warnings(code: str, trades: list[list], trade_volume: int, close: float | None,
+                  after_hours: list[list] = ()) -> list[dict]:
+    """Checks the regular session's trades against the snapshot; notes trades between 13:35 and 14:00."""
     warnings = []
     total = sum(trade[2] for trade in trades)
     if total != trade_volume:
         warnings.append({"code": code, "kind": "volume", "detail": f"逐筆量 {total} 與當日量 {trade_volume} 不同"})
     if trades and close is not None and trades[-1][1] != close:
         warnings.append({"code": code, "kind": "close", "detail": f"最後成交 {trades[-1][1]} 與快照收盤 {close} 不同"})
-    late = sum(1 for trade in trades if trade[0] >= LATE_TRADE_MS)
+    late = sum(1 for trade in after_hours if trade[0] < FIXED_PRICE_FROM_MS)
     if late:
-        warnings.append({"code": code, "kind": "late", "detail": f"13:35 以後有 {late} 筆成交"})
+        warnings.append({"code": code, "kind": "late", "detail": f"13:35–14:00 之間有 {late} 筆成交"})
     return warnings

@@ -207,7 +207,8 @@ class TickStoreTest(unittest.TestCase):
     def publish(self, warnings=(), rejected=()):
         self.store.save_tick_raw(DATE, "2330", PAGES, META)
         return self.store.publish_ticks(DATE, [TICK_ENTRY], TRADES, list(rejected), list(warnings), NOW,
-                                        "fubon-neo test", "abc123")
+                                        "fubon-neo test", "abc123",
+                                        after_hours={"2330": [[19_800_000, 2425, 34, None, None]]})
 
     def test_raw_pages_wait_in_staging_until_published(self):
         self.assertIsNone(self.store.load_tick_raw(DATE, "2330"))
@@ -248,6 +249,7 @@ class TickStoreTest(unittest.TestCase):
         self.assertEqual(json.loads((folder / "manifest.json").read_text(encoding="utf-8")), manifest)
         payload = json.loads(gzip.decompress((folder / "symbols" / "2330.json.gz").read_bytes()))
         self.assertEqual(payload["trades"], TRADES["2330"])
+        self.assertEqual(payload["afterHours"], [[19_800_000, 2425, 34, None, None]])
         self.assertEqual(payload["fields"], ["msAfter0900", "price", "size", "bid", "ask"])
         self.assertEqual(json.loads(gzip.decompress((folder / "raw" / "2330.json.gz").read_bytes())), PAGES)
         for item in manifest["files"]:
