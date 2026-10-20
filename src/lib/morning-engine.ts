@@ -13,7 +13,7 @@ import { validMorningLimit } from "./morning-book.ts";
 export const MORNING_STARTING_CASH = 10_000_000;
 export const MORNING_ADVANCE_INTERVAL = 1_000;
 export const MORNING_MAX_ORDERS = 200;
-export type MorningStoredState = Omit<MorningState, "bars">;
+export type MorningStoredState = Omit<MorningState, "bars" | "index">;
 export type MorningSource = {
   catalog: MorningCatalog;
   bars: Record<string, Bar[]>;
@@ -186,6 +186,9 @@ export function visibleMorningState(
         Array.from({ length: state.cursor }, (_, index) => barAt(source, symbol.code, index)),
       ]),
     ),
+    ...(source.index
+      ? { index: { ...source.index, bars: source.index.bars.slice(0, state.cursor) } }
+      : {}),
   };
 }
 /** Paper orders use subsequent minute OPENs only; limits wait, never infer intraminute fills. */

@@ -437,3 +437,55 @@ test("price gaps reject unaffordable fills, cancellation preserves money, and mi
 test("a new run records when it started", () => {
   assert.equal(createMorningState(randomUUID(), plan, fixture(), 5000).startedAt, 5000);
 });
+
+function indexed(): MorningSource {
+  const source = fixture();
+  return {
+    ...source,
+    index: {
+      code: "TAIEX",
+      name: "加權指數",
+      previousClose: 1000,
+      source: "fixture",
+      bars: Array.from({ length: 3 }, (_, minute) => ({
+        t: minute * 60,
+        o: 1000 + minute,
+        h: 1001 + minute,
+        l: 999 + minute,
+        c: 1000.5 + minute,
+        p: Array.from({ length: 12 }, (_, point) => 1000 + minute + point / 100),
+      })),
+    },
+  };
+}
+
+test("the index is revealed exactly like stock bars", () => {
+  const source = indexed();
+  let state = createMorningState(randomUUID(), plan, source, 0);
+  assert.equal(visibleMorningState(state, source).index?.bars.length, 0);
+  state = applyMorningAction(state, action(state, { action: "advance" }), source, 1000);
+  const one = visibleMorningState(state, source);
+  assert.equal(one.index?.bars.length, 1);
+  assert.deepEqual(one.index?.bars[0], source.index!.bars[0]);
+  assert.equal(one.index?.previousClose, 1000);
+  assert.equal(one.index?.name, "加權指數");
+  state = applyMorningAction(state, action(state, { action: "advance" }), source, 2000);
+  state = applyMorningAction(state, action(state, { action: "advance" }), source, 3000);
+  assert.equal(visibleMorningState(state, source).index?.bars.length, 3);
+  assert.equal(visibleMorningState(state, source).bars["2330"].length, 3);
+});
+
+test("a source without an index reveals none", () => {
+  const source = fixture();
+  let state = createMorningState(randomUUID(), plan, source, 0);
+  state = applyMorningAction(state, action(state, { action: "advance" }), source, 1000);
+  assert.equal(visibleMorningState(state, source).index, undefined);
+});
+
+test("the stored state never contains index bars", () => {
+  const source = indexed();
+  let state = createMorningState(randomUUID(), plan, source, 0);
+  state = applyMorningAction(state, action(state, { action: "advance" }), source, 1000);
+  assert.equal("index" in state, false);
+  assert.equal(JSON.stringify(state).includes("TAIEX"), false);
+});

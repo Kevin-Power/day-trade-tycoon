@@ -81,6 +81,8 @@ export type MorningState = {
   revision: number;
   plan: MorningPlan;
   bars: Record<string, Bar[]>;
+  /** The lesson's real TAIEX up to the cursor, when the lesson has one; never stored. */
+  index?: MorningIndexSeries;
   startingCash: number;
   cash: number;
   equity: number;
