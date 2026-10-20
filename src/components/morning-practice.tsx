@@ -45,6 +45,7 @@ import type { Celebration } from "@/lib/discipline/score";
 import { useTerminalLayout, type TerminalLayout } from "@/lib/use-terminal-layout";
 import { deriveMorningAlerts } from "@/lib/morning-alerts";
 import type { LocalOrderFailure } from "@/lib/morning-orders";
+import { INDEX_EMPTY_TEXT, indexAvailability } from "@/lib/morning-index";
 import {
   replayClock,
   settledSession,
@@ -670,12 +671,14 @@ function MorningLesson({
     />
   ) : null;
   const replayClockText = liveMarket ? formatTime(replayClock(liveMarket)) : "09:00:00";
+  // Before 09:00 is revealed the pane waits; only a run without index data says the lesson has none.
+  const indexState = indexAvailability({
+    hasRun: Boolean(marketSession),
+    series: liveMarket?.index,
+  });
+  const indexEmptyText = indexState === "ready" ? "" : INDEX_EMPTY_TEXT[indexState];
   const indexPanel = (
-    <IndexPanel
-      series={liveMarket?.index}
-      clock={replayClockText}
-      placeholder={marketSession ? "本教材沒有大盤資料" : "開始練習後顯示大盤"}
-    />
+    <IndexPanel series={liveMarket?.index} clock={replayClockText} placeholder={indexEmptyText} />
   );
   const alerts = useMemo(
     () => (catalog && settled ? deriveMorningAlerts(catalog, settled) : []),
@@ -747,7 +750,7 @@ function MorningLesson({
             {linkNotice && (
               <LinkNoticeBanner notice={linkNotice} onDismiss={() => setLinkNotice(null)} />
             )}
-            {guest && <GuestBanner />}
+            {guest && <GuestBanner compact={layout === "desktop"} />}
             {atCheckpoint && !showPlan && (
               <div role="status" className="td-banner">
                 <h2>10:00，回看自己的計畫</h2>

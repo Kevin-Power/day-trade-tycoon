@@ -205,13 +205,13 @@ export function HintBar({
         </button>
       )}
       {tip && (
-        <p className="td-tip">
+        <p className="td-tip" title={tip}>
           <span>教學</span>
-          {tip}
+          <span className="td-tip-text">{tip}</span>
         </p>
       )}
       {feedback && (
-        <p role="status" className="td-feedback">
+        <p role="status" className="td-feedback" title={feedback}>
           {feedback}
         </p>
       )}

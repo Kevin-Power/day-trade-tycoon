@@ -2,7 +2,7 @@ import { useRef, type ReactNode } from "react";
 import { CandlestickChart } from "@/lib/icons";
 import type { MorningCatalog } from "@/lib/morning";
 import { createMorningBook } from "@/lib/morning-book";
-import { formatIndexValue, indexSummary } from "@/lib/morning-index";
+import { formatIndexValue, indexAvailability, indexSummary } from "@/lib/morning-index";
 import { lastTrade, type LiveMorningState } from "@/lib/morning-live";
 import { bestQuotes, quoteSummary } from "@/lib/morning-quote";
 import { formatPrice } from "@/lib/market/ticks";
@@ -71,7 +71,7 @@ export function WatchTable({
             <small>TAIEX</small>
           </span>
           <TickPrice className="td-watch-price" value={indexQuote?.last ?? null} identity="TAIEX">
-            {indexQuote?.last == null ? dash : formatIndexValue(indexQuote.last)}
+            {indexQuote?.last == null ? dash : <IndexPoints value={indexQuote.last} />}
           </TickPrice>
           {!compact && (
             <span className="td-watch-cell">
@@ -99,7 +99,16 @@ export function WatchTable({
               </span>
             </>
           )}
-          <MiniCandles bars={index?.bars ?? []} previous={index?.previousClose ?? 0} endT={endT} />
+          <MiniCandles
+            bars={index?.bars ?? []}
+            previous={index?.previousClose ?? 0}
+            endT={endT}
+            empty={
+              indexAvailability({ hasRun: Boolean(session), series: index }) === "none"
+                ? "無大盤資料"
+                : undefined
+            }
+          />
         </IndexRow>
         {catalog.symbols.map((symbol) => {
           const bars = session?.bars[symbol.code] ?? [];
@@ -174,6 +183,17 @@ export function WatchTable({
   );
 }
 
+/** Index points with the decimals in their own span, which phones hide in the compact list. */
+function IndexPoints({ value }: { value: number }) {
+  const [whole, decimals] = formatIndexValue(value).split(".");
+  return (
+    <>
+      {whole}
+      {decimals && <span className="td-watch-decimals">.{decimals}</span>}
+    </>
+  );
+}
+
 /** The TAIEX row: a button where the index can be opened, a plain row where it cannot (tablets). */
 function IndexRow({
   tone,
@@ -209,12 +229,15 @@ export function MiniCandles({
   bars,
   previous,
   endT,
+  empty = "等待開盤",
 }: {
   bars: readonly Candle[];
   previous: number;
   endT: number;
+  /** What an empty row says: waiting for 09:00 by default, or that the lesson has no such data. */
+  empty?: string;
 }) {
-  if (!bars.length) return <span className="td-mini td-mini-empty">等待開盤</span>;
+  if (!bars.length) return <span className="td-mini td-mini-empty">{empty}</span>;
   return <MiniCanvas bars={bars} previous={previous} endT={endT} />;
 }
 

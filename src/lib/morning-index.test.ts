@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formingIndexBar, indexSummary } from "./morning-index.ts";
+import { formingIndexBar, INDEX_EMPTY_TEXT, indexAvailability, indexSummary } from "./morning-index.ts";
 import type { MorningIndexBar } from "./morning.ts";
 
 const p = [10, 12, 8, 11, 15, 9, 13, 14, 7, 12, 11, 10];
@@ -56,4 +56,27 @@ test("the real 10/06 first minute reads 49,932.26, up 220.22 (+0.44%)", () => {
   assert.equal(summary.open, 49736.37);
   assert.equal(summary.high, 49932.26);
   assert.equal(summary.low, 49736.37);
+});
+
+// The 大盤 pane and the TAIEX row say why there is nothing to show, and never claim a lesson has no index when
+// the run simply has not revealed 09:00 yet (final review, Important 1).
+test("before a run the index waits for the run to start", () => {
+  assert.equal(indexAvailability({ hasRun: false, series: undefined }), "no-run");
+  assert.equal(INDEX_EMPTY_TEXT["no-run"], "開始練習後顯示大盤");
+});
+
+test("a run at cursor 0 with an index waits for the first minute instead of saying there is no index", () => {
+  const series = { code: "TAIEX" as const, name: "加權指數", previousClose: 49712.04, source: "證交所", bars: [] };
+  assert.equal(indexAvailability({ hasRun: true, series }), "waiting");
+  assert.equal(INDEX_EMPTY_TEXT.waiting, "第一分鐘揭露後顯示大盤");
+});
+
+test("only a run without an index says the lesson has no index data", () => {
+  assert.equal(indexAvailability({ hasRun: true, series: undefined }), "none");
+  assert.equal(INDEX_EMPTY_TEXT.none, "本教材沒有大盤資料");
+});
+
+test("revealed index bars are ready to draw", () => {
+  const series = { code: "TAIEX" as const, name: "加權指數", previousClose: 49712.04, source: "證交所", bars: [FIRST_1006] };
+  assert.equal(indexAvailability({ hasRun: true, series }), "ready");
 });

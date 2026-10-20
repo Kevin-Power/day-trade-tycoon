@@ -45,6 +45,9 @@ const sample = () => {
     tapeRows: document.querySelectorAll(".td-tape-rows li").length,
     tapeLots: document.querySelectorAll(".td-tape-lots").length,
     stamp: text(".td-hero-stamp"),
+    // 報價明細 (desks): its 成交 row carries a 模擬 tag while the minute's trades are simulated.
+    grid: Boolean(document.querySelector(".td-quote-grid")),
+    gridSim: Boolean(document.querySelector(".td-quote-grid .td-sim-tag")),
     flashing: document.querySelectorAll('[data-flash="up"], [data-flash="down"]').length,
   };
 };
@@ -154,6 +157,12 @@ for (const viewport of [
     // While a minute replays the hero says the price is simulated; at rest it is the minute's real close.
     if (!samples.some((s) => s.stamp.includes("模擬成交"))) fail(`${viewport.name}: replayed prices are not labelled 模擬`);
     if (!rest.stamp.includes("收價")) fail(`${viewport.name}: at rest the hero stamp reads "${rest.stamp}"`);
+    if (!phone) {
+      const replaying = samples.filter((s) => s.grid && s.stamp.includes("模擬成交"));
+      if (!replaying.length) fail(`${viewport.name}: no sample of 報價明細 while a minute replayed`);
+      if (replaying.some((s) => !s.gridSim)) fail(`${viewport.name}: 報價明細 shows simulated trades without 模擬`);
+      if (rest.gridSim) fail(`${viewport.name}: 報價明細 still says 模擬 at rest on the real close`);
+    }
     // The lesson's volume is unverified: the tape shows ticks, not lot sizes.
     if (samples.some((s) => s.tapeLots)) fail(`${viewport.name}: the tape shows lot sizes from unverified volume`);
     if (!rest.tapeRows) fail(`${viewport.name}: the trade tape is empty`);

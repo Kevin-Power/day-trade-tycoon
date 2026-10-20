@@ -27,8 +27,13 @@ export function QuoteDetailGrid({
   const bars = session?.bars[code] ?? [];
   const quote = quoteSummary(bars, symbol.previousClose);
   const toneOf = (value: number | null) =>
-    value === null || value === symbol.previousClose ? "flat" : value > symbol.previousClose ? "up" : "down";
-  const average = bars.length && bars.every((bar) => typeof bar.a === "number") ? bars.at(-1)!.a! : null;
+    value === null || value === symbol.previousClose
+      ? "flat"
+      : value > symbol.previousClose
+        ? "up"
+        : "down";
+  const average =
+    bars.length && bars.every((bar) => typeof bar.a === "number") ? bars.at(-1)!.a! : null;
   const amplitude =
     quote.high !== null && quote.low !== null && symbol.previousClose > 0
       ? `${(((quote.high - quote.low) / symbol.previousClose) * 100).toFixed(2)}%`
@@ -39,6 +44,8 @@ export function QuoteDetailGrid({
         ? formatTime(replayClock(session))
         : formatTime(bars.at(-1)!.t + 60).slice(0, 5)
       : "—";
+  // While a minute replays, 成交 and what follows it (high, low, amplitude, time) move with simulated trades.
+  const simulated = Boolean(session?.replay);
   const rows: [string, string, "up" | "down" | "flat"][] = [
     ["成交", price(quote.last), quote.tone],
     ["漲跌", quote.last === null ? "—" : `${arrow(quote.tone)}${quote.changeText}`, quote.tone],
@@ -47,7 +54,15 @@ export function QuoteDetailGrid({
     ["最高", price(quote.high), toneOf(quote.high)],
     ["最低", price(quote.low), toneOf(quote.low)],
     ["昨收", formatPrice(symbol.previousClose), "flat"],
-    ...(average === null ? [] : [["均價", formatPrice(average), toneOf(average)] as [string, string, "up" | "down" | "flat"]]),
+    ...(average === null
+      ? []
+      : [
+          ["均價", formatPrice(average), toneOf(average)] as [
+            string,
+            string,
+            "up" | "down" | "flat",
+          ],
+        ]),
     ["振幅", amplitude, "flat"],
     ["時間", time, "flat"],
   ];
@@ -55,7 +70,10 @@ export function QuoteDetailGrid({
     <dl className="td-quote-grid" aria-label={`${symbol.name}報價明細`}>
       {rows.map(([label, value, tone]) => (
         <div key={label} data-tone={tone}>
-          <dt>{label}</dt>
+          <dt>
+            {label}
+            {simulated && label === "成交" && <span className="td-sim-tag">模擬</span>}
+          </dt>
           <dd className="td-num">{value}</dd>
         </div>
       ))}
@@ -63,7 +81,11 @@ export function QuoteDetailGrid({
   );
 }
 
-export type StockTab = { id: "book" | "tape" | "minutes" | "detail"; label: string; content: ReactNode };
+export type StockTab = {
+  id: "book" | "tape" | "minutes" | "detail";
+  label: string;
+  content: ReactNode;
+};
 
 /** The stock's information pages: 五檔, 明細 (simulated trades), 分鐘 (completed minutes), 詳細. */
 export function StockTabs({
@@ -104,7 +126,12 @@ export function StockTabs({
 export function MinuteTable({ session, code }: { session: LiveMorningState | null; code: string }) {
   const minuteBars = session ? (settledSession(session).bars[code] ?? []) : [];
   return (
-    <div className="terminal-minute-tape" tabIndex={0} role="region" aria-label="最近已完成分鐘明細">
+    <div
+      className="terminal-minute-tape"
+      tabIndex={0}
+      role="region"
+      aria-label="最近已完成分鐘明細"
+    >
       <table>
         <caption className="sr-only">最近 10 根已揭露分鐘 K，時間為分鐘起點</caption>
         <thead>

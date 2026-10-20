@@ -1,6 +1,6 @@
 // The lesson's real TAIEX on the desk: the minute being replayed shows its real 5-second values so far,
 // and the quote numbers use index formatting (thousands separators, two decimals).
-import type { MorningIndexBar } from "./morning.ts";
+import type { MorningIndexBar, MorningIndexSeries } from "./morning.ts";
 import { formatPercentChange } from "./market/chart-data.ts";
 
 /** Index points as TWSE prints them: thousands separators, two decimals (same rule as market/week formatIndex,
@@ -43,3 +43,22 @@ export function indexSummary(bars: readonly MorningIndexBar[], previousClose: nu
     low: bars.length ? Math.min(...bars.map((bar) => bar.l)) : null,
   };
 }
+
+/** Why the index shows nothing yet: no run, a run before 09:00 is revealed, or a lesson without index data. */
+export type IndexAvailability = "no-run" | "waiting" | "none" | "ready";
+
+export function indexAvailability(input: {
+  hasRun: boolean;
+  series: MorningIndexSeries | undefined;
+}): IndexAvailability {
+  if (!input.hasRun) return "no-run";
+  if (!input.series) return "none";
+  return input.series.bars.length ? "ready" : "waiting";
+}
+
+/** The 大盤 pane's text for each empty state; only a run without an index says the lesson has none. */
+export const INDEX_EMPTY_TEXT: Record<Exclude<IndexAvailability, "ready">, string> = {
+  "no-run": "開始練習後顯示大盤",
+  waiting: "第一分鐘揭露後顯示大盤",
+  none: "本教材沒有大盤資料",
+};

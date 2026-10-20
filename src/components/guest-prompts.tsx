@@ -7,8 +7,8 @@ import type { LinkNotice } from "@/lib/guest-link";
 
 const SIGN_UP = loginHref({ next: PRACTICE_PATH, mode: "up" });
 
-/** Non-blocking reminder shown above the desk while practising as a guest. */
-export function GuestBanner() {
+/** Non-blocking reminder shown above the desk while practising as a guest; one line on desktops. */
+export function GuestBanner({ compact = false }: { compact?: boolean }) {
   const [switching, setSwitching] = useState(false);
   async function switchLearner() {
     setSwitching(true);
@@ -19,8 +19,8 @@ export function GuestBanner() {
     }
   }
   return (
-    <div role="status" className="td-banner td-guest">
-      <p>目前是訪客，建立帳號才會保存練習與之後的連續天數</p>
+    <div role="status" className="td-banner td-guest" data-compact={compact}>
+      <p>{compact ? "目前是訪客，建立帳號才會保存練習" : "目前是訪客，建立帳號才會保存練習與之後的連續天數"}</p>
       <div className="td-banner-actions">
         <a className="td-button" data-variant="primary" href={SIGN_UP}>
           <UserPlus aria-hidden />

@@ -95,6 +95,16 @@ const scan = () => {
       return [Math.round(rect.width), Math.round(rect.height)];
     })(),
     ledgerHeight: Math.round(document.querySelector(".td-ledger")?.getBoundingClientRect().height ?? 0),
+    // 自選 rows cut off by the watch pane (the pane scrolls, and headless Chrome hides its scrollbar).
+    watchOutside: (() => {
+      const pane = document.querySelector(".td-watch");
+      if (!pane) return null;
+      const box = pane.getBoundingClientRect();
+      return [...document.querySelectorAll(".td-watch .td-watch-row")].filter((row) => {
+        const rect = row.getBoundingClientRect();
+        return rect.top < box.top - 1 || rect.bottom > box.bottom + 1;
+      }).length;
+    })(),
   };
 };
 
@@ -154,6 +164,9 @@ for (const row of rows) {
     failures.push(`${row.name}: chart ${row.chartWidth}x${row.chartHeight} is not 1.2 times wider than tall`);
   if (!row.senior && row.width >= 768 && !(row.miniSize && row.miniSize[0] >= 100 && row.miniSize[1] >= 24))
     failures.push(`${row.name}: 簡易K線 ${JSON.stringify(row.miniSize)}, needs 100x24`);
+  // Every stock (and the TAIEX) in 自選 is in view without scrolling the pane.
+  if (!row.senior && row.width >= 768 && row.watchOutside !== 0)
+    failures.push(`${row.name}: ${row.watchOutside} 自選 rows outside the watch pane`);
   // The ledger is always open on desks and tablets; desks keep at least 150px for it.
   if (!row.senior && row.width >= 768 && !(row.ledgerHeight >= (row.width >= 1200 ? 150 : 100)))
     failures.push(`${row.name}: ledger ${row.ledgerHeight}px`);

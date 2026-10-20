@@ -249,6 +249,20 @@ for (const item of cases) {
     // Switch to 鴻海 2317: quote, chart, book and order ticket all follow.
     if (phone) {
       await page.getByRole("button", { name: "自選", exact: true }).click();
+      // Each row's name and price stay apart (the TAIEX row is the widest).
+      const collisions = await page.evaluate(() =>
+        [...document.querySelectorAll(".td-watch-row")].flatMap((row) => {
+          const name = row.querySelector(".td-watch-name");
+          const price = row.querySelector(".td-watch-price");
+          if (!name || !price) return [];
+          const right = Math.max(...[...name.children].map((child) => child.getBoundingClientRect().right));
+          const range = document.createRange();
+          range.selectNodeContents(price);
+          const left = range.getBoundingClientRect().left;
+          return right > left + 1 ? [`${row.dataset.code} name ends at ${Math.round(right)}, price starts at ${Math.round(left)}`] : [];
+        }),
+      );
+      if (collisions.length) fail(`自選 rows run into each other (${collisions.join(" | ")})`);
       await page.locator(".td-watch-row", { hasText: "鴻海" }).click();
     } else {
       await page.locator(".td-watch .td-watch-row", { hasText: "鴻海" }).click();

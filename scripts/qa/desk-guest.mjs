@@ -146,6 +146,33 @@ for (const item of cases) {
     if (!(await page.getByText("目前是訪客").isVisible())) fail("guest banner missing");
     if (!(await page.getByRole("radiogroup", { name: "文字大小" }).first().isVisible())) fail("text size switch missing on the desk");
     await check("desk");
+    // The guest reminder must not push the chart below its floors or make a desktop page scroll (spec 4.1).
+    if (item.width >= 1200) {
+      for (const [width, height, floor] of [
+        [1920, 1080, 600],
+        [1440, 900, 420],
+        [1366, 900, 420],
+        [1366, 768, 300],
+        [1280, 800, 360],
+        [1200, 800, 340],
+      ]) {
+        await page.setViewportSize({ width, height });
+        await page.waitForTimeout(700);
+        const measured = await page.evaluate(() => ({
+          chart: Math.round(document.querySelector('.td-chart canvas[role="img"]')?.getBoundingClientRect().height ?? 0),
+          scroll: document.documentElement.scrollHeight - innerHeight,
+          main: (() => {
+            const main = document.querySelector("main");
+            return main ? main.scrollHeight - main.clientHeight : 0;
+          })(),
+        }));
+        if (measured.chart < floor) fail(`desk ${width}x${height}: guest chart ${measured.chart}px, needs ${floor}px`);
+        if (measured.scroll > 1 || measured.main > 1) fail(`desk ${width}x${height}: the guest desk scrolls`);
+        await page.screenshot({ path: `${out}${item.name}-desk-${width}x${height}.png` });
+      }
+      await page.setViewportSize({ width: item.width, height: item.height });
+      await page.waitForTimeout(400);
+    }
 
     await page.getByRole("button", { name: "復盤", exact: true }).click();
     await page.locator("textarea").last().fill("第一次練習，先看懂畫面。");

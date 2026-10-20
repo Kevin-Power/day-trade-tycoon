@@ -552,9 +552,9 @@
   display: grid;
   height: 100%;
   grid-template-columns: minmax(0, 1fr) 300px clamp(380px, 30vw, 500px);
-  /* The ticket row gives way (its pane scrolls, the send button stays pinned) before the ledger drops
-     under 150px. */
-  grid-template-rows: clamp(188px, 25vh, 272px) minmax(0, auto) minmax(150px, 1fr);
+  /* The top row is never shorter than the 自選 table, so every stock stays in view; the ticket row gives way
+     (its pane scrolls, the send button stays pinned) before the ledger drops under 150px. */
+  grid-template-rows: minmax(min-content, 25vh) minmax(0, auto) minmax(150px, 1fr);
   grid-template-areas:
     "watch watch index"
     "center book ticket"
@@ -588,6 +588,9 @@
 .trading-desk .td-index {
   grid-area: index;
   position: relative;
+  /* The top row is sized by the 自選 table alone: the index chart's canvas would otherwise feed its own last
+     drawn height back into the row (a canvas's intrinsic size is its backing store). */
+  contain: size;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -4007,4 +4010,54 @@
 }
 .trading-desk .td-watch-row[data-static="true"]:hover {
   background: rgb(230 194 90 / 0.05);
+}
+
+/* Final review (2026-10-21) */
+/* Short desktops: 26px 自選 rows keep the whole table in view without taking the chart's floor. */
+@media (max-height: 860px) {
+  .trading-desk[data-layout="desktop"] .td-watch-row {
+    min-height: 26px;
+  }
+}
+
+/* Desktop hint bar on one line: 教學 and the order feedback give way (full text on hover), and a guest's
+   reminder sits inline instead of taking a row of its own. Banners that need a decision keep their own row. */
+.trading-desk[data-layout="desktop"] .td-hints > :is(.td-tip, .td-feedback) {
+  flex: 1 1 80px;
+  min-width: 0;
+}
+.trading-desk[data-layout="desktop"] .td-tip-text,
+.trading-desk[data-layout="desktop"] .td-feedback {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trading-desk[data-layout="desktop"] .td-feedback {
+  display: block;
+}
+.trading-desk .td-guest[data-compact="true"] {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 2px 4px 2px 8px;
+}
+.trading-desk .td-guest[data-compact="true"] p {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.trading-desk .td-guest[data-compact="true"] .td-button {
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+/* Compact 自選 (tablets, phones): the code under the name, so the widest name (加權指數) never runs into its
+   price; phones also drop the index's decimals there (the 大盤 view shows them). */
+.trading-desk .td-watch-table[data-compact="true"] .td-watch-row .td-watch-name {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-decimals {
+  display: none;
 }
