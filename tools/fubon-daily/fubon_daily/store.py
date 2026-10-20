@@ -147,8 +147,69 @@ class MarketStore:
                             "manifestSha256": hashlib.sha256(manifest_bytes).hexdigest(), "publishedAt": stamp})
         return manifest
 
+    # Trade-by-trade data lives in its own tree (ticks/<day>), apart from the minute candles: Fubon serves
+    # trades only on the day itself, so they are kept for good (prune never touches them).
+    def has_ticks(self, day: str) -> bool:
+        return (self.root / "ticks" / day / "manifest.json").is_file()
+
+    def _tick_raw_path(self, day: str, code: str) -> Path:
+        return self.root / "staging-ticks" / day / "raw" / f"{code}.json.gz"
+
+    def save_tick_raw(self, day: str, code: str, pages: list) -> None:
+        _write_atomic(self._tick_raw_path(day, code), gzip.compress(_json_bytes(pages), mtime=0))
+
+    def load_tick_raw(self, day: str, code: str) -> list | None:
+        path = self._tick_raw_path(day, code)
+        if not path.is_file():
+            return None
+        return json.loads(gzip.decompress(path.read_bytes()))
+
+    def publish_ticks(self, day: str, entries: list[dict], trades: dict[str, list], warnings: list[dict],
+                      published_at: datetime, source: str, version: str) -> dict:
+        target = self.root / "ticks" / day
+        if target.exists():
+            raise FileExistsError(day)
+        staging = self.root / "staging-ticks" / day
+        out = staging / "day"
+        shutil.rmtree(out, ignore_errors=True)
+        (out / "symbols").mkdir(parents=True)
+        (out / "raw").mkdir()
+        files = []
+
+        def put(relative: str, data: bytes) -> None:
+            (out / relative).write_bytes(data)
+            files.append({"path": relative, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()})
+
+        for code in sorted(trades):
+            payload = {"schema": 1, "code": code, "date": day, "sizeUnit": "lot",
+                       "fields": ["msAfter0900", "price", "size", "bid", "ask"], "trades": trades[code]}
+            put(f"symbols/{code}.json.gz", gzip.compress(_json_bytes(payload), mtime=0))
+            raw = self._tick_raw_path(day, code)
+            if raw.is_file():
+                put(f"raw/{code}.json.gz", raw.read_bytes())
+        manifest = {"schema": 1, "date": day, "createdAt": published_at.isoformat(timespec="seconds"),
+                    "version": version, "source": source, "sizeUnit": "lot",
+                    "counts": {"symbols": len(entries), "trades": sum(len(rows) for rows in trades.values())},
+                    "symbols": entries, "warnings": warnings, "files": files}
+        (out / "manifest.json").write_bytes(_json_bytes(manifest, indent=1))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _replace(out, target)
+        shutil.rmtree(staging, ignore_errors=True)
+        return manifest
+
+    def write_ticks_status(self, entry: dict) -> None:
+        status = self.read_status()
+        status["ticks"] = entry
+        text = self.redact(json.dumps(status, ensure_ascii=False, indent=1))
+        _write_atomic(self.root / "status.json", text.encode("utf-8"))
+
     def reconcile(self) -> None:
         """Repairs a publish interrupted after its day folder moved: index entry and raw evidence."""
+        staging_ticks = self.root / "staging-ticks"
+        if staging_ticks.is_dir():
+            for folder in staging_ticks.iterdir():
+                if self.has_ticks(folder.name):
+                    shutil.rmtree(folder, ignore_errors=True)
         days = self.root / "days"
         if not days.is_dir():
             return

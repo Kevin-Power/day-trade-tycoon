@@ -1,4 +1,4 @@
-"""One fetch run: lock, login, snapshot, minute candles, validation, publishing and the status report."""
+"""One fetch run: lock, login, snapshot, today's trades, minute candles, validation, publishing and the status report."""
 from __future__ import annotations
 
 import time
@@ -10,7 +10,7 @@ from typing import Callable
 from .client import ApiError, LoginError, NotFound, RateLimited, SdkUnavailable
 from .credentials import CredentialsError, Redactor, load_credentials
 from .normalize import (CLOSING_AUCTION_T, TAIPEI, ValidationError, daily_summary, disposition_codes,
-                        minute_bars, reference_price, snapshot_listing, symbol_warnings)
+                        minute_bars, reference_price, snapshot_listing, symbol_warnings, tick_warnings, trade_rows)
 from .notify import notify as windows_notify
 from .store import Locked, MarketStore
 
@@ -23,6 +23,14 @@ LAST_ATTEMPT_AFTER = (18, 50)
 DAILY_EARLIEST = (16, 30)
 MESSAGE_LIMIT = 300
 NOTIFY_TITLE = "當沖大富翁每日行情"
+# Today's trades: Fubon serves them for the current day only, so each daily run keeps them for the stocks
+# lessons use and the day's most traded ones. The intraday limit is 300 calls a minute.
+LESSON_SYMBOLS = ("2330", "2317", "2454", "2382", "2308")
+TICK_TOP = 20
+TRADE_PAGE_SIZE = 500
+MAX_TRADE_PAGES = 1000
+INTRADAY_SPACING = 0.25
+TICK_SOURCE = "fubon-neo intraday/trades"
 
 
 @dataclass
@@ -64,15 +72,16 @@ class Report:
 
 
 class Pacer:
-    """Keeps at least CALL_SPACING seconds between Fubon calls (historical limit: 60 per minute)."""
+    """Keeps calls apart: CALL_SPACING seconds by default (historical limit: 60 per minute)."""
 
-    def __init__(self, runtime: Runtime):
+    def __init__(self, runtime: Runtime, spacing: float = CALL_SPACING):
         self.runtime = runtime
+        self.spacing = spacing
         self.last: float | None = None
 
     def wait(self) -> None:
         if self.last is not None:
-            remaining = CALL_SPACING - (self.runtime.monotonic() - self.last)
+            remaining = self.spacing - (self.runtime.monotonic() - self.last)
             if remaining > 0:
                 self.runtime.sleep(remaining)
         self.last = self.runtime.monotonic()
@@ -127,12 +136,15 @@ class Run:
 
     def execute(self) -> int:
         self.store.reconcile()
-        if self.store.has_day(self.target):
+        self.candles_due = not self.store.has_day(self.target)
+        self.ticks_due = self.mode == "daily" and not self.store.has_ticks(self.target)
+        if not (self.candles_due or self.ticks_due):
             return self.finish("already-done")
         if self.mode == "daily" and (self.started.hour, self.started.minute) < DAILY_EARLIEST:
             self.log("每日抓取要 16:30 以後才執行（富邦歷史資料尚未更新），這次略過")
             return 0
-        self.store.write_run(self.report.record("running", None, None))
+        if self.candles_due:
+            self.store.write_run(self.report.record("running", None, None))
         self.log(f"開始（{self.mode}）")
         try:
             credentials = load_credentials(self.options.credentials)
@@ -157,14 +169,16 @@ class Run:
 
     def candidates(self, client, pacer: Pacer) -> list[dict] | int:
         snapshot = fetch(pacer, self.runtime, client.snapshot_quotes)
-        self.store.save_raw(self.target, "snapshot", None, snapshot)
+        if self.candles_due:
+            self.store.save_raw(self.target, "snapshot", None, snapshot)
         snapshot_date, listings = snapshot_listing(snapshot)
         if self.mode == "daily":
             if snapshot_date != self.target:
                 self.store.discard_staging(self.target)
                 return self.finish("closed", f"{self.target} 休市")
             disposition = fetch(pacer, self.runtime, client.disposition_list)
-            self.store.save_raw(self.target, "disposition", None, disposition)
+            if self.candles_due:
+                self.store.save_raw(self.target, "disposition", None, disposition)
             flagged = disposition_codes(disposition)
             traded = [item for item in listings if item.trade_volume > 0]
             self.log(f"快照：{len(listings)} 檔上市普通股，{len(traded)} 檔有成交，處置股 {len(flagged)} 檔")
@@ -202,6 +216,10 @@ class Run:
         if isinstance(candidates, int):
             return candidates
         candidates.sort(key=lambda entry: entry["tradeValue"] or 0, reverse=True)
+        if self.ticks_due:
+            self.keep_ticks(client, candidates)
+        if not self.candles_due:
+            return self.finish("already-done")
         self.report.total = len(candidates)
         if not candidates:
             return self.finish("failed", "沒有任何有成交的股票", 1)
@@ -250,6 +268,82 @@ class Run:
         self.log(f"上架 {self.target}：{len(entries)} 檔，警告 {len(warnings)} 筆")
         self.store.prune(self.started.date())
         return self.finish("ok")
+
+
+    def trade_pages(self, client, pacer: Pacer, code: str) -> list:
+        """Every page of the symbol's trades today, oldest first, until Fubon returns an empty page."""
+        pages: list = []
+        offset = 0
+        for _ in range(MAX_TRADE_PAGES):
+            page = fetch(pacer, self.runtime, lambda: client.trades(code, offset, TRADE_PAGE_SIZE))
+            rows = page.get("data") if isinstance(page, dict) else None
+            if page is None or rows == []:
+                return pages
+            if not isinstance(rows, list):
+                raise ValidationError("structure", "data 不是陣列")
+            pages.append(page)
+            offset += len(rows)
+        raise ValidationError("structure", f"成交超過 {MAX_TRADE_PAGES} 頁")
+
+    def keep_ticks(self, client, candidates: list[dict]) -> None:
+        """Today's trades for lesson stocks and the most traded ones. Failures stay here: candles go on."""
+        started = self.elapsed()
+        top = candidates[:TICK_TOP]
+        chosen = top + [entry for entry in candidates if entry["code"] in LESSON_SYMBOLS and entry not in top]
+        record = {"date": self.target, "outcome": "failed", "reason": None,
+                  "symbols": {"total": len(chosen), "fetched": 0, "failed": 0}, "trades": 0, "finishedAt": None}
+        try:
+            self.log(f"逐筆：{len(chosen)} 檔（成交值前 {TICK_TOP} 名與教材股）")
+            pacer = Pacer(self.runtime, INTRADAY_SPACING)
+            trades_by_code: dict[str, list] = {}
+            entries: list[dict] = []
+            warnings: list[dict] = []
+            failures: list[str] = []
+            for entry in chosen:
+                code = entry["code"]
+                pages = self.store.load_tick_raw(self.target, code)
+                fresh = pages is None
+                try:
+                    if fresh:
+                        pages = self.trade_pages(client, pacer, code)
+                    trades = trade_rows(pages, code, self.target)
+                except (ApiError, ValidationError) as error:
+                    failures.append(code)
+                    self.log(f"逐筆 {code} 失敗：{error}")
+                    continue
+                if fresh:
+                    self.store.save_tick_raw(self.target, code, pages)
+                if not trades:
+                    warnings.append({"code": code, "kind": "empty", "detail": "有成交量，但沒有逐筆成交"})
+                    continue
+                trades_by_code[code] = trades
+                entries.append({"code": code, "name": entry["name"], "trades": len(trades),
+                                "volume": sum(trade[2] for trade in trades), "close": trades[-1][1]})
+                warnings.extend(tick_warnings(code, trades, entry["tradeVolume"], entry["close"]))
+            record["symbols"].update(fetched=len(entries), failed=len(failures))
+            record["trades"] = sum(len(rows) for rows in trades_by_code.values())
+            if failures:
+                record["reason"] = f"{len(failures)} 檔沒抓到：" + "、".join(failures[:10])
+            if failures and not self.last_attempt:
+                self.log(f"逐筆：{len(failures)} 檔失敗，等下一次排程再抓（{self.elapsed() - started} 秒）")
+            elif not entries:
+                record["reason"] = record["reason"] or "沒有任何逐筆成交"
+            else:
+                self.store.publish_ticks(self.target, entries, trades_by_code, warnings, self.runtime.now(),
+                                         TICK_SOURCE, self.runtime.version)
+                record["outcome"] = "partial" if failures else "ok"
+                self.log(f"逐筆：上架 {len(entries)} 檔、{record['trades']} 筆，警告 {len(warnings)} 筆"
+                         f"（{self.elapsed() - started} 秒）")
+        except Exception as error:  # noqa: BLE001 - trades must never stop the day's candles
+            record["reason"] = f"未預期的錯誤：{type(error).__name__}: {error}"
+            self.log(f"逐筆中斷：{record['reason']}")
+        record["reason"] = self.store.redact(record["reason"])[:MESSAGE_LIMIT] if record["reason"] else None
+        record["finishedAt"] = self.runtime.now().isoformat(timespec="seconds")
+        self.store.write_ticks_status(record)
+        if record["outcome"] != "ok" and self.last_attempt:
+            self.runtime.notify(NOTIFY_TITLE, self.store.redact(
+                f"{self.target} 逐筆成交只收到 {record['symbols']['fetched']}／{record['symbols']['total']} 檔："
+                f"{record['reason']}")[:MESSAGE_LIMIT])
 
 
 def run(options: Options, runtime: Runtime, store: MarketStore | None = None) -> int:

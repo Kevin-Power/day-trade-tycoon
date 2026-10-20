@@ -56,3 +56,31 @@ def daily(symbol, date=DATE, close=100.0, change=1.0, volume=1_234_000, turnover
 
 
 DISPOSITION = {"type": "EQUITY", "exchange": "TWSE", "data": [{"symbol": "2424", "name": "隴華"}]}
+
+
+def micros(date, hour, minute, second=0, ms=0):
+    """A trade time as Fubon sends it: microseconds since the epoch."""
+    from datetime import datetime
+
+    moment = datetime.fromisoformat(f"{date}T{hour:02d}:{minute:02d}:{second:02d}+08:00")
+    return int(moment.timestamp()) * 1_000_000 + ms * 1000
+
+
+def trade(date, hour, minute, second, price, size, serial, volume=None, bid=None, ask=None, ms=0):
+    item = {"price": price, "size": size, "time": micros(date, hour, minute, second, ms), "serial": serial}
+    if volume is not None:
+        item["volume"] = volume
+    if bid is not None:
+        item["bid"] = bid
+    if ask is not None:
+        item["ask"] = ask
+    return item
+
+
+def trades_page(symbol="2330", date=DATE, rows=()):
+    return {"date": date, "type": "EQUITY", "exchange": "TWSE", "market": "TSE", "symbol": symbol, "data": list(rows)}
+
+
+def closing_trade_pages(symbol, size, price, date=DATE):
+    """A whole day as one trade in the 13:30 auction: enough for pipeline tests."""
+    return [trades_page(symbol, date, [trade(date, 13, 30, 0, price, size, 1, volume=size)])]

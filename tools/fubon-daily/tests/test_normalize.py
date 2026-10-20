@@ -10,8 +10,11 @@ from fubon_daily.normalize import (
     reference_price,
     snapshot_listing,
     symbol_warnings,
+    tick_warnings,
+    trade_rows,
 )
-from tests.fixtures import DATE, DISPOSITION, daily, full_day, quote, row, snapshot, sparse_day
+from tests.fixtures import (DATE, DISPOSITION, daily, full_day, quote, row, snapshot, sparse_day, trade,
+                            trades_page)
 
 
 class MinuteBarsTest(unittest.TestCase):
@@ -114,6 +117,83 @@ class WarningsTest(unittest.TestCase):
     def test_volume_above_snapshot_and_close_mismatch_are_warnings(self):
         bars = minute_bars(full_day(price=2440), "2330", DATE)
         kinds = [warning["kind"] for warning in symbol_warnings("2330", bars, 10, 2435)]
+        self.assertEqual(kinds, ["volume", "close"])
+
+
+def opening_pages():
+    return [
+        trades_page("2330", DATE, [trade(DATE, 9, 0, 0, 2420, 6446, 11, volume=6446, bid=2415, ask=2420),
+                                   trade(DATE, 9, 0, 1, 2425, 3, 12, volume=6449, bid=2420, ask=2425, ms=250)]),
+        trades_page("2330", DATE, [trade(DATE, 13, 30, 0, 2440, 5833, 90, volume=12282)]),
+    ]
+
+
+class TradeRowsTest(unittest.TestCase):
+    def assertKind(self, pages, kind, symbol="2330"):
+        with self.assertRaises(ValidationError) as caught:
+            trade_rows(pages, symbol, DATE)
+        self.assertEqual(caught.exception.kind, kind)
+
+    def with_row(self, **changes):
+        pages = opening_pages()
+        pages[0]["data"][1].update(changes)
+        return pages
+
+    def test_pages_become_trades_in_milliseconds_after_nine(self):
+        self.assertEqual(trade_rows(opening_pages(), "2330", DATE), [
+            [0, 2420, 6446, 2415, 2420],
+            [1250, 2425, 3, 2420, 2425],
+            [16_200_000, 2440, 5833, None, None],
+        ])
+
+    def test_no_pages_is_no_trades(self):
+        self.assertEqual(trade_rows([], "2330", DATE), [])
+
+    def test_structure_errors(self):
+        self.assertKind(["x"], "structure")
+        self.assertKind([trades_page("2317", DATE, [])], "structure")
+        self.assertKind([{"symbol": "2330", "date": DATE, "data": {}}], "structure")
+        self.assertKind([trades_page("2330", DATE, ["x"])], "structure")
+
+    def test_another_day_is_rejected(self):
+        self.assertKind([trades_page("2330", "2026-10-14", [])], "time")
+        self.assertKind([trades_page("2330", DATE, [trade("2026-10-14", 10, 0, 0, 100, 1, 1)])], "time")
+
+    def test_trades_outside_the_session_are_rejected(self):
+        self.assertKind([trades_page("2330", DATE, [trade(DATE, 8, 59, 59, 100, 1, 1)])], "time")
+        self.assertKind([trades_page("2330", DATE, [trade(DATE, 13, 31, 0, 100, 1, 1)])], "time")
+        self.assertKind(self.with_row(time="09:00:01"), "time")
+
+    def test_prices_and_sizes_are_checked(self):
+        self.assertKind(self.with_row(price=0), "price")
+        self.assertKind(self.with_row(price="2425"), "price")
+        self.assertKind(self.with_row(bid=-1), "price")
+        self.assertKind(self.with_row(size=0), "volume")
+        self.assertKind(self.with_row(size=1.5), "volume")
+        self.assertKind(self.with_row(size=True), "volume")
+
+    def test_a_missing_quote_side_is_none(self):
+        trades = trade_rows(self.with_row(ask=0, bid=None), "2330", DATE)
+        self.assertEqual(trades[1][3:], [None, None])
+
+    def test_repeated_or_backward_trades_are_rejected(self):
+        self.assertKind(self.with_row(serial=11), "order")
+        pages = opening_pages()
+        pages[1]["data"][0]["time"] = pages[0]["data"][1]["time"] - 1
+        self.assertKind(pages, "order")
+
+    def test_running_volume_must_add_up(self):
+        self.assertKind(self.with_row(volume=6450), "volume")
+
+
+class TickWarningsTest(unittest.TestCase):
+    def test_trades_matching_the_snapshot_have_no_warnings(self):
+        trades = trade_rows(opening_pages(), "2330", DATE)
+        self.assertEqual(tick_warnings("2330", trades, 12282, 2440), [])
+
+    def test_volume_and_close_mismatches_are_warnings(self):
+        trades = trade_rows(opening_pages(), "2330", DATE)
+        kinds = [warning["kind"] for warning in tick_warnings("2330", trades, 12283, 2435)]
         self.assertEqual(kinds, ["volume", "close"])
 
 

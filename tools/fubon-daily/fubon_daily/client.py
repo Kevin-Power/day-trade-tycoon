@@ -102,6 +102,10 @@ class FubonClient:
         return _call(lambda: self._rest.historical.candles(**{
             "symbol": symbol, "from": date, "to": date, "fields": "open,high,low,close,volume,turnover,change"}))
 
+    def trades(self, symbol: str, offset: int, limit: int) -> dict:
+        """One page of today's trades, oldest first. Fubon keeps only the current day: there is no date."""
+        return _call(lambda: self._rest.intraday.trades(symbol=symbol, offset=offset, limit=limit, sort="asc"))
+
     def logout(self) -> None:
         if self._sdk is None:
             return

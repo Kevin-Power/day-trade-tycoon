@@ -9,6 +9,9 @@ TAIPEI = timezone(timedelta(hours=8))
 SESSION_OPEN_SECONDS = 9 * 3600
 LAST_CONTINUOUS_T = 4 * 3600 + 24 * 60  # 13:24
 CLOSING_AUCTION_T = 4 * 3600 + 30 * 60  # 13:30
+# Trades are stamped in microseconds since the epoch; the closing auction may carry a few seconds past 13:30.
+TRADE_TIME_PER_SECOND = 1_000_000
+TRADE_SESSION_END_T = CLOSING_AUCTION_T + 60
 
 
 class ValidationError(Exception):
@@ -133,4 +136,62 @@ def symbol_warnings(code: str, bars: list[list[float]], trade_volume: int, close
         warnings.append({"code": code, "kind": "volume", "detail": f"分 K 量 {minute_volume} 張大於當日量 {trade_volume} 張"})
     if bars and close is not None and bars[-1][4] != close:
         warnings.append({"code": code, "kind": "close", "detail": f"最後收盤 {bars[-1][4]} 與快照收盤 {close} 不同"})
+    return warnings
+
+
+def _quote_side(value: object, label: str) -> float | None:
+    """A best bid or ask at the time of a trade; absent or 0 means that side was empty."""
+    if value is None or value == 0:
+        return None
+    if not (_number(value) and value > 0):
+        raise ValidationError("price", f"{label} 不是正數")
+    return value
+
+
+def trade_rows(pages: list, symbol: str, date: str) -> list[list]:
+    """Trades [ms after 09:00, price, size, bid, ask] from intraday/trades pages fetched oldest first."""
+    session_open = int(datetime.fromisoformat(f"{date}T09:00:00+08:00").timestamp()) * TRADE_TIME_PER_SECOND
+    session_end = TRADE_SESSION_END_T * TRADE_TIME_PER_SECOND
+    trades: list[list] = []
+    previous_time = previous_serial = None
+    running = 0
+    for page in pages:
+        rows = _rows(page, symbol)
+        if page.get("date") != date:
+            raise ValidationError("time", f"日期不是 {date}：{page.get('date')!r}")
+        for item in rows:
+            if not isinstance(item, dict):
+                raise ValidationError("structure", "成交不是物件")
+            moment, serial = item.get("time"), item.get("serial")
+            if not isinstance(moment, int) or isinstance(moment, bool):
+                raise ValidationError("time", f"成交時間不是整數：{moment!r}")
+            offset = moment - session_open
+            if not 0 <= offset < session_end:
+                raise ValidationError("time", f"成交時間不在 {date} 交易時段：{moment}")
+            if not isinstance(serial, int) or isinstance(serial, bool):
+                raise ValidationError("structure", f"流水號不是整數：{serial!r}")
+            if previous_serial is not None and (serial <= previous_serial or moment < previous_time):
+                raise ValidationError("order", f"成交重複或倒序：流水號 {serial}")
+            previous_time, previous_serial = moment, serial
+            price, size = item.get("price"), item.get("size")
+            if not (_number(price) and price > 0):
+                raise ValidationError("price", f"流水號 {serial} 成交價不是正數")
+            if not (isinstance(size, int) and not isinstance(size, bool) and size > 0):
+                raise ValidationError("volume", f"流水號 {serial} 單量不是正整數")
+            running += size
+            volume = item.get("volume")
+            if volume is not None and volume != running:
+                raise ValidationError("volume", f"流水號 {serial} 累計量 {volume} 與逐筆加總 {running} 不同")
+            trades.append([offset // (TRADE_TIME_PER_SECOND // 1000), price, size,
+                           _quote_side(item.get("bid"), "買價"), _quote_side(item.get("ask"), "賣價")])
+    return trades
+
+
+def tick_warnings(code: str, trades: list[list], trade_volume: int, close: float | None) -> list[dict]:
+    warnings = []
+    total = sum(trade[2] for trade in trades)
+    if total != trade_volume:
+        warnings.append({"code": code, "kind": "volume", "detail": f"逐筆量 {total} 與當日量 {trade_volume} 不同"})
+    if trades and close is not None and trades[-1][1] != close:
+        warnings.append({"code": code, "kind": "close", "detail": f"最後成交 {trades[-1][1]} 與快照收盤 {close} 不同"})
     return warnings

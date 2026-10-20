@@ -189,5 +189,75 @@ class StoreTest(unittest.TestCase):
         self.assertTrue(self.store.has_day(DATE))
 
 
+TICK_ENTRY = {"code": "2330", "name": "台積電", "trades": 2, "volume": 6449, "close": 2425}
+TRADES = {"2330": [[0, 2420, 6446, 2415, 2420], [1250, 2425, 3, 2420, 2425]]}
+PAGES = [{"date": DATE, "symbol": "2330", "data": [{"price": 2420, "size": 6446, "time": 1, "serial": 11}]}]
+
+
+class TickStoreTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name) / "market-data"
+        self.store = MarketStore(self.root)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def publish(self, warnings=()):
+        self.store.save_tick_raw(DATE, "2330", PAGES)
+        return self.store.publish_ticks(DATE, [TICK_ENTRY], TRADES, list(warnings), NOW, "fubon-neo test", "abc123")
+
+    def test_raw_pages_wait_in_staging_until_published(self):
+        self.assertIsNone(self.store.load_tick_raw(DATE, "2330"))
+        self.store.save_tick_raw(DATE, "2330", PAGES)
+        self.assertEqual(self.store.load_tick_raw(DATE, "2330"), PAGES)
+        self.assertFalse(self.store.has_ticks(DATE))
+        self.assertFalse((self.root / "days").exists())
+
+    def test_publish_moves_trades_and_raw_pages_together(self):
+        manifest = self.publish(warnings=[{"code": "2330", "kind": "close", "detail": "x"}])
+        folder = self.root / "ticks" / DATE
+        self.assertTrue(self.store.has_ticks(DATE))
+        self.assertFalse((self.root / "staging-ticks" / DATE).exists())
+        self.assertEqual(manifest["counts"], {"symbols": 1, "trades": 2})
+        self.assertEqual(manifest["symbols"], [TICK_ENTRY])
+        self.assertEqual(manifest["sizeUnit"], "lot")
+        self.assertEqual(manifest["warnings"][0]["kind"], "close")
+        self.assertEqual(json.loads((folder / "manifest.json").read_text(encoding="utf-8")), manifest)
+        payload = json.loads(gzip.decompress((folder / "symbols" / "2330.json.gz").read_bytes()))
+        self.assertEqual(payload["trades"], TRADES["2330"])
+        self.assertEqual(payload["fields"], ["msAfter0900", "price", "size", "bid", "ask"])
+        self.assertEqual(json.loads(gzip.decompress((folder / "raw" / "2330.json.gz").read_bytes())), PAGES)
+        for item in manifest["files"]:
+            data = (folder / item["path"]).read_bytes()
+            self.assertEqual((item["bytes"], item["sha256"]), (len(data), hashlib.sha256(data).hexdigest()))
+        self.assertEqual(sorted(item["path"] for item in manifest["files"]), ["raw/2330.json.gz", "symbols/2330.json.gz"])
+
+    def test_publishing_the_same_day_twice_is_refused(self):
+        self.publish()
+        with self.assertRaises(FileExistsError):
+            self.publish()
+
+    def test_tick_status_survives_later_runs(self):
+        self.store.write_ticks_status({"date": DATE, "outcome": "ok"})
+        self.store.write_run({"date": DATE, "mode": "daily", "startedAt": "s", "finishedAt": "f", "outcome": "ok",
+                              "reason": None, "symbols": {"total": 1, "fetched": 1, "failed": 0, "excluded": 0}})
+        status = self.store.read_status()
+        self.assertEqual(status["ticks"], {"date": DATE, "outcome": "ok"})
+        self.assertEqual(status["lastRun"]["outcome"], "ok")
+
+    def test_reconcile_clears_staging_of_published_ticks(self):
+        self.publish()
+        self.store.save_tick_raw(DATE, "2317", PAGES)
+        self.store.reconcile()
+        self.assertFalse((self.root / "staging-ticks" / DATE).exists())
+        self.assertTrue(self.store.has_ticks(DATE))
+
+    def test_prune_keeps_ticks(self):
+        self.publish()
+        self.store.prune(date(2028, 1, 1))
+        self.assertTrue(self.store.has_ticks(DATE))
+
+
 if __name__ == "__main__":
     unittest.main()

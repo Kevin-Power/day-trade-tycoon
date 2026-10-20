@@ -25,7 +25,8 @@ class FakeSdk:
         self.requests = []
         rest = SimpleNamespace(
             snapshot=SimpleNamespace(quotes=lambda **kw: self.answer("quotes", kw)),
-            intraday=SimpleNamespace(tickers=lambda **kw: self.answer("tickers", kw)),
+            intraday=SimpleNamespace(tickers=lambda **kw: self.answer("tickers", kw),
+                                     trades=lambda **kw: self.answer("trades", kw)),
             historical=SimpleNamespace(candles=lambda **kw: self.answer("candles", kw)),
         )
         self.marketdata = SimpleNamespace(rest_client=SimpleNamespace(stock=rest))
@@ -77,6 +78,7 @@ class ClientTest(unittest.TestCase):
         client.disposition_list()
         client.minute_candles("2330", "2026-10-15")
         client.daily_candle("2330", "2026-10-05")
+        client.trades("2330", 500, 500)
         self.assertEqual(sdk.requests, [
             ("quotes", {"market": "TSE", "type": "COMMONSTOCK"}),
             ("tickers", {"type": "EQUITY", "exchange": "TWSE", "isDisposition": True}),
@@ -84,6 +86,7 @@ class ClientTest(unittest.TestCase):
                          "fields": "open,high,low,close,volume,average", "sort": "asc"}),
             ("candles", {"symbol": "2330", "from": "2026-10-05", "to": "2026-10-05",
                          "fields": "open,high,low,close,volume,turnover,change"}),
+            ("trades", {"symbol": "2330", "offset": 500, "limit": 500, "sort": "asc"}),
         ])
 
     def test_errors_are_mapped_by_status(self):
