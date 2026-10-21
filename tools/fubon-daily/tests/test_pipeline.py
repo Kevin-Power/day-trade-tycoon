@@ -392,15 +392,18 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         self.assertEqual([call[2] for call in self.trade_calls(client) if call[1] == "2330"], [0, 2, 4, 5])
         self.assertEqual(self.tick_manifest()["symbols"][0]["trades"], 5)
 
-    def test_lesson_stocks_join_the_top_twenty_by_value(self):
+    def test_every_traded_stock_is_kept_most_traded_first(self):
         items = [quote(str(1100 + rank), f"股{rank}", 50, 1, 1000, 10_000_000_000 - rank) for rank in range(25)]
         items += [quote("2317", "鴻海", 200, 1, 5, 1_000_000), quote("2454", "聯發科", 1000, 0, 0, 0)]
         client = FakeClient(snapshot_payload=snapshot(items=items),
                             minutes={item["symbol"]: full_day(item["symbol"], price=item["closePrice"])
                                      for item in items})
         self.assertEqual(self.run_once(client), 0)
-        codes = [entry["code"] for entry in self.tick_manifest()["symbols"]]
-        self.assertEqual(codes, [str(1100 + rank) for rank in range(20)] + ["2317"])
+        # Every stock that traded, fetched in order of value so a cut-short run keeps the most traded ones.
+        expected = [str(1100 + rank) for rank in range(25)] + ["2317"]
+        self.assertEqual([call[1] for call in self.trade_calls(client) if call[2] == 0], expected)
+        self.assertEqual([entry["code"] for entry in self.tick_manifest()["symbols"]], expected)
+        self.assertEqual(self.status()["ticks"]["symbols"], {"total": 26, "fetched": 26, "failed": 0})
 
     def test_a_failed_symbol_waits_for_the_next_run_without_blocking_candles(self):
         client = FakeClient(minutes=good_minutes(), trade_errors={"1413": [ApiError("500", 500)] * 3})

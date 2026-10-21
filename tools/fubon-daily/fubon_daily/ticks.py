@@ -1,4 +1,4 @@
-"""Today's trade-by-trade data (intraday/trades) for lesson stocks and the day's most traded ones.
+"""Today's trade-by-trade data (intraday/trades) for every listed common stock that traded, most traded first.
 
 Fubon serves trades for the current day only, so a day that is not kept is lost. Every answer is saved as
 received before it is checked; a stock whose answer is missing, cut short or fails the checks waits for the
@@ -15,8 +15,6 @@ from .normalize import ValidationError, split_session, tick_warnings, trade_rows
 if TYPE_CHECKING:
     from .pipeline import Run
 
-LESSON_SYMBOLS = ("2330", "2317", "2454", "2382", "2308")
-TICK_TOP = 20
 TRADE_PAGE_SIZE = 500
 MAX_TRADE_ROWS = 2_000_000
 # The intraday limit is 300 calls a minute.
@@ -25,13 +23,6 @@ INTRADAY_SPACING = 0.25
 TICK_BUDGET_SECONDS = 45 * 60
 TICK_SOURCE = "fubon-neo intraday/trades"
 MESSAGE_LIMIT = 300
-
-
-def choose(candidates: list[dict]) -> list[dict]:
-    """The day's top TICK_TOP by value (candidates come sorted), then lesson stocks not among them."""
-    top = candidates[:TICK_TOP]
-    codes = {entry["code"] for entry in top}
-    return top + [entry for entry in candidates if entry["code"] in LESSON_SYMBOLS and entry["code"] not in codes]
 
 
 def assess(pages: list, code: str, day: str, meta: dict) -> dict:
@@ -84,17 +75,20 @@ class Ticks:
                 raise ValidationError("structure", f"成交超過 {MAX_TRADE_ROWS} 筆")
 
     def collect(self, client, candidates: list[dict]) -> None:
-        """Fetches, keeps and checks today's trades, then publishes them or leaves them for the next run."""
+        """Fetches, keeps and checks today's trades, then publishes them or leaves them for the next run.
+
+        Candidates are the stocks that traded, most traded first, so a run cut short keeps the most traded ones.
+        """
         from .pipeline import Pacer
 
         day = self.run.target
-        chosen = choose(candidates)
+        chosen = candidates
         started = self.runtime.monotonic()
         results: list[dict] = []
         record = {"date": day, "outcome": "failed", "reason": None,
                   "symbols": {"total": len(chosen), "fetched": 0, "failed": 0}, "trades": 0, "finishedAt": None}
         try:
-            self.run.log(f"逐筆：{len(chosen)} 檔（成交值前 {TICK_TOP} 名與教材股）")
+            self.run.log(f"逐筆：{len(chosen)} 檔（當天有成交的上市普通股，成交值大的先抓）")
             pacer = Pacer(self.runtime, INTRADAY_SPACING)
             for entry in chosen:
                 code = entry["code"]
