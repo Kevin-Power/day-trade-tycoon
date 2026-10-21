@@ -74,9 +74,11 @@
 
 ## 安裝
 
-- 15:00 在 `.worktrees/ticks-all`（分支 `claude/ticks-all`）執行 `install.ps1 -App`，安裝 `8c2d4b7`（含審查後的修正）。`fetcher\app\VERSION.txt` 是同一個提交。
+- 在 `.worktrees/ticks-all`（分支 `claude/ticks-all`）執行 `install.ps1 -App`：
+  - 15:00 先裝 `8c2d4b7`（第一次審查後的修正）。
+  - 15:04 複查的修正提交後，重裝成 **`4e8f585`**。`fetcher\app\VERSION.txt` 是同一個提交。
 - 安裝的 10 個檔案都和工作目錄的檔案逐位元組相同。和 git 裡的版本相比，只差在 Windows 換行（`core.autocrlf=true`），內容一致。
-- 冒煙測試：用排程同一個 Python 跑一次。還沒到 16:30，所以只記一行「每日抓取要 16:30 以後才執行…這次略過」就結束。結束碼 0，沒有登入，也沒有留下鎖檔。
+- 冒煙測試：兩次安裝後各用排程同一個 Python 跑一次。還沒到 16:30，所以只記一行「每日抓取要 16:30 以後才執行…這次略過」（15:00:46、15:04:58）就結束。結束碼 0，沒有登入，也沒有留下鎖檔。
 - 排程 `DayTradeTycoonMarketData` 本身沒改，仍是 16:45、17:30、19:00。
 - 一次性檢查 `check-fubon-ticks-1021`：
   - 時間從 17:20 改到 19:45，內容改成檢查全市場。
