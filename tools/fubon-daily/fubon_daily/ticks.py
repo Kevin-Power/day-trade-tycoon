@@ -215,9 +215,10 @@ class Ticks:
             self.store.use_tick_fallback(day, code, name, pages, meta)
             chosen = assess(pages, code, day, meta)
         except Exception as error:  # noqa: BLE001 - one stock's failure never stops the others
-            self.store.log(day, f"逐筆 {code}：留下的回應讀不回來（{type(error).__name__}: {error}）",
+            self.store.log(day, f"逐筆 {code}：留下的回應讀不回來或用不了（{type(error).__name__}: {error}）",
                            self.runtime.now())
-            return {**result, "retry": True}  # a later look may read it
+            # A file that cannot be read just now may be read next time; anything else would fail the same way.
+            return {**result, "retry": True} if isinstance(error, OSError) else result
         why = "這次的回應比留下的備份少" if latest else f"這次沒抓到（{result['error']}）"
         self.store.log(day, f"逐筆 {code}：{why}，改用留下的備份", self.runtime.now())
         return {**chosen, "error": "；".join(filter(None, (chosen["error"], "用留下的備份")))}
@@ -271,7 +272,7 @@ class Ticks:
                         result = (assess(cached[0], code, day, cached[1]) if cached else
                                   {"code": code, "name": code, "status": "failed", "error": "沒有可用的回應"})
                     except Exception as error:  # noqa: BLE001 - one stock's failure never stops the others
-                        result = {"code": code, "name": code, "status": "failed", "retry": True,
+                        result = {"code": code, "name": code, "status": "failed", "retry": isinstance(error, OSError),
                                   "error": f"未預期的錯誤：{type(error).__name__}: {error}"}
                     results.append(self.fullest(day, result))
                 record["symbols"]["total"] = len(results)

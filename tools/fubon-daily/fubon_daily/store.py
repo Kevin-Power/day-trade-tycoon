@@ -249,7 +249,7 @@ class MarketStore:
             try:
                 path.unlink(missing_ok=True)
             except OSError:
-                pass  # held by a scanner, say: it then goes along as evidence a second time, nothing is lost
+                pass  # held by a scanner, say: whatever is left goes along again or with staging; raw/ has the answer
 
     def has_tick_answers(self, day: str) -> bool:
         """Whether staging holds any answer for the day, kept or set aside, decodable or not."""

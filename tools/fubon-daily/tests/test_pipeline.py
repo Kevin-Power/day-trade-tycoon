@@ -918,6 +918,21 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         self.assertEqual([(entry["code"], entry["complete"]) for entry in self.tick_manifest()["symbols"]],
                          [("2330", False)])
 
+    def test_a_late_day_whose_answer_reads_but_cannot_be_used_is_published_once(self):
+        # Facts that no longer fit (after a future change, say) fail the same way every time: unlike a file that
+        # cannot be read just now, waiting would only repeat the notice, so the day goes out as evidence.
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trade_errors={"1413": [ApiError("500", 500)] * 3})), 0)
+        store = MarketStore(self.data)
+        pages, _facts = store.load_tick_raw(DATE, "2330")
+        store.save_tick_raw(DATE, "2330", pages, {})
+        for hour in (16, 18):
+            self.run_once(FakeClient(login_error=LoginError("down")), at=datetime(2026, 10, 16, hour, 45, tzinfo=TAIPEI))
+        self.assertTrue(store.has_ticks(DATE))
+        manifest = self.tick_manifest()
+        self.assertEqual(manifest["symbols"], [])
+        self.assertIn("raw/2330.json.gz", [item["path"] for item in manifest["files"]])
+        self.assertEqual(len([body for _title, body in self.notices if body.startswith(DATE)]), 1)
+
     def test_a_staging_listing_error_does_not_stop_the_day(self):
         with mock.patch.object(MarketStore, "pending_tick_days", side_effect=OSError("disk is busy")):
             self.assertEqual(self.run_once(FakeClient(minutes=good_minutes())), 0)
