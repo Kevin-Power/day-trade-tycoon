@@ -143,3 +143,20 @@ test("sendFailureMessage stays quiet for sent orders, sign-in problems and repla
   assert.equal(sendFailureMessage({ kind: "access" }), "");
   assert.equal(sendFailureMessage({ kind: "stale" }), "");
 });
+
+test("sendFailureMessage keeps the message of a send whose result is unclear", () => {
+  const message = "教室回應超過 20 秒，已停止等待。請核對進度，或重試同一筆操作。";
+  assert.equal(sendFailureMessage({ kind: "unknown", message }), message);
+});
+
+test("a send whose result is unclear is reported as 回覆不明, not as a failed send", () => {
+  const unclear: LocalOrderFailure = {
+    ...FAILURE,
+    id: "f-2",
+    unknown: true,
+    message: "暫時連不上教室，請重試同一筆操作或重新載入進度。",
+  };
+  const [latest] = orderReports(null, NAMES, [unclear]);
+  assert.equal(latest!.tone, "unknown");
+  assert.equal(latest!.text, "回覆不明 · 買進 台積電 1 張 · 暫時連不上教室，請重試同一筆操作或重新載入進度。");
+});

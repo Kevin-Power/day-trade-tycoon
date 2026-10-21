@@ -33,6 +33,8 @@ export type LocalOrderFailure = {
   lots: number;
   limitPrice?: number;
   message: string;
+  /** The send's result is unclear (no reply, or a reply that could not be read): the server may have the order. */
+  unknown?: boolean;
 };
 
 /** How one send to the classroom ended, as far as 委託回報 is concerned. Each send gets its own. */
@@ -43,6 +45,8 @@ export type SendOutcome =
   /** 409: the run moved on (another tab) or a server rule refused it; `reason` is the server's text, if any. */
   | { kind: "conflict"; reason: string }
   | { kind: "error"; message: string }
+  /** No reply in time, the connection dropped, or a 2xx reply could not be read: the server may have the order. */
+  | { kind: "unknown"; message: string }
   /** A sign-in or entry-code problem: the access card explains it. */
   | { kind: "access" }
   /** A newer request replaced this one: the server may have the order, and the reload shows it. */
@@ -56,6 +60,7 @@ export function sendFailureMessage(outcome: SendOutcome): string {
     case "conflict":
       return outcome.reason || "進度已更新，這次操作沒有送出。";
     case "error":
+    case "unknown":
       return outcome.message;
     default:
       return "";
@@ -66,7 +71,7 @@ export type OrderReport = {
   key: string;
   /** HH:MM, or null when the run did not record when it happened (a cancel or a turned-down order). */
   time: string | null;
-  tone: "sent" | "filled" | "closed" | "failed";
+  tone: "sent" | "filled" | "closed" | "failed" | "unknown";
   text: string;
 };
 
@@ -130,8 +135,8 @@ export function orderReports(
     report: {
       key: `failed:${failure.id}`,
       time: clock(failure.cursor * 60),
-      tone: "failed" as const,
-      text: `送出失敗 · ${what(failure.side, failure.code, failure.lots)}${
+      tone: failure.unknown ? ("unknown" as const) : ("failed" as const),
+      text: `${failure.unknown ? "回覆不明" : "送出失敗"} · ${what(failure.side, failure.code, failure.lots)}${
         failure.limitPrice === undefined ? "" : ` 限價 ${formatPrice(failure.limitPrice)}`
       } · ${failure.message}`,
     },

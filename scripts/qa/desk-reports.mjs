@@ -1,0 +1,122 @@
+// 委託回報 for sends whose result is unclear, on a disposable classroom after desk-seed:
+// 1. the connection drops on 確認送出 (the server may or may not have the order): a 「回覆不明」 row, not 送出失敗;
+// 2. the server refuses with 409 and the reload after it also fails: the 送出失敗 row keeps the server's reason.
+// Usage: node scripts/qa/desk-reports.mjs <baseUrl> <label>
+import { chromium } from "playwright";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const [base = "http://127.0.0.1:18811", label = "reports"] = process.argv.slice(2);
+const out = fileURLToPath(new URL(`../../artifacts/trading-desk-qa/${label}/`, import.meta.url));
+mkdirSync(out, { recursive: true });
+const results = {};
+const failures = [];
+async function check(name, run) {
+  try {
+    results[name] = (await run()) ?? "pass";
+  } catch (error) {
+    results[name] = `FAIL: ${error.message}`;
+    failures.push(`${name}: ${error.message}`);
+  }
+}
+const api = async () => (await (await fetch(`${base}/api/morning`)).json()).state;
+async function rest(page) {
+  await page
+    .waitForFunction(
+      () => {
+        const clock = document.querySelector(".td-clock strong")?.textContent?.trim() ?? "";
+        const stamp = document.querySelector(".td-hero-stamp")?.textContent ?? "";
+        return clock.endsWith(":00") && !stamp.includes("模擬成交");
+      },
+      null,
+      { timeout: 8000 },
+    )
+    .catch(() => {});
+  await page.waitForTimeout(400);
+}
+const reportRows = (page) => page.locator(".sim-reports li");
+async function newestReport(page, previous) {
+  const end = Date.now() + 8000;
+  for (;;) {
+    const rows = await reportRows(page).allTextContents();
+    if (rows.length && rows.join("|") !== previous) return rows[0].replace(/\s+/g, " ").trim();
+    if (Date.now() > end) throw new Error(`no new 委託回報 row (rows: ${rows.slice(0, 3).join(" / ")})`);
+    await page.waitForTimeout(150);
+  }
+}
+async function openMarketBuy(page, code) {
+  await page.locator(`.td-watch-row[data-code="${code}"]`).click({ timeout: 4000 });
+  await page.waitForTimeout(250);
+  await page.getByRole("button", { name: "市價", exact: true }).first().click();
+  await page.getByRole("button", { name: /^核對模擬買進/ }).click();
+  await page.locator(".sim-confirm").waitFor({ timeout: 4000 });
+}
+async function clearBanner(page) {
+  await page.getByRole("button", { name: /重新載入進度/ }).first().click({ timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  await rest(page);
+  // The confirm card stays open after a send that did not go through.
+  await page.getByRole("button", { name: "返回修改" }).first().click({ timeout: 2000 }).catch(() => {});
+  await page.waitForTimeout(300);
+}
+
+const browser = await chromium.launch().catch(() => chromium.launch({ channel: "chrome" }));
+const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+await page.goto(`${base}/morning`, { waitUntil: "domcontentloaded" });
+await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 }).catch(() => {});
+await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 3000 }).catch(() => {});
+await rest(page);
+
+await check("1-dropped-connection", async () => {
+  await openMarketBuy(page, "2317");
+  const before = (await reportRows(page).allTextContents()).join("|");
+  const drop = (route) => (route.request().method() === "POST" ? route.abort("failed") : route.continue());
+  await page.route("**/api/morning*", drop);
+  await page.getByRole("button", { name: "確認送出模擬買進" }).click();
+  const row = await newestReport(page, before);
+  await page.unroute("**/api/morning*", drop);
+  await page.screenshot({ path: `${out}dropped.png` });
+  await clearBanner(page);
+  if (!row.includes("回覆不明")) throw new Error(`the newest report says 「${row}」`);
+  if (row.includes("送出失敗")) throw new Error(`a dropped connection is reported as a failed send: 「${row}」`);
+  return row;
+});
+
+await check("2-409-then-reload-fails", async () => {
+  await openMarketBuy(page, "2317");
+  // Another "tab" moves the run on, so this send gets 409.
+  const run = await api();
+  await new Promise((resolve) => setTimeout(resolve, Math.max(0, run.nextAdvanceAt - Date.now()) + 60));
+  const moved = await fetch(`${base}/api/morning`, {
+    method: "POST",
+    headers: { origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ action: "advance", id: run.id, expectedRevision: run.revision, requestId: crypto.randomUUID() }),
+  });
+  if (moved.status !== 200) throw new Error(`could not move the run on from another "tab" (${moved.status})`);
+  const before = (await reportRows(page).allTextContents()).join("|");
+  let sent = false;
+  const reloadFails = (route) => {
+    if (route.request().method() === "POST") {
+      sent = true;
+      return route.continue();
+    }
+    return sent ? route.abort("failed") : route.continue();
+  };
+  await page.route("**/api/morning*", reloadFails);
+  await page.getByRole("button", { name: "確認送出模擬買進" }).click();
+  const row = await newestReport(page, before);
+  await page.unroute("**/api/morning*", reloadFails);
+  await page.screenshot({ path: `${out}conflict.png` });
+  await clearBanner(page);
+  if (!row.includes("送出失敗") || !row.includes("練習已更新"))
+    throw new Error(`the 送出失敗 row lost the server's reason: 「${row}」`);
+  return row;
+});
+
+await browser.close();
+writeFileSync(`${out}reports.json`, JSON.stringify({ results, failures }, null, 2));
+console.log(JSON.stringify(results, null, 2));
+if (failures.length) {
+  console.log(`FAILURES:\n${failures.join("\n")}`);
+  process.exitCode = 1;
+} else console.log("委託回報 for unclear sends: all checks pass.");

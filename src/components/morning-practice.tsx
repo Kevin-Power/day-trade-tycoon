@@ -146,6 +146,10 @@ function useMorningData(lessonId: string) {
       setError("");
       setNotice("");
       retryAction.current = action;
+      // Why a 409 refused the action, kept for 委託回報 even if the reload after it fails.
+      let conflictReason: string | undefined;
+      // The classroom answered 2xx: the action happened even if its reply cannot be read.
+      let answered = false;
       try {
         const response = await fetch(endpoint, {
           method: action ? "POST" : "GET",
@@ -157,6 +161,7 @@ function useMorningData(lessonId: string) {
             : {}),
         });
         if (!current()) return quiet({ kind: "stale" });
+        answered = response.ok;
         if (response.status === 401 || response.status === 403) {
           setAccess(await readAccessProblem(response));
           setData(null);
@@ -171,6 +176,7 @@ function useMorningData(lessonId: string) {
           } | null;
           const reason =
             typeof refusal?.message === "string" && refusal.message ? refusal.message : "";
+          conflictReason = reason;
           const latest = await fetch(endpoint, {
             credentials: "same-origin",
             cache: "no-store",
@@ -219,7 +225,10 @@ function useMorningData(lessonId: string) {
                 ? failure.message
                 : "暫時連不上教室，請重試。";
           setError(message);
-          return quiet({ kind: "error", message });
+          if (conflictReason !== undefined) return quiet({ kind: "conflict", reason: conflictReason });
+          // No reply in time, a dropped connection, or an unreadable 2xx reply: the classroom may have the order.
+          const unclear = timedOut || failure instanceof TypeError || answered;
+          return quiet(unclear ? { kind: "unknown", message } : { kind: "error", message });
         }
         return quiet({ kind: "stale" });
       } finally {
@@ -630,6 +639,7 @@ function MorningLesson({
               lots,
               ...(options?.limitPrice === undefined ? {} : { limitPrice: options.limitPrice }),
               message,
+              ...(sent.outcome.kind === "unknown" ? { unknown: true } : {}),
             },
           ].slice(-20),
         );

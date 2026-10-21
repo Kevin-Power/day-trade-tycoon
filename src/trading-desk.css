@@ -3865,6 +3865,12 @@
   color: var(--td-alert-fg);
   background: var(--td-alert-bg);
 }
+/* 回覆不明: no clear reply, so the classroom may have the order; check 委託 before sending it again. */
+.trading-desk .sim-reports li[data-tone="unknown"] {
+  --td-report: var(--td-warn);
+  color: var(--td-warn);
+  background: rgb(230 184 110 / 0.08);
+}
 .trading-desk[data-layout="senior"] .sim-reports li {
   grid-template-columns: 52px minmax(0, 1fr);
 }
