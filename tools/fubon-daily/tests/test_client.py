@@ -349,6 +349,7 @@ class InstalledSdkTest(unittest.TestCase):
         # The body is read inside requests.get as well, and a stall there comes out as another error type.
         error = self.trades_error(self.serve(handler=HalfAnswer))
         self.assertIn("Read timed out", str(error))
+        self.assertNotIn("ReadTimeout", str(error))  # that would be the wait for the headers, not for the body
         self.assertIsNone(error.status)
 
     def test_a_missing_answer_is_still_told_apart_once_calls_have_a_timeout(self):
