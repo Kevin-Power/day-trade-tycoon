@@ -7,12 +7,11 @@ import { lastTrade, type LiveMorningState } from "@/lib/morning-live";
 import { bestQuotes, quoteSummary } from "@/lib/morning-quote";
 import { formatPrice } from "@/lib/market/ticks";
 import {
+  JIANGBO_BAND,
   deviceDashPattern,
   hairlineDevicePixels,
-  jiangboPriceRange,
-  snapColumn,
-  snapEdge,
   snapStroke,
+  sparklineLayout,
 } from "@/lib/market/chart-data";
 import { TickPrice } from "@/components/tick-price";
 import { useDeviceCanvas } from "@/components/use-device-canvas";
@@ -24,7 +23,7 @@ const toneOf = (value: number | null | undefined, previous: number) =>
   value == null || value === previous ? "flat" : value > previous ? "up" : "down";
 
 /**
- * 自選報價 as a broker table: the TAIEX first, then the lesson's stocks, each with its 簡易 K 線. Prices move with
+ * 自選報價 as a broker table: the TAIEX first, then the lesson's stocks, each with its 江波圖. Prices move with
  * the replayed trades; bid/ask are the teaching book's (模擬). Volume columns would need verified volume.
  */
 export function WatchTable({
@@ -50,8 +49,8 @@ export function WatchTable({
   const indexQuote = index ? indexSummary(index.bars, index.previousClose) : null;
   const endT = catalog.maxCursor * 60;
   const columns = compact
-    ? ["商品", "成交", "漲跌%", "走勢"]
-    : ["商品", "成交", "漲跌", "漲跌%", "買進", "賣出", "最高", "最低", "簡易K線"];
+    ? ["商品", "成交", "漲跌%", "江波"]
+    : ["商品", "成交", "漲跌", "漲跌%", "買進", "賣出", "最高", "最低", "江波圖"];
   return (
     <section className="td-watch-table" data-compact={compact} aria-label="自選報價">
       <div className="td-titlebar td-watch-head">
@@ -100,7 +99,7 @@ export function WatchTable({
               </span>
             </>
           )}
-          <MiniCandles
+          <MiniJiangbo
             bars={index?.bars ?? []}
             previous={index?.previousClose ?? 0}
             endT={endT}
@@ -175,7 +174,7 @@ export function WatchTable({
                   </span>
                 </>
               )}
-              <MiniCandles bars={bars} previous={symbol.previousClose} endT={endT} />
+              <MiniJiangbo bars={bars} previous={symbol.previousClose} endT={endT} />
             </button>
           );
         })}
@@ -227,8 +226,11 @@ function IndexRow({
   );
 }
 
-/** 簡易 K 線: five-minute candles of the revealed minutes against the previous close (dashed). */
-export function MiniCandles({
+/**
+ * 江波圖 (mini): the revealed minute closes against the previous close (dashed), on the same fixed ±10%
+ * scale as the big 江波 view, with the whole lesson as its time axis.
+ */
+export function MiniJiangbo({
   bars,
   previous,
   endT,
@@ -255,14 +257,12 @@ function MiniCanvas({
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useDeviceCanvas(ref, (ctx, width, height) =>
-    paintMiniCandles(ctx, width, height, bars, previous, endT),
+    paintMiniJiangbo(ctx, width, height, bars, previous, endT),
   );
   return <canvas ref={ref} className="td-mini" aria-hidden="true" />;
 }
 
-const SLOT = 300;
-
-function paintMiniCandles(
+function paintMiniJiangbo(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
@@ -274,7 +274,6 @@ function paintMiniCandles(
   const read = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
   const up = read("--color-up", "#ff5468");
   const down = read("--color-down", "#1cd78a");
-  const flat = read("--color-fg", "#f3f6f9");
   const tape = read("--color-tape", "#e6c25a");
   // Device pixels per CSS pixel on each axis: a fractional CSS width makes them differ slightly, so y is
   // snapped with the vertical scale and x with the horizontal one.
@@ -282,57 +281,61 @@ function paintMiniCandles(
   const sx = transform.a > 0 ? transform.a : 1;
   const sy = transform.d > 0 ? transform.d : 1;
   const hairline = hairlineDevicePixels(Math.min(sx, sy));
-  const candles = new Map<number, Candle>();
-  for (const bar of bars) {
-    const slot = Math.floor(bar.t / SLOT);
-    const current = candles.get(slot);
-    if (!current) candles.set(slot, { t: slot * SLOT, o: bar.o, h: bar.h, l: bar.l, c: bar.c });
-    else {
-      current.h = Math.max(current.h, bar.h);
-      current.l = Math.min(current.l, bar.l);
-      current.c = bar.c;
-    }
-  }
-  const all = [...candles.values()];
-  const range = jiangboPriceRange(
+  const layout = sparklineLayout({
+    bars,
     previous,
-    Math.max(...all.map((c) => c.h)),
-    Math.min(...all.map((c) => c.l)),
-    0.005,
-  );
-  const pad = 2;
-  const span = Math.max(range.max - range.min, Number.EPSILON);
-  const yOf = (value: number) => pad + ((range.max - value) / span) * (height - pad * 2);
-  const slots = Math.max(1, Math.ceil(endT / SLOT));
-  const slotWidth = (width - pad * 2) / slots;
-  if (previous > 0) {
+    startT: 0,
+    endT,
+    width,
+    height,
+    band: JIANGBO_BAND,
+    pad: { x: 2, y: 2 },
+  });
+  const base = layout.previousY;
+  if (Number.isFinite(base)) {
+    // Shade between each run and the previous close, as the big 江波 view does.
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    for (const run of layout.runs) {
+      if (run.points.length < 2) continue;
+      ctx.fillStyle = run.above ? up : down;
+      ctx.beginPath();
+      ctx.moveTo(run.points[0]!.x, base);
+      for (const point of run.points) ctx.lineTo(point.x, point.y);
+      ctx.lineTo(run.points.at(-1)!.x, base);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+    // The previous close: a dash on whole device pixels across the row.
     ctx.save();
     ctx.strokeStyle = tape;
     ctx.lineWidth = hairline / sy;
     ctx.setLineDash(deviceDashPattern([2, 3], sx));
-    const y = snapStroke(yOf(previous), sy, hairline);
+    const y = snapStroke(base, sy, hairline);
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(width, y);
     ctx.stroke();
     ctx.restore();
   }
-  for (const candle of all) {
-    const x = pad + (candle.t / SLOT) * slotWidth + slotWidth / 2;
-    const color = candle.c > candle.o ? up : candle.c < candle.o ? down : flat;
-    ctx.fillStyle = color;
-    // Wick and body on whole device pixels, the body centred on its wick.
-    const column = snapColumn(x, slotWidth * 0.6, sx, hairline);
-    const high = snapEdge(yOf(candle.h), sy);
-    const low = snapEdge(yOf(candle.l), sy);
-    ctx.fillRect(
-      column.center - hairline / sx / 2,
-      high,
-      hairline / sx,
-      Math.max(1 / sy, low - high),
+  ctx.save();
+  ctx.lineWidth = 1.25;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  for (const run of layout.runs) {
+    ctx.strokeStyle = run.above ? up : down;
+    ctx.beginPath();
+    run.points.forEach((point, index) =>
+      index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y),
     );
-    const top = snapEdge(yOf(Math.max(candle.o, candle.c)), sy);
-    const bottom = snapEdge(yOf(Math.min(candle.o, candle.c)), sy);
-    ctx.fillRect(column.left, top, column.width, Math.max(1 / sy, bottom - top));
+    ctx.stroke();
+  }
+  ctx.restore();
+  if (layout.last) {
+    ctx.fillStyle = layout.last.above ? up : down;
+    ctx.beginPath();
+    ctx.arc(layout.last.x, layout.last.y, 1.75, 0, Math.PI * 2);
+    ctx.fill();
   }
 }

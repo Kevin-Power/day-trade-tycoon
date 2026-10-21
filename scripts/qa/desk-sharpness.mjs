@@ -61,6 +61,9 @@ for (const ratio of [1, 1.25, 1.5, 2]) {
   const canvas = page.locator('.td-chart canvas[role="img"]');
   await canvas.waitFor({ timeout: 20000 });
   await page.waitForTimeout(1500);
+  // The desk opens on 江波 (2026-10-21): the K線 tab is measured first, the 江波 tab below.
+  await page.getByRole("button", { name: "K線", exact: true }).first().click();
+  await page.waitForTimeout(800);
   const palette = await canvas.evaluate((el) => {
     const style = getComputedStyle(el);
     const read = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
@@ -128,8 +131,8 @@ for (const ratio of [1, 1.25, 1.5, 2]) {
     // The pane sits on the window's right edge, so its corner pixel can be outside the page: use the panel colour.
     indexDash = await dashRowSoft(page, indexPng, [palette[0], palette[4], palette[1]], [palette[4]], 0.45, 0.8);
   }
-  // Intraday (分時) tab: the previous close, 前高 and current-price dashes cross the empty future area.
-  await page.getByRole("button", { name: "分時", exact: true }).first().click();
+  // 江波 tab: the previous close, 前高 and current-price dashes cross the empty future area.
+  await page.getByRole("button", { name: "江波", exact: true }).first().click();
   await page.waitForTimeout(800);
   const quotePng = await canvas.screenshot();
   writeFileSync(`${out}quote-dpr${ratio}.png`, quotePng);

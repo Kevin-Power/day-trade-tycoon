@@ -3453,7 +3453,7 @@
   font-size: 15px;
 }
 
-/* Broker panes (2026-10-21): 自選報價 table, 簡易 K 線, 大盤, 報價明細, 個股分頁, 本輪計畫 chip */
+/* Broker panes (2026-10-21): 自選報價 table, 江波圖 minis, 大盤, 報價明細, 個股分頁, 本輪計畫 chip */
 .trading-desk .td-watch-table {
   display: flex;
   flex-direction: column;

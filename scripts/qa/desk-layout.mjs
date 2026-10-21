@@ -182,7 +182,7 @@ for (const row of rows) {
   if (minChart && !(row.chartWidth >= 1.2 * row.chartHeight))
     failures.push(`${row.name}: chart ${row.chartWidth}x${row.chartHeight} is not 1.2 times wider than tall`);
   if (!row.senior && row.width >= 768 && !(row.miniSize && row.miniSize[0] >= 100 && row.miniSize[1] >= 24))
-    failures.push(`${row.name}: 簡易K線 ${JSON.stringify(row.miniSize)}, needs 100x24`);
+    failures.push(`${row.name}: 江波圖 ${JSON.stringify(row.miniSize)}, needs 100x24`);
   if (row.indexView && (row.indexView.offscreen.length || row.indexView.overflowX > 0 || row.indexView.small.length))
     failures.push(`${row.name}: the 大盤 view runs off the screen (${row.indexView.offscreen.slice(0, 3).join(" | ")})`);
   // Every stock (and the TAIEX) in 自選 is in view without scrolling the pane.
