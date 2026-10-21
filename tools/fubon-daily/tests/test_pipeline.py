@@ -392,15 +392,18 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         self.assertEqual([call[2] for call in self.trade_calls(client) if call[1] == "2330"], [0, 2, 4, 5])
         self.assertEqual(self.tick_manifest()["symbols"][0]["trades"], 5)
 
-    def test_lesson_stocks_join_the_top_twenty_by_value(self):
+    def test_every_traded_stock_is_kept_most_traded_first(self):
         items = [quote(str(1100 + rank), f"股{rank}", 50, 1, 1000, 10_000_000_000 - rank) for rank in range(25)]
         items += [quote("2317", "鴻海", 200, 1, 5, 1_000_000), quote("2454", "聯發科", 1000, 0, 0, 0)]
         client = FakeClient(snapshot_payload=snapshot(items=items),
                             minutes={item["symbol"]: full_day(item["symbol"], price=item["closePrice"])
                                      for item in items})
         self.assertEqual(self.run_once(client), 0)
-        codes = [entry["code"] for entry in self.tick_manifest()["symbols"]]
-        self.assertEqual(codes, [str(1100 + rank) for rank in range(20)] + ["2317"])
+        # Every stock that traded, fetched in order of value so a cut-short run keeps the most traded ones.
+        expected = [str(1100 + rank) for rank in range(25)] + ["2317"]
+        self.assertEqual([call[1] for call in self.trade_calls(client) if call[2] == 0], expected)
+        self.assertEqual([entry["code"] for entry in self.tick_manifest()["symbols"]], expected)
+        self.assertEqual(self.status()["ticks"]["symbols"], {"total": 26, "fetched": 26, "failed": 0})
 
     def test_a_failed_symbol_waits_for_the_next_run_without_blocking_candles(self):
         client = FakeClient(minutes=good_minutes(), trade_errors={"1413": [ApiError("500", 500)] * 3})
@@ -516,6 +519,75 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         self.assertEqual(self.status()["lastRun"]["outcome"], "failed")
         self.assertEqual(self.status()["ticks"]["outcome"], "ok")
         self.assertTrue((self.data / "ticks" / DATE / "manifest.json").is_file())
+
+    def test_a_budget_cut_keeps_the_most_traded_and_the_next_run_fetches_the_rest_in_order(self):
+        items = [quote(str(1100 + rank), f"股{rank}", 50, 1, 1000, 10_000_000_000 - rank) for rank in range(6)]
+        minutes = {item["symbol"]: full_day(item["symbol"], price=item["closePrice"]) for item in items}
+        first = FakeClient(snapshot_payload=snapshot(items=items), minutes=minutes)
+        with mock.patch("fubon_daily.ticks.TICK_BUDGET_SECONDS", 0.6):
+            self.assertEqual(self.run_once(first), 0)
+        self.assertEqual([call[1] for call in self.trade_calls(first) if call[2] == 0], ["1100", "1101"])
+        second = FakeClient(snapshot_payload=snapshot(items=items))
+        self.assertEqual(self.run_once(second, at=datetime(2026, 10, 15, 17, 30, tzinfo=TAIPEI)), 0)
+        self.assertEqual([call[1] for call in self.trade_calls(second) if call[2] == 0],
+                         ["1102", "1103", "1104", "1105"])
+        self.assertEqual([entry["code"] for entry in self.tick_manifest()["symbols"]],
+                         [str(1100 + rank) for rank in range(6)])
+
+    def test_the_last_attempt_has_its_own_time_budget(self):
+        # The task is stopped after two hours: the last attempt must still publish, notify and fetch the candles.
+        client = FakeClient(minutes=good_minutes())
+        with mock.patch("fubon_daily.ticks.LAST_ATTEMPT_BUDGET_SECONDS", 0.1):
+            self.assertEqual(self.run_once(client, at=EVENING), 0)
+        self.assertEqual({call[1] for call in self.trade_calls(client)}, {"2330"})
+        self.assertEqual([entry["code"] for entry in self.tick_manifest()["symbols"]], ["2330"])
+        ticks = self.status()["ticks"]
+        self.assertEqual(ticks["outcome"], "partial")
+        self.assertIn("1413", ticks["reason"])
+        self.assertEqual(len(self.notices), 1)
+        self.assertTrue((self.data / "days" / DATE / "manifest.json").is_file())
+
+    def test_a_run_of_fubon_failures_stops_starting_new_stocks(self):
+        items = [quote(str(1100 + rank), f"股{rank}", 50, 1, 1000, 10_000_000_000 - rank) for rank in range(8)]
+        failing = {code: ApiError("500", 500) for code in ("1100", "1102", "1103", "1104")}
+        client = FakeClient(snapshot_payload=snapshot(items=items), trade_errors=failing,
+                            minutes={item["symbol"]: full_day(item["symbol"], price=item["closePrice"])
+                                     for item in items})
+        with mock.patch("fubon_daily.ticks.FAILURE_STREAK", 3):
+            self.assertEqual(self.run_once(client), 0)
+        # 1101 answered between the failures, so the streak is 1102-1104; nothing after it is tried.
+        self.assertEqual(sorted({call[1] for call in self.trade_calls(client)}),
+                         ["1100", "1101", "1102", "1103", "1104"])
+        # The stop comes first in the status, ahead of the stocks that failed before it.
+        self.assertTrue(self.status()["ticks"]["reason"].startswith("富邦連續 3 檔出錯"))
+        self.assertTrue((self.data / "days" / DATE / "manifest.json").is_file())
+
+    def test_the_last_attempt_keeps_trying_after_a_run_of_failures(self):
+        # No later run can pick a stock up, and the time cap already bounds the last attempt.
+        items = [quote(str(1100 + rank), f"股{rank}", 50, 1, 1000, 10_000_000_000 - rank) for rank in range(6)]
+        failing = {code: ApiError("500", 500) for code in ("1100", "1101", "1102", "1103")}
+        client = FakeClient(snapshot_payload=snapshot(items=items), trade_errors=failing,
+                            minutes={item["symbol"]: full_day(item["symbol"], price=item["closePrice"])
+                                     for item in items})
+        with mock.patch("fubon_daily.ticks.FAILURE_STREAK", 3):
+            self.assertEqual(self.run_once(client, at=EVENING), 0)
+        self.assertEqual(sorted({call[1] for call in self.trade_calls(client)}),
+                         [str(1100 + rank) for rank in range(6)])
+        self.assertEqual([entry["code"] for entry in self.tick_manifest()["symbols"]], ["1104", "1105"])
+
+    def test_a_last_attempt_with_only_trades_left_gets_more_time(self):
+        items = [quote(str(1100 + rank), f"股{rank}", 50, 1, 1000, 10_000_000_000 - rank) for rank in range(4)]
+        minutes = {item["symbol"]: full_day(item["symbol"], price=item["closePrice"]) for item in items}
+        failing = {code: [ApiError("500", 500)] * 3 for code in ("1101", "1102", "1103")}
+        first = FakeClient(snapshot_payload=snapshot(items=items), minutes=minutes, trade_errors=failing)
+        self.assertEqual(self.run_once(first), 0)
+        self.assertTrue((self.data / "days" / DATE / "manifest.json").is_file())  # the candles are done
+        last = FakeClient(snapshot_payload=snapshot(items=items))
+        with mock.patch("fubon_daily.ticks.LAST_ATTEMPT_BUDGET_SECONDS", 0.1), \
+                mock.patch("fubon_daily.ticks.LAST_ATTEMPT_TRADES_ONLY_BUDGET_SECONDS", 3600):
+            self.assertEqual(self.run_once(last, at=EVENING), 0)
+        self.assertEqual([call[1] for call in self.trade_calls(last) if call[2] == 0], ["1101", "1102", "1103"])
+        self.assertEqual(self.status()["ticks"]["outcome"], "ok")
 
     def test_the_time_budget_leaves_the_rest_for_the_next_run(self):
         client = FakeClient(minutes=good_minutes())

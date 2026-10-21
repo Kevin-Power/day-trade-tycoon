@@ -1,4 +1,4 @@
-"""Today's trade-by-trade data (intraday/trades) for lesson stocks and the day's most traded ones.
+"""Today's trade-by-trade data (intraday/trades) for every listed common stock that traded, most traded first.
 
 Fubon serves trades for the current day only, so a day that is not kept is lost. Every answer is saved as
 received before it is checked; a stock whose answer is missing, cut short or fails the checks waits for the
@@ -15,23 +15,22 @@ from .normalize import ValidationError, split_session, tick_warnings, trade_rows
 if TYPE_CHECKING:
     from .pipeline import Run
 
-LESSON_SYMBOLS = ("2330", "2317", "2454", "2382", "2308")
-TICK_TOP = 20
 TRADE_PAGE_SIZE = 500
 MAX_TRADE_ROWS = 2_000_000
 # The intraday limit is 300 calls a minute.
 INTRADAY_SPACING = 0.25
-# Earlier runs stop starting new stocks after this long, leaving time for the candles; the last run does not.
+# Earlier runs stop starting new stocks after this long, leaving time for the candles.
 TICK_BUDGET_SECONDS = 45 * 60
+# The last run has no later run to leave stocks to, but Windows stops the task after two hours, so it stops
+# starting new stocks after this long and the candles, the publish and the notice still fit...
+LAST_ATTEMPT_BUDGET_SECONDS = 70 * 60
+# ...or after this long when the candles are already published and only today's trades are left.
+LAST_ATTEMPT_TRADES_ONLY_BUDGET_SECONDS = 100 * 60
+# Earlier runs take this many stocks in a row that Fubon fails to answer, even after retries, as Fubon being
+# down and leave the rest to the next run. The last run keeps trying: its time cap is enough.
+FAILURE_STREAK = 15
 TICK_SOURCE = "fubon-neo intraday/trades"
 MESSAGE_LIMIT = 300
-
-
-def choose(candidates: list[dict]) -> list[dict]:
-    """The day's top TICK_TOP by value (candidates come sorted), then lesson stocks not among them."""
-    top = candidates[:TICK_TOP]
-    codes = {entry["code"] for entry in top}
-    return top + [entry for entry in candidates if entry["code"] in LESSON_SYMBOLS and entry["code"] not in codes]
 
 
 def assess(pages: list, code: str, day: str, meta: dict) -> dict:
@@ -83,30 +82,55 @@ class Ticks:
             if offset > MAX_TRADE_ROWS:
                 raise ValidationError("structure", f"成交超過 {MAX_TRADE_ROWS} 筆")
 
+    def stop_reason(self, started: float, streak: int) -> str | None:
+        """Why no new stock is started: this run's time for trades is spent, or (earlier runs) Fubon keeps failing."""
+        spent = self.runtime.monotonic() - started
+        if self.run.last_attempt:
+            budget = LAST_ATTEMPT_BUDGET_SECONDS if self.run.candles_due else LAST_ATTEMPT_TRADES_ONLY_BUDGET_SECONDS
+            return "最後一次執行的時間用完" if spent > budget else None
+        if streak >= FAILURE_STREAK:
+            return f"富邦連續 {streak} 檔出錯，這次先停，下次再抓"
+        return "時間不夠，下次再抓" if spent > TICK_BUDGET_SECONDS else None
+
     def collect(self, client, candidates: list[dict]) -> None:
-        """Fetches, keeps and checks today's trades, then publishes them or leaves them for the next run."""
+        """Fetches, keeps and checks today's trades, then publishes them or leaves them for the next run.
+
+        Candidates are the stocks that traded, most traded first, so a run cut short keeps the most traded ones.
+        """
         from .pipeline import Pacer
 
         day = self.run.target
-        chosen = choose(candidates)
         started = self.runtime.monotonic()
         results: list[dict] = []
         record = {"date": day, "outcome": "failed", "reason": None,
-                  "symbols": {"total": len(chosen), "fetched": 0, "failed": 0}, "trades": 0, "finishedAt": None}
+                  "symbols": {"total": len(candidates), "fetched": 0, "failed": 0}, "trades": 0, "finishedAt": None}
         try:
-            self.run.log(f"逐筆：{len(chosen)} 檔（成交值前 {TICK_TOP} 名與教材股）")
+            self.run.log(f"逐筆：{len(candidates)} 檔（當天有成交的上市普通股，成交值大的先抓）")
             pacer = Pacer(self.runtime, INTRADAY_SPACING)
-            for entry in chosen:
+            streak = 0  # stocks in a row that Fubon failed to answer
+            stopped = None
+            for entry in candidates:
                 code = entry["code"]
                 meta = {"name": entry["name"], "tradeVolume": entry["tradeVolume"], "close": entry["close"]}
                 try:
                     cached = self.store.load_tick_raw(day, code)
                     if cached is None:
-                        if not self.run.last_attempt and self.runtime.monotonic() - started > TICK_BUDGET_SECONDS:
-                            results.append({"code": code, "name": entry["name"], "status": "failed",
-                                            "error": "時間不夠，下次再抓"})
+                        stop = self.stop_reason(started, streak)
+                        if stop:
+                            if not stopped:
+                                stopped = stop
+                                self.run.log(f"逐筆：{stop}，之後的股票這次不再開始抓")
+                            results.append({"code": code, "name": entry["name"], "status": "failed", "error": stop})
                             continue
-                        pages = self.pages(client, pacer, code)
+                        try:
+                            pages = self.pages(client, pacer, code)
+                        except ApiError:
+                            streak += 1
+                            raise
+                        except ValidationError:
+                            streak = 0  # Fubon answered, just not with usable trades
+                            raise
+                        streak = 0
                         self.store.save_tick_raw(day, code, pages, meta)
                     else:
                         pages, meta = cached
@@ -122,7 +146,7 @@ class Ticks:
                 results.append(result)
             problems = [result for result in results if result["status"] != "ok"]
             if problems:
-                record["reason"] = f"{len(problems)} 檔沒抓齊：" + "、".join(
+                record["reason"] = (f"{stopped}；" if stopped else "") + f"{len(problems)} 檔沒抓齊：" + "、".join(
                     f"{result['code']}（{result['error']}）" for result in problems[:5])
             if problems and not self.run.last_attempt:
                 self.run.log(f"逐筆：{len(problems)} 檔等下一次排程（{self.runtime.monotonic() - started:.0f} 秒）")
