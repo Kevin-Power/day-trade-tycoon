@@ -164,6 +164,45 @@ await check("4-limit-lines", async () => {
   return { up, down };
 });
 
+await check("10-prev-label-clear", async () => {
+  // A flat line hugs the previous close at ±10%: 昨 sits in the price gutter, so the first minutes stay visible.
+  const png = await chart(desktop).screenshot();
+  const tape = await chart(desktop).evaluate((element) => getComputedStyle(element).getPropertyValue("--color-tape").trim() || "#e6c25a");
+  const counts = await desktop.evaluate(
+    async ({ b64, colours }) => {
+      const image = new Image();
+      image.src = "data:image/png;base64," + b64;
+      await image.decode();
+      const surface = document.createElement("canvas");
+      surface.width = image.width;
+      surface.height = image.height;
+      const ctx = surface.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(image, 0, 0);
+      const { data } = ctx.getImageData(0, 0, image.width, image.height);
+      const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      const near = (i, c, limit) =>
+        Math.max(Math.abs(c[0] - data[i]), Math.abs(c[1] - data[i + 1]), Math.abs(c[2] - data[i + 2])) <= limit;
+      const [tape, up, down] = colours.map(rgb);
+      const count = (x0, x1, y0, y1, test) => {
+        let hits = 0;
+        for (let y = Math.round(image.height * y0); y < Math.round(image.height * y1); y++)
+          for (let x = Math.round(image.width * x0); x < Math.round(image.width * x1); x++)
+            if (test((y * image.width + x) * 4)) hits++;
+        return hits;
+      };
+      return {
+        gutter: count(0, 0.055, 0.46, 0.54, (i) => near(i, tape, 40)),
+        lineStart: count(0.075, 0.135, 0.44, 0.56, (i) => near(i, up, 60) || near(i, down, 60)),
+      };
+    },
+    { b64: png.toString("base64"), colours: [tape, colours.up, colours.down] },
+  );
+  // A fully visible line over those minutes is about 150-250 device pixels at 2x; the old label left ~20.
+  if (counts.gutter < 10 || counts.lineStart < 100)
+    throw new Error(`昨 in the gutter: ${counts.gutter} px; price line in 09:01–09:08: ${counts.lineStart} px`);
+  return counts;
+});
+
 await check("5-kline-ema", async () => {
   await desktop.getByRole("button", { name: "K線", exact: true }).first().click();
   await desktop.waitForTimeout(600);
@@ -273,6 +312,7 @@ await check("8-phone", async () => {
   await tabs.getByRole("button", { name: /行情/ }).first().click({ timeout: 4000 });
   await phone.waitForTimeout(400);
   const mode = (await pressedMode(phone))?.trim();
+  const bar = await phone.locator(".td-chartbar").first().boundingBox();
   await phone.screenshot({ path: `${out}phone-market.png` });
   await tabs.getByRole("button", { name: /自選/ }).first().click({ timeout: 4000 });
   await phone.waitForTimeout(400);
@@ -281,6 +321,7 @@ await check("8-phone", async () => {
   const problems = [];
   if (mode !== "江波") problems.push(`行情 opens on 「${mode}」`);
   if (header !== "江波") problems.push(`自選's last column is 「${header}」`);
+  if (!bar || bar.height > 70) problems.push(`the chart bar takes ${bar?.height}px (wraps onto a second row)`);
   if (problems.length) throw new Error(problems.join("; "));
 });
 

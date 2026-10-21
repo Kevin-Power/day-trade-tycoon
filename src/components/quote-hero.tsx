@@ -236,7 +236,7 @@ export function ChartToolbar({
       </nav>
       <p className="td-chartbar-source">
         <span className="td-chip" data-kind="real">
-          {mode === "quote" ? "真實歷史・分鐘收價" : "真實歷史 1 分 K"}
+          {mode === "quote" ? "真實歷史 分鐘收價" : "真實歷史 1 分 K"}
         </span>
         <span>{catalog.date} 台北時間</span>
       </p>

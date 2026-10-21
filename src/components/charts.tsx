@@ -294,10 +294,13 @@ function paint(
   const bandPrices = band
     ? [10, 4].flatMap((rows) => jiangboGridPrices(opt.prev, opt.priceBand!, rows))
     : [];
+  // In the 江波 view the previous close is labelled 「昨」 in the price gutter, not over the line.
+  const prevAxisText = band ? `昨 ${label(opt.prev)}` : "";
   const axisWidth = Math.max(
     ...[opt.prev, current, ...bandPrices, ...bars.flatMap((bar) => [bar.h, bar.l])].map(
       (price) => ctx.measureText(label(price)).width,
     ),
+    band ? ctx.measureText(prevAxisText).width : 0,
     30,
   );
   // The trading desk shows prices on the left and change from the previous close on the right.
@@ -413,7 +416,11 @@ function paint(
     ctx.moveTo(gridLeft, hRule(y, gridPixels));
     ctx.lineTo(gridRight, hRule(y, gridPixels));
     ctx.stroke();
-    ctx.fillText(label(price), snapEdge(padL - 7, sx), snapEdge(y, sy));
+    // The 江波 band's middle line is the previous close: 「昨」 and its price in the tape colour.
+    const prevRow = band !== null && i * 2 === rows;
+    if (prevRow) ctx.fillStyle = c.tape;
+    ctx.fillText(prevRow ? prevAxisText : label(price), snapEdge(padL - 7, sx), snapEdge(y, sy));
+    if (prevRow) ctx.fillStyle = c.muted;
     if (terminal && clearsPriceTag(y, tagY, tagHeight, c.fontSize)) {
       ctx.textAlign = "left";
       ctx.fillText(formatPercentChange(price, opt.prev), snapEdge(w - padR + 8, sx), snapEdge(y, sy));
@@ -735,9 +742,12 @@ function paint(
   if (deskChart) {
     // Every in-plot label is placed together, so no two overlap (昨・開・低 2575 when they meet).
     const lineHeight = c.fontSize + 4;
-    const labels: ChartLabel[] = [
-      { key: "prev", text: "昨", price: opt.prev, priceText: label(opt.prev), color: c.tape, x: padL + 4, anchor: "start", y: yOf(opt.prev) },
-    ];
+    // At ±10% a flat line hugs the previous close: its 昨 label is in the gutter, where it covers nothing.
+    const labels: ChartLabel[] = band
+      ? []
+      : [
+          { key: "prev", text: "昨", price: opt.prev, priceText: label(opt.prev), color: c.tape, x: padL + 4, anchor: "start", y: yOf(opt.prev) },
+        ];
     if (opt.open && !band)
       labels.push({ key: "open", text: "開", price: opt.open, priceText: label(opt.open), color: c.muted, x: padL + 4, anchor: "start", y: yOf(opt.open) });
     if (averageNow !== undefined)
