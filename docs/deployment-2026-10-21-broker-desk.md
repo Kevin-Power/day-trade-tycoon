@@ -1,10 +1,10 @@
-# 交易台改版 2026-10-21：券商式四格（候選版本，尚未發布）
+# 正式站發布 2026-10-21：券商式交易台（四格、真實大盤、左買右賣、大額確認、委託回報）
 
 使用者傳來富邦手機 App 與電腦版看盤軟體的畫面，說「金主要這樣你把它處理好」；確認「畫面對的」並附上 10/20 會議紀錄後，交代「想辦法做到好」。
 
-**這份文件是發布前的草稿。正式站仍是 `20261020T000213573Z`，沒有合併、推送或部署。發布要等使用者核准。**
+使用者看過最終審查與修正結果後說「好，合併後直接上線」。分支 `claude/broker-desk` 快轉合併進 `codex/course-handover`（a929c9f），2026-10-21 01:59Z 上線為 release **`20261021T015515095Z`**。
 
-規格：`docs/superpowers/specs/2026-10-21-broker-desk-layout-design.md`；計畫：`docs/superpowers/plans/2026-10-21-broker-desk-layout.md`；分支 `claude/broker-desk`（worktree `.worktrees/broker-desk`）。
+規格：`docs/superpowers/specs/2026-10-21-broker-desk-layout-design.md`；計畫：`docs/superpowers/plans/2026-10-21-broker-desk-layout.md`；課程資料核准：`docs/lesson-index-2026-10-21.md`。
 
 ## 做了什麼
 
@@ -70,7 +70,7 @@
 - 簡易 K 線與大盤圖的昨收虛線在 1x／1.25x／1.5x 顯示倍率下落在兩列像素之間（垂直座標用了水平縮放比例）。
 - 最終審查後修正時發現：第一列改成依內容決定高度後，大盤圖的畫布會把上一次的繪圖高度當成內容高度，讓每個尺寸的 K 線都少了約 100px；已讓大盤區不參與第一列的高度計算。
 
-## 驗證（候選分支 HEAD）
+## 驗證（合併前的分支 HEAD a929c9f）
 
 **單元測試與靜態檢查**
 - 單元測試 851 項：847 通過、0 失敗、4 略過。
@@ -120,20 +120,36 @@
 - 1366×768 時，委託回報較舊的幾筆要在下單欄內捲動才看得到（最新兩筆直接可見）。
 - **實際筆電的可視高度**：以上尺寸都是瀏覽器內容區。1366×768 的螢幕扣掉分頁列與工作列，Chrome 內容區約 1366×657；1080p 螢幕在 Windows 125% 縮放約 1536×730、150% 約 1280×600。內容區越矮，K 線越短（大約是內容區高度減 400px），1366×657 約 250px、1280×600 約 200px。這些尺寸沒有實測。
 
-## 發布步驟（待核准後才做）
+## 候選 release
 
-1. 乾淨 worktree 先 `build:offline` 再 `build`，產生候選 release。
-2. 拋棄式教室跑首頁、種子資料、orders、ticks、broker、sharpness、pages。
-3. 正常停機、備份、只改 `appEntry` 到新 release、恢復後做公開資源雜湊與路由檢查。
-4. 課程資料檔有變（加入大盤），release 內的 `server/data/morning-2026-10-0[56].json` 雜湊要等於上面核准紀錄的新雜湊。
+- 乾淨 worktree（a929c9f）先 `build:offline` 再 `build`；離線包與 `.output/downloads` 內的雜湊相同（`ab622cd6…`）。
+- `stage-release` 產生 `20261021T015515095Z`，310 個檔案。
+- 隔離整合測試 4/4（帳號、每日一題、訪客、早盤回放）。
+- 拋棄式教室（以 release 啟動）：首頁 200；種子資料、layout --strict、broker --strict、orders、ticks 都通過。
+- 課程資料打包在伺服器程式內；建置來源的資料檔雜湊等於核准紀錄（10/05 `aa1e263f…`、10/06 `0e8ce9fc…`），release 內含兩堂課的識別碼。
+
+## 停機與切換
+
+- 01:59:18Z 正常停機，資料庫確認已關閉。
+- 備份 `backups/2026-10-21T01-59-22-567Z`：1,059 個檔案，逐檔核對通過。
+- 只改 `appEntry`：`20261020T000213573Z` → `20261021T015515095Z`（01:59:26Z）。
+- 01:59:42Z 恢復健康，停機約 25 秒（含備份）。
+
+## 發布後檢查
+
+- 46 個公開 JS／CSS 資源的 SHA-256 與 release 相同。
+- 設定除了 `appEntry` 都沒變；3 個秘密檔案的雜湊沒變；上一份 release 保留。
+- 主要路由、`/sw.js`、`/manifest.webmanifest`、`/third-party-notices.txt` 都是 200；`/server/index.mjs` 404。
+- 沒有入場碼時，`/api/daily`、`/api/morning`、`/api/discipline` 都回 403。
+- `/api/health`：`mode: simulation`。
+- 登入後的正式站畫面沒有實際操作（不使用學員帳號登入正式站）；登入後畫面以候選 release 的拋棄式教室驗收為準。
 
 ## 回退
 
-把 `appEntry` 指回 `20261020T000213573Z`。資料庫沒有變更；舊 release 帶的是舊課程資料檔，學員進度相容（課程識別碼不變）。
+把 `appEntry` 指回 `20261020T000213573Z`。資料庫沒有變更；舊 release 帶的是舊課程資料（沒有大盤），學員進度相容（課程識別碼不變）。發布紀錄在 `artifacts/deploy-20261021-broker-desk/`。
 
 ## 待決定事項
 
-- 是否發布到正式站（需要使用者核准）。
 - 學員手冊 r2.5 的截圖會過時，需要 r2.6。
 - 紙本 PDF 手冊（`docs/pdf-source.json`）這次沒有更新；網頁版手冊已更新。
 - 富邦逐筆資料授權確認前，仍不給學員看。
