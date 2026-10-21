@@ -35,6 +35,33 @@ export type LocalOrderFailure = {
   message: string;
 };
 
+/** How one send to the classroom ended, as far as 委託回報 is concerned. Each send gets its own. */
+export type SendOutcome =
+  | { kind: "sent" }
+  /** Another operation was still running, so this one was not sent at all. */
+  | { kind: "busy" }
+  /** 409: the run moved on (another tab) or a server rule refused it; `reason` is the server's text, if any. */
+  | { kind: "conflict"; reason: string }
+  | { kind: "error"; message: string }
+  /** A sign-in or entry-code problem: the access card explains it. */
+  | { kind: "access" }
+  /** A newer request replaced this one: the server may have the order, and the reload shows it. */
+  | { kind: "stale" };
+
+/** The 送出失敗 text for an order that did not go through, or "" when 委託回報 should stay quiet. */
+export function sendFailureMessage(outcome: SendOutcome): string {
+  switch (outcome.kind) {
+    case "busy":
+      return "另一個操作還在處理，這筆委託沒有送出。";
+    case "conflict":
+      return outcome.reason || "進度已更新，這次操作沒有送出。";
+    case "error":
+      return outcome.message;
+    default:
+      return "";
+  }
+}
+
 export type OrderReport = {
   key: string;
   /** HH:MM, or null when the run did not record when it happened (a cancel or a turned-down order). */

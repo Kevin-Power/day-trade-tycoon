@@ -45,7 +45,7 @@ import { DisciplineCelebration } from "@/components/discipline-celebration";
 import type { Celebration } from "@/lib/discipline/score";
 import { useTerminalLayout, type TerminalLayout } from "@/lib/use-terminal-layout";
 import { deriveMorningAlerts } from "@/lib/morning-alerts";
-import type { LocalOrderFailure } from "@/lib/morning-orders";
+import { sendFailureMessage, type LocalOrderFailure, type SendOutcome } from "@/lib/morning-orders";
 import { INDEX_EMPTY_TEXT, indexAvailability } from "@/lib/morning-index";
 import {
   replayClock,
@@ -123,14 +123,15 @@ function useMorningData(lessonId: string) {
   const serial = useRef(0);
   const controller = useRef<AbortController | null>(null);
   const retryAction = useRef<MorningAction | undefined>(undefined);
-  const lastError = useRef("");
   const endpoint = lessonId
     ? `/api/morning?lesson=${encodeURIComponent(lessonId)}`
     : "/api/morning";
 
-  const request = useCallback(
-    async (action?: MorningAction): Promise<MorningResponse | null> => {
-      if (locked.current) return null;
+  // Every send reports its own outcome, so an order's 送出失敗 text never comes from another request.
+  const send = useCallback(
+    async (action?: MorningAction): Promise<{ response: MorningResponse | null; outcome: SendOutcome }> => {
+      const quiet = (outcome: SendOutcome) => ({ response: null, outcome });
+      if (locked.current) return quiet({ kind: "busy" });
       locked.current = true;
       const requestSerial = ++serial.current;
       const abort = new AbortController();
@@ -143,7 +144,6 @@ function useMorningData(lessonId: string) {
       }, 20_000);
       setBusy(action?.action ?? "load");
       setError("");
-      lastError.current = "";
       setNotice("");
       retryAction.current = action;
       try {
@@ -156,12 +156,12 @@ function useMorningData(lessonId: string) {
             ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(action) }
             : {}),
         });
-        if (!current()) return null;
+        if (!current()) return quiet({ kind: "stale" });
         if (response.status === 401 || response.status === 403) {
           setAccess(await readAccessProblem(response));
           setData(null);
           retryAction.current = undefined;
-          return null;
+          return quiet({ kind: "access" });
         }
         if (response.status === 409) {
           retryAction.current = undefined;
@@ -171,30 +171,29 @@ function useMorningData(lessonId: string) {
           } | null;
           const reason =
             typeof refusal?.message === "string" && refusal.message ? refusal.message : "";
-          lastError.current = reason || "進度已更新，這次操作沒有送出。";
           const latest = await fetch(endpoint, {
             credentials: "same-origin",
             cache: "no-store",
             signal: abort.signal,
           });
-          if (!current()) return null;
+          if (!current()) return quiet({ kind: "stale" });
           if (latest.status === 401 || latest.status === 403) {
             setAccess(await readAccessProblem(latest));
             setData(null);
-            return null;
+            return quiet({ kind: "access" });
           }
           if (!latest.ok) throw new Error("進度已在另一個分頁更新，請重新載入最新進度。");
           const fresh = readResponse(await readJsonResponse(latest));
-          if (!current()) return null;
+          if (!current()) return quiet({ kind: "stale" });
           setData(fresh);
           // The server's own reason when it gave one (e.g. 本次練習已達委託筆數上限), as in 委託回報.
           setNotice(
             `${reason || "進度已更新，可能有另一個分頁正在操作"}。已同步最新紀錄並停止自動播放；請核對後再繼續。`,
           );
-          return null;
+          return quiet({ kind: "conflict", reason });
         }
         const payload = await readJsonResponse(response);
-        if (!current()) return null;
+        if (!current()) return quiet({ kind: "stale" });
         if (!response.ok) {
           const message =
             payload &&
@@ -209,7 +208,7 @@ function useMorningData(lessonId: string) {
         setData(next);
         setAccess(null);
         retryAction.current = undefined;
-        return next;
+        return { response: next, outcome: { kind: "sent" } };
       } catch (failure) {
         if (current()) {
           const message = timedOut
@@ -219,10 +218,10 @@ function useMorningData(lessonId: string) {
               : failure instanceof Error
                 ? failure.message
                 : "暫時連不上教室，請重試。";
-          lastError.current = message;
           setError(message);
+          return quiet({ kind: "error", message });
         }
-        return null;
+        return quiet({ kind: "stale" });
       } finally {
         window.clearTimeout(deadline);
         if (current()) {
@@ -232,6 +231,10 @@ function useMorningData(lessonId: string) {
       }
     },
     [endpoint],
+  );
+  const request = useCallback(
+    async (action?: MorningAction): Promise<MorningResponse | null> => (await send(action)).response,
+    [send],
   );
 
   useEffect(() => {
@@ -251,7 +254,7 @@ function useMorningData(lessonId: string) {
     access,
     request,
     retry: () => request(retryAction.current),
-    lastError: () => lastError.current,
+    send,
   };
 }
 
@@ -322,7 +325,7 @@ function MorningLesson({
   onLessonChange: (lessonId: string) => void;
   onExerciseChange: (exerciseId: string) => void;
 }) {
-  const { data, busy, error, notice, access, request, retry, lastError } = useMorningData(lessonId);
+  const { data, busy, error, notice, access, request, retry, send } = useMorningData(lessonId);
   const [linkNotice, setLinkNotice] = useState<LinkNotice | null>(null);
   useEffect(() => {
     const value = readLinkNotice(document.cookie);
@@ -600,7 +603,7 @@ function MorningLesson({
   ) {
     if (!session || session.revision !== revision) return false;
     setAuto(false);
-    const next = await request({
+    const sent = await send({
       action: "order",
       requestId: crypto.randomUUID(),
       id: session.id,
@@ -610,10 +613,11 @@ function MorningLesson({
       lots,
       ...options,
     });
+    const next = sent.response;
     if (next?.state)
       setFeedback("紙上委託已記錄，尚未代表成交。前進一分鐘後，請核對委託與成交紀錄。");
     else {
-      const message = lastError();
+      const message = sendFailureMessage(sent.outcome);
       if (message)
         setFailures((list) =>
           [

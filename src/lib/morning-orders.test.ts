@@ -1,7 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { MorningState } from "./morning.ts";
-import { isLargeOrder, LARGE_ORDER_CASH_SHARE, orderReports, type LocalOrderFailure } from "./morning-orders.ts";
+import {
+  isLargeOrder,
+  LARGE_ORDER_CASH_SHARE,
+  orderReports,
+  sendFailureMessage,
+  type LocalOrderFailure,
+} from "./morning-orders.ts";
 
 const NAMES = { "2330": "台積電", "2317": "鴻海" };
 const run = (over: Partial<MorningState> = {}): MorningState => ({
@@ -114,4 +120,26 @@ test("a lightning order says so", () => {
     fills: [],
   });
   assert.equal(orderReports(lightning, NAMES, [])[0].text, "委託成功 · 閃電 · 買進 台積電 1 張 限價 2570");
+});
+
+test("sendFailureMessage reports an order that did not go through, from its own send", () => {
+  assert.equal(
+    sendFailureMessage({ kind: "conflict", reason: "本次練習已達委託筆數上限" }),
+    "本次練習已達委託筆數上限",
+  );
+  assert.equal(sendFailureMessage({ kind: "conflict", reason: "" }), "進度已更新，這次操作沒有送出。");
+  assert.equal(
+    sendFailureMessage({ kind: "error", message: "暫時連不上教室，請重試同一筆操作或重新載入進度。" }),
+    "暫時連不上教室，請重試同一筆操作或重新載入進度。",
+  );
+});
+
+test("sendFailureMessage says so when another operation kept the order from being sent", () => {
+  assert.equal(sendFailureMessage({ kind: "busy" }), "另一個操作還在處理，這筆委託沒有送出。");
+});
+
+test("sendFailureMessage stays quiet for sent orders, sign-in problems and replaced requests", () => {
+  assert.equal(sendFailureMessage({ kind: "sent" }), "");
+  assert.equal(sendFailureMessage({ kind: "access" }), "");
+  assert.equal(sendFailureMessage({ kind: "stale" }), "");
 });
