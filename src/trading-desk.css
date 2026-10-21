@@ -2130,7 +2130,7 @@
   width: 100%;
   margin-left: 0;
 }
-/* Phones step from the quote block, so the toolbar is 分時／K線 and the data label on one row when it fits. */
+/* Phones step from the quote block, so the toolbar is 江波／K線 and the data label on one row when it fits. */
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-chartbar[data-stepper="false"] .td-chartbar-source {
   width: auto;
   margin-left: auto;

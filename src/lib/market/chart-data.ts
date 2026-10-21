@@ -64,6 +64,21 @@ export function completedBarsInWindow(
   return inChartWindow(bars, window).filter((bar) => bar.t + seconds <= window.dataEnd);
 }
 
+/** A bar the desk can draw: its time, prices and volume are all finite numbers. */
+export function isDrawableBar(bar: Bar): boolean {
+  return [bar.t, bar.o, bar.h, bar.l, bar.c, bar.v].every(Number.isFinite);
+}
+
+/**
+ * The minutes that feed the desk's EMAs: every drawable one completed by `dataEnd`, counted from the
+ * session start rather than the visible window, and never a later one.
+ */
+export function emaSourceBars(bars: readonly Bar[], dataEnd: number, intervalSeconds?: number): Bar[] {
+  return bars.filter(
+    (bar) => isDrawableBar(bar) && (intervalSeconds ? bar.t + intervalSeconds : bar.t) <= dataEnd,
+  );
+}
+
 export function timeAxisTicks(
   start: number,
   end: number,
@@ -192,6 +207,20 @@ export function chartLinePoints(input: {
   return points;
 }
 
+/**
+ * Chart gutters in CSS px: prices on the left (with the 江波 view's 「昨 2575」), and on the right the
+ * last-price tag and the change from the previous close. 「昨」 widens only the left one.
+ */
+export function chartGutters(widths: { price: number; prevAxis?: number; percent?: number }): {
+  left: number;
+  right: number;
+} {
+  return {
+    left: Math.ceil(Math.max(widths.price, widths.prevAxis ?? 0) + 12),
+    right: Math.ceil(Math.max(widths.price, widths.percent ?? 0) + 14),
+  };
+}
+
 export function minuteColumnWidth(plotWidth: number, timeSpan: number): number {
   return Math.min(12, ((plotWidth * 60) / Math.max(1, timeSpan)) * 0.64);
 }
@@ -306,8 +335,8 @@ export type PriceRange = { min: number; max: number };
 const positive = (value: number) => Number.isFinite(value) && value > 0;
 
 /**
- * Intraday (分時) price range for the trading desk: symmetric about the previous close, so the
- * percent axis reads −x% / 0 / +x%, and never narrower than ±minFraction of that close.
+ * Line-chart price range for the desk when no fixed 江波 band is given: symmetric about the previous
+ * close, so the percent axis reads −x% / 0 / +x%, and never narrower than ±minFraction of that close.
  */
 export function jiangboPriceRange(
   previous: number,
@@ -329,10 +358,6 @@ export function jiangboPriceRange(
   return { min: previous - half, max: previous + half };
 }
 
-/**
- * Candle price range for the trading desk: the visible high and low (and the previous close),
- * padded by `padding` on each side, and never narrower than `minFraction` of the previous close.
- */
 /** The 江波 price axis: the previous close ± `band` (0.1 = ±10%); null without a usable close or band. */
 export function bandPriceRange(previous: number, band: number): PriceRange | null {
   if (!positive(previous) || !(band > 0 && band < 1)) return null;
@@ -352,6 +377,10 @@ export function jiangboGridPrices(previous: number, band: number, rows: number):
   return Array.from({ length: rows + 1 }, (_, index) => range.max - (span * index) / rows);
 }
 
+/**
+ * Candle price range for the trading desk: the visible high and low (and the previous close),
+ * padded by `padding` on each side, and never narrower than `minFraction` of the previous close.
+ */
 export function candlePriceRange(
   high: number,
   low: number,
@@ -637,6 +666,20 @@ export function limitChartLabels(
     { key: "limit-up", text: "漲停", price: up, priceText: place.priceText(up), color: place.up, x: place.x, anchor: "start", y: place.yOf(up) + place.lineHeight / 2 + 2 },
     { key: "limit-down", text: "跌停", price: down, priceText: place.priceText(down), color: place.down, x: place.x, anchor: "start", y: place.yOf(down) - place.lineHeight / 2 - 2 },
   ];
+}
+
+/**
+ * Splits placed labels into those drawn under the price and EMA lines (漲停／跌停 on their own, so a
+ * price at the limit stays visible) and those drawn over them (every other label, including one that
+ * merged with 漲停／跌停).
+ */
+export function chartLabelLayers(placed: readonly PlacedChartLabel[]): {
+  under: PlacedChartLabel[];
+  over: PlacedChartLabel[];
+} {
+  const under = (label: PlacedChartLabel) =>
+    label.keys.every((key) => key === "limit-up" || key === "limit-down");
+  return { under: placed.filter(under), over: placed.filter((label) => !under(label)) };
 }
 
 export function chartLabelText(label: Pick<PlacedChartLabel, "parts" | "priceText">): string {

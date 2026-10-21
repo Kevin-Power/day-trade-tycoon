@@ -6,6 +6,8 @@ import {
   candlePriceRange,
   candleWindow,
   canvasResolution,
+  chartGutters,
+  chartLabelLayers,
   chartLabelText,
   chartLinePoints,
   chartWindow,
@@ -14,6 +16,7 @@ import {
   deviceDashPattern,
   emaReadout,
   emaSeries,
+  emaSourceBars,
   formatPercentChange,
   hairlineDevicePixels,
   inChartWindow,
@@ -35,6 +38,7 @@ import {
   volumeTone,
   wrapReadout,
   type ChartLabel,
+  type PlacedChartLabel,
   levelChartLabels,
   limitChartLabels,
   lineRuns,
@@ -660,6 +664,34 @@ test("emaSeries seeds with the first close and smooths with 2/(N+1)", () => {
   assert.deepEqual(emaSeries([10, 20], 1), [10, 20]);
 });
 
+test("emaSourceBars keeps every minute completed by the replay clock, from the session start", () => {
+  const bars: Bar[] = [0, 60, 120, 180].map((t, index) => ({ t, o: 10, h: 11, l: 9, c: 10 + index, v: 5 }));
+  assert.deepEqual(emaSourceBars(bars, 150, 60).map((bar) => bar.t), [0, 60]);
+  assert.deepEqual(emaSourceBars(bars, 240, 60).map((bar) => bar.t), [0, 60, 120, 180]);
+  // Without a bar interval, a point counts once its own time has passed.
+  assert.deepEqual(emaSourceBars(bars, 120).map((bar) => bar.t), [0, 60, 120]);
+});
+
+test("emaSourceBars drops the minutes the price line drops", () => {
+  const bars: Bar[] = [
+    { t: 0, o: 10, h: 11, l: 9, c: 10, v: 5 },
+    { t: 60, o: 10, h: 11, l: 9, c: Number.NaN, v: 5 },
+    { t: 120, o: 10, h: 11, l: 9, c: 11, v: Number.NaN },
+    { t: 180, o: 10, h: 11, l: 9, c: 12, v: 5 },
+  ];
+  assert.deepEqual(emaSourceBars(bars, 600, 60).map((bar) => bar.t), [0, 180]);
+});
+
+test("revealing a later minute never changes the EMA of earlier minutes", () => {
+  const bars: Bar[] = [10, 12, 11, 13, 9].map((c, index) => ({ t: index * 60, o: 10, h: 13, l: 9, c, v: 5 }));
+  const ema = (dataEnd: number) => emaSeries(emaSourceBars(bars, dataEnd, 60).map((bar) => bar.c), 11);
+  const early = ema(180);
+  const later = ema(300);
+  assert.equal(early.length, 3);
+  assert.deepEqual(later.slice(0, early.length), early);
+  assert.notEqual(later.at(-1), early.at(-1));
+});
+
 test("emaSeries returns nothing for no closes or an invalid period", () => {
   assert.deepEqual(emaSeries([], 11), []);
   assert.deepEqual(emaSeries([10, 11], 0), []);
@@ -715,6 +747,35 @@ test("limitChartLabels marks 漲停 below its line and 跌停 above its line", (
     ],
   );
   assert.deepEqual(limitChartLabels(0, place), []);
+});
+
+test("chartLabelLayers puts the 漲停／跌停 labels under the lines and every other label over them", () => {
+  const placed = (keys: string[]): PlacedChartLabel => ({
+    keys,
+    price: 1,
+    parts: keys.map((key) => ({ text: key, color: "#fff" })),
+    priceText: "1",
+    left: 0,
+    width: 10,
+    y: 0,
+  });
+  const layers = chartLabelLayers([
+    placed(["limit-up"]),
+    placed(["average"]),
+    placed(["limit-down"]),
+    placed(["swing-0"]),
+    placed(["average", "limit-up"]),
+  ]);
+  const keys = (labels: readonly PlacedChartLabel[]) => labels.map((label) => label.keys.join("+"));
+  assert.deepEqual(keys(layers.under), ["limit-up", "limit-down"]);
+  // A label merged with 均 is still read over the lines.
+  assert.deepEqual(keys(layers.over), ["average", "swing-0", "average+limit-up"]);
+});
+
+test("chartGutters widens only the left gutter for 「昨 2575」", () => {
+  assert.deepEqual(chartGutters({ price: 30, prevAxis: 44, percent: 40 }), { left: 56, right: 54 });
+  assert.deepEqual(chartGutters({ price: 50, prevAxis: 44, percent: 40 }), { left: 62, right: 64 });
+  assert.deepEqual(chartGutters({ price: 30.2 }), { left: 43, right: 45 });
 });
 
 test("lineRuns breaks where minutes are missing", () => {

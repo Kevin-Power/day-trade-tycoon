@@ -8,6 +8,8 @@ import {
   candleBodyWidth,
   levelChartLabels,
   candlePriceRange,
+  chartGutters,
+  chartLabelLayers,
   chartLinePoints,
   chartWindow,
   completedBarsInWindow,
@@ -15,9 +17,11 @@ import {
   clearsPriceTag,
   emaReadout,
   emaSeries,
+  emaSourceBars,
   formatPercentChange,
   hairlineDevicePixels,
   inChartWindow,
+  isDrawableBar,
   jiangboGridPrices,
   jiangboGridRows,
   jiangboPriceRange,
@@ -37,6 +41,7 @@ import {
   wrapReadout,
   type ChartLabel,
   type ChartRange,
+  type PlacedChartLabel,
   type ReadoutTone,
 } from "@/lib/market/chart-data";
 import { formatPrice, limitDown, limitUp } from "@/lib/market/ticks";
@@ -240,20 +245,13 @@ function paint(
   const interval = opt.completedBarSeconds;
   const bars = (
     interval ? completedBarsInWindow(opt.bars, window, interval) : inChartWindow(opt.bars, window)
-  ).filter((bar) => [bar.o, bar.h, bar.l, bar.c, bar.v].every(Number.isFinite));
+  ).filter(isDrawableBar);
   // Desk 江波 view: a fixed axis at the previous close ±priceBand.
   const band =
     deskChart && !isCandles && opt.priceBand ? bandPriceRange(opt.prev, opt.priceBand) : null;
   // EMA lines (desk only): every revealed minute since 09:00 feeds them, not only the visible window.
   const emaSource =
-    deskChart && opt.emaPeriods?.length
-      ? opt.bars.filter(
-          (bar) =>
-            Number.isFinite(bar.t) &&
-            Number.isFinite(bar.c) &&
-            (interval ? bar.t + interval : bar.t) <= window.dataEnd,
-        )
-      : [];
+    deskChart && opt.emaPeriods?.length ? emaSourceBars(opt.bars, window.dataEnd, interval) : [];
   const emaLines = (opt.emaPeriods ?? []).slice(0, 2).map((period, index) => {
     const values = emaSeries(
       emaSource.map((bar) => bar.c),
@@ -300,13 +298,14 @@ function paint(
     ...[opt.prev, current, ...bandPrices, ...bars.flatMap((bar) => [bar.h, bar.l])].map(
       (price) => ctx.measureText(label(price)).width,
     ),
-    band ? ctx.measureText(prevAxisText).width : 0,
     30,
   );
   // The trading desk shows prices on the left and change from the previous close on the right.
-  const percentWidth = terminal ? ctx.measureText("+10.00%").width : 0;
-  const padL = Math.ceil(axisWidth + 12);
-  const padR = Math.ceil(Math.max(axisWidth, percentWidth) + 14);
+  const { left: padL, right: padR } = chartGutters({
+    price: axisWidth,
+    prevAxis: band ? ctx.measureText(prevAxisText).width : 0,
+    percent: terminal ? ctx.measureText("+10.00%").width : 0,
+  });
   const plotW = w - padL - padR;
   const timeSpan = Math.max(window.end - window.start, 1);
   // The minute under the crosshair, found before the layout so the desk's readout strip can
@@ -441,6 +440,92 @@ function paint(
     ctx.fillText(formatTime(time).slice(0, 5), snapEdge(labelX, sx), snapEdge(h - axisH + 4, sy));
   }
 
+  // The desk's in-plot labels are placed together, so no two overlap (昨・開・低 2575 when they meet).
+  // 漲停／跌停 are drawn under the price and EMA lines, so a price at the limit stays visible; the
+  // others over them.
+  const lineHeight = c.fontSize + 4;
+  // The latest session average, from the source's own bar.a (the desk never derives one).
+  const averageNow =
+    deskChart && opt.showAverage
+      ? bars.filter((bar) => typeof bar.a === "number" && Number.isFinite(bar.a)).at(-1)?.a
+      : undefined;
+  let labelLayers = chartLabelLayers([]);
+  if (deskChart) {
+    // At ±10% a flat line hugs the previous close: its 昨 label is in the gutter, where it covers nothing.
+    const labels: ChartLabel[] = band
+      ? []
+      : [
+          { key: "prev", text: "昨", price: opt.prev, priceText: label(opt.prev), color: c.tape, x: padL + 4, anchor: "start", y: yOf(opt.prev) },
+        ];
+    if (opt.open && !band)
+      labels.push({ key: "open", text: "開", price: opt.open, priceText: label(opt.open), color: c.muted, x: padL + 4, anchor: "start", y: yOf(opt.open) });
+    if (averageNow !== undefined)
+      labels.push({ key: "average", text: "均", price: averageNow, priceText: averageNow.toFixed(2), color: c.vwap, x: padL + 4, anchor: "start", y: yOf(averageNow) });
+    if (band)
+      labels.push(
+        ...limitChartLabels(opt.prev, { x: padL + 4, lineHeight, up: c.up, down: c.down, yOf, priceText: label }),
+      );
+    // 高／低 would sit in the crowded centre of the ±10% band; the quote table still lists them.
+    const extremes = band ? null : sessionExtremes(bars);
+    if (extremes && extremes.high.p > extremes.low.p) {
+      const at = (point: TickPt) => xOf(point.t + (interval ? interval / 2 : 0));
+      labels.push(
+        { key: "high", text: "高", price: extremes.high.p, priceText: label(extremes.high.p), color: c.up, x: at(extremes.high), anchor: "center", y: yOf(extremes.high.p) - lineHeight },
+        { key: "low", text: "低", price: extremes.low.p, priceText: label(extremes.low.p), color: c.down, x: at(extremes.low), anchor: "center", y: yOf(extremes.low.p) + lineHeight },
+      );
+    }
+    (opt.swingHighs ?? [])
+      .filter((point) => point.confirmedAt <= window.dataEnd && point.t >= window.start && point.t <= window.dataEnd)
+      .forEach((point, index) => {
+        const y = yOf(point.p);
+        const above = y - padT >= lineHeight;
+        labels.push({ key: `swing-${index}`, text: "前高", price: point.p, priceText: label(point.p), color: c.warn, x: w - padR - 4, anchor: "end", y: above ? y - lineHeight / 2 - 1 : y + lineHeight / 2 + 1 });
+      });
+    labels.push(
+      ...levelChartLabels(opt.levels ?? [], {
+        x: w - padR - 4, top: padT, lineHeight, color: c.warn, yOf, priceText: label,
+      }),
+    );
+    ctx.save();
+    ctx.font = font;
+    const importance = (key: string) =>
+      key.startsWith("swing-") || key.startsWith("level-")
+        ? 0
+        : ["prev", "high", "low", "open", "average", "limit-up", "limit-down"].indexOf(key) + 1;
+    const placed = resolveChartLabels(
+      opt.fitLabels ? [...labels].sort((a, b) => importance(a.key) - importance(b.key)) : labels,
+      { left: padL + 2, right: w - padR - 2, top: padT, bottom: plotBottom },
+      (text) => ctx.measureText(text).width,
+      lineHeight,
+      opt.fitLabels ? { maxShiftLines: 1 } : {},
+    );
+    ctx.restore();
+    labelLayers = chartLabelLayers(placed);
+  }
+  const drawLabels = (items: readonly PlacedChartLabel[]) => {
+    if (!items.length) return;
+    ctx.save();
+    ctx.font = font;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    for (const item of items) {
+      const left = snapEdge(item.left, sx);
+      const top = snapEdge(item.y - lineHeight / 2, sy);
+      ctx.fillStyle = c.bg;
+      ctx.fillRect(left, top, snapEdge(item.left + item.width, sx) - left, snapEdge(item.y + lineHeight / 2, sy) - top);
+      let x = item.left + LABEL_PADDING;
+      item.parts.forEach((part, index) => {
+        const text = index ? `・${part.text}` : part.text;
+        ctx.fillStyle = part.color;
+        ctx.fillText(text, snapEdge(x, sx), snapEdge(item.y, sy));
+        x += ctx.measureText(text).width;
+      });
+      ctx.fillStyle = item.parts[0]!.color;
+      ctx.fillText(` ${item.priceText}`, snapEdge(x, sx), snapEdge(item.y, sy));
+    }
+    ctx.restore();
+  };
+
   // Every time-based layer is clipped, including volume, indicators and events.
   ctx.save();
   ctx.beginPath();
@@ -479,7 +564,6 @@ function paint(
   reference(opt.prev, c.tape, [4, 4]);
   if (terminal) reference(current, current >= opt.prev ? c.up : c.down, [2, 5]);
   let vwapNow = current;
-  let averageNow: number | undefined;
   // EMA lines: 1.25px, broken where minutes are missing, like the price line.
   const drawEma = (x: (time: number) => number) => {
     if (!emaLines.length) return;
@@ -521,7 +605,6 @@ function paint(
         if (begun) ctx.lineTo(x, yOf(bar.a));
         else ctx.moveTo(x, yOf(bar.a));
         begun = true;
-        averageNow = bar.a;
       }
       ctx.stroke();
       ctx.restore();
@@ -562,6 +645,8 @@ function paint(
     ctx.stroke();
   }
   ctx.restore();
+  // 漲停／跌停 labels go under the price and EMA lines, so a price at the limit stays visible.
+  drawLabels(labelLayers.under);
   const barWidth = deskChart
     ? candleBodyWidth(plotW, timeSpan)
     : Math.min(minuteColumnWidth(plotW, timeSpan), terminal ? 7 : Infinity);
@@ -739,76 +824,7 @@ function paint(
     ctx.restore();
   }
   ctx.restore();
-  if (deskChart) {
-    // Every in-plot label is placed together, so no two overlap (昨・開・低 2575 when they meet).
-    const lineHeight = c.fontSize + 4;
-    // At ±10% a flat line hugs the previous close: its 昨 label is in the gutter, where it covers nothing.
-    const labels: ChartLabel[] = band
-      ? []
-      : [
-          { key: "prev", text: "昨", price: opt.prev, priceText: label(opt.prev), color: c.tape, x: padL + 4, anchor: "start", y: yOf(opt.prev) },
-        ];
-    if (opt.open && !band)
-      labels.push({ key: "open", text: "開", price: opt.open, priceText: label(opt.open), color: c.muted, x: padL + 4, anchor: "start", y: yOf(opt.open) });
-    if (averageNow !== undefined)
-      labels.push({ key: "average", text: "均", price: averageNow, priceText: averageNow.toFixed(2), color: c.vwap, x: padL + 4, anchor: "start", y: yOf(averageNow) });
-    if (band)
-      labels.push(
-        ...limitChartLabels(opt.prev, { x: padL + 4, lineHeight, up: c.up, down: c.down, yOf, priceText: label }),
-      );
-    // 高／低 would sit in the crowded centre of the ±10% band; the quote table still lists them.
-    const extremes = band ? null : sessionExtremes(bars);
-    if (extremes && extremes.high.p > extremes.low.p) {
-      const at = (point: TickPt) => xOf(point.t + (interval ? interval / 2 : 0));
-      labels.push(
-        { key: "high", text: "高", price: extremes.high.p, priceText: label(extremes.high.p), color: c.up, x: at(extremes.high), anchor: "center", y: yOf(extremes.high.p) - lineHeight },
-        { key: "low", text: "低", price: extremes.low.p, priceText: label(extremes.low.p), color: c.down, x: at(extremes.low), anchor: "center", y: yOf(extremes.low.p) + lineHeight },
-      );
-    }
-    (opt.swingHighs ?? [])
-      .filter((point) => point.confirmedAt <= window.dataEnd && point.t >= window.start && point.t <= window.dataEnd)
-      .forEach((point, index) => {
-        const y = yOf(point.p);
-        const above = y - padT >= lineHeight;
-        labels.push({ key: `swing-${index}`, text: "前高", price: point.p, priceText: label(point.p), color: c.warn, x: w - padR - 4, anchor: "end", y: above ? y - lineHeight / 2 - 1 : y + lineHeight / 2 + 1 });
-      });
-    labels.push(
-      ...levelChartLabels(opt.levels ?? [], {
-        x: w - padR - 4, top: padT, lineHeight, color: c.warn, yOf, priceText: label,
-      }),
-    );
-    ctx.save();
-    ctx.font = font;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    const importance = (key: string) =>
-      key.startsWith("swing-") || key.startsWith("level-")
-        ? 0
-        : ["prev", "high", "low", "open", "average", "limit-up", "limit-down"].indexOf(key) + 1;
-    const placed = resolveChartLabels(
-      opt.fitLabels ? [...labels].sort((a, b) => importance(a.key) - importance(b.key)) : labels,
-      { left: padL + 2, right: w - padR - 2, top: padT, bottom: plotBottom },
-      (text) => ctx.measureText(text).width,
-      lineHeight,
-      opt.fitLabels ? { maxShiftLines: 1 } : {},
-    );
-    for (const item of placed) {
-      const left = snapEdge(item.left, sx);
-      const top = snapEdge(item.y - lineHeight / 2, sy);
-      ctx.fillStyle = c.bg;
-      ctx.fillRect(left, top, snapEdge(item.left + item.width, sx) - left, snapEdge(item.y + lineHeight / 2, sy) - top);
-      let x = item.left + LABEL_PADDING;
-      item.parts.forEach((part, index) => {
-        const text = index ? `・${part.text}` : part.text;
-        ctx.fillStyle = part.color;
-        ctx.fillText(text, snapEdge(x, sx), snapEdge(item.y, sy));
-        x += ctx.measureText(text).width;
-      });
-      ctx.fillStyle = item.parts[0]!.color;
-      ctx.fillText(` ${item.priceText}`, snapEdge(x, sx), snapEdge(item.y, sy));
-    }
-    ctx.restore();
-  }
+  drawLabels(labelLayers.over);
 
   if (opt.showVolume) {
     const maxVolume = Math.max(1, ...bars.map((bar) => bar.v));

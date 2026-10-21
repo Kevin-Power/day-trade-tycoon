@@ -1,7 +1,8 @@
 // 江波 ±10% and EMA11/EMA24 on a disposable classroom after desk-seed (09:27, 台積電 held): the desk
 // opens on 江波; both EMAs are drawn on 江波 and K線; the 漲停／跌停 lines frame the ±10% plot; the
 // watch table's 江波圖 minis use the fixed ±10% scale; the crosshair readout lists the EMAs; phones
-// open on 江波 too; and replaying a minute raises no page error.
+// open on 江波 too; replaying a minute moves the EMAs on with the revealed closes and raises no page
+// error; and a price just under 漲停 stays visible where the 漲停 label sits.
 // Usage: node scripts/qa/desk-jiangbo.mjs <baseUrl> <label>
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -119,6 +120,31 @@ async function bestRow(page, png, hex, fromFraction, toFraction) {
     { b64: png.toString("base64"), hex, fromFraction, toFraction },
   );
 }
+
+// The readout of the newest completed minute: from the middle, enough ArrowRight presses reach the right edge.
+async function newestReadout(page) {
+  await chart(page).focus();
+  for (let i = 0; i < 20; i++) await page.keyboard.press("ArrowRight");
+  await page.waitForTimeout(300);
+  const text = (await page.locator(".td-chart output").first().textContent()) ?? "";
+  await page.keyboard.press("Escape");
+  const ema = (period) => Number(text.match(new RegExp(`EMA${period} (-?\\d+\\.\\d+)`))?.[1]);
+  return { text, minute: text.match(/\b\d{2}:\d{2}\b/)?.[0], ema11: ema(11), ema24: ema(24) };
+}
+// EMA as the spec defines it: seeded with the first close, α = 2/(N+1).
+const emaOf = (closes, period) =>
+  closes.reduce((average, close, index) => (index ? average + (2 / (period + 1)) * (close - average) : close), 0);
+// TWSE price ticks and the ±10% limits, rounded inside the band.
+const tickOf = (price) => (price < 10 ? 0.01 : price < 50 ? 0.05 : price < 100 ? 0.1 : price < 500 ? 0.5 : price < 1000 ? 1 : 5);
+const limitOf = (previous, factor, round) => {
+  const raw = previous * factor;
+  const tick = tickOf(raw);
+  return Number((round(raw / tick - (round === Math.floor ? -1e-9 : 1e-9)) * tick).toFixed(2));
+};
+const shownCode = async (page, symbols) => {
+  const name = (await chart(page).getAttribute("aria-label")) ?? "";
+  return symbols.find((symbol) => name.includes(` ${symbol.code} `));
+};
 
 const blend = (hex, bg, alpha) => {
   const rgb = (value) => [1, 3, 5].map((i) => parseInt(value.slice(i, i + 2), 16));
@@ -282,20 +308,169 @@ await check("7-readout-ema", async () => {
 });
 
 await check("9-replay", async () => {
+  const before = await newestReadout(desktop);
   await desktop.getByRole("button", { name: "前進 1 分鐘" }).click({ timeout: 4000 });
   for (let i = 0; i < 3; i++) {
     await desktop.waitForTimeout(600);
     await chart(desktop).screenshot();
   }
   await rest(desktop);
-  await chart(desktop).focus();
-  await desktop.keyboard.press("ArrowRight");
-  await desktop.waitForTimeout(300);
-  const text = (await desktop.locator(".td-chart output").first().textContent()) ?? "";
-  await desktop.keyboard.press("Escape");
+  const after = await newestReadout(desktop);
   const hero = (await desktop.locator(".td-hero").first().textContent()) ?? "";
-  if (/NaN|undefined/.test(text + hero)) throw new Error(`after the replay: 「${text}」 / 「${hero}」`);
+  if (/NaN|undefined/.test(after.text + hero)) throw new Error(`after the replay: 「${after.text}」 / 「${hero}」`);
   if (pageErrors.length) throw new Error(pageErrors.join("; "));
+  // The EMAs follow the replay: the newest completed minute moved on, and its EMAs are those of every
+  // close the classroom has revealed up to it, never the minute still being replayed.
+  const data = await api();
+  const symbol = await shownCode(desktop, data.catalog.symbols);
+  if (!symbol) throw new Error("cannot tell which stock the chart shows");
+  const closes = (data.state.bars[symbol.code] ?? []).filter((bar) => bar.t + 60 <= data.state.cursor * 60).map((bar) => bar.c);
+  const expected = { ema11: emaOf(closes, 11), ema24: emaOf(closes, 24) };
+  const problems = [];
+  if (!before.minute || before.minute === after.minute) problems.push(`the newest minute stayed at ${after.minute}`);
+  for (const key of ["ema11", "ema24"])
+    if (!(Math.abs(after[key] - expected[key]) <= 0.006))
+      problems.push(`${key} reads ${after[key]}, the revealed closes give ${expected[key].toFixed(2)}`);
+  if (problems.length) throw new Error(`${problems.join("; ")} (readout 「${after.text}」)`);
+  return { before: before.minute, after: after.minute, ema11: after.ema11, ema24: after.ema24 };
+});
+
+await check("12-limit-label-under-line", async () => {
+  // A price just under 漲停 from 09:00 runs through the 漲停 label: the line must stay visible over it.
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: DPR });
+  const page = await context.newPage();
+  page.on("pageerror", (error) => pageErrors.push(`limit: ${error.message}`));
+  const open = async () => {
+    await chart(page).waitFor({ timeout: 20000 });
+    await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 3000 }).catch(() => {});
+    await rest(page);
+  };
+  try {
+    await page.goto(`${base}/morning`, { waitUntil: "domcontentloaded" });
+    await open();
+    const data = await api();
+    const symbol = await shownCode(page, data.catalog.symbols);
+    if (!symbol) throw new Error("cannot tell which stock the chart shows");
+    const up = limitOf(symbol.previousClose, 1.1, Math.floor);
+    const down = limitOf(symbol.previousClose, 0.9, Math.ceil);
+    // Where the 漲停 label sits: up-coloured text just under the 漲停 line, in the left third.
+    const geometry = await page.evaluate(
+      async ({ b64, upText, upLine, downLine, dpr }) => {
+        const image = new Image();
+        image.src = "data:image/png;base64," + b64;
+        await image.decode();
+        const surface = document.createElement("canvas");
+        surface.width = image.width;
+        surface.height = image.height;
+        const ctx = surface.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(image, 0, 0);
+        const { data } = ctx.getImageData(0, 0, image.width, image.height);
+        const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+        const near = (i, c, limit) =>
+          Math.max(Math.abs(c[0] - data[i]), Math.abs(c[1] - data[i + 1]), Math.abs(c[2] - data[i + 2])) <= limit;
+        const fullestRow = (colour, y0, y1) => {
+          const x0 = Math.round(image.width * 0.1);
+          const x1 = Math.round(image.width * 0.85);
+          let best = { row: -1, share: 0 };
+          for (let y = y0; y < y1; y++) {
+            let hits = 0;
+            for (let x = x0; x < x1; x++) if (near((y * image.width + x) * 4, colour, 12)) hits++;
+            if (hits / (x1 - x0) > best.share) best = { row: y, share: hits / (x1 - x0) };
+          }
+          return best.row;
+        };
+        const upRow = fullestRow(rgb(upLine), 0, Math.round(image.height * 0.3));
+        const downRow = fullestRow(rgb(downLine), Math.round(image.height * 0.5), image.height);
+        const text = rgb(upText);
+        const box = { top: Infinity, bottom: -Infinity, left: Infinity, right: -Infinity };
+        for (let y = upRow + 1; y < upRow + 30 * dpr; y++)
+          for (let x = 0; x < Math.round(image.width * 0.35); x++)
+            if (near((y * image.width + x) * 4, text, 40)) {
+              box.top = Math.min(box.top, y);
+              box.bottom = Math.max(box.bottom, y);
+              box.left = Math.min(box.left, x);
+              box.right = Math.max(box.right, x);
+            }
+        return { upRow, downRow, box };
+      },
+      {
+        b64: (await chart(page).screenshot()).toString("base64"),
+        upText: colours.up,
+        upLine: blend(colours.up, colours.bg, 0.7),
+        downLine: blend(colours.down, colours.bg, 0.7),
+        dpr: DPR,
+      },
+    );
+    const { upRow, downRow, box } = geometry;
+    if (!(upRow > 0 && downRow > upRow && box.bottom > box.top && box.right > box.left))
+      throw new Error(`cannot find the 漲停 line and label: ${JSON.stringify(geometry)}`);
+    // A tick price whose line runs through the middle of the label.
+    const perRow = (up - down) / (downRow - upRow);
+    const tick = tickOf(up);
+    const price = Number((Math.round((up - ((box.top + box.bottom) / 2 - upRow) * perRow) / tick) * tick).toFixed(2));
+    await page.route("**/api/morning*", async (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      const response = await route.fetch();
+      const body = await response.json();
+      for (const bar of body.state?.bars?.[symbol.code] ?? []) Object.assign(bar, { o: price, h: price, l: price, c: price });
+      return route.fulfill({ response, json: body });
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await open();
+    const png = await chart(page).screenshot();
+    writeFileSync(`${out}limit-label.png`, png);
+    // The fullest up-coloured row across the label, measured from the 漲停 line found again.
+    const seen = await page.evaluate(
+      async ({ b64, upText, upLine, offsets, left, right }) => {
+        const image = new Image();
+        image.src = "data:image/png;base64," + b64;
+        await image.decode();
+        const surface = document.createElement("canvas");
+        surface.width = image.width;
+        surface.height = image.height;
+        const ctx = surface.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(image, 0, 0);
+        const { data } = ctx.getImageData(0, 0, image.width, image.height);
+        const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+        const near = (i, c, limit) =>
+          Math.max(Math.abs(c[0] - data[i]), Math.abs(c[1] - data[i + 1]), Math.abs(c[2] - data[i + 2])) <= limit;
+        const line = rgb(upLine);
+        const x0 = Math.round(image.width * 0.1);
+        const x1 = Math.round(image.width * 0.85);
+        let upRow = -1;
+        let most = 0;
+        for (let y = 0; y < Math.round(image.height * 0.3); y++) {
+          let hits = 0;
+          for (let x = x0; x < x1; x++) if (near((y * image.width + x) * 4, line, 12)) hits++;
+          if (hits > most) [upRow, most] = [y, hits];
+        }
+        const text = rgb(upText);
+        // The line starts at 09:01, a little right of the label's first character.
+        const from = left + Math.round((right - left) * 0.2);
+        let best = 0;
+        for (let y = upRow + offsets.top; y <= upRow + offsets.bottom; y++) {
+          let hits = 0;
+          for (let x = from; x <= right; x++) if (near((y * image.width + x) * 4, text, 40)) hits++;
+          best = Math.max(best, hits / (right - from + 1));
+        }
+        return { upRow, share: Number(best.toFixed(3)) };
+      },
+      {
+        b64: png.toString("base64"),
+        upText: colours.up,
+        upLine: blend(colours.up, colours.bg, 0.7),
+        offsets: { top: box.top - upRow, bottom: box.bottom - upRow },
+        left: box.left,
+        right: box.right,
+      },
+    );
+    // A line drawn over the label fills a whole row of it; the label's text alone never does.
+    if (seen.share < 0.95)
+      throw new Error(`a price line at ${price} (漲停 ${up}) shows on ${Math.round(seen.share * 100)}% of the 漲停 label's width`);
+    return { price, up, share: seen.share, box };
+  } finally {
+    await context.close();
+  }
 });
 
 await check("11-ema-copy", async () => {
