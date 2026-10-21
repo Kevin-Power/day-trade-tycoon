@@ -1,6 +1,8 @@
 # 正式站發布 2026-10-21（第二次）：交易台審查留下的 9 個小問題
 
-券商式交易台上線後（`docs/deployment-2026-10-21-broker-desk.md`），最終審查還留下 9 個 Minor。使用者說：「把那 9 個小問題也修掉，修好直接上線」。
+券商式交易台上線後（`docs/deployment-2026-10-21-broker-desk.md`），最終審查還留下 9 個 Minor。使用者說：「把那 9 個小問題也修掉，修好直接上線」，看到審查安排後又說「好，審查完直接上線」。
+
+`claude/desk-minors` 快轉合併進 `codex/course-handover`（a609eb7），2026-10-21 03:16Z 上線為 release **`20261021T031218309Z`**。
 
 每一項都先寫一個在現行正式版本（`20261021T015515095Z`）上會失敗的檢查，修好後再通過。只有兩項例外：第 4 項裡的兩個測試，鎖住的是原本就正確的行為，用來補足測試覆蓋。
 
@@ -68,10 +70,28 @@
 
 另外：全套單元測試曾有一次在停用驗收教室的同時，健康檢查測試整檔失敗。單獨執行與重跑全套都通過（855 項：851 通過、4 略過），判斷是暫時性的時序干擾。
 
+## 候選 release
+
+- 乾淨 worktree（a609eb7）先 `build:offline` 再 `build`；離線包與 `.output/downloads` 內的雜湊相同（`6614ba41…`）。
+- `stage-release` 產生 `20261021T031218309Z`，310 個檔案。
+- 隔離整合測試 4/4。
+- 拋棄式教室（以 release 啟動）：首頁 200；種子資料、layout --strict、broker --strict（11 項）、states、orders、ticks 都通過。
+
 ## 停機與切換
 
-（上線後補上。）
+- 03:16:02Z 正常停機，資料庫確認已關閉。
+- 備份 `backups/2026-10-21T03-16-06-559Z`：1,059 個檔案，逐檔核對通過。
+- 只改 `appEntry`：`20261021T015515095Z` → `20261021T031218309Z`（03:16:10Z）。
+- 03:16:26Z 恢復健康，停機約 24 秒（含備份）。
+
+## 發布後檢查
+
+- 46 個公開 JS／CSS 資源的 SHA-256 與 release 相同。
+- 設定除了 `appEntry` 都沒變；3 個秘密檔案的雜湊沒變；上一份 release 保留。
+- 主要路由、`/sw.js`、`/manifest.webmanifest`、`/third-party-notices.txt` 都是 200；`/server/index.mjs` 404。
+- 沒有入場碼時，`/api/daily`、`/api/morning`、`/api/discipline` 都回 403。
+- `/api/health`：`mode: simulation`。
 
 ## 回退
 
-把 `appEntry` 指回 `20261021T015515095Z`。這次沒有資料庫或課程資料變更。
+把 `appEntry` 指回 `20261021T015515095Z`。這次沒有資料庫或課程資料變更。發布紀錄在 `artifacts/deploy-20261021-desk-minors/`。
