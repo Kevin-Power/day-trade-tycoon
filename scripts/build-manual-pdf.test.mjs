@@ -67,6 +67,11 @@ test("manual lists 回覆不明 in 委託回報 and says how to check it", () =>
   for (const term of ["委託回報", "重試這次操作", "重新載入進度", "同一操作編號", "委託成功"])
     assert.ok(unclear?.text.includes(term), term);
 });
+test("every 手冊版本 the manual names is its own version", () => {
+  const named = [...JSON.stringify(source).matchAll(/手冊版本：([0-9A-Za-z-]+)/g)].map((match) => match[1]);
+  assert.ok(named.length >= 1, "the manual names its version");
+  for (const version of named) assert.equal(version, source.version);
+});
 test("web manual names today's plan and replay buttons", () => {
   const page = readFileSync(join(root, "src", "components", "manual-page.tsx"), "utf8");
   for (const term of ["用這個計畫開始", "+1 分", "播放"]) assert.ok(page.includes(term), term);
