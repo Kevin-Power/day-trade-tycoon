@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useGate } from "@/lib/gate/context";
 import { MORNING_EXERCISES } from "@/lib/morning-exercises";
 
-export const MANUAL_VERSION = "2026-10-21-desk";
+export const MANUAL_VERSION = "2026-10-21-desk2";
 const PDF_HREF = `/daytrade-tycoon-manual.pdf?v=${MANUAL_VERSION}`;
 const GITHUB = "https://github.com/Kevin-Power/day-trade-tycoon";
 

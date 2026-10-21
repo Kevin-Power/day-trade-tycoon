@@ -1,6 +1,6 @@
 # 學員 PDF 維護
 
-`docs/pdf-source.json` 是學員手冊的編輯來源。目前為八頁券商式交易台版 `2026-10-21-desk`（前一版 `2026-10-07-realk2`）。`scripts/build-manual-pdf.py` 負責 A4 排版，`scripts/build-manual-pdf.mjs` 在 Windows 選用本機 Python 並驗證輸出。
+`docs/pdf-source.json` 是學員手冊的編輯來源。目前為八頁券商式交易台版 `2026-10-21-desk2`（前一版 `2026-10-21-desk`）。`scripts/build-manual-pdf.py` 負責 A4 排版，`scripts/build-manual-pdf.mjs` 在 Windows 選用本機 Python 並驗證輸出。
 
 ```powershell
 npm run build:manual-pdf
@@ -14,6 +14,17 @@ node --test scripts/build-manual-pdf.test.mjs
 每次內容或版面修改後，需重新產生並用 Poppler 渲染檢視。特別核對教材日期、逐分鐘揭露、紙上成交價格與費稅、入場／帳號區別、提交成功訊息與離線限制。費用、開課日期與付款方案未正式確認前，不加入虛構資訊。
 
 線上下載使用 `?v=${MANUAL_VERSION}`，避開固定網址的 CDN 舊快取。每次修改 PDF 都需同步更新線上手冊的 `MANUAL_VERSION` 與 PDF 來源版本，同日再修改需加修訂碼，不能重用已發佈的版本值。HTTP 驗收按來源版本核對正式 PDF 的 SHA-256；另在外部 Chrome 由 `/manual` 實際按鈕下載，核對網址與檔案。該頁的入場狀態由瀏覽器解析，初始 HTML 不含下載連結，不能把 HTTP 原始 HTML 當作已渲染畫面。
+
+## 2026-10-21-desk2 本地產物與驗證
+
+交易台的委託回報新增「回覆不明」：逾時、連線中斷，或教室的回覆讀不出來時，教室可能已收到委託。這一版只改兩處文字，仍是八頁：
+
+- **第 6 頁**：委託回報的清單補上「回覆不明」。
+- **第 7 頁**：「網路回覆不明時，先核對再重試」改成從委託回報的「回覆不明」說起，並說明重新載入後，教室已收到的委託會列為委託成功。
+
+測試 `scripts/build-manual-pdf.test.mjs` 新增一項：委託回報的段落要列出回覆不明；第 7 頁的段落要提到委託回報、重試這次操作、重新載入進度、同一操作編號與委託成功。改寫前先跑過、確認會失敗，改寫後通過。
+
+用 bundled Python 的 pypdfium2 以 1.4 倍渲染第 6、7 頁，未見截斷或重疊。第 7 頁原本有一行以逗號開頭，改寫句子後消除。PDF 為 392646 bytes，SHA-256 `1598fdbf317265201f13e0b6f31e0cf8ef4e4aa7dfed873e1d6583ad66c9c2d8`。
 
 ## 2026-10-21-desk 本地產物與驗證
 

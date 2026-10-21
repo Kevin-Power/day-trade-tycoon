@@ -59,6 +59,14 @@ test("manual describes the plan templates, the cash re-check at the fill and ave
   const text = JSON.stringify(source);
   for (const term of ["用這個計畫開始", "自己寫", "重新檢核資金", "平均成本未含費用"]) assert.ok(text.includes(term), term);
 });
+test("manual lists 回覆不明 in 委託回報 and says how to check it", () => {
+  const blocks = source.pages.flatMap((page) => page.blocks ?? []);
+  const reports = blocks.find((block) => block.title?.includes("委託回報"));
+  assert.ok(reports?.text.includes("回覆不明"), "the 委託回報 callout lists 回覆不明");
+  const unclear = blocks.find((block) => block.title?.includes("回覆不明"));
+  for (const term of ["委託回報", "重試這次操作", "重新載入進度", "同一操作編號", "委託成功"])
+    assert.ok(unclear?.text.includes(term), term);
+});
 test("web manual names today's plan and replay buttons", () => {
   const page = readFileSync(join(root, "src", "components", "manual-page.tsx"), "utf8");
   for (const term of ["用這個計畫開始", "+1 分", "播放"]) assert.ok(page.includes(term), term);
