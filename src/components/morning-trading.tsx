@@ -299,10 +299,10 @@ export function PaperOrder({
   function focusReview() {
     window.requestAnimationFrame(() => {
       confirmHeading.current?.focus({ preventScroll: true });
-      confirmHeading.current?.closest(".sim-confirm")?.scrollIntoView({
-        block: "nearest",
-        behavior: "auto",
-      });
+      const card = confirmHeading.current?.closest(".sim-confirm");
+      card?.scrollIntoView({ block: "nearest", behavior: "auto" });
+      // A large order's tick is the decision: bring it above the pinned 確認送出 button (scroll-padding).
+      card?.querySelector(".sim-large")?.scrollIntoView({ block: "nearest", behavior: "auto" });
     });
   }
 

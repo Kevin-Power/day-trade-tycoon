@@ -3701,7 +3701,7 @@
 .trading-desk .td-plan-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   min-height: 26px;
   padding: 0 10px;
   color: var(--td-fg);
@@ -4050,7 +4050,12 @@
   flex-wrap: wrap;
   row-gap: 2px;
 }
-/* The 大盤 pane takes focus from the TAIEX row; the panel itself draws no ring after a pointer click. */
-.trading-desk .td-index-panel:focus:not(:focus-visible) {
-  outline: none;
+/* The 大盤 pane takes focus from the TAIEX row: from the keyboard its ring is drawn inside, because the pane
+   clips anything drawn outside it. */
+.trading-desk .td-index-panel:focus-visible {
+  outline-offset: -2px;
+}
+/* 8b: the drawer's sticky header never covers a section scrolled into view (the plan chip lands on 本輪作戰計畫). */
+.trading-desk .td-resources .td-section {
+  scroll-margin-top: 64px;
 }

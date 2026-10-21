@@ -164,10 +164,9 @@ function useMorningData(lessonId: string) {
           const refusal = (await readJsonResponse(response).catch(() => null)) as {
             message?: unknown;
           } | null;
-          lastError.current =
-            typeof refusal?.message === "string" && refusal.message
-              ? refusal.message
-              : "進度已更新，這次操作沒有送出。";
+          const reason =
+            typeof refusal?.message === "string" && refusal.message ? refusal.message : "";
+          lastError.current = reason || "進度已更新，這次操作沒有送出。";
           const latest = await fetch(endpoint, {
             credentials: "same-origin",
             cache: "no-store",
@@ -183,8 +182,9 @@ function useMorningData(lessonId: string) {
           const fresh = readResponse(await readJsonResponse(latest));
           if (!current()) return null;
           setData(fresh);
+          // The server's own reason when it gave one (e.g. 本次練習已達委託筆數上限), as in 委託回報.
           setNotice(
-            "進度已更新，可能有另一個分頁正在操作。已同步最新紀錄並停止自動播放；請核對後再繼續。",
+            `${reason || "進度已更新，可能有另一個分頁正在操作"}。已同步最新紀錄並停止自動播放；請核對後再繼續。`,
           );
           return null;
         }
@@ -393,6 +393,9 @@ function MorningLesson({
   useEffect(() => {
     if (activePane !== "trade") setPrefill(undefined);
   }, [activePane]);
+  useEffect(() => {
+    setPrefill(undefined);
+  }, [code]);
 
   useEffect(() => {
     setAuto(false);
@@ -1010,6 +1013,16 @@ function MorningLesson({
                     )}
                     {singlePane && activePane === "trade" && (
                       <div className="td-mobile-ticket">
+                        {indexView && pendingOrder && (
+                          <PendingOrder
+                            catalog={catalog}
+                            pending={pendingOrder}
+                            busy={Boolean(busy || error || notice)}
+                            canAdvance={canAdvance && !showPlan && !error && !notice}
+                            onAdvance={advance}
+                            onCancel={cancel}
+                          />
+                        )}
                         {indexView ? (
                           <div className="td-index-no-order" role="status">
                             <p>指數不能下單，請選一檔股票</p>
@@ -1020,16 +1033,6 @@ function MorningLesson({
                             >
                               到自選選股票
                             </button>
-                            {pendingOrder && (
-                              <PendingOrder
-                                catalog={catalog}
-                                pending={pendingOrder}
-                                busy={Boolean(busy || error || notice)}
-                                canAdvance={canAdvance && !showPlan && !error && !notice}
-                                onAdvance={advance}
-                                onCancel={cancel}
-                              />
-                            )}
                           </div>
                         ) : (
                           <>

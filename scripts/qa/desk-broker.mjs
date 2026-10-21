@@ -159,6 +159,16 @@ await check("4-watch-table", async () => {
   if (pressed !== null) throw new Error(`the desktop TAIEX row is a toggle (aria-pressed=${pressed})`);
   if (!(await desktop.evaluate(() => Boolean(document.activeElement?.closest('[data-pane="index"]')))))
     throw new Error("the TAIEX row did not move focus to the 大盤 pane");
+  // From the keyboard, the focus ring is drawn inside the pane (its overflow would clip one drawn outside).
+  await desktop.locator('.td-watch-row[data-code="TAIEX"]').focus();
+  await desktop.keyboard.press("Enter");
+  await desktop.waitForTimeout(250);
+  const ring = await desktop.evaluate(() => {
+    const style = getComputedStyle(document.activeElement);
+    return { style: style.outlineStyle, offset: parseFloat(style.outlineOffset), width: parseFloat(style.outlineWidth) };
+  });
+  if (ring.style === "none" || !(ring.width > 0) || !(ring.offset < 0))
+    throw new Error(`the 大盤 pane's keyboard focus ring is not visible inside it (${JSON.stringify(ring)})`);
   return codes;
 });
 
@@ -294,6 +304,33 @@ await check("8-order-reports", async () => {
   await desktop.getByRole("button", { name: "前進一分鐘撮合" }).click();
   await until(async () => (await desktop.locator('.sim-reports li[data-tone="filled"]').count()) > 0, "no 成交 report");
   await rest(desktop);
+  // A 409 refusal (the run moved on in another tab): a 送出失敗 row and a banner, both with the server's reason.
+  {
+    await clearPending(desktop);
+    await selectStock(desktop, "2317");
+    await setLots(desktop, 1);
+    await desktop.getByRole("button", { name: "市價" }).first().click();
+    await desktop.getByRole("button", { name: /^核對模擬買進/ }).click();
+    await desktop.locator(".sim-confirm").waitFor({ timeout: 4000 });
+    const run = await api();
+    await new Promise((resolve) => setTimeout(resolve, Math.max(0, run.nextAdvanceAt - Date.now()) + 60));
+    const moved = await fetch(`${base}/api/morning`, {
+      method: "POST",
+      headers: { origin: base, "content-type": "application/json" },
+      body: JSON.stringify({ action: "advance", id: run.id, expectedRevision: run.revision, requestId: crypto.randomUUID() }),
+    });
+    if (moved.status !== 200) throw new Error(`could not move the run on from another "tab" (${moved.status})`);
+    await desktop.getByRole("button", { name: "確認送出模擬買進" }).click();
+    await until(
+      async () => /練習已更新/.test(await desktop.locator('.sim-reports li[data-tone="failed"]').first().textContent().catch(() => "")),
+      "a send the server refused with 409 left no 送出失敗 report with its reason",
+    );
+    const reload = desktop.getByRole("button", { name: "已核對，載入目前進度" });
+    const banner = clean(await desktop.locator(".td-banner", { has: reload }).first().textContent({ timeout: 4000 }));
+    if (!banner.includes("練習已更新")) throw new Error(`the 409 banner does not give the server's reason: "${banner}"`);
+    await reload.click();
+    await desktop.waitForTimeout(600);
+  }
   // A send the server refuses: more 台積電 than the cash allows.
   const state = await api();
   const tsmc = state.bars["2330"].at(-1).c * 1000;
@@ -305,27 +342,6 @@ await check("8-order-reports", async () => {
   await desktop.getByRole("button", { name: "確認送出模擬買進" }).click();
   await until(async () => /資金不足/.test(await desktop.locator('.sim-reports li[data-tone="failed"]').first().textContent().catch(() => "")), "no failed report");
   await desktop.getByRole("button", { name: /重新載入進度/ }).first().click({ timeout: 4000 }).catch(() => {});
-  await desktop.waitForTimeout(600);
-  await clearPending(desktop);
-  await selectStock(desktop, "2317");
-  await setLots(desktop, 1);
-  await desktop.getByRole("button", { name: "市價" }).first().click();
-  await desktop.getByRole("button", { name: /^核對模擬買進/ }).click();
-  await desktop.locator(".sim-confirm").waitFor({ timeout: 4000 });
-  const failedBefore = await desktop.locator('.sim-reports li[data-tone="failed"]').count();
-  const run = await api();
-  await new Promise((resolve) => setTimeout(resolve, Math.max(0, run.nextAdvanceAt - Date.now()) + 60));
-  const moved = await fetch(`${base}/api/morning`, {
-    method: "POST",
-    headers: { origin: base, "content-type": "application/json" },
-    body: JSON.stringify({ action: "advance", id: run.id, expectedRevision: run.revision, requestId: crypto.randomUUID() }),
-  });
-  if (moved.status !== 200) throw new Error(`could not move the run on from another "tab" (${moved.status})`);
-  await desktop.getByRole("button", { name: "確認送出模擬買進" }).click();
-  await until(
-    async () => (await desktop.locator('.sim-reports li[data-tone="failed"]').count()) > failedBefore,
-    "a send the server refused with 409 left no 送出失敗 report",
-  );
   return "pass";
 });
 
@@ -339,7 +355,17 @@ await check("11-plan-chip", async () => {
   });
   await plan.waitFor({ timeout: 4000 });
   if (!(await plan.evaluate((element) => element.open))) throw new Error("the chip opened 教材 with the plan collapsed");
-  if (!(await plan.isVisible())) throw new Error("the plan section is not in view");
+  const landing = await plan.evaluate((element) => {
+    const head = document.querySelector("#td-resources .td-resources-head")?.getBoundingClientRect();
+    const box = element.getBoundingClientRect();
+    return {
+      focused: document.activeElement === element.querySelector("summary"),
+      belowHeader: !head || box.top >= head.bottom - 1,
+      inView: box.top < innerHeight && box.bottom > 0,
+    };
+  });
+  if (!landing.focused) throw new Error("focus did not land on the plan");
+  if (!landing.belowHeader || !landing.inView) throw new Error(`the plan is not in view (${JSON.stringify(landing)})`);
   await desktop.locator("#td-resources .td-resources-head button").first().click().catch(() => {});
   return label;
 });
@@ -399,6 +425,13 @@ await check("10-phone", async () => {
   const carried = await page.locator("#morning-limit-price").inputValue({ timeout: 800 }).catch(() => null);
   if (carried !== null && Number(carried) === Number(price))
     problems.push(`鴻海's ticket kept 台積電's tapped price ${carried}`);
+  await page.locator('select[aria-label="下單商品"]').selectOption("2330");
+  await page.waitForTimeout(400);
+  const returned = await page.locator("#morning-limit-price").inputValue({ timeout: 800 }).catch(() => null);
+  if (returned !== null && Number(returned) === Number(price))
+    problems.push(`the tapped price ${returned} came back after returning to 台積電`);
+  await page.locator('select[aria-label="下單商品"]').selectOption("2317");
+  await page.waitForTimeout(400);
   // A waiting order stays visible and can be withdrawn while 行情 shows the index.
   await page.getByRole("button", { name: "市價", exact: true }).click();
   await page.getByRole("button", { name: /^核對模擬買進/ }).click();
@@ -411,6 +444,12 @@ await check("10-phone", async () => {
   if (!(await page.getByText("委託已送出 · 等待撮合").first().isVisible()))
     problems.push("the waiting order disappears from 下單 while the index is shown");
   else {
+    const layout = await page.locator(".sim-pending").first().evaluate((panel) => ({
+      nested: Boolean(panel.parentElement?.closest(".td-index-no-order")),
+      align: getComputedStyle(panel).textAlign,
+    }));
+    if (layout.nested || layout.align === "center")
+      problems.push(`the waiting order sits inside the index message (${JSON.stringify(layout)})`);
     await page.getByRole("button", { name: "撤回委託" }).first().click();
     await until(async () => (await api()).orders.at(-1)?.status === "cancelled", "the waiting order was not withdrawn");
   }

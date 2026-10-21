@@ -82,14 +82,21 @@ for (const [width, height] of [
     for (let lots = 1; lots < choice.lots; lots++) await page.getByRole("button", { name: "增加一張" }).click();
     await page.getByRole("button", { name: /^核對模擬買進/ }).click();
     const tick = page.locator("#sim-large-ack");
+    await tick.waitFor({ timeout: 4000 });
+    await page.waitForTimeout(300);
+    // As the card opens (no scrolling by the test), and again after Tab-style scrolling into view.
+    const clearAt = () =>
+      tick.evaluate((input) => {
+        const box = input.getBoundingClientRect();
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        return Boolean(hit?.closest("#sim-large-ack, label[for='sim-large-ack']"));
+      });
+    const clearOnOpen = await clearAt();
     await tick.scrollIntoViewIfNeeded();
-    const box = await tick.boundingBox();
-    const clear = await page.evaluate(
-      ([x, y]) => Boolean(document.elementFromPoint(x, y)?.closest("#sim-large-ack, label[for='sim-large-ack']")),
-      [box.x + box.width / 2, box.y + box.height / 2],
-    );
+    const clear = clearOnOpen && (await clearAt());
     await page.screenshot({ path: `${out}/${name}-large-order.png` });
-    if (!clear) failures.push(`${name}: the pinned send button covers the large-order tick`);
+    if (!clear)
+      failures.push(`${name}: the pinned send button covers the large-order tick (on open: ${clearOnOpen ? "clear" : "covered"})`);
     await page.getByRole("button", { name: "返回修改" }).click();
   } catch (error) {
     failures.push(`${name} large order: ${error.message.split("\n")[0]}`);

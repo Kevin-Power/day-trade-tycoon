@@ -218,6 +218,7 @@ function IndexRow({
       onClick={onIndex}
     >
       {children}
+      {selected === undefined && <span className="sr-only">，前往右上大盤區</span>}
     </button>
   ) : (
     <div className="td-watch-row" data-code="TAIEX" data-tone={tone} data-static="true">
