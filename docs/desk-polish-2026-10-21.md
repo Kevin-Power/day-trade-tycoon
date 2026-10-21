@@ -7,7 +7,7 @@
   2. 江波圖：漲停／跌停標籤蓋線、EMA 資料規則；
   3. 程式細節：QA 腳本與註解。
 - 分支 `claude/desk-polish`（worktree `.worktrees/desk-polish`），起點 `codex/course-handover` 417606f。
-- 這批尚未上線，要等使用者另外說「上線」。
+- 使用者說「好，上線」。快轉合併進 `codex/course-handover`（d4a8f1c），2026-10-21 09:44Z 上線為 release **`20261021T093902251Z`**（見文末「正式站發布」）。
 
 ## 一、委託回報：回覆不明
 
@@ -102,5 +102,58 @@
 
 ## 尚未驗證
 
-- 手機實機與 Safari（跟先前相同）。
+- 手機實機，以及 Mac／iPhone 上真正的 Safari。下面的 WebKit 檢查只是近似。
 - 老師的 EMA 定義（週期、暖身資料、起始值）是否與交易台相同。
+
+## 正式站發布（2026-10-21）
+
+**候選 release**
+
+- 乾淨 worktree（d4a8f1c）先跑 `build:offline` 再跑 `build`。離線包和 `.output/downloads` 裡的那份雜湊相同（`6f9aa88b…`）。
+- `stage-release` 產生 `20261021T093902251Z`，共 310 個檔案。
+- 隔離整合測試 4/4 通過。
+- 在以 release 啟動的三間拋棄式教室裡：
+  - 首頁 200；
+  - layout --strict、states、下單、江波 12 項、ticks、broker --strict、委託回報 3 項都通過。
+
+**停機與切換**
+
+- 09:44:23Z 正常停機，資料庫確認已關閉。
+- 備份 `backups/2026-10-21T09-44-23-556Z`：1,060 個檔案，逐檔核對通過。
+- 09:44:25Z 只改 `appEntry`：`20261021T070515367Z` → `20261021T093902251Z`。
+- 09:44:37Z 恢復健康。停機約 18 秒（從最後一次健康檢查算起，含備份）。
+
+**發布後檢查**
+
+- 46 個公開 JS／CSS 檔案的 SHA-256 與 release 相同。
+- 正式站 `/daytrade-tycoon-manual.pdf?v=2026-10-21-desk` 回 200，雜湊與 release 內的 PDF 相同（這批沒有改 PDF）。
+- 設定除了 `appEntry` 都沒變；3 個機密檔案的雜湊沒變；上一份 release 仍保留。
+- 主要路由、`/sw.js`、`/manifest.webmanifest`、`/third-party-notices.txt` 都回 200；`/server/index.mjs` 回 404。
+- 沒有入場碼時，`/api/daily`、`/api/morning`、`/api/discipline` 都回 403。
+- `/api/health` 回報 `mode: simulation`。
+
+**回復方式**
+
+- 把 `appEntry` 指回 `20261021T070515367Z` 即可。這次沒有資料庫或課程資料變更。
+- 發布紀錄在 `artifacts/deploy-20261021-desk-polish/`。
+
+## WebKit（近似 Safari）檢查
+
+- 使用者同意下載 Playwright 的 WebKit 26.5（`npx playwright install webkit`）。
+  - 來源是 cdn.playwright.dev，安裝後約 170MB，只放在 Playwright 的快取資料夾。
+  - 它在 Windows 上用 WebKit 引擎近似 Safari 的排版與行為。字型和繪製細節仍和 Mac／iPhone 的 Safari 不同，不能取代實機。
+- 做法：QA 腳本不改。啟動時把 Chromium 換成 WebKit，在以正式 release 啟動的三間拋棄式教室跑同一套檢查。
+
+**結果**
+
+- 版面 strict（20 種尺寸）、states、下單、江波 12 項、券商台 strict、委託回報 3 項，都通過。
+- ticks：第一次因為「慢速手機」要用 Chromium 才有的 CDP 降速而中斷；略過降速後通過。WebKit 沒有 Long Tasks 偵測，所以主執行緒卡頓只能在 Chromium 量。
+
+**發現的問題：下拉選單看不到字**
+
+- 電腦版的三個下拉選單（左上的課程、圖表上方的股票、模擬下單的股票）和手機「下單」頁的股票選單，在 WebKit 都是淺色原生外觀，淺色字看不見。
+- 原因：新版交易台沒有設定 `color-scheme: dark`。舊版 terminal 有這行（`styles.css` 的 `.terminal-shell[data-market-theme="dark"]`），改版後的交易台沒有帶過來。Safari 畫原生選單時會參考 color-scheme。
+- 在 WebKit 試加 `color-scheme: dark` 後，選單變深色，文字與箭頭都清楚。Chromium 本來就正常。
+- 新的檢查 `scripts/qa/desk-controls.mjs` 量這四個選單：要大部分是深色，而且看得到淺色的字。
+  - 在這次上線的版本上，WebKit 四個都失敗（約 90% 是淺色）；Chromium 四個都通過。
+- 修正另外準備，要使用者同意才上線。
