@@ -217,20 +217,22 @@ class Ticks:
         except Exception as error:  # noqa: BLE001 - one stock's failure never stops the others
             self.store.log(day, f"逐筆 {code}：留下的回應讀不回來（{type(error).__name__}: {error}）",
                            self.runtime.now())
-            return result
-        why = f"這次沒抓到（{result['error']}）" if result["status"] == "failed" else "這次的回應比留下的備份少"
+            return {**result, "retry": True}  # a later look may read it
+        why = "這次的回應比留下的備份少" if latest else f"這次沒抓到（{result['error']}）"
         self.store.log(day, f"逐筆 {code}：{why}，改用留下的備份", self.runtime.now())
         return {**chosen, "error": "；".join(filter(None, (chosen["error"], "用留下的備份")))}
 
-    def publish(self, day: str, results: list[dict], record: dict) -> None:
-        """Publishes kept trades; rejected answers go along with their reason. Fills in the record."""
+    def publish(self, day: str, results: list[dict], record: dict, evidence: bool = False) -> None:
+        """Publishes kept trades; rejected answers go along with their reason. Fills in the record.
+
+        With `evidence`, a day with nothing usable is still published when staging holds answers that cannot be
+        decoded, so that a late day does not wait (and notify) forever.
+        """
         kept = [result for result in results if result["status"] in ("ok", "incomplete")]
         rejected = [{"code": result["code"], "error": result["error"]} for result in results
                     if result["status"] == "rejected"]
         record["symbols"].update(fetched=len(kept), failed=len(results) - len(kept))
-        # A day with nothing usable but answers that cannot be decoded is still published, as evidence, so it
-        # does not wait in staging (and notify) forever.
-        if not kept and not rejected and not self.store.has_tick_answers(day):
+        if not kept and not rejected and not (evidence and results and self.store.has_tick_answers(day)):
             record["reason"] = record["reason"] or "沒有任何逐筆成交"
             return
         # An incomplete stock carries its reason in a note: the logs that also have it are pruned after 90 days.
@@ -269,7 +271,7 @@ class Ticks:
                         result = (assess(cached[0], code, day, cached[1]) if cached else
                                   {"code": code, "name": code, "status": "failed", "error": "沒有可用的回應"})
                     except Exception as error:  # noqa: BLE001 - one stock's failure never stops the others
-                        result = {"code": code, "name": code, "status": "failed",
+                        result = {"code": code, "name": code, "status": "failed", "retry": True,
                                   "error": f"未預期的錯誤：{type(error).__name__}: {error}"}
                     results.append(self.fullest(day, result))
                 record["symbols"]["total"] = len(results)
@@ -277,7 +279,8 @@ class Ticks:
                 if problems:
                     record["reason"] += f"；{len(problems)} 檔沒抓齊：" + "、".join(
                         f"{result['code']}（{result['error']}）" for result in problems[:5])
-                self.publish(day, results, record)
+                # Answers that only could not be read just now may be read next time; undecodable ones never.
+                self.publish(day, results, record, evidence=not any(result.get("retry") for result in results))
             except Exception as error:  # noqa: BLE001 - never stops today's run
                 record["reason"] = f"補上架失敗：{type(error).__name__}: {error}"
                 self.store.log(day, f"逐筆：{record['reason']}", self.runtime.now())

@@ -1,5 +1,6 @@
 """Randomized check that no answer Fubon gives for today's trades is ever lost: three runs a day, each stock
-getting, at random in each run, a whole, short, cut, cut-at-the-last-page, rejected, failed or missing answer."""
+getting, at random in each run, a whole, short, cut, cut-at-the-last-page, rejected, failed or missing answer.
+In some days the 19:00 run never happens and the next day's first run publishes what was left."""
 import gzip
 import json
 import random
@@ -7,13 +8,16 @@ import unittest
 from datetime import datetime
 from unittest import mock
 
-from fubon_daily.client import ApiError, NotFound
+from fubon_daily.client import ApiError, LoginError, NotFound
 from fubon_daily.normalize import TAIPEI
+from fubon_daily.ticks import coverage
 from tests.fixtures import DATE, full_day, quote, snapshot, trade
 from tests.test_pipeline import FakeClient, PipelineHarness
 
 RUNS = (datetime(2026, 10, 15, 16, 45, tzinfo=TAIPEI), datetime(2026, 10, 15, 18, 0, tzinfo=TAIPEI),
         datetime(2026, 10, 15, 19, 0, tzinfo=TAIPEI))
+NEXT_DAY = datetime(2026, 10, 16, 16, 45, tzinfo=TAIPEI)
+FACTS = {"tradeVolume": 5, "close": 50}
 ANSWERS = ("whole", "short", "cut", "cut-last-page", "rejected")  # Fubon sends at least one page
 OUTCOMES = ANSWERS + ("failed", "missing")
 CODES = tuple(str(1100 + n) for n in range(8))
@@ -53,14 +57,15 @@ class NeverLoseTest(PipelineHarness, unittest.TestCase):
         rng = random.Random(20261021)
         for scenario in range(SCENARIOS):
             plans = [{code: rng.choice(OUTCOMES) for code in CODES} for _ in RUNS]
-            with self.subTest(scenario=scenario, plans=plans):
+            evening_missed = rng.random() < 0.3
+            with self.subTest(scenario=scenario, plans=plans, evening_missed=evening_missed):
                 self.tearDown()
                 self.setUp()
                 given = {code: [] for code in CODES}  # the runs whose answer Fubon gave, per stock
                 whole = set()
                 with mock.patch("fubon_daily.ticks.TRADE_PAGE_SIZE", 2):
                     for run, (at, plan) in enumerate(zip(RUNS, plans)):
-                        if (self.data / "ticks" / DATE).exists():
+                        if (self.data / "ticks" / DATE).exists() or (evening_missed and run == 2):
                             break
                         fubon = fake_fubon(run, plan, first=run == 0)
                         self.run_once(fubon, at=at)
@@ -70,21 +75,29 @@ class NeverLoseTest(PipelineHarness, unittest.TestCase):
                                 given[call[1]].append(run)
                                 if plan[call[1]] == "whole":
                                     whole.add(call[1])
+                    if evening_missed:  # the next day's first run publishes what the evening left
+                        self.run_once(FakeClient(login_error=LoginError("down")), at=NEXT_DAY)
                 folder = self.data / "ticks" / DATE
                 if not (folder / "manifest.json").is_file():
                     self.assertEqual([runs for runs in given.values() if runs], [])  # nothing was ever given
                     continue
                 manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
                 published = {code: [] for code in CODES}
+                fullness = {code: {} for code in CODES}  # regular-session lots of each answer published
                 for item in manifest["files"]:
                     path = item["path"]
                     if path.startswith("raw/") or (path.startswith("fallback/") and path.endswith(".json.gz")):
+                        code = path.split("/")[1].split(".")[0]
                         pages = json.loads(gzip.decompress((folder / path).read_bytes()))
-                        published[path.split("/")[1].split(".")[0]].append(pages[0]["data"][0]["bid"] - 1)
+                        published[code].append(pages[0]["data"][0]["bid"] - 1)
+                        fullness[code][path] = coverage(pages, code, DATE, {"name": code, **FACTS})[0]
                 for code in CODES:
                     self.assertEqual(sorted(published[code]), sorted(given[code]), code)
                 complete = {entry["code"] for entry in manifest["symbols"] if entry["complete"]}
                 self.assertLessEqual(complete, whole)
+                for entry in manifest["symbols"]:  # each stock's trades come from its fullest answer
+                    code = entry["code"]
+                    self.assertEqual(fullness[code][f"raw/{code}.json.gz"], max(fullness[code].values()), code)
                 self.assertFalse((self.data / "staging-ticks" / DATE).exists())
 
 

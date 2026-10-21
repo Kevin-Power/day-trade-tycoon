@@ -245,8 +245,11 @@ class MarketStore:
             self.drop_tick_raw(day, code)  # a save cut short then leaves no answer, never old trades with new facts
         self.save_tick_raw(day, code, pages, meta)
         folder = self._fallback_folder(day, code)
-        (folder / f"{name}.json.gz").unlink(missing_ok=True)
-        (folder / f"{name}.json").unlink(missing_ok=True)
+        for path in (folder / f"{name}.json.gz", folder / f"{name}.json"):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass  # held by a scanner, say: it then goes along as evidence a second time, nothing is lost
 
     def has_tick_answers(self, day: str) -> bool:
         """Whether staging holds any answer for the day, kept or set aside, decodable or not."""
