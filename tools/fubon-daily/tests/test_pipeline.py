@@ -15,6 +15,7 @@ from tests.fixtures import (DATE, DISPOSITION, daily, full_day, quote, snapshot,
 
 SECRETS = ("A123456789", "SECRETKEY123", "CERTPASS999")
 AFTERNOON = datetime(2026, 10, 15, 16, 45, tzinfo=TAIPEI)
+MIDDLE = datetime(2026, 10, 15, 18, 0, tzinfo=TAIPEI)
 EVENING = datetime(2026, 10, 15, 19, 0, tzinfo=TAIPEI)
 
 
@@ -473,6 +474,62 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         self.assertIn("2330", self.status()["ticks"]["reason"])
         self.assertIsNone(MarketStore(self.data).load_tick_raw(DATE, "2330"))
 
+    def test_pages_fetched_before_a_failure_are_published_when_nothing_better_comes(self):
+        rows = [trade(DATE, 9, 0, second, 2440, 1, second + 1, volume=second + 1) for second in range(5)]
+        first = FakeClient(minutes=good_minutes(), trades={"2330": rows},
+                           trade_errors={("2330", 2): [ApiError("500", 500)] * 3})
+        last = FakeClient(trade_errors={"2330": ApiError("500", 500)})
+        with mock.patch("fubon_daily.ticks.TRADE_PAGE_SIZE", 2):
+            self.assertEqual(self.run_once(first), 0)
+            self.assertFalse((self.data / "ticks").exists())
+            self.assertIsNone(MarketStore(self.data).load_tick_raw(DATE, "2330"))  # still fetched again next time
+            self.assertEqual(self.run_once(last, at=EVENING), 0)
+        self.assertIn(("trades", "2330", 0), last.calls)
+        self.assertEqual([(entry["code"], entry["trades"], entry["complete"])
+                          for entry in self.tick_manifest()["symbols"]], [("2330", 2, False), ("1413", 1, True)])
+        self.assertEqual(self.status()["ticks"]["outcome"], "partial")
+
+    def test_the_last_attempt_publishes_the_pages_it_got_before_a_failure(self):
+        rows = [trade(DATE, 9, 0, second, 2440, 1, second + 1, volume=second + 1) for second in range(5)]
+        client = FakeClient(minutes=good_minutes(), trades={"2330": rows},
+                            trade_errors={("2330", 2): ApiError("500", 500)})
+        with mock.patch("fubon_daily.ticks.TRADE_PAGE_SIZE", 2):
+            self.assertEqual(self.run_once(client, at=EVENING), 0)
+        self.assertEqual([(entry["code"], entry["trades"], entry["complete"])
+                          for entry in self.tick_manifest()["symbols"]], [("2330", 2, False), ("1413", 1, True)])
+
+    def test_pages_cut_short_are_never_complete_even_with_the_whole_volume(self):
+        # The page that failed may have held later trades, the 14:30 fixed-price match for one.
+        rows = [trade(DATE, 9, 0, 0, 2440, 58486, 1, volume=58486), trade(DATE, 13, 30, 0, 2440, 1, 2, volume=58487)]
+        client = FakeClient(minutes=good_minutes(), trades={"2330": rows},
+                            trade_errors={("2330", 2): ApiError("500", 500)})
+        with mock.patch("fubon_daily.ticks.TRADE_PAGE_SIZE", 2):
+            self.assertEqual(self.run_once(client, at=EVENING), 0)
+        entry = self.tick_manifest()["symbols"][0]
+        self.assertEqual((entry["code"], entry["volume"], entry["complete"]), ("2330", 58487, False))
+        ticks = self.status()["ticks"]
+        self.assertEqual(ticks["outcome"], "partial")
+        self.assertIn("只抓到前 2 筆", ticks["reason"])
+
+    def test_an_incomplete_stock_says_why_in_the_manifest(self):
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short), at=EVENING), 0)
+        entries = {entry["code"]: entry for entry in self.tick_manifest()["symbols"]}
+        self.assertEqual(entries["2330"]["note"], "逐筆量 5 少於當日量 58487")
+        self.assertNotIn("note", entries["1413"])
+
+    def test_pages_cut_short_that_fail_the_checks_say_both(self):
+        broken = [trade(DATE, 9, 0, 0, 2440, 1, 1, volume=1), trade(DATE, 9, 0, 1, 2440, 1, 2, volume=9),
+                  trade(DATE, 9, 0, 2, 2440, 1, 3, volume=10)]
+        client = FakeClient(minutes=good_minutes(), trades={"2330": broken},
+                            trade_errors={("2330", 2): ApiError("500", 500)})
+        with mock.patch("fubon_daily.ticks.TRADE_PAGE_SIZE", 2):
+            self.assertEqual(self.run_once(client, at=EVENING), 0)
+        rejected = self.tick_manifest()["rejected"]
+        self.assertEqual([item["code"] for item in rejected], ["2330"])
+        self.assertIn("累計量", rejected[0]["error"])
+        self.assertIn("只抓到前 2 筆", rejected[0]["error"])
+
     def test_trades_short_of_the_days_volume_are_fetched_again_then_kept_as_incomplete(self):
         short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
         self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short)), 0)
@@ -486,6 +543,232 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         self.assertEqual([(entry["code"], entry["complete"]) for entry in manifest["symbols"]],
                          [("2330", False), ("1413", True)])
         self.assertEqual(self.status()["ticks"]["outcome"], "partial")
+
+    def test_a_short_answer_is_published_as_incomplete_when_every_refetch_fails(self):
+        # Fubon serves today's trades only: once the refetches fail, the short answer is all there is.
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short)), 0)
+        self.assertIsNone(MarketStore(self.data).load_tick_raw(DATE, "2330"))  # still fetched again next time
+        down = {"2330": ApiError("500", 500)}
+        self.assertEqual(self.run_once(FakeClient(trade_errors=down), at=MIDDLE), 0)
+        self.assertFalse((self.data / "ticks").exists())
+        last = FakeClient(trade_errors=down)
+        self.assertEqual(self.run_once(last, at=EVENING), 0)
+        self.assertIn(("trades", "2330", 0), last.calls)
+        manifest = self.tick_manifest()
+        self.assertEqual([(entry["code"], entry["trades"], entry["volume"], entry["complete"])
+                          for entry in manifest["symbols"]], [("2330", 1, 5, False), ("1413", 1, 26, True)])
+        self.assertTrue((self.data / "ticks" / DATE / "raw" / "2330.json.gz").is_file())
+        ticks = self.status()["ticks"]
+        self.assertEqual((ticks["outcome"], ticks["symbols"]["fetched"]), ("partial", 2))
+        self.assertIn("2330", ticks["reason"])
+        self.assertEqual(len(self.notices), 1)
+
+    def kept_aside(self, code, manifest=None):
+        """The answers published as evidence for a stock (set aside, not the source of its trades), in order."""
+        folder = self.data / "ticks" / DATE
+        return [json.loads(gzip.decompress((folder / item["path"]).read_bytes()))
+                for item in (manifest or self.tick_manifest())["files"]
+                if item["path"].startswith(f"fallback/{code}/") and item["path"].endswith(".json.gz")]
+
+    def test_an_answer_set_aside_is_published_even_when_a_later_one_is_used(self):
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short)), 0)
+        broken = {"2330": [trade(DATE, 13, 30, 0, 2440, 58487, 1, volume=58488)]}  # running volume off by one
+        self.assertEqual(self.run_once(FakeClient(trades=broken), at=EVENING), 0)
+        manifest = self.tick_manifest()
+        # The latest answer is judged as before; the earlier one is kept beside it, never thrown away.
+        self.assertEqual([item["code"] for item in manifest["rejected"]], ["2330"])
+        self.assertEqual([entry["code"] for entry in manifest["symbols"]], ["1413"])
+        self.assertEqual([pages[0]["data"][0]["size"] for pages in self.kept_aside("2330", manifest)], [5])
+
+    def test_an_answer_set_aside_goes_along_when_the_refetch_is_whole(self):
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short)), 0)
+        self.assertEqual(self.run_once(FakeClient(), at=EVENING), 0)
+        manifest = self.tick_manifest()
+        self.assertEqual([(entry["code"], entry["complete"]) for entry in manifest["symbols"]],
+                         [("2330", True), ("1413", True)])
+        self.assertEqual([pages[0]["data"][0]["size"] for pages in self.kept_aside("2330", manifest)], [5])
+
+    def test_a_fuller_answer_set_aside_beats_a_shorter_last_answer(self):
+        fuller = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=fuller)), 0)
+        thinner = {"2330": [trade(DATE, 9, 0, 0, 2440, 3, 1, volume=3)]}
+        self.assertEqual(self.run_once(FakeClient(trades=thinner), at=EVENING), 0)
+        manifest = self.tick_manifest()
+        self.assertEqual([(entry["code"], entry["volume"], entry["complete"]) for entry in manifest["symbols"]],
+                         [("2330", 5, False), ("1413", 26, True)])
+        self.assertEqual([pages[0]["data"][0]["size"] for pages in self.kept_aside("2330", manifest)], [3])
+
+    def test_every_answer_set_aside_is_kept(self):
+        # Pages cut short that fail the checks, then a short answer that passes: the second is published, the
+        # first goes along as evidence instead of being overwritten.
+        broken = [trade(DATE, 9, 0, 0, 2440, 1, 1, volume=1), trade(DATE, 9, 0, 1, 2440, 1, 2, volume=9),
+                  trade(DATE, 9, 0, 2, 2440, 1, 3, volume=10)]
+        first = FakeClient(minutes=good_minutes(), trades={"2330": broken},
+                           trade_errors={("2330", 2): [ApiError("500", 500)] * 3})
+        with mock.patch("fubon_daily.ticks.TRADE_PAGE_SIZE", 2):
+            self.assertEqual(self.run_once(first), 0)
+            short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+            self.assertEqual(self.run_once(FakeClient(trades=short), at=MIDDLE), 0)
+            down = FakeClient(trade_errors={"2330": ApiError("500", 500)})
+            self.assertEqual(self.run_once(down, at=EVENING), 0)
+        manifest = self.tick_manifest()
+        self.assertEqual([(entry["code"], entry["volume"], entry["complete"]) for entry in manifest["symbols"]],
+                         [("2330", 5, False), ("1413", 26, True)])
+        self.assertEqual([len(pages[0]["data"]) for pages in self.kept_aside("2330", manifest)], [2])
+
+    def test_ties_go_to_the_latest_answer(self):
+        # As many lots: the newer of two answers set aside wins, and the latest answer beats an equal one set aside.
+        def short(price):
+            return {"2330": [trade(DATE, 9, 0, 0, price, 5, 1, volume=5)]}
+
+        for last in ("failed", "short"):
+            with self.subTest(last=last):
+                self.tearDown()
+                self.setUp()
+                self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short(2440))), 0)
+                self.assertEqual(self.run_once(FakeClient(trades=short(2441)), at=MIDDLE), 0)
+                final = (FakeClient(trade_errors={"2330": ApiError("500", 500)}) if last == "failed"
+                         else FakeClient(trades=short(2442)))
+                self.assertEqual(self.run_once(final, at=EVENING), 0)
+                entry = self.tick_manifest()["symbols"][0]
+                self.assertEqual((entry["code"], entry["close"]), ("2330", 2441 if last == "failed" else 2442))
+
+    def test_a_whole_short_answer_beats_one_cut_short_with_as_many_lots(self):
+        # The pages after a cut may hold more, the 14:30 fixed-price trade for one: on a tie the answer that was
+        # not cut wins, whether or not it has that trade.
+        fixed = {"price": 2440, "size": 34, "time": trade(DATE, 14, 30, 0, 1, 1, 1)["time"], "serial": 99999999}
+        for after_hours in ([fixed], []):
+            with self.subTest(after_hours=bool(after_hours)):
+                self.tearDown()
+                self.setUp()
+                whole = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)] + after_hours}
+                self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=whole)), 0)
+                cut = FakeClient(trades={"2330": [trade(DATE, 9, 0, 0, 2441, 5, 1, volume=5),
+                                                  trade(DATE, 9, 0, 1, 2441, 1, 2, volume=6)]},
+                                 trade_errors={("2330", 1): [ApiError("500", 500)] * 3})
+                with mock.patch("fubon_daily.ticks.TRADE_PAGE_SIZE", 1):
+                    self.assertEqual(self.run_once(cut, at=MIDDLE), 0)
+                down = FakeClient(trade_errors={"2330": ApiError("500", 500)})
+                self.assertEqual(self.run_once(down, at=EVENING), 0)
+                entry = self.tick_manifest()["symbols"][0]
+                self.assertEqual((entry["code"], entry["volume"], entry["close"], entry["afterHours"]["trades"]),
+                                 ("2330", 5, 2440, len(after_hours)))
+
+    def test_on_a_tie_the_answer_with_the_after_hours_trade_wins(self):
+        fixed = {"price": 2440, "size": 34, "time": trade(DATE, 14, 30, 0, 1, 1, 1)["time"], "serial": 99999999}
+        with_fixed = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5), fixed]}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=with_fixed)), 0)
+        without = {"2330": [trade(DATE, 9, 0, 0, 2441, 5, 1, volume=5)]}  # newer, as many lots, no fixed-price trade
+        self.assertEqual(self.run_once(FakeClient(trades=without), at=MIDDLE), 0)
+        self.assertEqual(self.run_once(FakeClient(trade_errors={"2330": ApiError("500", 500)}), at=EVENING), 0)
+        entry = self.tick_manifest()["symbols"][0]
+        self.assertEqual((entry["code"], entry["close"], entry["afterHours"]["trades"]), ("2330", 2440, 1))
+
+    def test_a_rejected_latest_answer_read_on_the_second_try_stays_rejected(self):
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short)), 0)
+        broken = {"2330": [trade(DATE, 13, 30, 0, 2440, 58487, 1, volume=58488)]}  # kept, fails the checks
+        self.assertEqual(self.run_once(FakeClient(trades=broken), at=MIDDLE), 0)
+        real, held = MarketStore.load_tick_raw, ["2330"]
+
+        def busy_once(store, day, code):
+            if code in held:
+                held.remove(code)
+                raise PermissionError("held by a scanner")
+            return real(store, day, code)
+
+        with mock.patch.object(MarketStore, "load_tick_raw", busy_once):
+            self.assertEqual(self.run_once(FakeClient(), at=EVENING), 0)
+        manifest = self.tick_manifest()
+        self.assertEqual([item["code"] for item in manifest["rejected"]], ["2330"])
+        self.assertEqual([entry["code"] for entry in manifest["symbols"]], ["1413"])
+
+    def test_a_fallback_that_cannot_be_removed_after_use_is_still_used(self):
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short)), 0)
+        real = Path.unlink
+
+        def held(path, *args, **kwargs):
+            if "fallback" in path.parts:
+                raise PermissionError("held by a scanner")
+            return real(path, *args, **kwargs)
+
+        with mock.patch.object(Path, "unlink", held):
+            self.assertEqual(self.run_once(FakeClient(trade_errors={"2330": ApiError("500", 500)}), at=EVENING), 0)
+        entries = {entry["code"]: entry for entry in self.tick_manifest()["symbols"]}
+        self.assertEqual((entries["2330"]["volume"], entries["2330"]["complete"]), (5, False))
+
+    def test_a_shorter_latest_answer_is_logged_as_shorter_even_after_a_read_error(self):
+        fuller = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=fuller)), 0)
+        # A shorter latest answer waits in staging (a last attempt was stopped before publishing it).
+        MarketStore(self.data).save_tick_raw(DATE, "2330", [trades_page("2330", DATE, [
+            trade(DATE, 9, 0, 0, 2440, 3, 1, volume=3)])], {"name": "台積電", "tradeVolume": 58487, "close": 2440})
+        real, held = MarketStore.load_tick_raw, ["2330"]
+
+        def busy_once(store, day, code):
+            if code in held:
+                held.remove(code)
+                raise PermissionError("held by a scanner")
+            return real(store, day, code)
+
+        with mock.patch.object(MarketStore, "load_tick_raw", busy_once):
+            self.assertEqual(self.run_once(FakeClient(), at=EVENING), 0)
+        log = (self.data / "logs" / f"{DATE}.log").read_text(encoding="utf-8")
+        self.assertEqual(self.tick_manifest()["symbols"][0]["volume"], 5)
+        self.assertIn("逐筆 2330：這次的回應比留下的備份少，改用留下的備份", log)
+        self.assertNotIn("PermissionError），改用留下的備份", log)
+
+    def test_a_moments_read_error_on_the_last_chance_still_publishes_the_whole_answer(self):
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        down = {"1413": [ApiError("500", 500)] * 3}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short, trade_errors=down)), 0)
+        self.assertEqual(self.run_once(FakeClient(trade_errors={"1413": [ApiError("500", 500)] * 3}), at=MIDDLE), 0)
+        real, held = MarketStore.load_tick_raw, ["2330"]
+
+        def busy_once(store, day, code):
+            if code in held:
+                held.remove(code)
+                raise PermissionError("held by a scanner")
+            return real(store, day, code)
+
+        with mock.patch.object(MarketStore, "load_tick_raw", busy_once):
+            self.assertEqual(self.run_once(FakeClient(), at=EVENING), 0)
+        entry = {entry["code"]: entry for entry in self.tick_manifest()["symbols"]}["2330"]
+        self.assertEqual((entry["volume"], entry["complete"]), (58487, True))
+
+    def test_a_short_answer_stays_until_it_is_set_aside(self):
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        with mock.patch.object(MarketStore, "add_tick_fallback", side_effect=OSError("disk is busy")):
+            self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short)), 0)
+        self.assertIsNotNone(MarketStore(self.data).load_tick_raw(DATE, "2330"))
+
+    def test_an_answer_set_aside_that_cannot_be_read_back_does_not_stop_the_others(self):
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short)), 0)
+        down = FakeClient(trade_errors={"2330": ApiError("500", 500)})
+        with mock.patch.object(MarketStore, "tick_fallbacks", side_effect=OSError("disk is busy")):
+            self.assertEqual(self.run_once(down, at=EVENING), 0)
+        self.assertTrue(MarketStore(self.data).has_ticks(DATE))
+        self.assertEqual([entry["code"] for entry in self.tick_manifest()["symbols"]], ["1413"])
+        self.assertIn("2330", self.status()["ticks"]["reason"])
+        self.assertEqual(len(self.kept_aside("2330")), 1)
+
+    def test_the_fuller_of_two_short_answers_is_the_one_kept(self):
+        for first, second in ((5, 3), (3, 5)):
+            with self.subTest(first=first, second=second):
+                self.tearDown()
+                self.setUp()
+                answers = [{"2330": [trade(DATE, 9, 0, 0, 2440, lots, 1, volume=lots)]} for lots in (first, second)]
+                self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=answers[0])), 0)
+                self.assertEqual(self.run_once(FakeClient(trades=answers[1]), at=MIDDLE), 0)
+                down = FakeClient(trade_errors={"2330": ApiError("500", 500)})
+                self.assertEqual(self.run_once(down, at=EVENING), 0)
+                self.assertEqual([(entry["code"], entry["volume"]) for entry in self.tick_manifest()["symbols"]],
+                                 [("2330", 5), ("1413", 26)])
 
     def test_a_trades_only_retry_that_fails_keeps_the_candle_run(self):
         client = FakeClient(minutes=good_minutes(), trade_errors={"1413": [ApiError("500", 500)] * 3})
@@ -512,6 +795,150 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         self.assertEqual([entry["code"] for entry in manifest["symbols"]], ["2330"])
         self.assertFalse((self.data / "staging-ticks" / DATE).exists())
         self.assertIn(DATE, (self.data / "logs" / f"{DATE}.log").read_text(encoding="utf-8"))
+
+    def test_answers_set_aside_are_published_by_a_later_day(self):
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        for other in ("kept", "failed"):
+            with self.subTest(other=other):
+                self.tearDown()
+                self.setUp()
+                errors = {"1413": [ApiError("500", 500)] * 3} if other == "failed" else {}
+                self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short,
+                                                          trade_errors=errors)), 0)
+                # The evening runs never happened; the next day's first run cannot even log in.
+                next_day = FakeClient(login_error=LoginError("down"))
+                self.assertEqual(self.run_once(next_day, at=datetime(2026, 10, 16, 16, 45, tzinfo=TAIPEI)), 2)
+                expected = ([("1413", True)] if other == "kept" else []) + [("2330", False)]
+                self.assertTrue(MarketStore(self.data).has_ticks(DATE))
+                self.assertEqual([(entry["code"], entry["complete"]) for entry in self.tick_manifest()["symbols"]],
+                                 expected)
+                self.assertFalse((self.data / "staging-ticks" / DATE).exists())
+                # What happened to the late day goes in that day's log.
+                self.assertIn("改用留下的備份", (self.data / "logs" / f"{DATE}.log").read_text(encoding="utf-8"))
+                self.assertNotIn("改用留下的備份",
+                                 (self.data / "logs" / "2026-10-16.log").read_text(encoding="utf-8"))
+
+    def test_a_late_publish_survives_a_broken_stock_and_says_so(self):
+        short = {"1413": [trade(DATE, 13, 30, 0, 9.44, 20, 1, volume=20)]}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short)), 0)
+        real = MarketStore.load_tick_raw
+
+        def busy(store, day, code):
+            if code == "2330":
+                raise PermissionError("held by a scanner")
+            return real(store, day, code)
+
+        # The evening runs never happened; the next day's run cannot read one stock's answer just then.
+        with mock.patch.object(MarketStore, "load_tick_raw", busy):
+            self.run_once(FakeClient(login_error=LoginError("down")), at=datetime(2026, 10, 16, 16, 45, tzinfo=TAIPEI))
+        self.assertTrue(MarketStore(self.data).has_ticks(DATE))
+        manifest = self.tick_manifest()
+        self.assertEqual([(entry["code"], entry["complete"]) for entry in manifest["symbols"]], [("1413", False)])
+        self.assertIn("raw/2330.json.gz", [item["path"] for item in manifest["files"]])  # kept, as evidence
+        late = [body for _title, body in self.notices if body.startswith(DATE)]
+        self.assertEqual(len(late), 1)
+        self.assertIn("2330", late[0])
+
+    def test_a_day_left_with_only_answers_that_cannot_be_decoded_is_published_once(self):
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        down = {"1413": [ApiError("500", 500)] * 3}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short, trade_errors=down)), 0)
+        for path in (self.data / "staging-ticks" / DATE / "fallback" / "2330").glob("*.json.gz"):
+            path.write_bytes(b"not gzip")  # the only answer kept is damaged
+        for hour in (16, 18):
+            self.run_once(FakeClient(login_error=LoginError("down")), at=datetime(2026, 10, 16, hour, 45, tzinfo=TAIPEI))
+        self.assertTrue(MarketStore(self.data).has_ticks(DATE))  # published as evidence, not left pending
+        manifest = self.tick_manifest()
+        self.assertEqual(manifest["symbols"], [])
+        self.assertEqual([item["path"] for item in manifest["files"] if item["path"].endswith(".json.gz")],
+                         ["fallback/2330/0001.json.gz"])
+        self.assertEqual(len([body for _title, body in self.notices if body.startswith(DATE)]), 1)
+
+    def test_a_snapshot_without_trades_never_publishes_the_day_early(self):
+        # Fubon sends a snapshot with the right date but no traded stock: nothing was looked at, so nothing is
+        # decided; the day waits for a run that can fetch, or for the catch-up.
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        for empty_at in (MIDDLE, EVENING):
+            with self.subTest(empty_at=empty_at.strftime("%H:%M")):
+                self.tearDown()
+                self.setUp()
+                self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short)), 0)
+                self.run_once(FakeClient(snapshot_payload=snapshot(items=[])), at=empty_at)
+                self.assertFalse(MarketStore(self.data).has_ticks(DATE))
+                if empty_at == MIDDLE:
+                    self.assertEqual(self.run_once(FakeClient(), at=EVENING), 0)
+                    expected = [("2330", True), ("1413", True)]
+                else:
+                    self.run_once(FakeClient(login_error=LoginError("down")),
+                                  at=datetime(2026, 10, 16, 16, 45, tzinfo=TAIPEI))
+                    expected = [("1413", True), ("2330", False)]
+                self.assertEqual([(entry["code"], entry["complete"]) for entry in self.tick_manifest()["symbols"]],
+                                 expected)
+
+    def test_an_answer_unreadable_through_the_last_attempt_waits_for_the_catch_up(self):
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trade_errors={"1413": [ApiError("500", 500)] * 3})), 0)
+        real = MarketStore.load_tick_raw
+
+        def busy(store, day, code):
+            if code == "2330":
+                raise PermissionError("held by a scanner")
+            return real(store, day, code)
+
+        with mock.patch.object(MarketStore, "load_tick_raw", busy):
+            self.assertEqual(self.run_once(FakeClient(trade_errors={"1413": ApiError("500", 500)}), at=EVENING), 0)
+        self.assertFalse(MarketStore(self.data).has_ticks(DATE))  # not published without the trades it holds
+        self.run_once(FakeClient(login_error=LoginError("down")), at=datetime(2026, 10, 16, 16, 45, tzinfo=TAIPEI))
+        self.assertEqual([(entry["code"], entry["complete"]) for entry in self.tick_manifest()["symbols"]],
+                         [("2330", True)])
+
+    def test_a_late_day_whose_answer_cannot_be_read_just_now_waits_for_the_next_run(self):
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trade_errors={"1413": [ApiError("500", 500)] * 3})), 0)
+        real = MarketStore.load_tick_raw
+
+        def busy(store, day, code):
+            if code == "2330":
+                raise PermissionError("held by a scanner")
+            return real(store, day, code)
+
+        with mock.patch.object(MarketStore, "load_tick_raw", busy):
+            self.run_once(FakeClient(login_error=LoginError("down")), at=datetime(2026, 10, 16, 16, 45, tzinfo=TAIPEI))
+        self.assertFalse(MarketStore(self.data).has_ticks(DATE))  # not published as evidence only
+        self.run_once(FakeClient(login_error=LoginError("down")), at=datetime(2026, 10, 16, 18, 0, tzinfo=TAIPEI))
+        self.assertEqual([(entry["code"], entry["complete"]) for entry in self.tick_manifest()["symbols"]],
+                         [("2330", True)])
+
+    def test_a_late_day_whose_fallback_cannot_be_read_just_now_waits_for_the_next_run(self):
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        down = {"1413": [ApiError("500", 500)] * 3}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short, trade_errors=down)), 0)
+        with mock.patch.object(MarketStore, "tick_fallbacks", side_effect=PermissionError("held by a scanner")):
+            self.run_once(FakeClient(login_error=LoginError("down")), at=datetime(2026, 10, 16, 16, 45, tzinfo=TAIPEI))
+        self.assertFalse(MarketStore(self.data).has_ticks(DATE))  # not published as evidence only
+        self.run_once(FakeClient(login_error=LoginError("down")), at=datetime(2026, 10, 16, 18, 0, tzinfo=TAIPEI))
+        self.assertEqual([(entry["code"], entry["complete"]) for entry in self.tick_manifest()["symbols"]],
+                         [("2330", False)])
+
+    def test_a_late_day_whose_answer_reads_but_cannot_be_used_is_published_once(self):
+        # Facts that no longer fit (after a future change, say) fail the same way every time: unlike a file that
+        # cannot be read just now, waiting would only repeat the notice, so the day goes out as evidence.
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trade_errors={"1413": [ApiError("500", 500)] * 3})), 0)
+        store = MarketStore(self.data)
+        pages, _facts = store.load_tick_raw(DATE, "2330")
+        store.save_tick_raw(DATE, "2330", pages, {})
+        for hour in (16, 18):
+            self.run_once(FakeClient(login_error=LoginError("down")), at=datetime(2026, 10, 16, hour, 45, tzinfo=TAIPEI))
+        self.assertTrue(store.has_ticks(DATE))
+        manifest = self.tick_manifest()
+        self.assertEqual(manifest["symbols"], [])
+        self.assertIn("raw/2330.json.gz", [item["path"] for item in manifest["files"]])
+        self.assertEqual(len([body for _title, body in self.notices if body.startswith(DATE)]), 1)
+
+    def test_a_staging_listing_error_does_not_stop_the_day(self):
+        with mock.patch.object(MarketStore, "pending_tick_days", side_effect=OSError("disk is busy")):
+            self.assertEqual(self.run_once(FakeClient(minutes=good_minutes())), 0)
+        self.assertTrue((self.data / "days" / DATE / "manifest.json").is_file())
+        self.assertTrue(MarketStore(self.data).has_ticks(DATE))
+        self.assertIn("disk is busy", (self.data / "logs" / f"{DATE}.log").read_text(encoding="utf-8"))
 
     def test_a_disposition_failure_does_not_stop_the_trades(self):
         client = FakeClient(minutes=good_minutes(), disposition_error=NotFound("404", 404))
@@ -574,6 +1001,18 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         self.assertEqual(sorted({call[1] for call in self.trade_calls(client)}),
                          [str(1100 + rank) for rank in range(6)])
         self.assertEqual([entry["code"] for entry in self.tick_manifest()["symbols"]], ["1104", "1105"])
+
+    def test_a_last_attempt_out_of_time_still_publishes_what_was_set_aside(self):
+        first = FakeClient(minutes=good_minutes(), trades={"1413": [trade(DATE, 13, 30, 0, 9.44, 20, 1, volume=20)]},
+                           trade_errors={"2330": [ApiError("500", 500)] * 3})
+        self.assertEqual(self.run_once(first), 0)
+        last = FakeClient()
+        with mock.patch("fubon_daily.ticks.LAST_ATTEMPT_TRADES_ONLY_BUDGET_SECONDS", 0.1):
+            self.assertEqual(self.run_once(last, at=EVENING), 0)
+        self.assertEqual({call[1] for call in self.trade_calls(last)}, {"2330"})  # no time left to fetch 1413
+        self.assertEqual([(entry["code"], entry["volume"], entry["complete"])
+                          for entry in self.tick_manifest()["symbols"]], [("2330", 58487, True), ("1413", 20, False)])
+        self.assertTrue(self.status()["ticks"]["reason"].startswith("最後一次執行的時間用完"))
 
     def test_a_last_attempt_with_only_trades_left_gets_more_time(self):
         items = [quote(str(1100 + rank), f"股{rank}", 50, 1, 1000, 10_000_000_000 - rank) for rank in range(4)]
