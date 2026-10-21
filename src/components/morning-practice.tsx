@@ -62,7 +62,12 @@ import type {
 } from "@/lib/morning";
 import { cn, formatTime } from "@/lib/utils";
 import { formatPrice } from "@/lib/market/ticks";
-import { candleWindow, showVolumeAndAverage } from "@/lib/market/chart-data";
+import {
+  DESK_EMA_PERIODS,
+  JIANGBO_BAND,
+  candleWindow,
+  showVolumeAndAverage,
+} from "@/lib/market/chart-data";
 import { deriveSwingHighs } from "@/lib/market/swing-highs";
 import {
   MORNING_EXERCISES,
@@ -70,7 +75,7 @@ import {
   type MorningExercise,
 } from "@/lib/morning-exercises";
 
-/** Phone and large-text tabs; the chart mode (分時／K線) is separate and shared by every layout. */
+/** Phone and large-text tabs; the chart mode (江波／K線) is separate and shared by every layout. */
 type MorningPane = "market" | "watch" | "trade" | "positions";
 type ChartMode = "quote" | "chart";
 
@@ -330,7 +335,8 @@ function MorningLesson({
   const layout = useTerminalLayout(mode === "senior");
   const [selected, setSelected] = useState("");
   const [activePane, setActivePane] = useState<MorningPane>(initialPane ?? "market");
-  const [chartMode, setChartMode] = useState<ChartMode>("chart");
+  // The ±10% 江波 view opens first (2026-10-21); K線 is one tap away.
+  const [chartMode, setChartMode] = useState<ChartMode>("quote");
   const [auto, setAuto] = useState(false);
   const [extended, setExtended] = useState(false);
   const [newPlan, setNewPlan] = useState(false);
@@ -1474,8 +1480,10 @@ function MorningChart({
             showVolumeReadout={sourceBacked}
             appendCurrentQuote={false}
             completedBarSeconds={60}
+            priceBand={candles ? undefined : JIANGBO_BAND}
+            emaPeriods={DESK_EMA_PERIODS}
             interactive
-            ariaLabel={`${catalog.date} ${code} ${symbol.name}歷史${candles ? "一分鐘K線" : "分鐘收價連線"}，只包含已揭露分鐘，最新一分鐘以模擬逐筆重播後收在真實收盤價，${sourceBacked ? "含均價與成交量（張）" : "不顯示成交量或均價"}。${lastComplete ? `最新完整分鐘 ${formatTime(lastComplete.t).slice(0, 5)} 開 ${formatPrice(lastComplete.o)} 高 ${formatPrice(lastComplete.h)} 低 ${formatPrice(lastComplete.l)} 收 ${formatPrice(lastComplete.c)}。` : "第一分鐘重播中。"}`}
+            ariaLabel={`${catalog.date} ${code} ${symbol.name}歷史${candles ? "一分鐘K線" : "江波圖（昨收上下 10%）"}，含 EMA11、EMA24（一分鐘收盤價），只包含已揭露分鐘，最新一分鐘以模擬逐筆重播後收在真實收盤價，${sourceBacked ? "含均價與成交量（張）" : "不顯示成交量或均價"}。${lastComplete ? `最新完整分鐘 ${formatTime(lastComplete.t).slice(0, 5)} 開 ${formatPrice(lastComplete.o)} 高 ${formatPrice(lastComplete.h)} 低 ${formatPrice(lastComplete.l)} 收 ${formatPrice(lastComplete.c)}。` : "第一分鐘重播中。"}`}
           />
         ) : (
           <div className="td-chart-waiting">
@@ -1555,7 +1563,7 @@ function MorningDataDetails({
         )}
         <p>
           K 線直接使用來源開高低收，該分鐘完成後才揭露。揭露後，交易台用約 2
-          秒的模擬逐筆重播這一分鐘：價格只在這分鐘真實的最高與最低之間跳動，最後收在真實收盤價；成交明細與分鐘內的跳動都是模擬，不是真實逐筆紀錄，撮合仍以下一分鐘開盤價為準。分時只連接各分鐘收價，點位標在分鐘結束時間；缺漏區間保留斷線。點按圖表或用左右方向鍵查看資料。
+          秒的模擬逐筆重播這一分鐘：價格只在這分鐘真實的最高與最低之間跳動，最後收在真實收盤價；成交明細與分鐘內的跳動都是模擬，不是真實逐筆紀錄，撮合仍以下一分鐘開盤價為準。江波圖只連接各分鐘收價，點位標在分鐘結束時間，刻度固定為昨收上下 10%；缺漏區間保留斷線。EMA11、EMA24 以已揭露的一分鐘收盤價計算，從 09:00 第一分鐘起算，只供觀察。點按圖表或用左右方向鍵查看資料。
         </p>
         <p>
           來源：Yahoo Finance 歷史 1 分鐘 OHLC。這是真實歷史分鐘 K，尚非富邦即時或逐筆江波行情。

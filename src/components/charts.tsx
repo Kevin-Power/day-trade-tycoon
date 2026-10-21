@@ -3,6 +3,8 @@ import type { Bar, TickPt } from "@/lib/game/types";
 import { useDeviceCanvas } from "@/components/use-device-canvas";
 import {
   LABEL_PADDING,
+  LEGEND_SWATCH,
+  bandPriceRange,
   candleBodyWidth,
   levelChartLabels,
   candlePriceRange,
@@ -11,10 +13,16 @@ import {
   completedBarsInWindow,
   deviceDashPattern,
   clearsPriceTag,
+  emaReadout,
+  emaSeries,
   formatPercentChange,
   hairlineDevicePixels,
   inChartWindow,
+  jiangboGridPrices,
+  jiangboGridRows,
   jiangboPriceRange,
+  limitChartLabels,
+  lineRuns,
   minuteColumnWidth,
   nearestTimePoint,
   resolveChartLabels,
@@ -31,7 +39,7 @@ import {
   type ChartRange,
   type ReadoutTone,
 } from "@/lib/market/chart-data";
-import { formatPrice } from "@/lib/market/ticks";
+import { formatPrice, limitDown, limitUp } from "@/lib/market/ticks";
 import { formatIndex } from "@/lib/market/week";
 import { formatTime } from "@/lib/utils";
 import type { SwingHighResult } from "@/lib/market/swing-highs";
@@ -77,6 +85,13 @@ export type TapeChartProps = {
    * 昨高) first, and leave out a label that cannot fit there instead of overlapping another.
    */
   fitLabels?: boolean;
+  /**
+   * Desk 江波 view: the price axis is the previous close ± this fraction (0.1 = ±10%), with the
+   * 漲停／跌停 lines. The 開／高／低 labels and the open line are left out: they would crowd the centre.
+   */
+  priceBand?: number;
+  /** Desk only: EMA lines over the minute closes, e.g. [11, 24]; the first uses --color-ema-fast, the second --color-ema-slow. */
+  emaPeriods?: readonly number[];
 };
 
 function tokens(canvas: HTMLCanvasElement) {
@@ -226,6 +241,39 @@ function paint(
   const bars = (
     interval ? completedBarsInWindow(opt.bars, window, interval) : inChartWindow(opt.bars, window)
   ).filter((bar) => [bar.o, bar.h, bar.l, bar.c, bar.v].every(Number.isFinite));
+  // Desk 江波 view: a fixed axis at the previous close ±priceBand.
+  const band =
+    deskChart && !isCandles && opt.priceBand ? bandPriceRange(opt.prev, opt.priceBand) : null;
+  // EMA lines (desk only): every revealed minute since 09:00 feeds them, not only the visible window.
+  const emaSource =
+    deskChart && opt.emaPeriods?.length
+      ? opt.bars.filter(
+          (bar) =>
+            Number.isFinite(bar.t) &&
+            Number.isFinite(bar.c) &&
+            (interval ? bar.t + interval : bar.t) <= window.dataEnd,
+        )
+      : [];
+  const emaLines = (opt.emaPeriods ?? []).slice(0, 2).map((period, index) => {
+    const values = emaSeries(
+      emaSource.map((bar) => bar.c),
+      period,
+    );
+    return {
+      period,
+      color: index ? c.emaSlow : c.emaFast,
+      values,
+      points: emaSource
+        .map((bar, at) => ({ t: bar.t, v: values[at]! }))
+        .filter((point) => point.t >= window.start),
+    };
+  });
+  const emaAt = new Map(
+    emaSource.map((bar, at) => [
+      bar.t,
+      emaLines.map((line) => ({ period: line.period, value: line.values[at]! })),
+    ]),
+  );
   const ticks = inChartWindow(opt.ticks, window).filter((point) => Number.isFinite(point.p));
   const points = chartLinePoints({
     bars,
@@ -242,8 +290,12 @@ function paint(
   const label = (price: number) => (isIndex ? formatIndex(price) : formatPrice(price));
   const font = `${c.fontSize}px ${c.font}`;
   ctx.font = font;
+  // Both 江波 grids (2% and 5% steps) are measured: which one fits is only known once the plot is laid out.
+  const bandPrices = band
+    ? [10, 4].flatMap((rows) => jiangboGridPrices(opt.prev, opt.priceBand!, rows))
+    : [];
   const axisWidth = Math.max(
-    ...[opt.prev, current, ...bars.flatMap((bar) => [bar.h, bar.l])].map(
+    ...[opt.prev, current, ...bandPrices, ...bars.flatMap((bar) => [bar.h, bar.l])].map(
       (price) => ctx.measureText(label(price)).width,
     ),
     30,
@@ -278,13 +330,16 @@ function paint(
   const readoutLinesFor = (bar: Bar | undefined) =>
     bar
       ? wrapReadout(
-          terminalReadout({
-            bar,
-            previousClose: opt.prev,
-            candles: isCandles,
-            intervalSeconds: interval ?? 60,
-            withVolume: opt.showVolume === true && opt.showVolumeReadout !== false,
-          }),
+          [
+            ...terminalReadout({
+              bar,
+              previousClose: opt.prev,
+              candles: isCandles,
+              intervalSeconds: interval ?? 60,
+              withVolume: opt.showVolume === true && opt.showVolumeReadout !== false,
+            }),
+            ...emaReadout(emaAt.get(bar.t) ?? []),
+          ],
           (text) => ctx.measureText(text).width,
           w - 4 - padL,
           readoutGap,
@@ -312,15 +367,18 @@ function paint(
     ...points.map((point) => point.p),
     ...(opt.levels ?? []).map((level) => level.price),
     ...(deskChart && opt.showAverage ? bars.map((bar) => bar.a) : []),
+    ...emaLines.flatMap((line) => line.points.map((point) => point.v)),
   ].filter((price): price is number => price !== undefined && Number.isFinite(price) && price > 0);
   const high = Math.max(...values);
   const low = Math.min(...values);
   const legacySpan = Math.max((high - low) * 1.16, Math.abs(opt.prev) * 0.003, isIndex ? 40 : 0.05);
-  const range = deskChart
-    ? isCandles
-      ? candlePriceRange(high, low, opt.prev)
-      : jiangboPriceRange(opt.prev, high, low)
-    : { min: (high + low - legacySpan) / 2, max: (high + low + legacySpan) / 2 };
+  const range =
+    band ??
+    (deskChart
+      ? isCandles
+        ? candlePriceRange(high, low, opt.prev)
+        : jiangboPriceRange(opt.prev, high, low)
+      : { min: (high + low - legacySpan) / 2, max: (high + low + legacySpan) / 2 });
   const max = range.max;
   const span = range.max - range.min;
   const yOf = (price: number) => padT + ((max - price) / span) * plotH;
@@ -342,7 +400,12 @@ function paint(
   const gridBottom = snapEdge(h - axisH, sy);
   const fittedRows = Math.max(2, Math.min(5, Math.floor(plotH / (c.fontSize * 2.6))));
   // An even count puts the previous close (0.00%) on the middle grid line of the intraday chart.
-  const rows = deskChart && !isCandles ? Math.max(2, fittedRows - (fittedRows % 2)) : fittedRows;
+  // The 江波 band has 2% steps when the plot is tall enough, 5% steps otherwise.
+  const rows = band
+    ? jiangboGridRows(plotH, c.fontSize)
+    : deskChart && !isCandles
+      ? Math.max(2, fittedRows - (fittedRows % 2))
+      : fittedRows;
   for (let i = 0; i <= rows; i++) {
     const price = max - (span * i) / rows;
     const y = yOf(price);
@@ -388,12 +451,51 @@ function paint(
     ctx.stroke();
     ctx.restore();
   };
+  if (band) {
+    // 漲停／跌停 at the real limit prices, just inside the ±10% frame.
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    ctx.lineWidth = cssPixels(hairline);
+    for (const [price, color] of [
+      [limitUp(opt.prev), c.up],
+      [limitDown(opt.prev), c.down],
+    ] as const) {
+      if (!(price > 0)) continue;
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(gridLeft, hRule(yOf(price)));
+      ctx.lineTo(gridRight, hRule(yOf(price)));
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
   reference(opt.prev, c.tape, [4, 4]);
   if (terminal) reference(current, current >= opt.prev ? c.up : c.down, [2, 5]);
   let vwapNow = current;
   let averageNow: number | undefined;
+  // EMA lines: 1.25px, broken where minutes are missing, like the price line.
+  const drawEma = (x: (time: number) => number) => {
+    if (!emaLines.length) return;
+    ctx.save();
+    ctx.lineWidth = 1.25;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.setLineDash([]);
+    for (const line of emaLines) {
+      ctx.strokeStyle = line.color;
+      for (const run of lineRuns(line.points, interval ?? 60)) {
+        if (run.length < 2) continue;
+        ctx.beginPath();
+        run.forEach((point, at) =>
+          at ? ctx.lineTo(x(point.t), yOf(point.v)) : ctx.moveTo(x(point.t), yOf(point.v)),
+        );
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  };
   if (!isIndex) {
-    reference(opt.open, c.muted, [2, 4]);
+    if (!band) reference(opt.open, c.muted, [2, 4]);
     reference(opt.cost, c.warn, [6, 3]);
     reference(opt.poc, c.vol, [1, 4]);
   }
@@ -496,6 +598,7 @@ function paint(
       ctx.strokeRect(left, top, right - left, bottom - top);
       ctx.restore();
     }
+    drawEma((time) => xOf(time + (interval ? interval / 2 : 0)));
   } else {
     const runs = isIndex ? [{ above: true, points }] : splitPriceLine(points, opt.prev, interval);
     if (terminal && !isIndex) {
@@ -515,6 +618,8 @@ function paint(
       }
       ctx.restore();
     }
+    // Under the price line, so the price stays on top.
+    drawEma((time) => xOf(time + (interval ?? 0)));
     ctx.lineWidth = terminal ? 1.5 : 2;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
@@ -633,11 +738,16 @@ function paint(
     const labels: ChartLabel[] = [
       { key: "prev", text: "昨", price: opt.prev, priceText: label(opt.prev), color: c.tape, x: padL + 4, anchor: "start", y: yOf(opt.prev) },
     ];
-    if (opt.open)
+    if (opt.open && !band)
       labels.push({ key: "open", text: "開", price: opt.open, priceText: label(opt.open), color: c.muted, x: padL + 4, anchor: "start", y: yOf(opt.open) });
     if (averageNow !== undefined)
       labels.push({ key: "average", text: "均", price: averageNow, priceText: averageNow.toFixed(2), color: c.vwap, x: padL + 4, anchor: "start", y: yOf(averageNow) });
-    const extremes = sessionExtremes(bars);
+    if (band)
+      labels.push(
+        ...limitChartLabels(opt.prev, { x: padL + 4, lineHeight, up: c.up, down: c.down, yOf, priceText: label }),
+      );
+    // 高／低 would sit in the crowded centre of the ±10% band; the quote table still lists them.
+    const extremes = band ? null : sessionExtremes(bars);
     if (extremes && extremes.high.p > extremes.low.p) {
       const at = (point: TickPt) => xOf(point.t + (interval ? interval / 2 : 0));
       labels.push(
@@ -662,7 +772,9 @@ function paint(
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     const importance = (key: string) =>
-      key.startsWith("swing-") || key.startsWith("level-") ? 0 : ["prev", "high", "low", "open", "average"].indexOf(key) + 1;
+      key.startsWith("swing-") || key.startsWith("level-")
+        ? 0
+        : ["prev", "high", "low", "open", "average", "limit-up", "limit-down"].indexOf(key) + 1;
     const placed = resolveChartLabels(
       opt.fitLabels ? [...labels].sort((a, b) => importance(a.key) - importance(b.key)) : labels,
       { left: padL + 2, right: w - padR - 2, top: padT, bottom: plotBottom },
@@ -867,6 +979,13 @@ function paint(
       let x = padL;
       for (const field of line) {
         ctx.fillStyle = tones[field.tone];
+        if (field.legend) {
+          // A short swatch of the line's colour before its value.
+          const left = snapEdge(x, sx);
+          const top = snapEdge(y - 1, sy);
+          ctx.fillRect(left, top, snapEdge(x + 10, sx) - left, snapEdge(y + 1, sy) - top);
+          x += LEGEND_SWATCH;
+        }
         ctx.fillText(field.text, snapEdge(x, sx), snapEdge(y, sy));
         x += ctx.measureText(field.text).width + readoutGap;
       }

@@ -168,7 +168,7 @@ export function QuoteLine({
   );
 }
 
-/** Chart toolbar: stock stepper, 分時／K線 and the data label of the active chart. */
+/** Chart toolbar: stock stepper, 江波／K線 and the data label of the active chart. */
 export function ChartToolbar({
   catalog,
   code,
@@ -219,7 +219,7 @@ export function ChartToolbar({
       <nav aria-label="看盤分頁" className="td-segment">
         {(
           [
-            ["quote", "分時"],
+            ["quote", "江波"],
             ["chart", "K線"],
           ] as const
         ).map(([value, label]) => (

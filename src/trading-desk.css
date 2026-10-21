@@ -33,6 +33,8 @@
   --td-up-wash: rgb(255 84 104 / 0.15);
   --td-down-wash: rgb(28 215 138 / 0.13);
   --td-accent-wash: rgb(75 165 241 / 0.14);
+  --td-ema-fast: #7dd3fc;
+  --td-ema-slow: #c084fc;
   --td-radius: 6px;
   --td-hairline: 1px;
 
@@ -53,6 +55,8 @@
   --color-warn: var(--td-warn);
   --color-vwap: #f0a73a;
   --color-vol: #7d8b99;
+  --color-ema-fast: var(--td-ema-fast);
+  --color-ema-slow: var(--td-ema-slow);
 
   display: flex;
   flex-direction: column;
