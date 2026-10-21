@@ -502,6 +502,17 @@ function paint(
     ctx.restore();
     labelLayers = chartLabelLayers(placed);
   }
+  // Runs draw() with the 漲停／跌停 labels' boxes cut out of the clip (when there are any).
+  const clearOfUnderLabels = (draw: () => void) => {
+    if (!labelLayers.under.length) return draw();
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, w, h);
+    for (const item of labelLayers.under) ctx.rect(item.left, item.y - lineHeight / 2, item.width, lineHeight);
+    ctx.clip("evenodd");
+    draw();
+    ctx.restore();
+  };
   const drawLabels = (items: readonly PlacedChartLabel[]) => {
     if (!items.length) return;
     ctx.save();
@@ -645,8 +656,6 @@ function paint(
     ctx.stroke();
   }
   ctx.restore();
-  // 漲停／跌停 labels go under the price and EMA lines, so a price at the limit stays visible.
-  drawLabels(labelLayers.under);
   const barWidth = deskChart
     ? candleBodyWidth(plotW, timeSpan)
     : Math.min(minuteColumnWidth(plotW, timeSpan), terminal ? 7 : Infinity);
@@ -710,6 +719,9 @@ function paint(
       }
       ctx.restore();
     }
+    // 漲停／跌停 labels (the 江波 view's line chart only) go over the shading and under the EMA and price lines,
+    // so a price at the limit stays visible.
+    drawLabels(labelLayers.under);
     // Under the price line, so the price stays on top.
     drawEma((time) => xOf(time + (interval ?? 0)));
     ctx.lineWidth = terminal ? 1.5 : 2;
@@ -745,84 +757,87 @@ function paint(
     ctx.closePath();
     ctx.fill();
   }
-  if (terminal) {
-    for (const level of opt.levels ?? []) {
-      const y = hRule(yOf(level.price));
-      ctx.save();
-      ctx.lineCap = "butt";
-      ctx.strokeStyle = c.warn;
-      ctx.lineWidth = cssPixels(hairline);
-      ctx.setLineDash(deviceDashPattern([5, 4], sx));
-      ctx.beginPath();
-      ctx.moveTo(snapEdge(padL, sx), y);
-      ctx.lineTo(gridRight, y);
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
-  // These are minute-high intervals; the exact trade second is not in a Bar.
-  for (const [index, highPoint] of (opt.swingHighs ?? []).entries()) {
-    if (
-      highPoint.confirmedAt > window.dataEnd ||
-      highPoint.t < window.start ||
-      highPoint.t > window.dataEnd
-    )
-      continue;
+  // Dashed levels (昨高 and the like, 前高) skip the 漲停／跌停 labels' boxes, so those labels stay readable.
+  clearOfUnderLabels(() => {
     if (terminal) {
-      // Desk style: a dashed level from the confirmed high to the right edge; its "前高" label is
-      // placed with the other in-plot labels below.
-      const y = hRule(yOf(highPoint.p));
-      ctx.save();
-      // The price line above set round caps in this scope; dashes need square ends to stay sharp.
-      ctx.lineCap = "butt";
-      ctx.strokeStyle = c.warn;
-      ctx.lineWidth = cssPixels(hairline);
-      ctx.setLineDash(deviceDashPattern([5, 4], sx));
-      ctx.beginPath();
-      // Start on a pixel edge so every dash begins and ends on whole device pixels.
-      ctx.moveTo(snapEdge(xOf(highPoint.t + (interval ? interval / 2 : 0)), sx), y);
-      ctx.lineTo(gridRight, y);
-      ctx.stroke();
-      ctx.restore();
-      continue;
+      for (const level of opt.levels ?? []) {
+        const y = hRule(yOf(level.price));
+        ctx.save();
+        ctx.lineCap = "butt";
+        ctx.strokeStyle = c.warn;
+        ctx.lineWidth = cssPixels(hairline);
+        ctx.setLineDash(deviceDashPattern([5, 4], sx));
+        ctx.beginPath();
+        ctx.moveTo(snapEdge(padL, sx), y);
+        ctx.lineTo(gridRight, y);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
-    const x = xOf(highPoint.t);
-    const y = yOf(highPoint.p);
-    const endX = xOf(Math.min(highPoint.t + 60, window.dataEnd));
-    const color = index === 0 && opt.swingHighs?.length === 2 ? c.vwap : c.warn;
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([5, 4]);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(w - padR, y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(endX, y);
-    ctx.stroke();
-    const radius = c.fontSize * 0.7 + 3;
-    const badgeX = Math.min(w - padR - radius, Math.max(padL + radius, (x + endX) / 2));
-    const badgeY = Math.max(padT + radius, y - radius - 5 - index * radius * 2);
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(badgeX, badgeY + radius);
-    ctx.lineTo((x + endX) / 2, y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(badgeX, badgeY, radius, 0, Math.PI * 2);
-    ctx.fillStyle = c.bg;
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = color;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(opt.swingHighs?.length === 2 ? String(index + 1) : "高", badgeX, badgeY);
-    ctx.restore();
-  }
+    // These are minute-high intervals; the exact trade second is not in a Bar.
+    for (const [index, highPoint] of (opt.swingHighs ?? []).entries()) {
+      if (
+        highPoint.confirmedAt > window.dataEnd ||
+        highPoint.t < window.start ||
+        highPoint.t > window.dataEnd
+      )
+        continue;
+      if (terminal) {
+        // Desk style: a dashed level from the confirmed high to the right edge; its "前高" label is
+        // placed with the other in-plot labels below.
+        const y = hRule(yOf(highPoint.p));
+        ctx.save();
+        // The price line above set round caps in this scope; dashes need square ends to stay sharp.
+        ctx.lineCap = "butt";
+        ctx.strokeStyle = c.warn;
+        ctx.lineWidth = cssPixels(hairline);
+        ctx.setLineDash(deviceDashPattern([5, 4], sx));
+        ctx.beginPath();
+        // Start on a pixel edge so every dash begins and ends on whole device pixels.
+        ctx.moveTo(snapEdge(xOf(highPoint.t + (interval ? interval / 2 : 0)), sx), y);
+        ctx.lineTo(gridRight, y);
+        ctx.stroke();
+        ctx.restore();
+        continue;
+      }
+      const x = xOf(highPoint.t);
+      const y = yOf(highPoint.p);
+      const endX = xOf(Math.min(highPoint.t + 60, window.dataEnd));
+      const color = index === 0 && opt.swingHighs?.length === 2 ? c.vwap : c.warn;
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(w - padR, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(endX, y);
+      ctx.stroke();
+      const radius = c.fontSize * 0.7 + 3;
+      const badgeX = Math.min(w - padR - radius, Math.max(padL + radius, (x + endX) / 2));
+      const badgeY = Math.max(padT + radius, y - radius - 5 - index * radius * 2);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(badgeX, badgeY + radius);
+      ctx.lineTo((x + endX) / 2, y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(badgeX, badgeY, radius, 0, Math.PI * 2);
+      ctx.fillStyle = c.bg;
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(opt.swingHighs?.length === 2 ? String(index + 1) : "高", badgeX, badgeY);
+      ctx.restore();
+    }
+  });
   ctx.restore();
   drawLabels(labelLayers.over);
 

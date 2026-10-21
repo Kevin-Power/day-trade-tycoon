@@ -2,7 +2,8 @@
 // opens on 江波; both EMAs are drawn on 江波 and K線; the 漲停／跌停 lines frame the ±10% plot; the
 // watch table's 江波圖 minis use the fixed ±10% scale; the crosshair readout lists the EMAs; phones
 // open on 江波 too; replaying a minute moves the EMAs on with the revealed closes and raises no page
-// error; and a price just under 漲停 stays visible where the 漲停 label sits.
+// error; a price just under 漲停 stays visible where the 漲停 label sits, which keeps its own background under the
+// line; and a 前高 level at that height stays off the label.
 // Usage: node scripts/qa/desk-jiangbo.mjs <baseUrl> <label>
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -54,6 +55,7 @@ async function palette(page) {
       down: read("--color-down", "#1cd78a"),
       fast: read("--color-ema-fast", "#7dd3fc"),
       slow: read("--color-ema-slow", "#c084fc"),
+      warn: read("--color-warn", "#e7b549"),
     };
   });
 }
@@ -216,9 +218,20 @@ await check("10-prev-label-clear", async () => {
             if (test((y * image.width + x) * 4)) hits++;
         return hits;
       };
+      // The 昨 row: tape-coloured text in the price gutter (a volume pane below the plot moves it off the middle).
+      const rows = [];
+      for (let y = 0; y < image.height; y++)
+        for (let x = 0; x < Math.round(image.width * 0.055); x++)
+          if (near((y * image.width + x) * 4, tape, 40)) {
+            rows.push(y);
+            break;
+          }
+      if (!rows.length) return { gutter: 0, lineStart: 0 };
+      const middle = rows[Math.floor(rows.length / 2)] / image.height;
       return {
-        gutter: count(0, 0.055, 0.46, 0.54, (i) => near(i, tape, 40)),
-        lineStart: count(0.075, 0.135, 0.44, 0.56, (i) => near(i, up, 60) || near(i, down, 60)),
+        gutter: count(0, 0.055, middle - 0.04, middle + 0.04, (i) => near(i, tape, 40)),
+        lineStart: count(0.075, 0.135, middle - 0.06, middle + 0.06, (i) => near(i, up, 60) || near(i, down, 60)),
+        middle: Number(middle.toFixed(3)),
       };
     },
     { b64: png.toString("base64"), colours: [tape, colours.up, colours.down] },
@@ -335,11 +348,64 @@ await check("9-replay", async () => {
   return { before: before.minute, after: after.minute, ema11: after.ema11, ema24: after.ema24 };
 });
 
-await check("12-limit-label-under-line", async () => {
-  // A price just under 漲停 from 09:00 runs through the 漲停 label: the line must stay visible over it.
+// Where the 漲停 label sits on an unmodified chart: the 漲停 and 跌停 lines (rows), and the label's text box
+// (up-coloured pixels just under the 漲停 line, in the left third).
+async function limitLabelGeometry(page) {
+  return page.evaluate(
+    async ({ b64, upText, upLine, downLine, dpr }) => {
+      const image = new Image();
+      image.src = "data:image/png;base64," + b64;
+      await image.decode();
+      const surface = document.createElement("canvas");
+      surface.width = image.width;
+      surface.height = image.height;
+      const ctx = surface.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(image, 0, 0);
+      const { data } = ctx.getImageData(0, 0, image.width, image.height);
+      const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      const near = (i, c, limit) =>
+        Math.max(Math.abs(c[0] - data[i]), Math.abs(c[1] - data[i + 1]), Math.abs(c[2] - data[i + 2])) <= limit;
+      const fullestRow = (colour, y0, y1) => {
+        const x0 = Math.round(image.width * 0.1);
+        const x1 = Math.round(image.width * 0.85);
+        let best = { row: -1, share: 0 };
+        for (let y = y0; y < y1; y++) {
+          let hits = 0;
+          for (let x = x0; x < x1; x++) if (near((y * image.width + x) * 4, colour, 12)) hits++;
+          if (hits / (x1 - x0) > best.share) best = { row: y, share: hits / (x1 - x0) };
+        }
+        return best.row;
+      };
+      const upRow = fullestRow(rgb(upLine), 0, Math.round(image.height * 0.3));
+      const downRow = fullestRow(rgb(downLine), Math.round(image.height * 0.5), image.height);
+      const text = rgb(upText);
+      const box = { top: Infinity, bottom: -Infinity, left: Infinity, right: -Infinity };
+      for (let y = upRow + 1; y < upRow + 30 * dpr; y++)
+        for (let x = 0; x < Math.round(image.width * 0.35); x++)
+          if (near((y * image.width + x) * 4, text, 40)) {
+            box.top = Math.min(box.top, y);
+            box.bottom = Math.max(box.bottom, y);
+            box.left = Math.min(box.left, x);
+            box.right = Math.max(box.right, x);
+          }
+      return { upRow, downRow, box };
+    },
+    {
+      b64: (await chart(page).screenshot()).toString("base64"),
+      upText: colours.up,
+      upLine: blend(colours.up, colours.bg, 0.7),
+      downLine: blend(colours.down, colours.bg, 0.7),
+      dpr: DPR,
+    },
+  );
+}
+
+// A desk in its own context whose shown stock replays rewritten minutes: rewrite(bar, index, prices) returns the
+// fields to change; prices.through is a tick price whose line runs through the middle of the 漲停 label.
+async function limitScenario(name, rewrite) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: DPR });
   const page = await context.newPage();
-  page.on("pageerror", (error) => pageErrors.push(`limit: ${error.message}`));
+  page.on("pageerror", (error) => pageErrors.push(`${name}: ${error.message}`));
   const open = async () => {
     await chart(page).waitFor({ timeout: 20000 });
     await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 3000 }).catch(() => {});
@@ -353,75 +419,40 @@ await check("12-limit-label-under-line", async () => {
     if (!symbol) throw new Error("cannot tell which stock the chart shows");
     const up = limitOf(symbol.previousClose, 1.1, Math.floor);
     const down = limitOf(symbol.previousClose, 0.9, Math.ceil);
-    // Where the 漲停 label sits: up-coloured text just under the 漲停 line, in the left third.
-    const geometry = await page.evaluate(
-      async ({ b64, upText, upLine, downLine, dpr }) => {
-        const image = new Image();
-        image.src = "data:image/png;base64," + b64;
-        await image.decode();
-        const surface = document.createElement("canvas");
-        surface.width = image.width;
-        surface.height = image.height;
-        const ctx = surface.getContext("2d", { willReadFrequently: true });
-        ctx.drawImage(image, 0, 0);
-        const { data } = ctx.getImageData(0, 0, image.width, image.height);
-        const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-        const near = (i, c, limit) =>
-          Math.max(Math.abs(c[0] - data[i]), Math.abs(c[1] - data[i + 1]), Math.abs(c[2] - data[i + 2])) <= limit;
-        const fullestRow = (colour, y0, y1) => {
-          const x0 = Math.round(image.width * 0.1);
-          const x1 = Math.round(image.width * 0.85);
-          let best = { row: -1, share: 0 };
-          for (let y = y0; y < y1; y++) {
-            let hits = 0;
-            for (let x = x0; x < x1; x++) if (near((y * image.width + x) * 4, colour, 12)) hits++;
-            if (hits / (x1 - x0) > best.share) best = { row: y, share: hits / (x1 - x0) };
-          }
-          return best.row;
-        };
-        const upRow = fullestRow(rgb(upLine), 0, Math.round(image.height * 0.3));
-        const downRow = fullestRow(rgb(downLine), Math.round(image.height * 0.5), image.height);
-        const text = rgb(upText);
-        const box = { top: Infinity, bottom: -Infinity, left: Infinity, right: -Infinity };
-        for (let y = upRow + 1; y < upRow + 30 * dpr; y++)
-          for (let x = 0; x < Math.round(image.width * 0.35); x++)
-            if (near((y * image.width + x) * 4, text, 40)) {
-              box.top = Math.min(box.top, y);
-              box.bottom = Math.max(box.bottom, y);
-              box.left = Math.min(box.left, x);
-              box.right = Math.max(box.right, x);
-            }
-        return { upRow, downRow, box };
-      },
-      {
-        b64: (await chart(page).screenshot()).toString("base64"),
-        upText: colours.up,
-        upLine: blend(colours.up, colours.bg, 0.7),
-        downLine: blend(colours.down, colours.bg, 0.7),
-        dpr: DPR,
-      },
-    );
+    const geometry = await limitLabelGeometry(page);
     const { upRow, downRow, box } = geometry;
     if (!(upRow > 0 && downRow > upRow && box.bottom > box.top && box.right > box.left))
       throw new Error(`cannot find the 漲停 line and label: ${JSON.stringify(geometry)}`);
-    // A tick price whose line runs through the middle of the label.
     const perRow = (up - down) / (downRow - upRow);
     const tick = tickOf(up);
-    const price = Number((Math.round((up - ((box.top + box.bottom) / 2 - upRow) * perRow) / tick) * tick).toFixed(2));
+    const through = Number((Math.round((up - ((box.top + box.bottom) / 2 - upRow) * perRow) / tick) * tick).toFixed(2));
+    const prices = { up, through, previous: symbol.previousClose, tick };
     await page.route("**/api/morning*", async (route) => {
       if (route.request().method() !== "GET") return route.continue();
       const response = await route.fetch();
       const body = await response.json();
-      for (const bar of body.state?.bars?.[symbol.code] ?? []) Object.assign(bar, { o: price, h: price, l: price, c: price });
+      (body.state?.bars?.[symbol.code] ?? []).forEach((bar, index) => Object.assign(bar, rewrite(bar, index, prices)));
       return route.fulfill({ response, json: body });
     });
     await page.reload({ waitUntil: "domcontentloaded" });
     await open();
     const png = await chart(page).screenshot();
-    writeFileSync(`${out}limit-label.png`, png);
-    // The fullest up-coloured row across the label, measured from the 漲停 line found again.
-    const seen = await page.evaluate(
-      async ({ b64, upText, upLine, offsets, left, right }) => {
+    writeFileSync(`${out}${name}.png`, png);
+    return { context, page, png, prices, box, offsets: { top: box.top - upRow, bottom: box.bottom - upRow } };
+  } catch (error) {
+    await context.close();
+    throw error;
+  }
+}
+
+await check("12-limit-label-under-line", async () => {
+  // A price just under 漲停 from 09:00 runs through the 漲停 label: the line stays visible over the label, and under
+  // the line the label keeps the chart's background (the shading down to 昨 is not drawn over it). Measured on the
+  // label's right half, which the line covers whenever it starts by 09:01.
+  const scenario = await limitScenario("limit-label", (bar, index, { through }) => ({ o: through, h: through, l: through, c: through }));
+  try {
+    const seen = await scenario.page.evaluate(
+      async ({ b64, upText, upLine, bg, offsets, left, right }) => {
         const image = new Image();
         image.src = "data:image/png;base64," + b64;
         await image.decode();
@@ -432,6 +463,7 @@ await check("12-limit-label-under-line", async () => {
         ctx.drawImage(image, 0, 0);
         const { data } = ctx.getImageData(0, 0, image.width, image.height);
         const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+        const at = (x, y) => (y * image.width + x) * 4;
         const near = (i, c, limit) =>
           Math.max(Math.abs(c[0] - data[i]), Math.abs(c[1] - data[i + 1]), Math.abs(c[2] - data[i + 2])) <= limit;
         const line = rgb(upLine);
@@ -441,35 +473,109 @@ await check("12-limit-label-under-line", async () => {
         let most = 0;
         for (let y = 0; y < Math.round(image.height * 0.3); y++) {
           let hits = 0;
-          for (let x = x0; x < x1; x++) if (near((y * image.width + x) * 4, line, 12)) hits++;
+          for (let x = x0; x < x1; x++) if (near(at(x, y), line, 12)) hits++;
           if (hits > most) [upRow, most] = [y, hits];
         }
         const text = rgb(upText);
-        // The line starts at 09:01, a little right of the label's first character.
-        const from = left + Math.round((right - left) * 0.2);
-        let best = 0;
+        const ground = rgb(bg);
+        const from = left + Math.round((right - left) * 0.5);
+        let share = 0;
+        let lineRow = -1;
         for (let y = upRow + offsets.top; y <= upRow + offsets.bottom; y++) {
           let hits = 0;
-          for (let x = from; x <= right; x++) if (near((y * image.width + x) * 4, text, 40)) hits++;
-          best = Math.max(best, hits / (right - from + 1));
+          for (let x = from; x <= right; x++) if (near(at(x, y), text, 40)) hits++;
+          if (hits / (right - from + 1) > share) [share, lineRow] = [hits / (right - from + 1), y];
         }
-        return { upRow, share: Number(best.toFixed(3)) };
+        // Under the line: the label's own box between the text strokes.
+        let plain = 0;
+        let other = 0;
+        for (let y = lineRow + 4; y <= upRow + offsets.bottom; y++)
+          for (let x = from; x <= right; x++) {
+            if (near(at(x, y), text, 40)) continue;
+            if (near(at(x, y), ground, 8)) plain++;
+            else other++;
+          }
+        return { share: Number(share.toFixed(3)), plain: Number((plain / Math.max(1, plain + other)).toFixed(3)) };
       },
       {
-        b64: png.toString("base64"),
+        b64: scenario.png.toString("base64"),
         upText: colours.up,
         upLine: blend(colours.up, colours.bg, 0.7),
-        offsets: { top: box.top - upRow, bottom: box.bottom - upRow },
-        left: box.left,
-        right: box.right,
+        bg: colours.bg,
+        offsets: scenario.offsets,
+        left: scenario.box.left,
+        right: scenario.box.right,
       },
     );
+    const problems = [];
     // A line drawn over the label fills a whole row of it; the label's text alone never does.
     if (seen.share < 0.95)
-      throw new Error(`a price line at ${price} (漲停 ${up}) shows on ${Math.round(seen.share * 100)}% of the 漲停 label's width`);
-    return { price, up, share: seen.share, box };
+      problems.push(`a price line at ${scenario.prices.through} (漲停 ${scenario.prices.up}) shows on ${Math.round(seen.share * 100)}% of the 漲停 label's width`);
+    if (seen.plain < 0.4)
+      problems.push(`under the line only ${Math.round(seen.plain * 100)}% of the 漲停 label is the chart background: the shading is drawn over it`);
+    if (problems.length) throw new Error(problems.join("; "));
+    return { price: scenario.prices.through, up: scenario.prices.up, ...seen };
   } finally {
-    await context.close();
+    await scenario.context.close();
+  }
+});
+
+await check("13-limit-label-clear-of-level-lines", async () => {
+  // A 前高 (swing high at 09:02) at the 漲停 label's height: its dashed level runs right from 09:02, but not through
+  // the label's text box.
+  const scenario = await limitScenario("limit-label-level", (bar, index, { through, previous, tick }) => {
+    const low = Number((Math.round((through - previous * 0.03) / tick) * tick).toFixed(2));
+    return { o: low, h: index === 2 ? through : low, l: low, c: low };
+  });
+  try {
+    const counts = await scenario.page.evaluate(
+      async ({ b64, warn, upLine, offsets, left, right }) => {
+        const image = new Image();
+        image.src = "data:image/png;base64," + b64;
+        await image.decode();
+        const surface = document.createElement("canvas");
+        surface.width = image.width;
+        surface.height = image.height;
+        const ctx = surface.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(image, 0, 0);
+        const { data } = ctx.getImageData(0, 0, image.width, image.height);
+        const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+        const at = (x, y) => (y * image.width + x) * 4;
+        const near = (i, c, limit) =>
+          Math.max(Math.abs(c[0] - data[i]), Math.abs(c[1] - data[i + 1]), Math.abs(c[2] - data[i + 2])) <= limit;
+        const line = rgb(upLine);
+        const x0 = Math.round(image.width * 0.1);
+        const x1 = Math.round(image.width * 0.85);
+        let upRow = -1;
+        let most = 0;
+        for (let y = 0; y < Math.round(image.height * 0.3); y++) {
+          let hits = 0;
+          for (let x = x0; x < x1; x++) if (near(at(x, y), line, 12)) hits++;
+          if (hits > most) [upRow, most] = [y, hits];
+        }
+        const level = rgb(warn);
+        const count = (from, to) => {
+          let hits = 0;
+          for (let y = upRow + offsets.top - 2; y <= upRow + offsets.bottom + 2; y++)
+            for (let x = from; x <= to; x++) if (near(at(x, y), level, 40)) hits++;
+          return hits;
+        };
+        return { inLabel: count(left, right), beside: count(right + 20, right + 220) };
+      },
+      {
+        b64: scenario.png.toString("base64"),
+        warn: colours.warn,
+        upLine: blend(colours.up, colours.bg, 0.7),
+        offsets: scenario.offsets,
+        left: scenario.box.left,
+        right: scenario.box.right,
+      },
+    );
+    if (counts.beside < 20) throw new Error(`no 前高 level beside the label (${counts.beside} px): the scenario made no swing high`);
+    if (counts.inLabel > 2) throw new Error(`the 前高 dashed level crosses the 漲停 label (${counts.inLabel} px inside it)`);
+    return { price: scenario.prices.through, ...counts };
+  } finally {
+    await scenario.context.close();
   }
 });
 
