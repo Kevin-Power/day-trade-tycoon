@@ -1,6 +1,9 @@
 /* Trading desk: the /morning trading screen. One token set; no other stylesheet styles it.
    Broker-terminal palette: OLED black, near-black panels, hairline borders, 紅漲綠跌. */
 .trading-desk {
+  /* Native controls (select menus, checkboxes, scrollbars) draw dark like the desk. Without it Safari draws
+     light menus that hide the desk's light text; the old terminal had this too. */
+  color-scheme: dark;
   --td-bg: #070a0f;
   --td-panel: #0d131b;
   --td-raised: #131c27;
