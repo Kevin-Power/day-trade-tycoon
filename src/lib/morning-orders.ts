@@ -97,6 +97,21 @@ export function classifySendFailure(facts: SendFailureFacts): SendOutcome {
   return facts.timedOut || facts.networkError ? { kind: "unknown", message } : { kind: "error", message };
 }
 
+/**
+ * The banner and 委託回報 text for a send that threw. A refusal whose reason could not be read (its body timed out
+ * or dropped) says so; a 409's reload that failed is described like any other failed request.
+ */
+export function sendFailureText(
+  facts: Omit<SendFailureFacts, "message"> & { errorMessage?: string },
+): string {
+  const refused =
+    facts.conflictReason === undefined && facts.status !== undefined && (facts.status < 200 || facts.status >= 300);
+  if (refused && (facts.timedOut || facts.networkError)) return "教室拒絕了這次操作，但沒有讀到原因。請重新載入進度核對。";
+  if (facts.timedOut) return "教室回應超過 20 秒，已停止等待。請核對進度，或重試同一筆操作。";
+  if (facts.networkError) return "暫時連不上教室，請重試同一筆操作或重新載入進度。";
+  return facts.errorMessage || "暫時連不上教室，請重試。";
+}
+
 export type OrderReport = {
   key: string;
   /** HH:MM, or null when the run did not record when it happened (a cancel or a turned-down order). */

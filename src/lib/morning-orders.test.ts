@@ -4,6 +4,7 @@ import type { MorningState } from "./morning.ts";
 import {
   classifySendFailure,
   isLargeOrder,
+  sendFailureText,
   LARGE_ORDER_CASH_SHARE,
   orderReports,
   sendFailureMessage,
@@ -178,6 +179,27 @@ test("classifySendFailure: a 409 whose reload failed keeps the server's reason",
     kind: "conflict",
     reason: "",
   });
+});
+
+test("sendFailureText: a refusal whose reason could not be read says so, not that the classroom never answered", () => {
+  const unread = "教室拒絕了這次操作，但沒有讀到原因。請重新載入進度核對。";
+  assert.equal(sendFailureText({ timedOut: true, networkError: false, status: 400 }), unread);
+  assert.equal(sendFailureText({ timedOut: false, networkError: true, status: 503 }), unread);
+});
+
+test("sendFailureText: no reply, a dropped connection, a failed reload after 409, or the classroom's own reason", () => {
+  const late = "教室回應超過 20 秒，已停止等待。請核對進度，或重試同一筆操作。";
+  const offline = "暫時連不上教室，請重試同一筆操作或重新載入進度。";
+  assert.equal(sendFailureText({ timedOut: true, networkError: false }), late);
+  assert.equal(sendFailureText({ timedOut: true, networkError: false, status: 200 }), late);
+  // The 409's reason was read; what failed was the reload after it.
+  assert.equal(sendFailureText({ timedOut: true, networkError: false, status: 409, conflictReason: "練習已更新" }), late);
+  assert.equal(sendFailureText({ timedOut: false, networkError: true }), offline);
+  assert.equal(
+    sendFailureText({ timedOut: false, networkError: false, status: 400, errorMessage: "目前模擬資金不足，無法委託" }),
+    "目前模擬資金不足，無法委託",
+  );
+  assert.equal(sendFailureText({ timedOut: false, networkError: false }), "暫時連不上教室，請重試。");
 });
 
 test("classifySendFailure: any other failure before a reply is 送出失敗", () => {

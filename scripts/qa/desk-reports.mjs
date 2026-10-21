@@ -4,7 +4,8 @@
 // 3. the classroom stores the order but its reply is lost: 回覆不明, and after 重新載入進度 that row drops out
 //    while the order reads 委託成功 (one order, not two);
 // 4. a 2xx reply that cannot be read, and 5. no reply within 20 s: both 回覆不明.
-// While an error banner shows, the confirm button keeps its own label (disabled), not 「正在處理…」.
+// The confirm button says 「正在處理…」 only while its order is sent: not while an error banner waits, nor while a
+// minute advances with the card open (6); the review's 「正在保存…」 likewise (7).
 // Usage: node scripts/qa/desk-reports.mjs <baseUrl> <label>
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -154,6 +155,8 @@ await check("5-no-reply-within-20s", async () => {
   const hang = (route) => (route.request().method() === "POST" ? void held.push(route) : route.continue());
   await page.route("**/api/morning*", hang);
   await page.getByRole("button", { name: "確認送出模擬買進" }).click();
+  await page.waitForTimeout(800);
+  const sending = (await page.locator(".sim-submit").first().textContent())?.trim() ?? "";
   const end = Date.now() + 30000;
   let row = "";
   for (;;) {
@@ -168,9 +171,48 @@ await check("5-no-reply-within-20s", async () => {
   await page.unroute("**/api/morning*", hang);
   for (const route of held) await route.abort("failed").catch(() => {});
   await clearBanner(page);
+  if (!sending.includes("正在處理")) throw new Error(`while the order was being sent its button said 「${sending}」`);
   if (!row) throw new Error("no 委託回報 row 30 s after a send that never got a reply");
   if (!row.includes("回覆不明") || !row.includes("20 秒")) throw new Error(`a send with no reply is reported as 「${row}」`);
   return row;
+});
+
+// Holds the classroom's answer to 前進 1 分鐘 while label() is read, then lets it through.
+async function duringAdvance(label) {
+  const held = [];
+  const hold = (route) => {
+    const request = route.request();
+    if (request.method() === "POST" && (request.postData() ?? "").includes('"advance"')) return void held.push(route);
+    return route.continue();
+  };
+  await page.route("**/api/morning*", hold);
+  await page.getByRole("button", { name: "前進 1 分鐘" }).click({ timeout: 8000 });
+  await page.waitForTimeout(600);
+  const text = await label();
+  await page.unroute("**/api/morning*", hold);
+  for (const route of held) await route.continue().catch(() => {});
+  await page.waitForTimeout(800);
+  await rest(page);
+  if (!held.length) throw new Error("前進 1 分鐘 sent no advance");
+  return text;
+}
+
+await check("6-advance-while-reviewing-an-order", async () => {
+  await openMarketBuy(page, "2317");
+  const label = await duringAdvance(async () => (await page.locator(".sim-submit").first().textContent())?.trim() ?? "");
+  await page.getByRole("button", { name: "返回修改" }).first().click({ timeout: 2000 }).catch(() => {});
+  if (label.includes("正在處理")) throw new Error(`while a minute advanced, the order's confirm button said 「${label}」`);
+  return label;
+});
+
+await check("7-advance-while-writing-the-review", async () => {
+  await page.getByRole("button", { name: "復盤", exact: true }).click({ timeout: 4000 });
+  const save = page.locator('#morning-review-title ~ form button[type="submit"]').first();
+  await save.waitFor({ timeout: 4000 });
+  const label = await duringAdvance(async () => (await save.textContent())?.trim() ?? "");
+  await page.getByRole("button", { name: "回看行情，保持暫停" }).click({ timeout: 4000 }).catch(() => {});
+  if (label.includes("正在保存")) throw new Error(`while a minute advanced, the review's save button said 「${label}」`);
+  return label;
 });
 
 await check("3-reply-lost-after-the-order-landed", async () => {

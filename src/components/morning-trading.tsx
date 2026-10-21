@@ -175,7 +175,7 @@ export function PaperOrder({
   code: string;
   /** The ticket is locked: a request is in flight, or an error or notice waits above the desk. */
   busy: boolean;
-  /** A request is in flight, so the confirm button says 正在處理…; while only a banner waits it keeps its label. */
+  /** This ticket's order is being sent, so the confirm button says 正在處理…; otherwise it keeps its label. */
   sending?: boolean;
   atEnd: boolean;
   canAdvance: boolean;

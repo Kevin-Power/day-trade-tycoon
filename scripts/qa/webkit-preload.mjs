@@ -13,7 +13,10 @@ chromium.launch = async (options = {}) => {
   const newContext = browser.newContext.bind(browser);
   browser.newContext = async (...settings) => {
     const context = await newContext(...settings);
-    context.newCDPSession = async () => ({ send: async () => ({}), detach: async () => {} });
+    context.newCDPSession = async () => {
+      console.warn("webkit-preload: no CDP in WebKit, so this script's CDP step (e.g. CPU throttling) is skipped.");
+      return { send: async () => ({}), detach: async () => {} };
+    };
     return context;
   };
   return browser;

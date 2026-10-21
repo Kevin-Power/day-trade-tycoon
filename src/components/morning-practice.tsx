@@ -48,6 +48,7 @@ import { deriveMorningAlerts } from "@/lib/morning-alerts";
 import {
   classifySendFailure,
   sendFailureMessage,
+  sendFailureText,
   type LocalOrderFailure,
   type SendOutcome,
 } from "@/lib/morning-orders";
@@ -222,23 +223,13 @@ function useMorningData(lessonId: string) {
         return { response: next, outcome: { kind: "sent" } };
       } catch (failure) {
         if (current()) {
-          const message = timedOut
-            ? "教室回應超過 20 秒，已停止等待。請核對進度，或重試同一筆操作。"
-            : failure instanceof TypeError
-              ? "暫時連不上教室，請重試同一筆操作或重新載入進度。"
-              : failure instanceof Error
-                ? failure.message
-                : "暫時連不上教室，請重試。";
+          const facts = { timedOut, networkError: failure instanceof TypeError, status, conflictReason };
+          const message = sendFailureText({
+            ...facts,
+            errorMessage: failure instanceof Error ? failure.message : undefined,
+          });
           setError(message);
-          return quiet(
-            classifySendFailure({
-              timedOut,
-              networkError: failure instanceof TypeError,
-              status,
-              conflictReason,
-              message,
-            }),
-          );
+          return quiet(classifySendFailure({ ...facts, message }));
         }
         return quiet({ kind: "stale" });
       } finally {
@@ -713,7 +704,7 @@ function MorningLesson({
       session={liveMarket}
       code={code}
       busy={Boolean(busy || error || notice)}
-      sending={Boolean(busy)}
+      sending={busy === "order"}
       atEnd={atEnd && !showPlan}
       canAdvance={canAdvance && !showPlan && !error && !notice}
       onSelect={setSelected}
@@ -1180,6 +1171,7 @@ function MorningLesson({
                   <ReflectionForm
                     session={session}
                     busy={Boolean(busy)}
+                    saving={busy === "finish"}
                     onFinish={finish}
                     onBack={() => setReviewOpen(false)}
                   />
@@ -1649,11 +1641,15 @@ function SavedPlan({ plan, catalog }: { plan: MorningPlan; catalog: MorningCatal
 function ReflectionForm({
   session,
   busy,
+  saving,
   onFinish,
   onBack,
 }: {
   session: MorningState;
+  /** Any request is in flight: the form waits. */
   busy: boolean;
+  /** The review itself is being saved, so its button says 正在保存…. */
+  saving: boolean;
   onFinish: (text: string) => Promise<void>;
   onBack: () => void;
 }) {
@@ -1708,7 +1704,7 @@ function ReflectionForm({
       )}
       <div className="flex flex-wrap gap-3">
         <button type="submit" disabled={busy} className={PRIMARY}>
-          {busy ? "正在保存…" : "保存復盤，完成這一輪"}
+          {saving ? "正在保存…" : "保存復盤，完成這一輪"}
         </button>
         <button type="button" disabled={busy} onClick={onBack} className={SECONDARY}>
           回看行情，保持暫停
