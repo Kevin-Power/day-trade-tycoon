@@ -1413,8 +1413,8 @@ function Background({
             </a>
           ) : (
             <p className="mt-5 rounded-xl bg-bg p-3 text-base leading-relaxed text-muted">
-              本課尚未提供當日盤前影音，先使用以上文字教材。EMA11
-              僅作教材說明，尚未計算指標或自動判斷 N 字條件。
+              本課尚未提供當日盤前影音，先使用以上文字教材。交易台的 EMA11、EMA24
+              以一分鐘收盤價畫線，只供觀察；不會自動判斷 N 字條件或產生買賣訊號。
             </p>
           )}
         </div>

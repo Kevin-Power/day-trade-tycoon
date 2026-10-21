@@ -298,6 +298,19 @@ await check("9-replay", async () => {
   if (pageErrors.length) throw new Error(pageErrors.join("; "));
 });
 
+await check("11-ema-copy", async () => {
+  // Students read 教材 → 先讀背景與教材規則; it must agree with the EMA lines the desk now draws.
+  const button = desktop.getByRole("button", { name: "教材" }).first();
+  await button.click({ timeout: 4000 });
+  const drawer = desktop.locator("#td-resources");
+  await drawer.waitFor({ timeout: 4000 });
+  const text = (await drawer.textContent()) ?? "";
+  await button.click({ timeout: 4000 }).catch(() => {});
+  const stale = text.match(/[^。]*(尚未計算|僅作教材說明)[^。]*。?/);
+  if (stale) throw new Error(`the 教材 drawer still says 「${stale[0]}」`);
+  if (!text.includes("EMA11") || !text.includes("EMA24")) throw new Error("the 教材 drawer does not describe EMA11 and EMA24");
+});
+
 /* ── phone 390×844 ── */
 const phone = await (
   await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: DPR, isMobile: true, hasTouch: true })
