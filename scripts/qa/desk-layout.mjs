@@ -122,7 +122,26 @@ for (const [width, height, senior] of cases) {
   const report = await page.evaluate(scan);
   const name = `${width}x${height}${senior ? "-senior" : ""}`;
   await page.screenshot({ path: `${out}${name}.png`, fullPage: true });
-  rows.push({ name, width, height, senior, ...report });
+  // Phones and large text: the 大盤 view (自選 → 加權指數) fits the screen too.
+  let indexView = null;
+  const dock = page.locator("nav.td-dock");
+  if (await dock.count()) {
+    await dock.getByRole("button", { name: /^自選/ }).click();
+    await page.locator('.td-watch-row[data-code="TAIEX"]').click();
+    await page.locator(".td-index-panel").first().waitFor({ timeout: 4000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    // The widest plausible quote (a big opening move) must still fit: values change every minute.
+    await page.evaluate(() => {
+      const value = document.querySelector(".td-index-value");
+      const change = document.querySelector(".td-index-change");
+      if (value) value.textContent = "49,932.26";
+      if (change) change.textContent = "▲1,220.22 +2.51%";
+    });
+    const view = await page.evaluate(scan);
+    indexView = { offscreen: view.offscreen, small: view.small, overflowX: view.pageOverflowX };
+    await page.screenshot({ path: `${out}${name}-index.png`, fullPage: true });
+  }
+  rows.push({ name, width, height, senior, ...report, indexView });
   await context.close();
 }
 await browser.close();
@@ -164,6 +183,8 @@ for (const row of rows) {
     failures.push(`${row.name}: chart ${row.chartWidth}x${row.chartHeight} is not 1.2 times wider than tall`);
   if (!row.senior && row.width >= 768 && !(row.miniSize && row.miniSize[0] >= 100 && row.miniSize[1] >= 24))
     failures.push(`${row.name}: 簡易K線 ${JSON.stringify(row.miniSize)}, needs 100x24`);
+  if (row.indexView && (row.indexView.offscreen.length || row.indexView.overflowX > 0 || row.indexView.small.length))
+    failures.push(`${row.name}: the 大盤 view runs off the screen (${row.indexView.offscreen.slice(0, 3).join(" | ")})`);
   // Every stock (and the TAIEX) in 自選 is in view without scrolling the pane.
   if (!row.senior && row.width >= 768 && row.watchOutside !== 0)
     failures.push(`${row.name}: ${row.watchOutside} 自選 rows outside the watch pane`);

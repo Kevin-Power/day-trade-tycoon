@@ -33,7 +33,6 @@ const ICONS = {
   ChevronDown: "custom/chevron-down",
   ChevronLeft: "custom/chevron-left",
   ChevronRight: "custom/chevron-right",
-  ChevronUp: "custom/chevron-up",
   Circle: "circle",
   CircleCheck: "tick-circle",
   CirclePause: "pause-circle",

@@ -1,7 +1,14 @@
 import { useRef, useState } from "react";
 import { Zap } from "@/lib/icons";
 import { useTickFlash } from "@/components/use-tick-flash";
-import { bookPressure, createMorningBook, type MorningBookLevel } from "@/lib/morning-book";
+import {
+  bookCellBlocked,
+  bookCellLabel,
+  bookCellOrder,
+  bookPressure,
+  createMorningBook,
+  type MorningBookLevel,
+} from "@/lib/morning-book";
 import { formatPrice } from "@/lib/market/ticks";
 
 type Tone = "up" | "down" | "flat";
@@ -154,7 +161,7 @@ export function MorningOrderBook({
               maxLots={maxLots}
               tone={tone}
               trading={trading}
-              disabled={trading && disabled}
+              disabled={bookCellBlocked({ cell: "bid", trading, locked: disabled, holdingLots, lots })}
               onPick={pick}
             />
             <BookCell
@@ -164,7 +171,7 @@ export function MorningOrderBook({
               maxLots={maxLots}
               tone={tone}
               trading={trading}
-              disabled={trading && (disabled || holdingLots < lots)}
+              disabled={bookCellBlocked({ cell: "ask", trading, locked: disabled, holdingLots, lots })}
               onPick={pick}
             />
           </div>
@@ -250,8 +257,6 @@ function BookCell({
 }) {
   if (!level)
     return <span className="td-book-cell td-book-cell-empty" data-side={side} aria-hidden="true" />;
-  const buy = side === "bid";
-  const name = `${buy ? "買" : "賣"}${level.level} ${formatPrice(level.price)}`;
   return (
     <button
       type="button"
@@ -261,16 +266,18 @@ function BookCell({
       data-price={level.price}
       data-tone={tone(level.price)}
       disabled={disabled}
-      aria-label={
-        trading
-          ? `${name}，點擊以 ${formatPrice(level.price)} 限價${buy ? "買進" : "賣出"} ${lots} 張`
-          : `${name}，點擊帶入下單（${buy ? "買進" : "賣出"}）`
-      }
+      aria-label={bookCellLabel({
+        cell: side,
+        level: level.level,
+        price: formatPrice(level.price),
+        lots,
+        trading,
+      })}
       onKeyDown={(event) => {
         if (event.repeat && (event.key === "Enter" || event.key === " ")) event.preventDefault();
       }}
       onClick={(event) => {
-        if (event.detail < 2) onPick(level.price, buy ? "buy" : "sell");
+        if (event.detail < 2) onPick(level.price, bookCellOrder(side));
       }}
     >
       <i

@@ -28,7 +28,6 @@ export function isLargeOrder(input: {
 export type LocalOrderFailure = {
   id: string;
   cursor: number;
-  second: number;
   code: string;
   side: "buy" | "sell";
   lots: number;

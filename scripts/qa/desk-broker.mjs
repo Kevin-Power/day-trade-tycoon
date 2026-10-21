@@ -154,6 +154,11 @@ await check("4-watch-table", async () => {
   await desktop.locator('.td-watch-row[data-code="TAIEX"]').click();
   await desktop.waitForTimeout(250);
   if (!clean(await desktop.locator("#morning-practice-title").textContent()).includes("鴻海")) throw new Error("TAIEX row changed the selected stock");
+  // Not a toggle that never toggles: a plain button whose click moves focus to the 大盤 pane it points at.
+  const pressed = await desktop.locator('.td-watch-row[data-code="TAIEX"]').getAttribute("aria-pressed");
+  if (pressed !== null) throw new Error(`the desktop TAIEX row is a toggle (aria-pressed=${pressed})`);
+  if (!(await desktop.evaluate(() => Boolean(document.activeElement?.closest('[data-pane="index"]')))))
+    throw new Error("the TAIEX row did not move focus to the 大盤 pane");
   return codes;
 });
 
@@ -232,6 +237,38 @@ await check("7-large-order", async () => {
   await desktop.locator("#sim-large-ack").waitFor({ timeout: 4000 });
   if (await desktop.locator("#sim-large-ack").isChecked()) throw new Error("a reopened large order starts ticked");
   await desktop.getByRole("button", { name: "返回修改" }).click();
+  // Same stock, so the ticket is not remounted: tick a large size, go back to a smaller one (no block), then
+  // back to the large size, which starts unticked again.
+  {
+    const now = await api();
+    let sizes = null;
+    for (const symbol of ["2308", "2382", "2317", "2454", "2330"]) {
+      const lot = now.bars[symbol].at(-1).c * 1000;
+      for (const [small, large] of [[1, 2], [1, 3], [2, 3]])
+        if (!sizes && lot * small < 0.5 * now.cash && lot * large >= 0.5 * now.cash) sizes = { symbol, small, large };
+    }
+    if (!sizes) throw new Error("no stock has both a small and a large size for the seeded cash");
+    await selectStock(desktop, sizes.symbol);
+    await desktop.getByRole("button", { name: "市價" }).first().click();
+    await setLots(desktop, sizes.large);
+    await desktop.getByRole("button", { name: /^核對模擬買進/ }).click();
+    await desktop.locator("#sim-large-ack").check();
+    await desktop.getByRole("button", { name: "返回修改" }).click();
+    await setLots(desktop, sizes.small);
+    await desktop.getByRole("button", { name: /^核對模擬買進/ }).click();
+    await desktop.locator(".sim-confirm").waitFor({ timeout: 4000 });
+    if (await desktop.locator(".sim-large").count())
+      throw new Error(`${sizes.small} lot(s) of ${sizes.symbol} still show the large-order block`);
+    await desktop.getByRole("button", { name: "返回修改" }).click();
+    await setLots(desktop, sizes.large);
+    await desktop.getByRole("button", { name: /^核對模擬買進/ }).click();
+    await desktop.locator("#sim-large-ack").waitFor({ timeout: 4000 });
+    if (await desktop.locator("#sim-large-ack").isChecked())
+      throw new Error(`the large size of ${sizes.symbol} came back ticked after a smaller review`);
+    await desktop.getByRole("button", { name: "返回修改" }).click();
+    // Back to 台積電 for the lightning case below.
+    await selectStock(desktop, "2330");
+  }
   // Lightning does not send a large order: it opens the confirm card.
   await setLots(desktop, lotsLarge);
   await arm(desktop, true);
@@ -268,7 +305,43 @@ await check("8-order-reports", async () => {
   await desktop.getByRole("button", { name: "確認送出模擬買進" }).click();
   await until(async () => /資金不足/.test(await desktop.locator('.sim-reports li[data-tone="failed"]').first().textContent().catch(() => "")), "no failed report");
   await desktop.getByRole("button", { name: /重新載入進度/ }).first().click({ timeout: 4000 }).catch(() => {});
+  await desktop.waitForTimeout(600);
+  await clearPending(desktop);
+  await selectStock(desktop, "2317");
+  await setLots(desktop, 1);
+  await desktop.getByRole("button", { name: "市價" }).first().click();
+  await desktop.getByRole("button", { name: /^核對模擬買進/ }).click();
+  await desktop.locator(".sim-confirm").waitFor({ timeout: 4000 });
+  const failedBefore = await desktop.locator('.sim-reports li[data-tone="failed"]').count();
+  const run = await api();
+  await new Promise((resolve) => setTimeout(resolve, Math.max(0, run.nextAdvanceAt - Date.now()) + 60));
+  const moved = await fetch(`${base}/api/morning`, {
+    method: "POST",
+    headers: { origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ action: "advance", id: run.id, expectedRevision: run.revision, requestId: crypto.randomUUID() }),
+  });
+  if (moved.status !== 200) throw new Error(`could not move the run on from another "tab" (${moved.status})`);
+  await desktop.getByRole("button", { name: "確認送出模擬買進" }).click();
+  await until(
+    async () => (await desktop.locator('.sim-reports li[data-tone="failed"]').count()) > failedBefore,
+    "a send the server refused with 409 left no 送出失敗 report",
+  );
   return "pass";
+});
+
+await check("11-plan-chip", async () => {
+  const chip = desktop.locator(".td-plan-chip");
+  const label = clean(await chip.textContent({ timeout: 4000 }));
+  if (!label.startsWith("本輪計畫：")) throw new Error(`the chip reads "${label}"`);
+  await chip.click();
+  const plan = desktop.locator("#td-resources details", {
+    has: desktop.locator("summary", { hasText: "本輪作戰計畫" }),
+  });
+  await plan.waitFor({ timeout: 4000 });
+  if (!(await plan.evaluate((element) => element.open))) throw new Error("the chip opened 教材 with the plan collapsed");
+  if (!(await plan.isVisible())) throw new Error("the plan section is not in view");
+  await desktop.locator("#td-resources .td-resources-head button").first().click().catch(() => {});
+  return label;
 });
 
 await desktop.screenshot({ path: `${out}desktop-1440.png` });
@@ -317,9 +390,32 @@ await check("10-phone", async () => {
   const buyPressed = await page.locator('[aria-label="模擬買賣方向"] button[data-side="buy"]').getAttribute("aria-pressed");
   const limit = await page.locator("#morning-limit-price").inputValue({ timeout: 4000 });
   await page.screenshot({ path: `${out}phone-390.png` });
+  const problems = [];
+  if (buyPressed !== "true") problems.push("買進 not chosen after tapping a bid price");
+  if (Number(limit) !== Number(price)) problems.push(`limit ${limit}, tapped ${price}`);
+  // Switching the ticket to another stock does not carry 台積電's price over.
+  await page.locator('select[aria-label="下單商品"]').selectOption("2317");
+  await page.waitForTimeout(400);
+  const carried = await page.locator("#morning-limit-price").inputValue({ timeout: 800 }).catch(() => null);
+  if (carried !== null && Number(carried) === Number(price))
+    problems.push(`鴻海's ticket kept 台積電's tapped price ${carried}`);
+  // A waiting order stays visible and can be withdrawn while 行情 shows the index.
+  await page.getByRole("button", { name: "市價", exact: true }).click();
+  await page.getByRole("button", { name: /^核對模擬買進/ }).click();
+  await page.getByRole("button", { name: "確認送出模擬買進" }).click();
+  await page.getByText("委託已送出 · 等待撮合").first().waitFor({ timeout: 6000 });
+  await dock("自選").click();
+  await page.locator('.td-watch-row[data-code="TAIEX"]').click();
+  await dock("下單").click();
+  await page.getByText("指數不能下單，請選一檔股票").waitFor({ timeout: 4000 });
+  if (!(await page.getByText("委託已送出 · 等待撮合").first().isVisible()))
+    problems.push("the waiting order disappears from 下單 while the index is shown");
+  else {
+    await page.getByRole("button", { name: "撤回委託" }).first().click();
+    await until(async () => (await api()).orders.at(-1)?.status === "cancelled", "the waiting order was not withdrawn");
+  }
   await page.close();
-  if (buyPressed !== "true") throw new Error("買進 not chosen after tapping a bid price");
-  if (Number(limit) !== Number(price)) throw new Error(`limit ${limit}, tapped ${price}`);
+  if (problems.length) throw new Error(problems.join("; "));
   return { price };
 });
 

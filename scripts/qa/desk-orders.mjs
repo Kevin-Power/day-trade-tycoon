@@ -55,13 +55,16 @@ assert.match(announced ?? "", /你的委託成交/);
 const lightning = page.getByRole("switch", { name: "閃電即送" });
 await lightning.click();
 await until(async () => (await lightning.getAttribute("aria-checked")) === "true", "lightning did not arm");
-await page.getByRole("button", { name: /^賣1 .*限價賣出/ }).click();
+const sellCell = page.getByRole("button", { name: /^賣1 .*限價賣出/ });
+const sellPrice = Number(await sellCell.getAttribute("data-price"));
+await sellCell.click();
 state = await until(async () => {
   const next = await api();
   const order = next.orders.at(-1);
   return order?.status === "pending" && order.entryMode === "lightning" && next;
 }, "lightning order missing");
 assert.equal(state.orders.at(-1).side, "sell", "the right column did not sell");
+assert.equal(state.orders.at(-1).limitPrice, sellPrice, "the right column did not sell at the clicked price");
 // The ledger is always open: a pending order is flagged, and the 委託 tab lists it.
 const ledger = page.locator(".td-ledger");
 await until(

@@ -40,14 +40,14 @@ export function IndexPanel({
   );
   if (!series || !bars.length)
     return (
-      <section className="td-index-panel" aria-label="大盤指數">
+      <section className="td-index-panel" aria-label="大盤指數" tabIndex={-1}>
         {head}
         <p className="td-index-empty">{placeholder}</p>
       </section>
     );
   const quote = indexSummary(bars, series.previousClose);
   return (
-    <section className="td-index-panel" data-tone={quote.tone} aria-label="大盤指數">
+    <section className="td-index-panel" data-tone={quote.tone} aria-label="大盤指數" tabIndex={-1}>
       {head}
       <div className="td-index-quote">
         <strong className="td-index-value td-num">

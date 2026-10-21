@@ -59,6 +59,44 @@ for (const [width, height] of [
   }
   await context.close();
 }
+// Short desktops: the large-order confirm card's tick is never under the pinned 確認送出 button.
+for (const [width, height] of [
+  [1366, 768],
+  [1200, 800],
+]) {
+  const name = `${width}x${height}`;
+  const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
+  const page = await context.newPage();
+  try {
+    await page.goto(`${base}/morning`, { waitUntil: "domcontentloaded" });
+    await page.locator('.td-chart canvas[role="img"]').waitFor({ timeout: 20000 });
+    await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 3000 }).catch(() => {});
+    const state = await page.evaluate(async () => (await (await fetch("/api/morning")).json()).state);
+    let choice = null;
+    for (const code of ["2454", "2330", "2308", "2382", "2317"])
+      for (const lots of [1, 2, 3])
+        if (!choice && state.bars[code].at(-1).c * 1000 * lots >= 0.5 * state.cash) choice = { code, lots };
+    if (!choice) throw new Error("no order reaches half the cash");
+    await page.locator(`.td-watch-row[data-code="${choice.code}"]`).click();
+    await page.getByRole("button", { name: "市價", exact: true }).click();
+    for (let lots = 1; lots < choice.lots; lots++) await page.getByRole("button", { name: "增加一張" }).click();
+    await page.getByRole("button", { name: /^核對模擬買進/ }).click();
+    const tick = page.locator("#sim-large-ack");
+    await tick.scrollIntoViewIfNeeded();
+    const box = await tick.boundingBox();
+    const clear = await page.evaluate(
+      ([x, y]) => Boolean(document.elementFromPoint(x, y)?.closest("#sim-large-ack, label[for='sim-large-ack']")),
+      [box.x + box.width / 2, box.y + box.height / 2],
+    );
+    await page.screenshot({ path: `${out}/${name}-large-order.png` });
+    if (!clear) failures.push(`${name}: the pinned send button covers the large-order tick`);
+    await page.getByRole("button", { name: "返回修改" }).click();
+  } catch (error) {
+    failures.push(`${name} large order: ${error.message.split("\n")[0]}`);
+    await page.screenshot({ path: `${out}/${name}-large-order-stopped.png` }).catch(() => {});
+  }
+  await context.close();
+}
 await browser.close();
 if (failures.length) {
   console.log("FAILURES:\n" + failures.join("\n"));

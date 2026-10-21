@@ -106,6 +106,11 @@ for (const item of cases) {
       if (!box || box.y + box.height > viewport.height) fail(`start button is not on the first screen of the plan (bottom ${box && Math.round(box.y + box.height)}px)`);
     }
     await check("plan");
+    if (item.name === "320") {
+      await page.locator("nav.td-dock").getByRole("button", { name: /^自選/ }).click();
+      await page.locator('.td-watch-row[data-code="TAIEX"]').click();
+      await page.locator(".td-index-panel").first().waitFor({ timeout: 4000 });
+    }
     await startButton.click();
     taps++;
     const deadline = Date.now() + 15000;
@@ -118,6 +123,8 @@ for (const item of cases) {
     await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 10000 });
     if (taps !== 2) fail(`taps from lobby to 09:00 = ${taps}`);
     if (await page.getByText("請稍候一秒").count()) fail("the 09:00 reveal was refused as too early");
+    if (item.name === "320" && !(await page.locator('.td-chart canvas[role="img"]').isVisible()))
+      fail("the run opened on the 大盤 view picked before it started (no stock chart for the coach)");
 
     const coach = page.getByRole("dialog");
     await coach.waitFor({ timeout: 10000 });

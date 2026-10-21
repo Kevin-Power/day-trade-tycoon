@@ -37,7 +37,6 @@ const run = (over: Partial<MorningState> = {}): MorningState => ({
 const FAILURE: LocalOrderFailure = {
   id: "f-1",
   cursor: 41,
-  second: 2460,
   code: "2330",
   side: "buy",
   lots: 1,

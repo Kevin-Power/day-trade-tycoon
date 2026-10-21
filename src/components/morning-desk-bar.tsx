@@ -200,7 +200,7 @@ export function HintBar({
     <section className="td-hints" aria-label="教學提示與快訊">
       {plan && (
         <button type="button" className="td-plan-chip" onClick={plan.onOpen}>
-          <span>本輪計畫</span>
+          <span>本輪計畫：</span>
           {plan.code} {plan.label}
         </button>
       )}

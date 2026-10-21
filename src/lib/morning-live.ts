@@ -65,10 +65,11 @@ export function liveSession(session: MorningState, fraction: number, catalog: Re
     const latest = bars[position.code]?.at(-1)?.c;
     return settled === undefined || latest === undefined ? sum : sum + position.shares * (latest - settled);
   }, 0);
-  // The TAIEX minute replays with its real 5-second values, in step with the stocks.
+  // The TAIEX minute replays with its real 5-second values, in step with the stocks; only when the index has
+  // the playing minute (an index that stops earlier keeps its completed minutes as they are).
   const indexBars = session.index?.bars;
   const index =
-    session.index && indexBars?.length
+    session.index && indexBars?.length && indexBars.length === session.cursor
       ? { ...session.index, bars: [...indexBars.slice(0, -1), formingIndexBar(indexBars.at(-1)!, fraction)] }
       : session.index;
   return {
@@ -86,7 +87,8 @@ export function withoutNewestMinute(session: MorningState): MorningState {
     ...session,
     cursor: session.cursor - 1,
     bars: Object.fromEntries(Object.entries(session.bars).map(([code, list]) => [code, list.slice(0, -1)])),
-    ...(session.index ? { index: { ...session.index, bars: session.index.bars.slice(0, -1) } } : {}),
+    // At most the minutes before the newest one; an index that stops earlier keeps all of its minutes.
+    ...(session.index ? { index: { ...session.index, bars: session.index.bars.slice(0, Math.max(0, session.cursor - 1)) } } : {}),
   };
 }
 

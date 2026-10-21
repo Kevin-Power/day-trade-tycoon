@@ -209,7 +209,6 @@ test("glyphs that are a button's only content stay as large as the lucide ones t
   for (const [name, across, along] of [
     ["ChevronLeft", 4, 8],
     ["ChevronRight", 4, 8],
-    ["ChevronUp", 8, 4],
     ["ChevronDown", 8, 4],
     ["Plus", 9, 9],
     ["Minus", 9, 0],

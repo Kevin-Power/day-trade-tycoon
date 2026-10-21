@@ -1,12 +1,9 @@
 import { useState, type ReactNode } from "react";
 import type { MorningCatalog } from "@/lib/morning";
 import { replayClock, settledSession, type LiveMorningState } from "@/lib/morning-live";
-import { quoteSummary } from "@/lib/morning-quote";
+import { quoteDetailRows } from "@/lib/morning-quote";
 import { formatPrice } from "@/lib/market/ticks";
 import { formatTime } from "@/lib/utils";
-
-const arrow = (tone: "up" | "down" | "flat") => (tone === "up" ? "▲" : tone === "down" ? "▼" : "");
-const price = (value: number | null) => (value === null ? "—" : formatPrice(value));
 
 /**
  * The selected stock's quote in broker order: trade, change, open/high/low, previous close, amplitude and time.
@@ -25,56 +22,28 @@ export function QuoteDetailGrid({
   const symbol = catalog.symbols.find((item) => item.code === code);
   if (!symbol) return null;
   const bars = session?.bars[code] ?? [];
-  const quote = quoteSummary(bars, symbol.previousClose);
-  const toneOf = (value: number | null) =>
-    value === null || value === symbol.previousClose
-      ? "flat"
-      : value > symbol.previousClose
-        ? "up"
-        : "down";
-  const average =
-    bars.length && bars.every((bar) => typeof bar.a === "number") ? bars.at(-1)!.a! : null;
-  const amplitude =
-    quote.high !== null && quote.low !== null && symbol.previousClose > 0
-      ? `${(((quote.high - quote.low) / symbol.previousClose) * 100).toFixed(2)}%`
-      : "—";
   const time =
     session && bars.length
       ? session.replay
         ? formatTime(replayClock(session))
         : formatTime(bars.at(-1)!.t + 60).slice(0, 5)
       : "—";
-  // While a minute replays, 成交 and what follows it (high, low, amplitude, time) move with simulated trades.
-  const simulated = Boolean(session?.replay);
-  const rows: [string, string, "up" | "down" | "flat"][] = [
-    ["成交", price(quote.last), quote.tone],
-    ["漲跌", quote.last === null ? "—" : `${arrow(quote.tone)}${quote.changeText}`, quote.tone],
-    ["漲跌幅", quote.percentText || "—", quote.tone],
-    ["開盤", price(quote.open), toneOf(quote.open)],
-    ["最高", price(quote.high), toneOf(quote.high)],
-    ["最低", price(quote.low), toneOf(quote.low)],
-    ["昨收", formatPrice(symbol.previousClose), "flat"],
-    ...(average === null
-      ? []
-      : [
-          ["均價", formatPrice(average), toneOf(average)] as [
-            string,
-            string,
-            "up" | "down" | "flat",
-          ],
-        ]),
-    ["振幅", amplitude, "flat"],
-    ["時間", time, "flat"],
-  ];
+  // While a minute replays, 成交 (and the high, low, amplitude and time after it) move with simulated trades.
+  const rows = quoteDetailRows({
+    bars,
+    previousClose: symbol.previousClose,
+    time,
+    simulated: Boolean(session?.replay),
+  });
   return (
     <dl className="td-quote-grid" aria-label={`${symbol.name}報價明細`}>
-      {rows.map(([label, value, tone]) => (
-        <div key={label} data-tone={tone}>
+      {rows.map((row) => (
+        <div key={row.label} data-tone={row.tone}>
           <dt>
-            {label}
-            {simulated && label === "成交" && <span className="td-sim-tag">模擬</span>}
+            {row.label}
+            {row.simulated && <span className="td-sim-tag">模擬</span>}
           </dt>
-          <dd className="td-num">{value}</dd>
+          <dd className="td-num">{row.value}</dd>
         </div>
       ))}
     </dl>
@@ -90,14 +59,12 @@ export type StockTab = {
 /** The stock's information pages: 五檔, 明細 (simulated trades), 分鐘 (completed minutes), 詳細. */
 export function StockTabs({
   tabs,
-  initial,
   onChange,
 }: {
   tabs: StockTab[];
-  initial?: StockTab["id"];
   onChange?: (id: StockTab["id"]) => void;
 }) {
-  const [active, setActive] = useState<StockTab["id"] | undefined>(initial);
+  const [active, setActive] = useState<StockTab["id"]>();
   const current = tabs.find((tab) => tab.id === active) ?? tabs[0];
   if (!current) return null;
   return (

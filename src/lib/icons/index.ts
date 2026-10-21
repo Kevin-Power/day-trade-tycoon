@@ -46,7 +46,6 @@ export const CheckCircle2 = /* @__PURE__ */ createIcon("CheckCircle2", tickCircl
 export const ChevronDown = /* @__PURE__ */ createIcon("ChevronDown", [{ d: "M3.5 5.5l4 4 4-4", stroke: "currentColor" }]);
 export const ChevronLeft = /* @__PURE__ */ createIcon("ChevronLeft", [{ d: "M9.5 3.5l-4 4 4 4", stroke: "currentColor" }]);
 export const ChevronRight = /* @__PURE__ */ createIcon("ChevronRight", [{ d: "M5.5 3.5l4 4-4 4", stroke: "currentColor" }]);
-export const ChevronUp = /* @__PURE__ */ createIcon("ChevronUp", [{ d: "M3.5 9.5l4-4 4 4", stroke: "currentColor" }]);
 export const Circle = /* @__PURE__ */ createIcon("Circle", [{ d: "M.5 7.5a7 7 0 1014 0 7 7 0 00-14 0z", stroke: "currentColor" }]);
 export const CircleCheck = /* @__PURE__ */ createIcon("CircleCheck", tickCircleGlyph);
 export const CirclePause = /* @__PURE__ */ createIcon("CirclePause", [{ d: "M6.5 5v5m2-5v5m-1 4.5a7 7 0 110-14 7 7 0 010 14z", stroke: "currentColor" }]);

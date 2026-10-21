@@ -1141,23 +1141,6 @@
 .trading-desk .td-ledger-meta {
   margin-left: auto;
 }
-.trading-desk .sim-ledger-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 26px;
-  padding: 0 10px;
-  color: var(--td-fg);
-  background: var(--td-panel);
-  border: 1px solid var(--td-line-strong);
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-}
-.trading-desk .sim-ledger-toggle svg {
-  width: 15px;
-  height: 15px;
-}
 .trading-desk .sim-pending-badge {
   padding: 0 5px;
   color: #1a1300;
@@ -1165,11 +1148,6 @@
   border-radius: 2px;
   font: 600 11px/16px var(--font-mono);
   font-style: normal;
-}
-/* Tablet center column (~508px) cannot fit tabs, account line and toggle on one row; the status
-   bar already shows 本輪損益 and 可用資金. */
-.trading-desk[data-layout="tablet"] .td-ledger[data-open="false"] .td-ledger-meta {
-  display: none;
 }
 .trading-desk .sim-ledger-content {
   flex: 1;
@@ -2437,7 +2415,6 @@
     .sim-stepper button,
     .morning-limit-field button,
     .sim-ledger-header nav button,
-    .sim-ledger-toggle,
     .sim-order-help summary,
     .sim-cancel,
     .sim-back,
@@ -4060,4 +4037,20 @@
 }
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-decimals {
   display: none;
+}
+
+/* Review minors (2026-10-21) */
+/* The pinned 確認送出 button sits over the bottom of the ticket pane: whatever scrolls into view (the large-order
+   tick reached by Tab, the confirm card) stops above it. */
+.trading-desk:is([data-layout="desktop"], [data-layout="tablet"]) .sim-ticket[data-pane="ticket"] {
+  scroll-padding-bottom: 64px;
+}
+/* Narrow phones: the 大盤 value, change and time wrap instead of running off the screen. */
+.trading-desk .td-index-quote {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+/* The 大盤 pane takes focus from the TAIEX row; the panel itself draws no ring after a pointer click. */
+.trading-desk .td-index-panel:focus:not(:focus-visible) {
+  outline: none;
 }

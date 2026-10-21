@@ -18,6 +18,7 @@ import {
   AccountSummary,
   DisplayBook,
   PaperOrder,
+  PendingOrder,
   Ledger,
   type MorningOrderOptions,
 } from "@/components/morning-trading";
@@ -159,6 +160,14 @@ function useMorningData(lessonId: string) {
         }
         if (response.status === 409) {
           retryAction.current = undefined;
+          // The server's reason (e.g. 本次練習已達委託筆數上限) goes to 委託回報 when an order was refused.
+          const refusal = (await readJsonResponse(response).catch(() => null)) as {
+            message?: unknown;
+          } | null;
+          lastError.current =
+            typeof refusal?.message === "string" && refusal.message
+              ? refusal.message
+              : "進度已更新，這次操作沒有送出。";
           const latest = await fetch(endpoint, {
             credentials: "same-origin",
             cache: "no-store",
@@ -364,10 +373,23 @@ function MorningLesson({
   const singlePane = layout === "phone" || layout === "senior";
   // Clicking the TAIEX row on a desktop points at the index pane (it is always shown there).
   const [indexPing, setIndexPing] = useState(0);
-  // Phones: the TAIEX row in 自選 turns 行情 into the index view until a stock is picked.
-  const [indexView, setIndexView] = useState(false);
-  // Phones: a price tapped in the 行情 book, handed to 下單 (filled in, never sent).
-  const [prefill, setPrefill] = useState<{ price: number; side: "buy" | "sell"; nonce: number }>();
+  // Phones: the TAIEX row in 自選 turns 行情 into the index view until a stock is picked; the view belongs to
+  // the run it was picked in, so a new run opens on its stock.
+  const runKey = sessionId ?? "plan";
+  const [indexViewFor, setIndexViewFor] = useState<string | null>(null);
+  const indexView = indexViewFor === runKey;
+  // Phones: a price tapped in the 行情 book, handed to 下單 for that stock (filled in, never sent).
+  const [prefill, setPrefill] = useState<{
+    price: number;
+    side: "buy" | "sell";
+    nonce: number;
+    code: string;
+  }>();
+  // Desktops: the TAIEX row moves focus to the 大盤 pane it points at.
+  const indexPane = useRef<HTMLDivElement>(null);
+  // The plan chip opens 教材 at the round's plan, expanded.
+  const planDetails = useRef<HTMLDetailsElement>(null);
+  const [planFocus, setPlanFocus] = useState(0);
   useEffect(() => {
     if (activePane !== "trade") setPrefill(undefined);
   }, [activePane]);
@@ -434,6 +456,15 @@ function MorningLesson({
   useEffect(() => {
     if (resourcesOpen) resourcesHeading.current?.focus({ preventScroll: true });
   }, [resourcesOpen]);
+
+  // After the heading focus above: the plan chip lands on the plan, opened.
+  useEffect(() => {
+    const plan = planDetails.current;
+    if (!planFocus || !plan) return;
+    plan.open = true;
+    plan.scrollIntoView({ block: "nearest", behavior: "auto" });
+    plan.querySelector("summary")?.focus({ preventScroll: true });
+  }, [planFocus]);
 
   useEffect(() => {
     if (planOpen) planRegion.current?.scrollIntoView({ block: "start", behavior: "auto" });
@@ -581,7 +612,6 @@ function MorningLesson({
             {
               id: crypto.randomUUID(),
               cursor: session.cursor,
-              second: liveMarket ? replayClock(liveMarket) : session.cursor * 60,
               code,
               side,
               lots,
@@ -629,6 +659,7 @@ function MorningLesson({
 
   const showPlan = !session || newPlan;
   const marketSession = newPlan ? null : session;
+  const pendingOrder = marketSession?.orders.find((item) => item.status === "pending");
   // What the desk shows: a newly revealed minute plays trade by trade. Orders use the same run and revision.
   const liveMarket = useTickReplay(marketSession ?? null, catalog, REPLAY_DELAY[speed] * 0.9);
   // Alerts and minute tables wait for the replaying minute to finish, so nothing is announced ahead of it.
@@ -738,7 +769,10 @@ function MorningLesson({
                         : marketSession.plan.bias === "bearish"
                           ? "偏空觀察"
                           : "等待條件",
-                    onOpen: () => setResourcesOpen(true),
+                    onOpen: () => {
+                      setResourcesOpen(true);
+                      setPlanFocus((value) => value + 1);
+                    },
                   }
                 : undefined
             }
@@ -856,13 +890,20 @@ function MorningLesson({
                       compact={layout === "tablet"}
                       onSelect={setSelected}
                       onIndex={
-                        layout === "desktop" ? () => setIndexPing((value) => value + 1) : undefined
+                        layout === "desktop"
+                          ? () => {
+                              setIndexPing((value) => value + 1);
+                              indexPane.current
+                                ?.querySelector<HTMLElement>(".td-index-panel")
+                                ?.focus({ preventScroll: true });
+                            }
+                          : undefined
                       }
                     />
                   </div>
                 )}
                 {layout === "desktop" && (
-                  <div className="td-index" data-pane="index">
+                  <div className="td-index" data-pane="index" ref={indexPane}>
                     {indexPing > 0 && (
                       <span key={indexPing} className="td-index-ping" aria-hidden />
                     )}
@@ -918,7 +959,7 @@ function MorningLesson({
                                 session={liveMarket}
                                 code={code}
                                 onPick={(price, side) => {
-                                  setPrefill({ price, side, nonce: Date.now() });
+                                  setPrefill({ price, side, nonce: Date.now(), code });
                                   setActivePane("trade");
                                   window.scrollTo({ top: 0, behavior: "auto" });
                                 }}
@@ -958,11 +999,11 @@ function MorningLesson({
                         indexSelected={indexView}
                         onSelect={(next) => {
                           setSelected(next);
-                          setIndexView(false);
+                          setIndexViewFor(null);
                           setActivePane("market");
                         }}
                         onIndex={() => {
-                          setIndexView(true);
+                          setIndexViewFor(runKey);
                           setActivePane("market");
                         }}
                       />
@@ -979,6 +1020,16 @@ function MorningLesson({
                             >
                               到自選選股票
                             </button>
+                            {pendingOrder && (
+                              <PendingOrder
+                                catalog={catalog}
+                                pending={pendingOrder}
+                                busy={Boolean(busy || error || notice)}
+                                canAdvance={canAdvance && !showPlan && !error && !notice}
+                                onAdvance={advance}
+                                onCancel={cancel}
+                              />
+                            )}
                           </div>
                         ) : (
                           <>
@@ -1186,7 +1237,7 @@ function MorningLesson({
                   )}
                 </details>
                 {session && !newPlan && (
-                  <details className="td-section">
+                  <details className="td-section" ref={planDetails}>
                     <summary>本輪作戰計畫</summary>
                     <SavedPlan plan={session.plan} catalog={catalog} />
                   </details>

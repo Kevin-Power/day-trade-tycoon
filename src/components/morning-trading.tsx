@@ -1,15 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Clock3,
-  Minus,
-  Plus,
-  Wallet,
-} from "@/lib/icons";
+import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import { ArrowDownLeft, ArrowUpRight, Check, Clock3, Minus, Plus, Wallet } from "@/lib/icons";
 import type { MorningCatalog, MorningState } from "@/lib/morning";
 import { ledgerSummary } from "@/lib/morning-ledger";
 import { lastTrade, serverSession } from "@/lib/morning-live";
@@ -77,6 +67,55 @@ type OrderReview = {
   limitPrice?: number;
 };
 
+/** A waiting paper order and its two actions; the ticket shows it, and so does 下單 while 行情 shows the index. */
+export function PendingOrder({
+  catalog,
+  pending,
+  busy,
+  canAdvance,
+  onAdvance,
+  onCancel,
+  ref,
+}: {
+  catalog: MorningCatalog;
+  pending: MorningState["orders"][number];
+  busy: boolean;
+  canAdvance: boolean;
+  onAdvance: () => Promise<void>;
+  onCancel: (id: string) => Promise<void>;
+  ref?: Ref<HTMLDivElement>;
+}) {
+  return (
+    <div role="status" className="sim-pending" ref={ref}>
+      <div>
+        <Clock3 aria-hidden />
+        <strong>委託已送出 · 等待撮合</strong>
+      </div>
+      <p>
+        {pending.code} {catalog.symbols.find((item) => item.code === pending.code)?.name} ·{" "}
+        {pending.side === "buy" ? "買進" : "賣出"} {pending.shares / 1000} 張
+        {pending.limitPrice === undefined
+          ? " · 市價"
+          : ` · 限價 ${formatPrice(pending.limitPrice)}`}
+        {pending.entryMode === "lightning" && " · 閃電"}
+      </p>
+      <small>
+        {pending.limitPrice === undefined
+          ? "前進下一分鐘後，依開盤價與資金／庫存檢核處理。"
+          : "之後每分鐘開盤價達限價才成交；未達價繼續留單，可隨時撤回。"}
+      </small>
+      <div className="sim-pending-actions">
+        <button type="button" disabled={busy || !canAdvance} onClick={() => void onAdvance()}>
+          前進一分鐘撮合
+        </button>
+        <button type="button" disabled={busy} onClick={() => void onCancel(pending.id)}>
+          撤回委託
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * The phone's 行情 book: the same teaching book, display only. A tap hands its price and direction to 下單
  * (a bid buys, an ask sells); nothing is sent from here.
@@ -140,8 +179,8 @@ export function PaperOrder({
   variant?: "desk" | "phone";
   /** Sends that failed in this visit, for 委託回報. */
   failures?: readonly LocalOrderFailure[];
-  /** A price and side handed over from the display book on the phone's 行情 page (not sent). */
-  prefill?: { price: number; side: "buy" | "sell"; nonce: number };
+  /** A price and side handed over from the display book on the phone's 行情 page (not sent); only for its stock. */
+  prefill?: { price: number; side: "buy" | "sell"; nonce: number; code: string };
   onSelect: (code: string) => void;
   onPrepare: () => void;
   onReview: () => void;
@@ -198,11 +237,12 @@ export function PaperOrder({
     };
   }, []);
   useEffect(() => {
-    if (!prefill) return;
+    // The ticket remounts per stock: another stock's price is never carried over.
+    if (!prefill || prefill.code !== code) return;
     setSide(prefill.side);
     setOrderType("limit");
     setLimitDraft(formatPrice(prefill.price));
-  }, [prefill]);
+  }, [prefill, code]);
   const position = session?.positions.find((item) => item.code === code);
   const pending = session?.orders.find((item) => item.status === "pending");
   const pendingId = pending?.id;
@@ -422,37 +462,15 @@ export function PaperOrder({
         </header>
         <div className="sim-ticket-body">
           {pending && (
-            <div role="status" className="sim-pending" ref={pendingPanel}>
-              <div>
-                <Clock3 aria-hidden />
-                <strong>委託已送出 · 等待撮合</strong>
-              </div>
-              <p>
-                {pending.code} {catalog.symbols.find((item) => item.code === pending.code)?.name} ·{" "}
-                {pending.side === "buy" ? "買進" : "賣出"} {pending.shares / 1000} 張
-                {pending.limitPrice === undefined
-                  ? " · 市價"
-                  : ` · 限價 ${formatPrice(pending.limitPrice)}`}
-                {pending.entryMode === "lightning" && " · 閃電"}
-              </p>
-              <small>
-                {pending.limitPrice === undefined
-                  ? "前進下一分鐘後，依開盤價與資金／庫存檢核處理。"
-                  : "之後每分鐘開盤價達限價才成交；未達價繼續留單，可隨時撤回。"}
-              </small>
-              <div className="sim-pending-actions">
-                <button
-                  type="button"
-                  disabled={busy || !canAdvance}
-                  onClick={() => void onAdvance()}
-                >
-                  前進一分鐘撮合
-                </button>
-                <button type="button" disabled={busy} onClick={() => void onCancel(pending.id)}>
-                  撤回委託
-                </button>
-              </div>
-            </div>
+            <PendingOrder
+              ref={pendingPanel}
+              catalog={catalog}
+              pending={pending}
+              busy={busy}
+              canAdvance={canAdvance}
+              onAdvance={onAdvance}
+              onCancel={onCancel}
+            />
           )}
 
           {review ? (
@@ -786,21 +804,17 @@ export function Ledger({
   session,
   busy,
   onCancel,
-  collapsible,
   cards = false,
 }: {
   catalog: MorningCatalog;
   session: MorningState;
   busy: boolean;
   onCancel: (id: string) => Promise<void>;
-  /** Desktop and tablet: one summary row until the viewer opens it. */
-  collapsible?: { open: boolean; onOpenChange: (open: boolean) => void };
   /** Phones and large text: one card per record instead of a wide table. */
   cards?: boolean;
 }) {
   const [pane, setPane] = useState<LedgerPane>("positions");
   const summary = ledgerSummary(session);
-  const open = collapsible?.open ?? true;
   const name = (code: string) => catalog.symbols.find((item) => item.code === code)?.name ?? code;
   const panes = [
     { id: "positions" as const, label: "庫存", count: summary.positions },
@@ -819,10 +833,7 @@ export function Ledger({
               key={item.id}
               aria-pressed={pane === item.id}
               aria-controls="sim-ledger-content"
-              onClick={() => {
-                setPane(item.id);
-                if (!open) collapsible?.onOpenChange(true);
-              }}
+              onClick={() => setPane(item.id)}
             >
               {item.label}
               <span>{item.count}</span>
@@ -837,25 +848,8 @@ export function Ledger({
           <b>{formatMoney(session.startingCash, 0)}</b> ·{" "}
           <time>{formatTime(session.cursor * 60).slice(0, 5)}</time>
         </span>
-        {collapsible && (
-          <button
-            type="button"
-            className="sim-ledger-toggle"
-            aria-expanded={open}
-            aria-controls="sim-ledger-content"
-            onClick={() => collapsible.onOpenChange(!open)}
-          >
-            {open ? <ChevronDown aria-hidden /> : <ChevronUp aria-hidden />}
-            {open ? "收起" : "展開"}
-          </button>
-        )}
       </div>
-      <div
-        id="sim-ledger-content"
-        className="sim-ledger-content"
-        aria-label={active.label}
-        hidden={!open}
-      >
+      <div id="sim-ledger-content" className="sim-ledger-content" aria-label={active.label}>
         {active.count === 0 ? (
           <div className="sim-ledger-empty">
             <Wallet size={30} aria-hidden />

@@ -32,7 +32,7 @@ export function WatchTable({
   session,
   code,
   compact = false,
-  indexSelected = false,
+  indexSelected,
   onSelect,
   onIndex,
 }: {
@@ -40,6 +40,7 @@ export function WatchTable({
   session: LiveMorningState | null;
   code: string;
   compact?: boolean;
+  /** Phones: whether 行情 shows the index (a toggle); desktops leave it out (the row only points at the pane). */
   indexSelected?: boolean;
   onSelect: (code: string) => void;
   /** Where the index can be shown (the desktop's 大盤 pane, the phone's 行情 page); without it the row is static. */
@@ -130,7 +131,7 @@ export function WatchTable({
               className="td-watch-row"
               data-code={symbol.code}
               data-tone={quote.tone}
-              aria-pressed={!indexSelected && code === symbol.code}
+              aria-pressed={indexSelected !== true && code === symbol.code}
               onClick={() => onSelect(symbol.code)}
             >
               <span className="td-watch-name">
@@ -202,7 +203,8 @@ function IndexRow({
   children,
 }: {
   tone: "up" | "down" | "flat";
-  selected: boolean;
+  /** Phones only (a real toggle); left out, the row is a plain button. */
+  selected?: boolean;
   onIndex?: () => void;
   children: ReactNode;
 }) {

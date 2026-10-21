@@ -188,3 +188,10 @@ test("the settled run leaves out the replaying index minute too", () => {
   assert.equal(withoutNewestMinute(session({ index: INDEX })).index!.bars.length, 2);
   assert.equal(settledSession(liveSession(session({ index: INDEX }), 0.5, CATALOG)).index!.bars.length, 2);
 });
+
+// A lesson whose index stops before the run (not the case today) must not replay or drop an older minute.
+test("an index shorter than the run is never replayed or trimmed as the playing minute", () => {
+  const short = { ...INDEX, bars: INDEX.bars.slice(0, 2) };
+  assert.deepEqual(liveSession(session({ index: short }), 0.25, CATALOG).index, short);
+  assert.deepEqual(withoutNewestMinute(session({ index: short })).index, short);
+});
