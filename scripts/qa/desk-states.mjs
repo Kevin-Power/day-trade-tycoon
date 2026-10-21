@@ -63,6 +63,9 @@ for (const [width, height] of [
 for (const [width, height] of [
   [1366, 768],
   [1200, 800],
+  // Real laptop viewports in the short-desktop layout (760px or less).
+  [1366, 657],
+  [1280, 600],
 ]) {
   const name = `${width}x${height}`;
   const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
