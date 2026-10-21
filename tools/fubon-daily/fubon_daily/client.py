@@ -31,6 +31,9 @@ class SdkUnavailable(Exception):
 # Seconds to connect, then to wait for each read of the answer. The SDK sends market data with requests and no
 # timeout, so a server that stops answering would hold the run until Windows stops the task at two hours.
 REST_TIMEOUT = (10, 60)
+# The fugle_marketdata release whose REST code was read for this (fubon_neo 2.4.0 pins it). Another release may send
+# another way (requests.request, a Session) that the stand-in below would not bound: read it, then change this.
+CHECKED_FUGLE = "2.7.0rc1"
 UNBOUNDED = "富邦行情呼叫沒有逾時"
 
 
@@ -56,23 +59,28 @@ def default_sdk():
 
 
 def sdk_rest_modules():
-    """The SDK module that sends every market-data call (fugle_marketdata rest/base_rest.py), and the requests
-    package it is expected to send with."""
+    """The SDK module that sends every market-data call (fugle_marketdata rest/base_rest.py), the requests package
+    it is expected to send with, and the fugle_marketdata release."""
+    import fugle_marketdata
     import requests
     from fugle_marketdata.rest import base_rest
 
-    return base_rest, requests
+    return base_rest, requests, fugle_marketdata.__version__
 
 
 def bound_market_data_calls(rest_modules: Callable[[], tuple]) -> str:
-    """Gives the SDK's market-data calls a timeout, if the SDK still sends them the way it did when this was
-    written (fugle_marketdata 2.7.0rc1, which fubon_neo 2.4.0 pins). Returns a line for the log saying whether
-    they have one. Login, init_realtime and logout run inside the compiled SDK and keep having none."""
+    """Gives the SDK's market-data calls a timeout, if the SDK is the release this was checked against and still
+    sends them the way it did then. Returns a line for the log saying whether they have one. Login, init_realtime
+    and logout run inside the compiled SDK and keep having none."""
     try:
-        base_rest, requests = rest_modules()
-        if getattr(base_rest, "requests", None) is not requests:
-            return f"{UNBOUNDED}：SDK（fugle_marketdata）送出行情的方式和預期不同，這次不加"
-        base_rest.requests = TimedRequests(requests)
+        base_rest, requests, release = rest_modules()
+        if release != CHECKED_FUGLE:
+            return f"{UNBOUNDED}：fugle_marketdata {release} 還沒檢查過（檢查過的是 {CHECKED_FUGLE}），這次不加"
+        current = getattr(base_rest, "requests", None)
+        if not isinstance(current, TimedRequests):  # else an earlier login in this run already put it there
+            if current is not requests:
+                return f"{UNBOUNDED}：SDK（fugle_marketdata）送出行情的方式和預期不同，這次不加"
+            base_rest.requests = TimedRequests(requests)
     except Exception as error:  # noqa: BLE001 - without a timeout the run goes on as before; it never stops it
         return f"{UNBOUNDED}：{type(error).__name__}: {error}"
     return f"富邦行情呼叫逾時：連線 {REST_TIMEOUT[0]} 秒、每次讀取 {REST_TIMEOUT[1]} 秒"

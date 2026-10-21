@@ -21,6 +21,7 @@ except ImportError:
     requests = None
 
 CREDENTIALS = Credentials("A123456789", "SECRETKEY123", "C:/cert/A123456789.pfx", "CERTPASS999")
+SDK_RELEASE = "2.7.0rc1"  # fugle_marketdata as fubon_neo 2.4.0 installs it
 
 
 class SdkError(Exception):
@@ -69,7 +70,7 @@ class FakeRestModule:
 def fake_modules():
     """Fakes for the SDK's REST module and the requests package, so that a test never changes an installed SDK."""
     fake = FakeRequests()
-    return FakeRestModule(fake), fake
+    return FakeRestModule(fake), fake, SDK_RELEASE
 
 
 class FakeSdk:
@@ -187,9 +188,21 @@ class ClientTest(unittest.TestCase):
         fake = FakeRequests()
         module = FakeRestModule(fake)
         client = FubonClient(CREDENTIALS, sdk_factory=lambda: FakeSdk(rest_module=module),
-                             rest_modules=lambda: (module, fake))
+                             rest_modules=lambda: (module, fake, SDK_RELEASE))
         note = client.login()
         self.assertEqual(client.trades("2330", 0, 500), {"url": "https://fubon.example/trades"})
+        self.assertEqual(fake.gets, [("https://fubon.example/trades",
+                                      {"headers": {"X-SDK-TOKEN": "token"}, "timeout": (10, 60)})])
+        self.assertNotIn("沒有逾時", note)
+
+    def test_a_second_login_keeps_the_timeout_and_says_so(self):
+        fake = FakeRequests()
+        module = FakeRestModule(fake)
+        client = FubonClient(CREDENTIALS, sdk_factory=lambda: FakeSdk(rest_module=module),
+                             rest_modules=lambda: (module, fake, SDK_RELEASE))
+        client.login()
+        note = client.login()
+        client.trades("2330", 0, 500)
         self.assertEqual(fake.gets, [("https://fubon.example/trades",
                                       {"headers": {"X-SDK-TOKEN": "token"}, "timeout": (10, 60)})])
         self.assertNotIn("沒有逾時", note)
@@ -199,7 +212,7 @@ class ClientTest(unittest.TestCase):
         fake = FakeRequests(status=404)
         module = FakeRestModule(fake)
         client = FubonClient(CREDENTIALS, sdk_factory=lambda: FakeSdk(rest_module=module),
-                             rest_modules=lambda: (module, fake))
+                             rest_modules=lambda: (module, fake, SDK_RELEASE))
         client.login()
         with self.assertRaises(NotFound) as caught:
             client.trades("2330", 0, 500)
@@ -209,11 +222,23 @@ class ClientTest(unittest.TestCase):
         session = FakeRequests()  # say, a requests.Session: not the requests package the timeout is made for
         module = FakeRestModule(session)
         client = FubonClient(CREDENTIALS, sdk_factory=lambda: FakeSdk(rest_module=module),
-                             rest_modules=lambda: (module, FakeRequests()))
+                             rest_modules=lambda: (module, FakeRequests(), SDK_RELEASE))
         note = client.login()
         self.assertEqual(client.trades("2330", 0, 500), {"url": "https://fubon.example/trades"})
         self.assertIs(module.requests, session)
         self.assertIn("沒有逾時", note)
+
+    def test_an_sdk_release_not_checked_is_left_alone_and_the_log_says_so(self):
+        # Another release may send another way (requests.request, a Session), which the stand-in would not bound.
+        fake = FakeRequests()
+        module = FakeRestModule(fake)
+        client = FubonClient(CREDENTIALS, sdk_factory=lambda: FakeSdk(rest_module=module),
+                             rest_modules=lambda: (module, fake, "2.8.0"))
+        note = client.login()
+        self.assertEqual(client.trades("2330", 0, 500), {"url": "https://fubon.example/trades"})
+        self.assertIs(module.requests, fake)
+        self.assertIn("沒有逾時", note)
+        self.assertIn("2.8.0", note)
 
     def test_login_still_works_when_the_sdk_module_is_missing_and_the_log_says_so(self):
         def missing():
@@ -242,6 +267,18 @@ class FubonServer(http.server.BaseHTTPRequestHandler):
         pass  # keeps the test output clean
 
 
+class HalfAnswer(FubonServer):
+    """Sends the headers and the start of an answer, then holds the rest back until the test ends."""
+
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", "1000")
+        self.end_headers()
+        self.wfile.write(b'{"data": [')
+        self.server.release.wait(30)
+
+
 @unittest.skipUnless(requests, "needs the installed SDK: run with fetcher\\.venv\\Scripts\\python.exe")
 class InstalledSdkTest(unittest.TestCase):
     """The SDK's real REST code and requests, against servers on this computer. Fubon is never called."""
@@ -250,14 +287,16 @@ class InstalledSdkTest(unittest.TestCase):
         self.assertIs(base_rest.requests, requests, "an earlier test left the SDK module changed")
         self.addCleanup(setattr, base_rest, "requests", requests)
 
-    def serve(self, status=200):
-        server = http.server.HTTPServer(("127.0.0.1", 0), FubonServer)
+    def serve(self, status=200, handler=FubonServer):
+        server = http.server.HTTPServer(("127.0.0.1", 0), handler)
         server.status = status
+        server.release = threading.Event()
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         self.addCleanup(thread.join)
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
+        self.addCleanup(server.release.set)  # first: lets an answer held back finish, so that shutdown can
         return f"http://127.0.0.1:{server.server_port}/marketdata"
 
     @staticmethod
@@ -279,14 +318,15 @@ class InstalledSdkTest(unittest.TestCase):
             ("/marketdata/v1.0/stock/historical/candles/2330", "token")])
         self.assertEqual([call.kwargs.get("timeout") for call in get.call_args_list], [(10, 60)] * 4)
 
-    def test_a_server_that_stops_answering_ends_the_call(self):
-        listener = socket.create_server(("127.0.0.1", 0))  # the connection is taken, then nothing is ever sent
-        self.addCleanup(listener.close)
-        client = self.client_for(f"http://127.0.0.1:{listener.getsockname()[1]}/marketdata")
+    def trades_error(self, base_url):
+        """Asks `base_url` for a page of trades with reads cut at half a second; returns the error, once sure that
+        the call ended well within five seconds. A call sent without a timeout fails at once instead of waiting
+        forever, so a missing timeout fails the test rather than hanging it."""
+        client = self.client_for(base_url)
         real_get = requests.get
 
         def get(url, *args, **kwargs):
-            if kwargs.get("timeout") is None:  # sent like this, the call would wait forever: fail it instead
+            if kwargs.get("timeout") is None:
                 raise requests.exceptions.ConnectionError("sent without a timeout")
             return real_get(url, *args, **kwargs)
 
@@ -296,8 +336,20 @@ class InstalledSdkTest(unittest.TestCase):
             with mock.patch.object(requests, "get", get), self.assertRaises(ApiError) as caught:
                 client.trades("2330", 0, 500)
         self.assertLess(time.monotonic() - started, 5)
-        self.assertIn("ReadTimeout", str(caught.exception))
-        self.assertIsNone(caught.exception.status)
+        return caught.exception
+
+    def test_a_server_that_stops_answering_ends_the_call(self):
+        listener = socket.create_server(("127.0.0.1", 0))  # the connection is taken, then nothing is ever sent
+        self.addCleanup(listener.close)
+        error = self.trades_error(f"http://127.0.0.1:{listener.getsockname()[1]}/marketdata")
+        self.assertIn("ReadTimeout", str(error))
+        self.assertIsNone(error.status)
+
+    def test_an_answer_that_stops_halfway_ends_the_call(self):
+        # The body is read inside requests.get as well, and a stall there comes out as another error type.
+        error = self.trades_error(self.serve(handler=HalfAnswer))
+        self.assertIn("Read timed out", str(error))
+        self.assertIsNone(error.status)
 
     def test_a_missing_answer_is_still_told_apart_once_calls_have_a_timeout(self):
         client = self.client_for(self.serve(404))
