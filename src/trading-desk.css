@@ -4063,3 +4063,78 @@
 .trading-desk .td-resources .td-section {
   scroll-margin-top: 64px;
 }
+
+/* Short desktops (laptops at 125-150% scaling, 1366x768 screens: a viewport of 760px or less). The parts above
+   the chart get denser so the chart keeps its height: the quote block sits on one line, the 自選 rows and title
+   bars shrink, and the hint bar and chart toolbar lose some padding. Nothing is hidden. */
+@media (max-height: 760px) {
+  .trading-desk[data-layout="desktop"] .td-hints {
+    min-height: 24px;
+    padding-block: 1px;
+  }
+  .trading-desk[data-layout="desktop"] .td-plan-chip {
+    min-height: 22px;
+  }
+  .trading-desk[data-layout="desktop"] :is(.td-watch-head, .td-index-head) {
+    min-height: 28px;
+  }
+  .trading-desk[data-layout="desktop"] .td-watch-cols {
+    min-height: 20px;
+  }
+  .trading-desk[data-layout="desktop"] .td-watch-row {
+    min-height: 22px;
+  }
+  .trading-desk[data-layout="desktop"] canvas.td-mini {
+    height: 18px;
+  }
+  .trading-desk[data-layout="desktop"] .td-index-quote {
+    padding-top: 3px;
+  }
+  .trading-desk[data-layout="desktop"] .td-index-stats {
+    padding-block: 2px 3px;
+  }
+  .trading-desk[data-layout="desktop"] .td-hero {
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+    grid-template-areas: "id price book";
+    gap: 4px 12px;
+    padding: 4px 12px;
+  }
+  .trading-desk[data-layout="desktop"] .td-hero h1 {
+    font-size: 17px;
+  }
+  .trading-desk[data-layout="desktop"] .td-hero-stamp {
+    margin-top: 1px;
+  }
+  .trading-desk[data-layout="desktop"] .td-hero-price {
+    gap: 8px;
+  }
+  .trading-desk[data-layout="desktop"] .td-hero-price strong {
+    font-size: 30px;
+  }
+  .trading-desk[data-layout="desktop"] .td-hero-change {
+    font-size: 12px;
+  }
+  .trading-desk[data-layout="desktop"] .td-hero-book {
+    grid-template-columns: repeat(2, minmax(80px, auto));
+  }
+  .trading-desk[data-layout="desktop"] .td-hero-book > div {
+    padding: 1px 8px 2px;
+  }
+  .trading-desk[data-layout="desktop"] .td-hero-book dd {
+    font-size: 18px;
+  }
+  .trading-desk[data-layout="desktop"] .td-chartbar {
+    min-height: 30px;
+    padding-block: 1px;
+  }
+  .trading-desk[data-layout="desktop"] .td-stepper button {
+    width: 26px;
+    height: 26px;
+  }
+  .trading-desk[data-layout="desktop"] .td-stepper select {
+    height: 26px;
+  }
+  .trading-desk[data-layout="desktop"] .td-segment button {
+    min-height: 24px;
+  }
+}

@@ -15,6 +15,13 @@ const cases = [
   [1366, 768, false],
   [1280, 800, false],
   [1200, 800, false],
+  // Real laptop viewports: 1080p at 125% and at 150% (with and without a bookmarks bar), 1366x768 and
+  // 1280x800 screens, each minus the browser's bars and the taskbar.
+  [1536, 730, false],
+  [1280, 689, false],
+  [1366, 657, false],
+  [1280, 600, false],
+  [1280, 568, false],
   [820, 900, false],
   [375, 812, false],
   [320, 700, false],
@@ -176,13 +183,20 @@ for (const row of rows) {
     "1366x768": 300,
     "1280x800": 360,
     "1200x800": 340,
+    "1536x730": 380,
+    "1280x689": 340,
+    "1366x657": 300,
+    "1280x600": 260,
+    "1280x568": 230,
   }[row.name];
   if (minChart && !(row.chartHeight >= minChart))
     failures.push(`${row.name}: chart ${row.chartHeight}px, needs ${minChart}px`);
   if (minChart && !(row.chartWidth >= 1.2 * row.chartHeight))
     failures.push(`${row.name}: chart ${row.chartWidth}x${row.chartHeight} is not 1.2 times wider than tall`);
-  if (!row.senior && row.width >= 768 && !(row.miniSize && row.miniSize[0] >= 100 && row.miniSize[1] >= 24))
-    failures.push(`${row.name}: 江波圖 ${JSON.stringify(row.miniSize)}, needs 100x24`);
+  // Short desktops (760px or less) trade 6px of each 江波圖 mini for the chart.
+  const miniHeight = row.width >= 1200 && row.height <= 760 ? 18 : 24;
+  if (!row.senior && row.width >= 768 && !(row.miniSize && row.miniSize[0] >= 100 && row.miniSize[1] >= miniHeight))
+    failures.push(`${row.name}: 江波圖 ${JSON.stringify(row.miniSize)}, needs 100x${miniHeight}`);
   if (row.indexView && (row.indexView.offscreen.length || row.indexView.overflowX > 0 || row.indexView.small.length))
     failures.push(`${row.name}: the 大盤 view runs off the screen (${row.indexView.offscreen.slice(0, 3).join(" | ")})`);
   // Every stock (and the TAIEX) in 自選 is in view without scrolling the pane.
