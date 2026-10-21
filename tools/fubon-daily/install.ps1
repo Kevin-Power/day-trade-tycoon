@@ -3,7 +3,7 @@
   Run from the repository root:
     powershell -NoProfile -File tools\fubon-daily\install.ps1 -Sdk     # venv + official SDK 2.4.0 (download)
     powershell -NoProfile -File tools\fubon-daily\install.ps1 -App     # copy the committed fetcher
-    powershell -NoProfile -File tools\fubon-daily\install.ps1 -Task    # weekday 16:45 / 17:30 / 19:00
+    powershell -NoProfile -File tools\fubon-daily\install.ps1 -Task    # weekday 16:45 / 18:00 / 19:00
 #>
 param(
   [switch]$Sdk,
@@ -76,7 +76,7 @@ if ($Task) {
   $arguments = '-X utf8 "{0}" --data "{1}" --credentials "{2}"' -f $entry, (Join-Path $Runtime 'market-data'), $Credentials
   $action = New-ScheduledTaskAction -Execute $pythonw -Argument $arguments -WorkingDirectory (Join-Path $fetcher 'work')
   $days = @('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
-  $triggers = @('16:45', '17:30', '19:00') | ForEach-Object { New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At $_ }
+  $triggers = @('16:45', '18:00', '19:00') | ForEach-Object { New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At $_ }
   $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 2)
   $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
   Register-ScheduledTask -TaskName 'DayTradeTycoonMarketData' -Action $action -Trigger $triggers -Settings $settings `
