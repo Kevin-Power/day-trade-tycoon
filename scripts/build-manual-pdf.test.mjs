@@ -45,3 +45,13 @@ test("static PDF exists for the learner manual download", () => {
   assert.equal(readFileSync(pdf).subarray(0, 5).toString(), "%PDF-");
   assert.ok(statSync(pdf).size > 20000);
 });
+test("manual source describes today's trading desk, not the old one", () => {
+  const text = JSON.stringify(source);
+  for (const term of ["江波圖", "EMA11", "EMA24", "加權指數", "限價", "閃電即送", "大額委託", "委託回報", "模擬逐筆", "教學模擬"])
+    assert.ok(text.includes(term), term);
+  assert.doesNotMatch(text, /沒有掛限價|閃電下單也不在|自動播放 · 每 2 秒 1 分鐘|收價連線|暫停重播/);
+});
+test("manual PDF version matches the web manual's", () => {
+  const page = readFileSync(join(root, "src", "components", "manual-page.tsx"), "utf8");
+  assert.equal(source.version, page.match(/MANUAL_VERSION = "([^"]+)"/)?.[1]);
+});
