@@ -7,7 +7,7 @@
 - 自選表小圖的刻度，使用者選 B（固定 ±10%）。注意：畫布主稿上的自選表畫的是 A。
 - 規格：`docs/superpowers/specs/2026-10-21-jiangbo-ema-design.md`；計畫：`docs/superpowers/plans/2026-10-21-jiangbo-ema.md`。
 - 分支 `claude/jiangbo-ema`（worktree `.worktrees/short-desk`），起點 `codex/course-handover` 14228f3。
-- 尚未合併，也尚未上線。
+- 使用者說「好，合併後直接上線」：快轉合併進 `codex/course-handover`（7d21a09），2026-10-21 06:14Z 上線為 release **`20261021T060957313Z`**（見文末「正式站發布」）。
 
 ## 改了什麼
 
@@ -130,4 +130,35 @@
 
 - 手機實機與 Safari（跟先前相同）。
 - 老師的 EMA 定義（週期、暖身資料、起始值）是否與交易台相同。
-- 正式站：還沒上線，需要使用者同意。
+- 正式站只做了未登入的檢查。登入後的交易台畫面，是用同一份 release 在隔離教室驗證的。
+
+## 正式站發布（2026-10-21）
+
+**候選 release**
+
+- 乾淨 worktree（7d21a09）先跑 `build:offline` 再跑 `build`。離線包和 `.output/downloads` 裡的那份雜湊相同（`56e36ddb…`）。
+- `stage-release` 產生 `20261021T060957313Z`，共 310 個檔案。
+- 隔離整合測試 4/4 通過。
+- 在以 release 啟動的拋棄式教室裡：
+  - 首頁 200；
+  - layout --strict、states、江波檢查（11 項）、orders、ticks、broker --strict 都通過。
+
+**停機與切換**
+
+- 06:14:43Z 正常停機，資料庫確認已關閉。
+- 備份 `backups/2026-10-21T06-14-43-622Z`：1,060 個檔案，逐檔核對通過。
+- 06:14:45Z 只改 `appEntry`：`20261021T031218309Z` → `20261021T060957313Z`。
+- 06:14:57Z 恢復健康。停機約 16 秒（從最後一次健康檢查算起，含備份）。
+
+**發布後檢查**
+
+- 46 個公開 JS／CSS 檔案的 SHA-256 與 release 相同。
+- 設定除了 `appEntry` 都沒變；3 個機密檔案的雜湊沒變；上一份 release 仍保留。
+- 主要路由、`/sw.js`、`/manifest.webmanifest`、`/third-party-notices.txt` 都回 200；`/server/index.mjs` 回 404。
+- 沒有入場碼時，`/api/daily`、`/api/morning`、`/api/discipline` 都回 403。
+- `/api/health` 回報 `mode: simulation`。
+
+**回復方式**
+
+- 把 `appEntry` 指回 `20261021T031218309Z` 即可。這次沒有資料庫或課程資料變更。
+- 發布紀錄在 `artifacts/deploy-20261021-jiangbo-ema/`。
