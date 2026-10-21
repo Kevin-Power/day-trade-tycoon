@@ -160,3 +160,45 @@ test("a send whose result is unclear is reported as 回覆不明, not as a faile
   assert.equal(latest!.tone, "unknown");
   assert.equal(latest!.text, "回覆不明 · 買進 台積電 1 張 · 暫時連不上教室，請重試同一筆操作或重新載入進度。");
 });
+
+// The classroom stores an order under its send's requestId.
+const LANDED = run({
+  orders: [
+    ...run().orders,
+    { id: "C", code: "2330", side: "buy", shares: 1000, status: "pending", submittedCursor: 41 },
+  ],
+});
+
+test("a 回覆不明 send the classroom turns out to have drops out of 委託回報; one it lacks stays", () => {
+  const reports = orderReports(LANDED, NAMES, [
+    {
+      ...FAILURE,
+      id: "f-1",
+      requestId: "C",
+      unknown: true,
+      message: "教室回應超過 20 秒，已停止等待。請核對進度，或重試同一筆操作。",
+    },
+    {
+      ...FAILURE,
+      id: "f-2",
+      requestId: "D",
+      unknown: true,
+      message: "暫時連不上教室，請重試同一筆操作或重新載入進度。",
+    },
+  ]);
+  assert.deepEqual(
+    reports.slice(0, 2).map(({ tone, text }) => ({ tone, text })),
+    [
+      { tone: "unknown", text: "回覆不明 · 買進 台積電 1 張 · 暫時連不上教室，請重試同一筆操作或重新載入進度。" },
+      { tone: "sent", text: "委託成功 · 買進 台積電 1 張 市價（待下一分鐘開盤撮合）" },
+    ],
+  );
+  assert.equal(reports.filter((report) => report.text.includes("超過 20 秒")).length, 0);
+});
+
+test("a 送出失敗 whose order the classroom shows drops out too (e.g. a gateway error after the order was stored)", () => {
+  const reports = orderReports(LANDED, NAMES, [
+    { ...FAILURE, id: "f-3", requestId: "C", message: "這次操作尚未完成，請重試或重新載入進度。" },
+  ]);
+  assert.equal(reports.filter((report) => report.key.startsWith("failed:")).length, 0);
+});

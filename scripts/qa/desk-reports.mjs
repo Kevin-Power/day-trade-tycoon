@@ -1,6 +1,8 @@
 // 委託回報 for sends whose result is unclear, on a disposable classroom after desk-seed:
 // 1. the connection drops on 確認送出 (the server may or may not have the order): a 「回覆不明」 row, not 送出失敗;
-// 2. the server refuses with 409 and the reload after it also fails: the 送出失敗 row keeps the server's reason.
+// 2. the server refuses with 409 and the reload after it also fails: the 送出失敗 row keeps the server's reason;
+// 3. the classroom stores the order but its reply is lost: 回覆不明, and after 重新載入進度 that row drops out
+//    while the order reads 委託成功 (one order, not two).
 // Usage: node scripts/qa/desk-reports.mjs <baseUrl> <label>
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -111,6 +113,33 @@ await check("2-409-then-reload-fails", async () => {
   if (!row.includes("送出失敗") || !row.includes("練習已更新"))
     throw new Error(`the 送出失敗 row lost the server's reason: 「${row}」`);
   return row;
+});
+
+await check("3-reply-lost-after-the-order-landed", async () => {
+  await openMarketBuy(page, "2382");
+  const before = (await reportRows(page).allTextContents()).join("|");
+  const lose = async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    // The classroom gets and stores the order; its reply never reaches the page.
+    await route.fetch();
+    return route.abort("failed");
+  };
+  await page.route("**/api/morning*", lose);
+  await page.getByRole("button", { name: "確認送出模擬買進" }).click();
+  const row = await newestReport(page, before);
+  await page.unroute("**/api/morning*", lose);
+  if (!row.includes("回覆不明") || !row.includes("廣達")) throw new Error(`the newest report says 「${row}」`);
+  await page.getByRole("button", { name: /重新載入進度/ }).first().click({ timeout: 4000 });
+  await page.waitForTimeout(800);
+  await rest(page);
+  const rows = (await reportRows(page).allTextContents()).map((text) => text.replace(/\s+/g, " ").trim());
+  await page.screenshot({ path: `${out}landed.png` });
+  await page.getByRole("button", { name: "返回修改" }).first().click({ timeout: 2000 }).catch(() => {});
+  const ours = rows.filter((text) => text.includes("廣達"));
+  if (ours.some((text) => text.includes("回覆不明")))
+    throw new Error(`after 重新載入進度 委託回報 still lists 「回覆不明」 next to the order: ${ours.join(" / ")}`);
+  if (!ours.some((text) => text.includes("委託成功"))) throw new Error(`the landed order is not listed: ${rows.join(" / ")}`);
+  return ours;
 });
 
 await browser.close();

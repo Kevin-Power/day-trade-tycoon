@@ -35,6 +35,8 @@ export type LocalOrderFailure = {
   message: string;
   /** The send's result is unclear (no reply, or a reply that could not be read): the server may have the order. */
   unknown?: boolean;
+  /** The send's requestId. The classroom stores an order under it, so a failure whose order it shows drops out. */
+  requestId?: string;
 };
 
 /** How one send to the classroom ended, as far as 委託回報 is concerned. Each send gets its own. */
@@ -130,17 +132,21 @@ export function orderReports(
       });
     }
   }
-  const failed = failures.map((failure) => ({
-    cursor: failure.cursor,
-    report: {
-      key: `failed:${failure.id}`,
-      time: clock(failure.cursor * 60),
-      tone: failure.unknown ? ("unknown" as const) : ("failed" as const),
-      text: `${failure.unknown ? "回覆不明" : "送出失敗"} · ${what(failure.side, failure.code, failure.lots)}${
-        failure.limitPrice === undefined ? "" : ` 限價 ${formatPrice(failure.limitPrice)}`
-      } · ${failure.message}`,
-    },
-  }));
+  // A failed or unclear send whose order the classroom has (e.g. its reply was lost) was not a failure.
+  const stored = new Set((state?.orders ?? []).map((order) => order.id));
+  const failed = failures
+    .filter((failure) => failure.requestId === undefined || !stored.has(failure.requestId))
+    .map((failure) => ({
+      cursor: failure.cursor,
+      report: {
+        key: `failed:${failure.id}`,
+        time: clock(failure.cursor * 60),
+        tone: failure.unknown ? ("unknown" as const) : ("failed" as const),
+        text: `${failure.unknown ? "回覆不明" : "送出失敗"} · ${what(failure.side, failure.code, failure.lots)}${
+          failure.limitPrice === undefined ? "" : ` 限價 ${formatPrice(failure.limitPrice)}`
+        } · ${failure.message}`,
+      },
+    }));
   // A failed send goes after the run's events of the same or an earlier minute.
   const merged: OrderReport[] = [];
   let next = 0;

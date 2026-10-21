@@ -612,9 +612,10 @@ function MorningLesson({
   ) {
     if (!session || session.revision !== revision) return false;
     setAuto(false);
+    const requestId = crypto.randomUUID();
     const sent = await send({
       action: "order",
-      requestId: crypto.randomUUID(),
+      requestId,
       id: session.id,
       expectedRevision: session.revision,
       code,
@@ -640,6 +641,7 @@ function MorningLesson({
               ...(options?.limitPrice === undefined ? {} : { limitPrice: options.limitPrice }),
               message,
               ...(sent.outcome.kind === "unknown" ? { unknown: true } : {}),
+              requestId,
             },
           ].slice(-20),
         );

@@ -6,7 +6,7 @@ export function OrderReports({ reports }: { reports: OrderReport[] }) {
     <section className="sim-reports" aria-labelledby="sim-reports-title">
       <header>
         <h3 id="sim-reports-title">委託回報</h3>
-        <small>送出失敗只記在這次瀏覽</small>
+        <small>送出失敗、回覆不明只記在這次瀏覽</small>
       </header>
       {reports.length ? (
         <ol aria-live="polite">
