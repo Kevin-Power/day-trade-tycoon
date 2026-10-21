@@ -2,11 +2,11 @@
 
 Fubon serves trades for the current day only, so a day that is not kept is lost. Every answer is saved as
 received before it is checked; a stock whose answer is missing, cut short or fails the checks waits for the
-next trigger. Until a whole answer comes, the fullest one that fell short (short of the day's volume, or the
-pages fetched before an answer broke off) is set aside as the stock's fallback, never thrown away. The last
-attempt of the day publishes what it has: rejected answers with their reason, and for a stock it got no answer
-for, the fallback (complete: false). A later run publishes anything an earlier day left in staging. Nothing
-here may stop the day's candles.
+next trigger. An answer that falls short (short of the day's volume, or the pages fetched before an answer
+broke off) is set aside among the stock's fallbacks, never thrown away. The last attempt of the day publishes
+what it has: rejected answers with their reason, and for a stock without a whole answer the fullest answer
+kept (complete: false); the other answers go along as evidence. A later run publishes anything an earlier day
+left in staging the same way. Nothing here may stop the day's candles.
 """
 from __future__ import annotations
 
@@ -39,18 +39,21 @@ MESSAGE_LIMIT = 300
 def assess(pages: list, code: str, day: str, meta: dict) -> dict:
     """ok, incomplete (fewer lots than the day's volume, or cut short) or rejected (fails the checks), with the
     trades."""
+    cut = meta.get("cut")  # pages kept from an answer that broke off: whatever came after them is missing
     try:
         trades = trade_rows(pages, code, day)
     except ValidationError as error:
-        return {"code": code, "name": meta["name"], "status": "rejected", "error": str(error)}
+        return {"code": code, "name": meta["name"], "status": "rejected",
+                "error": "；".join(filter(None, (str(error), cut)))}
     trades, after_hours = split_session(trades)
     if not trades:
-        return {"code": code, "name": meta["name"], "status": "rejected", "error": "一般交易時段沒有任何成交"}
+        return {"code": code, "name": meta["name"], "status": "rejected",
+                "error": "；".join(filter(None, ("一般交易時段沒有任何成交", cut)))}
     total = sum(trade[2] for trade in trades)
     status = "incomplete" if total < meta["tradeVolume"] else "ok"
     error = f"逐筆量 {total} 少於當日量 {meta['tradeVolume']}" if status == "incomplete" else None
-    if meta.get("cut"):  # pages kept from an answer that broke off: whatever came after them is missing
-        status, error = "incomplete", "；".join(filter(None, (error, meta["cut"])))
+    if cut:
+        status, error = "incomplete", "；".join(filter(None, (error, cut)))
     return {"code": code, "name": meta["name"], "status": status, "error": error, "trades": trades,
             "afterHours": after_hours,
             "warnings": tick_warnings(code, trades, meta["tradeVolume"], meta["close"], after_hours)}
@@ -97,8 +100,8 @@ class Ticks:
                     raise ValidationError("structure", f"成交超過 {MAX_TRADE_ROWS} 筆")
         except Exception as error:
             if pages:
-                self.set_aside(self.run.target, code, pages,
-                               {**meta, "cut": self.store.redact(f"只抓到前 {offset} 筆（{error}）")})
+                self.store.add_tick_fallback(self.run.target, code, pages,
+                                             {**meta, "cut": self.store.redact(f"只抓到前 {offset} 筆（{error}）")})
             raise
 
     def stop_reason(self, started: float, streak: int) -> str | None:
@@ -157,13 +160,13 @@ class Ticks:
                     result = assess(pages, code, day, meta)
                     if result["status"] == "incomplete" and not self.run.last_attempt:
                         # Short of the day's volume: fetched whole next time, this answer kept in case that fails.
-                        self.set_aside(day, code, pages, meta)
+                        self.store.add_tick_fallback(day, code, pages, meta)
                         self.store.drop_tick_raw(day, code)
                 except Exception as error:  # noqa: BLE001 - one stock's failure never stops the others
                     expected = isinstance(error, (ApiError, ValidationError))
-                    result = self.fall_back(day, {
-                        "code": code, "name": entry["name"], "status": "failed",
-                        "error": str(error) if expected else f"未預期的錯誤：{type(error).__name__}: {error}"})
+                    result = {"code": code, "name": entry["name"], "status": "failed",
+                              "error": str(error) if expected else f"未預期的錯誤：{type(error).__name__}: {error}"}
+                result = self.fall_back(day, result)
                 if result["status"] != "ok":
                     self.run.log(f"逐筆 {code}：{result['status']}，{result['error']}")
                 results.append(result)
@@ -180,27 +183,34 @@ class Ticks:
             self.run.log(f"逐筆中斷：{record['reason']}")
         self.report(record)
 
-    def set_aside(self, day: str, code: str, pages: list, meta: dict) -> None:
-        """Keeps an answer that falls short as the stock's fallback, unless a fuller one is kept already."""
-        kept = self.store.load_tick_raw(day, code, fallback=True)
-        if kept is None or covered_lots(kept[0], code, day, kept[1]) <= covered_lots(pages, code, day, meta):
-            self.store.save_tick_raw(day, code, pages, meta, fallback=True)
+    def fall_back(self, day: str, result: dict) -> dict:
+        """On the last attempt, a stock without a whole answer is published from the fullest answer kept for it."""
+        return self.fullest(day, result) if self.run.last_attempt else result
 
-    def fall_back(self, day: str, failed: dict) -> dict:
-        """On the last attempt, a stock it got no answer for gets the answer set aside earlier, if there is one."""
-        if not self.run.last_attempt:
-            return failed
-        code = failed["code"]
+    def fullest(self, day: str, result: dict) -> dict:
+        """For a stock without a whole answer, on the day's last chance (the last attempt, or a later day's catch-up):
+        the fullest answer kept for it, its latest or one set aside earlier, the later one on a tie."""
+        if result["status"] not in ("failed", "incomplete"):
+            return result
+        code = result["code"]
         try:
-            kept = self.store.restore_tick_fallback(day, code)
-            if kept is None:
-                return failed
-            result = assess(kept[0], code, day, kept[1])
+            best = None
+            most = sum(trade[2] for trade in result["trades"]) if result["status"] == "incomplete" else -2
+            for name, pages, meta in reversed(self.store.tick_fallbacks(day, code)):  # newest first
+                lots = covered_lots(pages, code, day, meta)
+                if lots > most:
+                    best, most = (name, pages, meta), lots
+            if best is None:
+                return result
+            self.store.use_tick_fallback(day, code, *best)
+            chosen = assess(best[1], code, day, best[2])
         except Exception as error:  # noqa: BLE001 - one stock's failure never stops the others
-            self.run.log(f"逐筆 {code}：先前留下的回應讀不回來（{type(error).__name__}: {error}）")
-            return failed
-        self.run.log(f"逐筆 {code}：這次沒抓到（{failed['error']}），改用先前留下的回應")
-        return {**result, "error": "；".join(filter(None, (result["error"], "用先前留下的回應")))}
+            self.store.log(day, f"逐筆 {code}：留下的備份讀不回來（{type(error).__name__}: {error}）",
+                           self.runtime.now())
+            return result
+        why = f"這次沒抓到（{result['error']}）" if result["status"] == "failed" else "這次的回應比留下的備份少"
+        self.store.log(day, f"逐筆 {code}：{why}，改用留下的備份", self.runtime.now())
+        return {**chosen, "error": "；".join(filter(None, (chosen["error"], "用留下的備份")))}
 
     def publish(self, day: str, results: list[dict], record: dict) -> None:
         """Publishes kept trades; rejected answers go along with their reason. Fills in the record."""
@@ -211,11 +221,13 @@ class Ticks:
         if not kept and not rejected:
             record["reason"] = record["reason"] or "沒有任何逐筆成交"
             return
+        # An incomplete stock carries its reason in a note: the logs that also have it are pruned after 90 days.
         entries = [{"code": result["code"], "name": result["name"], "trades": len(result["trades"]),
                     "volume": sum(trade[2] for trade in result["trades"]), "close": result["trades"][-1][1],
                     "complete": result["status"] == "ok",
                     "afterHours": {"trades": len(result["afterHours"]),
-                                   "volume": sum(trade[2] for trade in result["afterHours"])}} for result in kept]
+                                   "volume": sum(trade[2] for trade in result["afterHours"])},
+                    **({} if result["status"] == "ok" else {"note": result["error"]})} for result in kept]
         trades = {result["code"]: result["trades"] for result in kept}
         warnings = [warning for result in kept for warning in result["warnings"]]
         self.store.publish_ticks(day, entries, trades, rejected, warnings, self.runtime.now(), TICK_SOURCE,
@@ -227,23 +239,32 @@ class Ticks:
                             f"未通過 {len(rejected)} 檔，警告 {len(warnings)} 筆", self.runtime.now())
 
     def publish_pending(self, today: str) -> None:
-        """Publishes trades an earlier day left in staging (its evening runs never finished them)."""
+        """Publishes trades an earlier day left in staging (its evening runs never finished them). That day's last
+        attempt never ran, so a day published with problems raises the notice it would have."""
         for day in self.store.pending_tick_days(before=today):
             record = {"date": day, "outcome": "failed", "reason": "前一天沒有上架，這次補上架",
                       "symbols": {"total": 0, "fetched": 0, "failed": 0}, "trades": 0, "finishedAt": None}
             try:
                 results = []
-                codes = set(self.store.tick_raw_codes(day)) | set(self.store.tick_raw_codes(day, fallback=True))
-                for code in sorted(codes):
-                    cached = self.store.load_tick_raw(day, code) or self.store.restore_tick_fallback(day, code)
-                    if cached:
-                        results.append(assess(cached[0], code, day, cached[1]))
+                for code in sorted(set(self.store.tick_raw_codes(day)) | set(self.store.tick_fallback_codes(day))):
+                    try:
+                        cached = self.store.load_tick_raw(day, code)
+                        result = (assess(cached[0], code, day, cached[1]) if cached else
+                                  {"code": code, "name": code, "status": "failed", "error": "沒有可用的回應"})
+                    except Exception as error:  # noqa: BLE001 - one stock's failure never stops the others
+                        result = {"code": code, "name": code, "status": "failed",
+                                  "error": f"未預期的錯誤：{type(error).__name__}: {error}"}
+                    results.append(self.fullest(day, result))
                 record["symbols"]["total"] = len(results)
+                problems = [result for result in results if result["status"] != "ok"]
+                if problems:
+                    record["reason"] += f"；{len(problems)} 檔沒抓齊：" + "、".join(
+                        f"{result['code']}（{result['error']}）" for result in problems[:5])
                 self.publish(day, results, record)
             except Exception as error:  # noqa: BLE001 - never stops today's run
                 record["reason"] = f"補上架失敗：{type(error).__name__}: {error}"
                 self.store.log(day, f"逐筆：{record['reason']}", self.runtime.now())
-            self.report(record, notify=False)
+            self.report(record, urgent=True)
 
     def failed(self, reason: str, urgent: bool) -> None:
         """A run only for trades stopped before reaching them (login, snapshot)."""

@@ -193,6 +193,7 @@ TICK_ENTRY = {"code": "2330", "name": "台積電", "trades": 2, "volume": 6449, 
 TRADES = {"2330": [[0, 2420, 6446, 2415, 2420], [1250, 2425, 3, 2420, 2425]]}
 PAGES = [{"date": DATE, "symbol": "2330", "data": [{"price": 2420, "size": 6446, "time": 1, "serial": 11}]}]
 META = {"name": "台積電", "tradeVolume": 6449, "close": 2425}
+SHORT = [{**PAGES[0], "data": []}]
 
 
 class TickStoreTest(unittest.TestCase):
@@ -218,23 +219,87 @@ class TickStoreTest(unittest.TestCase):
         self.assertFalse(self.store.has_ticks(DATE))
         self.assertFalse((self.root / "days").exists())
 
-    def test_an_unreadable_cached_answer_is_dropped(self):
+    def test_an_unreadable_cached_answer_is_fetched_again(self):
         self.store.save_tick_raw(DATE, "2330", PAGES, META)
         (self.root / "staging-ticks" / DATE / "raw" / "2330.json.gz").write_bytes(b"not gzip")
         self.assertIsNone(self.store.load_tick_raw(DATE, "2330"))
         self.assertEqual(self.store.tick_raw_codes(DATE), [])
 
-    def test_an_answer_set_aside_never_replaces_a_kept_one(self):
-        earlier = [{**PAGES[0], "data": PAGES[0]["data"][:0]}]
-        self.store.save_tick_raw(DATE, "2330", PAGES, META)
-        self.store.save_tick_raw(DATE, "2330", earlier, META, fallback=True)
-        self.assertIsNone(self.store.restore_tick_fallback(DATE, "2330"))
+    def fallbacks(self, code="2330"):
+        return [(pages, meta) for _name, pages, meta in self.store.tick_fallbacks(DATE, code)]
+
+    def test_answers_set_aside_are_only_ever_added(self):
+        self.store.add_tick_fallback(DATE, "2330", PAGES, META)
+        self.store.add_tick_fallback(DATE, "2330", SHORT, {**META, "cut": "x"})
+        self.assertEqual(self.fallbacks(), [(PAGES, META), (SHORT, {**META, "cut": "x"})])  # oldest first
+        self.assertEqual(self.store.tick_fallback_codes(DATE), ["2330"])
+        self.assertIsNone(self.store.load_tick_raw(DATE, "2330"))
+        self.assertEqual(self.store.tick_raw_codes(DATE), [])
+        self.assertEqual(self.store.pending_tick_days(before="2026-10-16"), [DATE])
+
+    def test_using_an_answer_set_aside_keeps_the_one_it_replaces(self):
+        self.store.save_tick_raw(DATE, "2330", SHORT, META)
+        self.store.add_tick_fallback(DATE, "2330", PAGES, META)
+        (name, pages, meta), = self.store.tick_fallbacks(DATE, "2330")
+        self.store.use_tick_fallback(DATE, "2330", name, pages, meta)
         self.assertEqual(self.store.load_tick_raw(DATE, "2330"), (PAGES, META))
-        self.assertEqual(self.store.load_tick_raw(DATE, "2330", fallback=True), (earlier, META))
-        self.store.drop_tick_raw(DATE, "2330")
-        self.assertEqual(self.store.restore_tick_fallback(DATE, "2330"), (earlier, META))
-        self.assertEqual(self.store.load_tick_raw(DATE, "2330"), (earlier, META))
-        self.assertIsNone(self.store.load_tick_raw(DATE, "2330", fallback=True))
+        self.assertEqual(self.fallbacks(), [(SHORT, META)])
+
+    def test_a_failure_while_using_an_answer_set_aside_loses_nothing(self):
+        for step in ("add_tick_fallback", "save_tick_raw"):
+            with self.subTest(step=step):
+                self.tearDown()
+                self.setUp()
+                self.store.save_tick_raw(DATE, "2330", SHORT, META)
+                self.store.add_tick_fallback(DATE, "2330", PAGES, META)
+                (name, pages, meta), = self.store.tick_fallbacks(DATE, "2330")
+                with mock.patch.object(MarketStore, step, side_effect=OSError("disk is busy")):
+                    with self.assertRaises(OSError):
+                        self.store.use_tick_fallback(DATE, "2330", name, pages, meta)
+                kept = [answer for answer, _meta in self.fallbacks()] + [self.store.load_tick_raw(DATE, "2330")[0]]
+                self.assertIn(SHORT, kept)
+                self.assertIn(PAGES, kept)
+
+    def test_an_answer_that_cannot_be_read_just_now_stays(self):
+        self.store.save_tick_raw(DATE, "2330", PAGES, META)
+        real = Path.read_bytes
+
+        def busy(path):
+            if path.name == "2330.json.gz":
+                raise PermissionError("held by a scanner")
+            return real(path)
+
+        with mock.patch.object(Path, "read_bytes", busy):
+            with self.assertRaises(PermissionError):
+                self.store.load_tick_raw(DATE, "2330")
+        self.assertEqual(self.store.load_tick_raw(DATE, "2330"), (PAGES, META))
+
+    def test_an_answer_that_cannot_be_decoded_is_set_aside_and_fetched_again(self):
+        for damage in ("truncated", "corrupt"):
+            with self.subTest(damage=damage):
+                self.tearDown()
+                self.setUp()
+                self.store.save_tick_raw(DATE, "2330", PAGES, META)
+                path = self.root / "staging-ticks" / DATE / "raw" / "2330.json.gz"
+                data = path.read_bytes()
+                bad = data[:-8] if damage == "truncated" else data[:12] + bytes(b ^ 0xFF for b in data[12:20]) + data[20:]
+                path.write_bytes(bad)
+                self.assertIsNone(self.store.load_tick_raw(DATE, "2330"))
+                self.assertEqual(self.store.tick_raw_codes(DATE), [])
+                self.assertEqual(self.store.tick_fallbacks(DATE, "2330"), [])  # never offered again...
+                manifest = self.store.publish_ticks(DATE, [], {}, [], [], NOW, "fubon-neo test", "abc123")
+                evidence = [item["path"] for item in manifest["files"] if item["path"].endswith(".json.gz")]
+                self.assertEqual([(self.root / "ticks" / DATE / item).read_bytes() for item in evidence], [bad])
+
+    def test_answers_set_aside_go_along_as_evidence(self):
+        self.store.add_tick_fallback(DATE, "2317", SHORT, {**META, "cut": "x"})
+        manifest = self.publish()
+        evidence = sorted(item["path"] for item in manifest["files"] if item["path"].startswith("fallback/"))
+        self.assertEqual(len(evidence), 2)  # the answer and its facts
+        folder = self.root / "ticks" / DATE
+        answer = next(path for path in evidence if path.endswith(".json.gz"))
+        self.assertEqual(json.loads(gzip.decompress((folder / answer).read_bytes())), SHORT)
+        self.assertFalse((self.root / "staging-ticks" / DATE).exists())
 
     def test_days_left_in_staging_are_listed_until_published(self):
         self.store.save_tick_raw("2026-10-14", "2330", PAGES, META)

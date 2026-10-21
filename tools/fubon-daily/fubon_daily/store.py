@@ -10,6 +10,7 @@ import re
 import shutil
 import time
 import uuid
+import zlib
 from datetime import date, datetime
 from pathlib import Path
 from typing import Callable
@@ -19,6 +20,8 @@ HISTORY_LIMIT = 30
 # Longer than the scheduled task's two-hour limit: an older lock belongs to a run that is gone.
 STALE_LOCK_SECONDS = 2.5 * 3600
 REPLACE_ATTEMPTS = 5
+# A stored answer that reads but cannot be decoded; any other OSError (a file held by a scanner, say) may pass.
+UNDECODABLE = (EOFError, ValueError, gzip.BadGzipFile, zlib.error)
 
 
 class Locked(Exception):
@@ -152,55 +155,97 @@ class MarketStore:
     def has_ticks(self, day: str) -> bool:
         return (self.root / "ticks" / day / "manifest.json").is_file()
 
-    # A stock's answer waits in staging-ticks/<day>; an answer set aside while a better one is fetched (the
-    # fallback) waits in staging-ticks/<day>/fallback, laid out the same way.
-    def _tick_folder(self, day: str, fallback: bool) -> Path:
-        folder = self.root / "staging-ticks" / day
-        return folder / "fallback" if fallback else folder
+    def _tick_raw_path(self, day: str, code: str) -> Path:
+        return self.root / "staging-ticks" / day / "raw" / f"{code}.json.gz"
 
-    def _tick_raw_path(self, day: str, code: str, fallback: bool = False) -> Path:
-        return self._tick_folder(day, fallback) / "raw" / f"{code}.json.gz"
+    def _tick_meta_path(self, day: str, code: str) -> Path:
+        return self.root / "staging-ticks" / day / "meta" / f"{code}.json"
 
-    def _tick_meta_path(self, day: str, code: str, fallback: bool = False) -> Path:
-        return self._tick_folder(day, fallback) / "meta" / f"{code}.json"
-
-    def save_tick_raw(self, day: str, code: str, pages: list, meta: dict, fallback: bool = False) -> None:
+    def save_tick_raw(self, day: str, code: str, pages: list, meta: dict) -> None:
         """Fubon's answer as received, with the snapshot facts (name, volume, close) needed to check it later."""
-        _write_atomic(self._tick_meta_path(day, code, fallback), _json_bytes(meta))
-        _write_atomic(self._tick_raw_path(day, code, fallback), gzip.compress(_json_bytes(pages), mtime=0))
+        _write_atomic(self._tick_meta_path(day, code), _json_bytes(meta))
+        _write_atomic(self._tick_raw_path(day, code), gzip.compress(_json_bytes(pages), mtime=0))
 
-    def load_tick_raw(self, day: str, code: str, fallback: bool = False) -> tuple[list, dict] | None:
-        """The cached answer and its facts; an unreadable one is dropped, so it is fetched again."""
-        raw, meta = self._tick_raw_path(day, code, fallback), self._tick_meta_path(day, code, fallback)
+    def load_tick_raw(self, day: str, code: str) -> tuple[list, dict] | None:
+        """The cached answer and its facts. One that cannot be decoded is moved among the stock's fallbacks, which
+        go along as evidence, and fetched again; a file that cannot be read just now raises and stays."""
+        raw, meta = self._tick_raw_path(day, code), self._tick_meta_path(day, code)
         if not (raw.is_file() and meta.is_file()):
             return None
+        data, facts = raw.read_bytes(), meta.read_bytes()
         try:
-            return json.loads(gzip.decompress(raw.read_bytes())), json.loads(meta.read_text(encoding="utf-8"))
-        except (OSError, EOFError, ValueError):
-            self.drop_tick_raw(day, code, fallback)
+            return json.loads(gzip.decompress(data)), json.loads(facts.decode("utf-8"))
+        except UNDECODABLE:
+            self._add_fallback(day, code, data, facts)
+            self.drop_tick_raw(day, code)
             return None
 
-    def drop_tick_raw(self, day: str, code: str, fallback: bool = False) -> None:
-        self._tick_raw_path(day, code, fallback).unlink(missing_ok=True)
-        self._tick_meta_path(day, code, fallback).unlink(missing_ok=True)
+    def drop_tick_raw(self, day: str, code: str) -> None:
+        self._tick_raw_path(day, code).unlink(missing_ok=True)
+        self._tick_meta_path(day, code).unlink(missing_ok=True)
 
-    def restore_tick_fallback(self, day: str, code: str) -> tuple[list, dict] | None:
-        """Makes the answer set aside earlier the stock's answer again, and returns it. None when there is none,
-        or when the stock still has an answer kept: that one is never replaced."""
-        if self._tick_raw_path(day, code).is_file() and self._tick_meta_path(day, code).is_file():
-            return None
-        kept = self.load_tick_raw(day, code, fallback=True)
-        if kept is not None:
-            self.save_tick_raw(day, code, *kept)  # copied before it is dropped: a crash in between loses nothing
-            self.drop_tick_raw(day, code, fallback=True)
-        return kept
-
-    def tick_raw_codes(self, day: str, fallback: bool = False) -> list[str]:
-        folder = self._tick_folder(day, fallback) / "raw"
+    def tick_raw_codes(self, day: str) -> list[str]:
+        folder = self.root / "staging-ticks" / day / "raw"
         if not folder.is_dir():
             return []
         return sorted(path.name[: -len(".json.gz")] for path in folder.glob("*.json.gz")
-                      if self._tick_meta_path(day, path.name[: -len(".json.gz")], fallback).is_file())
+                      if self._tick_meta_path(day, path.name[: -len(".json.gz")]).is_file())
+
+    # Answers set aside while a whole one is fetched (a stock's fallbacks) are only ever added, never replaced:
+    # staging-ticks/<day>/fallback/<code>/<n>.json.gz, with the facts in <n>.json. The fullest one is chosen when
+    # the day is published; the others go along as evidence.
+    def _fallback_folder(self, day: str, code: str | None = None) -> Path:
+        folder = self.root / "staging-ticks" / day / "fallback"
+        return folder / code if code else folder
+
+    def _fallback_names(self, day: str, code: str) -> list[str]:
+        folder = self._fallback_folder(day, code)
+        if not folder.is_dir():
+            return []
+        return sorted(path.name[: -len(".json.gz")] for path in folder.glob("*.json.gz")
+                      if (folder / f"{path.name[: -len('.json.gz')]}.json").is_file())
+
+    def add_tick_fallback(self, day: str, code: str, pages: list, meta: dict) -> None:
+        """Sets an answer aside as one more of the stock's fallbacks."""
+        self._add_fallback(day, code, gzip.compress(_json_bytes(pages), mtime=0), _json_bytes(meta))
+
+    def _add_fallback(self, day: str, code: str, raw: bytes, meta: bytes) -> None:
+        folder = self._fallback_folder(day, code)
+        numbers = [int(path.name.split(".")[0]) for path in folder.glob("*.json*")
+                   if path.name.split(".")[0].isdigit()] if folder.is_dir() else []
+        name = f"{max(numbers, default=0) + 1:04d}"
+        _write_atomic(folder / f"{name}.json", meta)
+        _write_atomic(folder / f"{name}.json.gz", raw)
+
+    def tick_fallbacks(self, day: str, code: str) -> list[tuple[str, list, dict]]:
+        """The stock's fallbacks, oldest first, as (name, answer, facts). One that cannot be decoded is not
+        offered; it stays on disk and goes along as evidence."""
+        folder = self._fallback_folder(day, code)
+        found = []
+        for name in self._fallback_names(day, code):
+            data, facts = (folder / f"{name}.json.gz").read_bytes(), (folder / f"{name}.json").read_bytes()
+            try:
+                found.append((name, json.loads(gzip.decompress(data)), json.loads(facts.decode("utf-8"))))
+            except UNDECODABLE:
+                continue
+        return found
+
+    def tick_fallback_codes(self, day: str) -> list[str]:
+        folder = self._fallback_folder(day)
+        if not folder.is_dir():
+            return []
+        return sorted(child.name for child in folder.iterdir() if self._fallback_names(day, child.name))
+
+    def use_tick_fallback(self, day: str, code: str, name: str, pages: list, meta: dict) -> None:
+        """Makes an answer set aside the stock's answer. The answer it replaces is set aside first, and the one
+        used leaves the fallbacks only once copied: a failure at any step leaves every answer on disk."""
+        kept = self.load_tick_raw(day, code)
+        if kept is not None:
+            self.add_tick_fallback(day, code, *kept)
+        self.save_tick_raw(day, code, pages, meta)
+        folder = self._fallback_folder(day, code)
+        (folder / f"{name}.json.gz").unlink(missing_ok=True)
+        (folder / f"{name}.json").unlink(missing_ok=True)
 
     def pending_tick_days(self, before: str) -> list[str]:
         """Days whose trades (or answers set aside) wait in staging, unpublished, earlier than `before`."""
@@ -209,13 +254,13 @@ class MarketStore:
             return []
         return sorted(folder.name for folder in staging.iterdir()
                       if DAY_NAME.match(folder.name) and folder.name < before and not self.has_ticks(folder.name)
-                      and (self.tick_raw_codes(folder.name) or self.tick_raw_codes(folder.name, fallback=True)))
+                      and (self.tick_raw_codes(folder.name) or self.tick_fallback_codes(folder.name)))
 
     def publish_ticks(self, day: str, entries: list[dict], trades: dict[str, list], rejected: list[dict],
                       warnings: list[dict], published_at: datetime, source: str, version: str,
                       after_hours: dict[str, list] | None = None) -> dict:
-        """Publishes the checked trades plus every answer kept: raw/ holds each stock's latest answer (rejected
-        ones too, with their reason in the manifest), fallback/ an earlier one set aside and never used."""
+        """Publishes the checked trades plus every answer kept: raw/ holds the answer each stock's trades (or its
+        rejection, with the reason in the manifest) come from, fallback/<code>/ the other answers set aside."""
         target = self.root / "ticks" / day
         if target.exists():
             raise FileExistsError(day)
@@ -227,6 +272,7 @@ class MarketStore:
         files = []
 
         def put(relative: str, data: bytes) -> None:
+            (out / relative).parent.mkdir(parents=True, exist_ok=True)
             (out / relative).write_bytes(data)
             files.append({"path": relative, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()})
 
@@ -237,11 +283,11 @@ class MarketStore:
             put(f"symbols/{code}.json.gz", gzip.compress(_json_bytes(payload), mtime=0))
         for code in self.tick_raw_codes(day):
             put(f"raw/{code}.json.gz", self._tick_raw_path(day, code).read_bytes())
-        fallbacks = self.tick_raw_codes(day, fallback=True)
-        if fallbacks:
-            (out / "fallback").mkdir()
-        for code in fallbacks:
-            put(f"fallback/{code}.json.gz", self._tick_raw_path(day, code, fallback=True).read_bytes())
+        for code in self.tick_fallback_codes(day):
+            folder = self._fallback_folder(day, code)
+            for name in self._fallback_names(day, code):
+                put(f"fallback/{code}/{name}.json.gz", (folder / f"{name}.json.gz").read_bytes())
+                put(f"fallback/{code}/{name}.json", (folder / f"{name}.json").read_bytes())
         manifest = {"schema": 1, "date": day, "createdAt": published_at.isoformat(timespec="seconds"),
                     "version": version, "source": source, "sizeUnit": "lot",
                     "counts": {"symbols": len(entries), "trades": sum(len(rows) for rows in trades.values())},
