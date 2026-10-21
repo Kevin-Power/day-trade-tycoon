@@ -8,6 +8,7 @@
   3. 紙本學員手冊。
 - 審查安排確定後，使用者說「好，審查完直接上線」。
 - 分支 `claude/short-desk`（worktree `.worktrees/short-desk`），起點 `codex/course-handover` 7e1bbbf。
+- 快轉合併進 `codex/course-handover`（be12d4a），2026-10-21 07:10Z 上線為 release **`20261021T070515367Z`**（見文末「正式站發布」）。
 
 ## 一、小筆電（矮螢幕）
 
@@ -104,3 +105,35 @@
 
 - 實體筆電在 125%、150% 縮放下的實際畫面（不同字型）。
 - 手機實機與 Safari（跟先前相同）。
+
+## 正式站發布（2026-10-21）
+
+**候選 release**
+
+- 乾淨 worktree（be12d4a）先跑 `build:offline` 再跑 `build`。離線包和 `.output/downloads` 裡的那份雜湊相同（`c76485bf…`）。
+- `stage-release` 產生 `20261021T070515367Z`，共 310 個檔案。
+- 隔離整合測試 4/4 通過。
+- 在以 release 啟動的三間拋棄式教室裡：
+  - 首頁 200；
+  - layout --strict（含五種筆電尺寸與 24px 點擊尺寸）、江波 11 項、states（含筆電尺寸的大額委託）、orders、ticks、broker --strict 都通過。
+
+**停機與切換**
+
+- 07:09:58Z 正常停機，資料庫確認已關閉。
+- 備份 `backups/2026-10-21T07-09-58-764Z`：1,060 個檔案，逐檔核對通過。
+- 07:10:00Z 只改 `appEntry`：`20261021T060957313Z` → `20261021T070515367Z`。
+- 07:10:13Z 恢復健康。停機約 17 秒（從最後一次健康檢查算起，含備份）。
+
+**發布後檢查**
+
+- 46 個公開 JS／CSS 檔案的 SHA-256 與 release 相同。
+- 正式站 `/daytrade-tycoon-manual.pdf?v=2026-10-21-desk` 回 200，雜湊與 release 內的 PDF 相同。
+- 設定除了 `appEntry` 都沒變；3 個機密檔案的雜湊沒變；上一份 release 仍保留。
+- 主要路由、`/sw.js`、`/manifest.webmanifest`、`/third-party-notices.txt` 都回 200；`/server/index.mjs` 回 404。
+- 沒有入場碼時，`/api/daily`、`/api/morning`、`/api/discipline` 都回 403。
+- `/api/health` 回報 `mode: simulation`。
+
+**回復方式**
+
+- 把 `appEntry` 指回 `20261021T060957313Z` 即可。這次沒有資料庫或課程資料變更。
+- 發布紀錄在 `artifacts/deploy-20261021-short-desk/`。
