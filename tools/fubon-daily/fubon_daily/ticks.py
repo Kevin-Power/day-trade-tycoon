@@ -22,9 +22,12 @@ INTRADAY_SPACING = 0.25
 # Earlier runs stop starting new stocks after this long, leaving time for the candles.
 TICK_BUDGET_SECONDS = 45 * 60
 # The last run has no later run to leave stocks to, but Windows stops the task after two hours, so it stops
-# starting new stocks after this long and the candles, the publish and the notice still fit.
+# starting new stocks after this long and the candles, the publish and the notice still fit...
 LAST_ATTEMPT_BUDGET_SECONDS = 70 * 60
-# This many stocks in a row that Fubon fails to answer, even after retries, means Fubon is down.
+# ...or after this long when the candles are already published and only today's trades are left.
+LAST_ATTEMPT_TRADES_ONLY_BUDGET_SECONDS = 100 * 60
+# Earlier runs take this many stocks in a row that Fubon fails to answer, even after retries, as Fubon being
+# down and leave the rest to the next run. The last run keeps trying: its time cap is enough.
 FAILURE_STREAK = 15
 TICK_SOURCE = "fubon-neo intraday/trades"
 MESSAGE_LIMIT = 300
@@ -80,12 +83,13 @@ class Ticks:
                 raise ValidationError("structure", f"成交超過 {MAX_TRADE_ROWS} 筆")
 
     def stop_reason(self, started: float, streak: int) -> str | None:
-        """Why no new stock is started: Fubon keeps failing, or this run's time for trades is spent."""
-        if streak >= FAILURE_STREAK:
-            return f"富邦連續 {streak} 檔出錯，這次先停"
+        """Why no new stock is started: this run's time for trades is spent, or (earlier runs) Fubon keeps failing."""
         spent = self.runtime.monotonic() - started
         if self.run.last_attempt:
-            return "最後一次執行的時間用完" if spent > LAST_ATTEMPT_BUDGET_SECONDS else None
+            budget = LAST_ATTEMPT_BUDGET_SECONDS if self.run.candles_due else LAST_ATTEMPT_TRADES_ONLY_BUDGET_SECONDS
+            return "最後一次執行的時間用完" if spent > budget else None
+        if streak >= FAILURE_STREAK:
+            return f"富邦連續 {streak} 檔出錯，這次先停，下次再抓"
         return "時間不夠，下次再抓" if spent > TICK_BUDGET_SECONDS else None
 
     def collect(self, client, candidates: list[dict]) -> None:
@@ -142,7 +146,7 @@ class Ticks:
                 results.append(result)
             problems = [result for result in results if result["status"] != "ok"]
             if problems:
-                record["reason"] = f"{len(problems)} 檔沒抓齊：" + "、".join(
+                record["reason"] = (f"{stopped}；" if stopped else "") + f"{len(problems)} 檔沒抓齊：" + "、".join(
                     f"{result['code']}（{result['error']}）" for result in problems[:5])
             if problems and not self.run.last_attempt:
                 self.run.log(f"逐筆：{len(problems)} 檔等下一次排程（{self.runtime.monotonic() - started:.0f} 秒）")

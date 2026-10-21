@@ -25,13 +25,19 @@
   - 最後一次（18:50 以後）把手上有的全部上架。沒全部通過時跳出通知。
   - 前兩次執行的逐筆最多跑 45 分鐘。
   - 逐筆不會擋住 1 分 K。
-- **審查後加的兩道保險**（見「審查」）：
-  - 最後一次執行的逐筆最多 70 分鐘。之前不設限，但排程跑滿兩小時會被 Windows 停掉；全市場時如果富邦整晚出錯，可能來不及上架、通知，甚至來不及補抓 1 分 K。
-  - 連續 15 檔在重試後仍然出錯，就當作富邦暫時故障，這次不再開始抓新的股票。
-- **程式**：`fubon_daily/ticks.py` 拿掉 `choose()`、`LESSON_SYMBOLS`、`TICK_TOP`，直接用快照裡有成交、依成交值排好的清單。新增 `LAST_ATTEMPT_BUDGET_SECONDS`、`FAILURE_STREAK` 與 `stop_reason()`。日誌改成「逐筆：N 檔（當天有成交的上市普通股，成交值大的先抓）」，停下來時多記一行原因。
-- **測試**（全套 121 個通過）：
+- **審查後加的保險**（見「審查」）：
+  - 最後一次執行的逐筆也有時間上限。之前不設限，但排程跑滿兩小時會被 Windows 停掉；全市場時如果富邦整晚出錯，可能來不及上架、通知，甚至來不及補抓 1 分 K。
+    - 還要補抓 1 分 K 時最多 70 分鐘；1 分 K 已上架、只剩逐筆時最多 100 分鐘。
+  - 前兩次執行如果連續 15 檔在重試後仍然出錯，就當作富邦暫時故障，這次不再開始抓新的股票，留給下一次。最後一次不受這條限制（複查發現若也套用，短暫出錯就會放棄剩下的股票，而且再也抓不回來）。
+  - 停下來的原因寫在 `status.json` 和通知的最前面。
+- **程式**：`fubon_daily/ticks.py` 拿掉 `choose()`、`LESSON_SYMBOLS`、`TICK_TOP`，直接用快照裡有成交、依成交值排好的清單。新增 `LAST_ATTEMPT_BUDGET_SECONDS`、`LAST_ATTEMPT_TRADES_ONLY_BUDGET_SECONDS`、`FAILURE_STREAK` 與 `stop_reason()`。日誌改成「逐筆：N 檔（當天有成交的上市普通股，成交值大的先抓）」，停下來時多記一行原因。
+- **測試**（全套 123 個通過）：
   - `test_lesson_stocks_join_the_top_twenty_by_value` 改成 `test_every_traded_stock_is_kept_most_traded_first`。它先在舊程式上失敗（第 21–25 名沒被抓），改完才通過。
-  - `test_the_last_attempt_has_its_own_time_budget`、`test_a_run_of_fubon_failures_stops_starting_new_stocks`：都先失敗，加了保險才通過。
+  - 下面幾個都先失敗，改完才通過：
+    - `test_the_last_attempt_has_its_own_time_budget`
+    - `test_a_run_of_fubon_failures_stops_starting_new_stocks`（也檢查停下的原因排在最前面）
+    - `test_the_last_attempt_keeps_trying_after_a_run_of_failures`
+    - `test_a_last_attempt_with_only_trades_left_gets_more_time`
   - `test_a_budget_cut_keeps_the_most_traded_and_the_next_run_fetches_the_rest_in_order`：釘住「時間截斷時先保住成交最多的、下一次照順序抓剩下的」。這是既有行為，所以一寫就通過；另外把抓取順序故意反過來，確認這個測試會失敗。
 
 ## 估計（用 10/20 的資料推算）
@@ -60,10 +66,21 @@
     - 抓到一半某一頁連續失敗時，已經抓到的頁面會被丟掉，最後一次也一樣。
     - 建議：把較早或不完整的回應留作備份，最後一次重抓失敗時用備份上架，標成 `complete: false`。
   - 釘住「時間截斷先保住成交最多的」的測試（已補）。
+- **複查**（`919a909..8c2d4b7`，同一位審查員）：上限的修正正確，可以今晚安裝。另外找到：
+  - **應該修（已修）**：連續出錯就停的規則如果也用在最後一次，富邦只要短暫出錯約 80 秒，剩下沒抓的股票就會被放棄，而且沒有下一次可以補。→ 改成只用在前兩次。
+  - **小問題（已修）**：停下來的原因被前面 5 檔的錯誤擠掉，狀態和通知看不到。→ 放到最前面。
+  - **小問題（已修）**：1 分 K 已經上架、只剩逐筆時，70 分鐘上限太保守。→ 這種情況放寬到 100 分鐘。
+  - **既有限制，沒改**：如果富邦某一次呼叫一直不回應，上限只在兩檔之間檢查，還是可能拖到排程兩小時被停掉。要看 SDK 有沒有逾時設定，之後再查。
 
 ## 安裝
 
-（待補）
+- 15:00 在 `.worktrees/ticks-all`（分支 `claude/ticks-all`）執行 `install.ps1 -App`，安裝 `8c2d4b7`（含審查後的修正）。`fetcher\app\VERSION.txt` 是同一個提交。
+- 安裝的 10 個檔案都和工作目錄的檔案逐位元組相同。和 git 裡的版本相比，只差在 Windows 換行（`core.autocrlf=true`），內容一致。
+- 冒煙測試：用排程同一個 Python 跑一次。還沒到 16:30，所以只記一行「每日抓取要 16:30 以後才執行…這次略過」就結束。結束碼 0，沒有登入，也沒有留下鎖檔。
+- 排程 `DayTradeTycoonMarketData` 本身沒改，仍是 16:45、17:30、19:00。
+- 一次性檢查 `check-fubon-ticks-1021`：
+  - 時間從 17:20 改到 19:45，內容改成檢查全市場。
+  - 驗證腳本改成只列出有差異的股票。用 10/20 重跑，結果和原本一樣：22／22 檔、5,746／5,746 根。
 
 ## 回退
 

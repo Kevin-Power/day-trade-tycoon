@@ -558,8 +558,36 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         # 1101 answered between the failures, so the streak is 1102-1104; nothing after it is tried.
         self.assertEqual(sorted({call[1] for call in self.trade_calls(client)}),
                          ["1100", "1101", "1102", "1103", "1104"])
-        self.assertIn("連續", self.status()["ticks"]["reason"])
+        # The stop comes first in the status, ahead of the stocks that failed before it.
+        self.assertTrue(self.status()["ticks"]["reason"].startswith("富邦連續 3 檔出錯"))
         self.assertTrue((self.data / "days" / DATE / "manifest.json").is_file())
+
+    def test_the_last_attempt_keeps_trying_after_a_run_of_failures(self):
+        # No later run can pick a stock up, and the time cap already bounds the last attempt.
+        items = [quote(str(1100 + rank), f"股{rank}", 50, 1, 1000, 10_000_000_000 - rank) for rank in range(6)]
+        failing = {code: ApiError("500", 500) for code in ("1100", "1101", "1102", "1103")}
+        client = FakeClient(snapshot_payload=snapshot(items=items), trade_errors=failing,
+                            minutes={item["symbol"]: full_day(item["symbol"], price=item["closePrice"])
+                                     for item in items})
+        with mock.patch("fubon_daily.ticks.FAILURE_STREAK", 3):
+            self.assertEqual(self.run_once(client, at=EVENING), 0)
+        self.assertEqual(sorted({call[1] for call in self.trade_calls(client)}),
+                         [str(1100 + rank) for rank in range(6)])
+        self.assertEqual([entry["code"] for entry in self.tick_manifest()["symbols"]], ["1104", "1105"])
+
+    def test_a_last_attempt_with_only_trades_left_gets_more_time(self):
+        items = [quote(str(1100 + rank), f"股{rank}", 50, 1, 1000, 10_000_000_000 - rank) for rank in range(4)]
+        minutes = {item["symbol"]: full_day(item["symbol"], price=item["closePrice"]) for item in items}
+        failing = {code: [ApiError("500", 500)] * 3 for code in ("1101", "1102", "1103")}
+        first = FakeClient(snapshot_payload=snapshot(items=items), minutes=minutes, trade_errors=failing)
+        self.assertEqual(self.run_once(first), 0)
+        self.assertTrue((self.data / "days" / DATE / "manifest.json").is_file())  # the candles are done
+        last = FakeClient(snapshot_payload=snapshot(items=items))
+        with mock.patch("fubon_daily.ticks.LAST_ATTEMPT_BUDGET_SECONDS", 0.1), \
+                mock.patch("fubon_daily.ticks.LAST_ATTEMPT_TRADES_ONLY_BUDGET_SECONDS", 3600):
+            self.assertEqual(self.run_once(last, at=EVENING), 0)
+        self.assertEqual([call[1] for call in self.trade_calls(last) if call[2] == 0], ["1101", "1102", "1103"])
+        self.assertEqual(self.status()["ticks"]["outcome"], "ok")
 
     def test_the_time_budget_leaves_the_rest_for_the_next_run(self):
         client = FakeClient(minutes=good_minutes())
