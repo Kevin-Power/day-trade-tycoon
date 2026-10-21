@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  bandPriceRange,
   candleBodyWidth,
   candlePriceRange,
   candleWindow,
@@ -11,9 +12,13 @@ import {
   clearsPriceTag,
   completedBarsInWindow,
   deviceDashPattern,
+  emaReadout,
+  emaSeries,
   formatPercentChange,
   hairlineDevicePixels,
   inChartWindow,
+  jiangboGridPrices,
+  jiangboGridRows,
   jiangboPriceRange,
   minuteColumnWidth,
   nearestTimePoint,
@@ -31,6 +36,9 @@ import {
   wrapReadout,
   type ChartLabel,
   levelChartLabels,
+  limitChartLabels,
+  lineRuns,
+  type ReadoutField,
 } from "./chart-data.ts";
 import type { Bar } from "../game/types.ts";
 
@@ -641,4 +649,134 @@ test("a right-axis percent label under the last-price tag is skipped, one clear 
   assert.equal(clearsPriceTag(115, 100, 20, 12), false);
   assert.equal(clearsPriceTag(84, 100, 20, 12), true);
   assert.equal(clearsPriceTag(116, 100, 20, 12), true);
+});
+
+test("emaSeries seeds with the first close and smooths with 2/(N+1)", () => {
+  assert.deepEqual(emaSeries([10, 11, 12], 3), [10, 10.5, 11.25]);
+  const eleven = emaSeries([12, 18], 11);
+  assert.equal(eleven.length, 2);
+  near(eleven[0]!, 12);
+  near(eleven[1]!, 13);
+  assert.deepEqual(emaSeries([10, 20], 1), [10, 20]);
+});
+
+test("emaSeries returns nothing for no closes or an invalid period", () => {
+  assert.deepEqual(emaSeries([], 11), []);
+  assert.deepEqual(emaSeries([10, 11], 0), []);
+  assert.deepEqual(emaSeries([10, 11], 2.5), []);
+  assert.deepEqual(emaSeries([7], 11), [7]);
+});
+
+test("bandPriceRange spans the previous close ±band", () => {
+  const range = bandPriceRange(254, 0.1)!;
+  near(range.min, 228.6);
+  near(range.max, 279.4);
+  assert.equal(bandPriceRange(0, 0.1), null);
+  assert.equal(bandPriceRange(254, 0), null);
+  assert.equal(bandPriceRange(254, 1), null);
+  assert.equal(bandPriceRange(Number.NaN, 0.1), null);
+});
+
+test("jiangboGridRows uses 2% steps only when each row is 2.2 lines tall", () => {
+  assert.equal(jiangboGridRows(404, 12), 10);
+  assert.equal(jiangboGridRows(264, 12), 10);
+  assert.equal(jiangboGridRows(263, 12), 4);
+  assert.equal(jiangboGridRows(352, 16), 10);
+  assert.equal(jiangboGridRows(351, 16), 4);
+});
+
+test("jiangboGridPrices lists the grid from the top", () => {
+  const prices = jiangboGridPrices(254, 0.1, 10);
+  assert.equal(prices.length, 11);
+  near(prices[0]!, 279.4);
+  near(prices[5]!, 254);
+  near(prices[10]!, 228.6);
+  const coarse = jiangboGridPrices(950, 0.1, 4);
+  assert.equal(coarse.length, 5);
+  [1045, 997.5, 950, 902.5, 855].forEach((price, index) => near(coarse[index]!, price));
+});
+
+test("limitChartLabels marks 漲停 below its line and 跌停 above its line", () => {
+  const place = {
+    x: 52,
+    lineHeight: 16,
+    up: "#f00",
+    down: "#0f0",
+    yOf: (price: number) => 1000 - price,
+    priceText: (price: number) => `P${price}`,
+  };
+  assert.deepEqual(
+    limitChartLabels(254, place).map((label) => [
+      label.key, label.text, label.price, label.priceText, label.color, label.x, label.anchor, label.y,
+    ]),
+    [
+      ["limit-up", "漲停", 279, "P279", "#f00", 52, "start", 1000 - 279 + 10],
+      ["limit-down", "跌停", 229, "P229", "#0f0", 52, "start", 1000 - 229 - 10],
+    ],
+  );
+  assert.deepEqual(limitChartLabels(0, place), []);
+});
+
+test("lineRuns breaks where minutes are missing", () => {
+  assert.deepEqual(lineRuns([{ t: 0 }, { t: 60 }, { t: 300 }], 60), [[{ t: 0 }, { t: 60 }], [{ t: 300 }]]);
+  assert.deepEqual(lineRuns([], 60), []);
+  assert.deepEqual(lineRuns([{ t: 0 }], 60), [[{ t: 0 }]]);
+});
+
+test("emaReadout labels each EMA with two decimals", () => {
+  assert.deepEqual(emaReadout([{ period: 11, value: 256.383 }, { period: 24, value: 257.0906 }]), [
+    { text: "EMA11 256.38", tone: "emaFast", legend: true },
+    { text: "EMA24 257.09", tone: "emaSlow", legend: true },
+  ]);
+  assert.deepEqual(emaReadout([{ period: 11, value: Number.NaN }, { period: 24, value: 1 }]), [
+    { text: "EMA24 1.00", tone: "emaSlow", legend: true },
+  ]);
+});
+
+const legendMeasure = (text: string) => text.length * 10;
+const legendTexts = (lines: ReadoutField[][]) => lines.map((line) => line.map((field) => field.text));
+const legendFields: ReadoutField[] = [
+  { text: "09:49–09:50", tone: "muted" },
+  { text: "價 256.0", tone: "fg" },
+  ...emaReadout([{ period: 11, value: 256.38 }, { period: 24, value: 257.09 }]),
+];
+
+test("wrapReadout counts the swatch before each EMA value", () => {
+  const fields: ReadoutField[] = [
+    { text: "0123456789", tone: "fg" },
+    ...emaReadout([{ period: 11, value: 256.38 }]),
+  ];
+  assert.deepEqual(legendTexts(wrapReadout(fields, legendMeasure, 240, 14)), [["0123456789"], ["EMA11 256.38"]]);
+});
+
+test("wrapReadout keeps the EMA legend together on the next line", () => {
+  assert.deepEqual(legendTexts(wrapReadout(legendFields, legendMeasure, 400, 14)), [
+    ["09:49–09:50", "價 256.0"],
+    ["EMA11 256.38", "EMA24 257.09"],
+  ]);
+  assert.deepEqual(legendTexts(wrapReadout(legendFields, legendMeasure, 500, 14)), [
+    ["09:49–09:50", "價 256.0", "EMA11 256.38", "EMA24 257.09"],
+  ]);
+  assert.deepEqual(legendTexts(wrapReadout(legendFields, legendMeasure, 200, 14)), [
+    ["09:49–09:50", "價 256.0"],
+    ["EMA11 256.38"],
+    ["EMA24 257.09"],
+  ]);
+});
+
+test("sparklineLayout with a band uses the fixed ±band scale and its padding", () => {
+  const layout = sparklineLayout({
+    bars: [bar(0, 110, { h: 110, l: 100 }), bar(60, 99)],
+    previous: 100,
+    startT: 0,
+    endT: 5400,
+    width: 100,
+    height: 24,
+    band: 0.1,
+    pad: { x: 2, y: 2 },
+  });
+  near(layout.previousY, 12);
+  near(layout.runs[0]!.points[0]!.y, 2);
+  near(layout.last!.y, 13);
+  near(layout.last!.x, 2 + (120 / 5400) * 96);
 });

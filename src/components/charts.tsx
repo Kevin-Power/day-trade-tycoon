@@ -94,6 +94,8 @@ function tokens(canvas: HTMLCanvasElement) {
     vol: read("--color-vol", "#c084fc"),
     vwap: read("--color-vwap", "#9eb6d4"),
     warn: read("--color-warn", "#e7b549"),
+    emaFast: read("--color-ema-fast", "#7dd3fc"),
+    emaSlow: read("--color-ema-slow", "#c084fc"),
     font: read("--font-mono", "ui-monospace, monospace"),
     fontSize: Math.max(senior ? 16 : 12, (parseFloat(style.fontSize) || 16) * 0.75),
   };
@@ -853,6 +855,8 @@ function paint(
       up: c.up,
       down: c.down,
       average: c.vwap,
+      emaFast: c.emaFast,
+      emaSlow: c.emaSlow,
     };
     ctx.save();
     ctx.font = font;

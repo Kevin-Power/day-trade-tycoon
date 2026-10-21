@@ -1,7 +1,12 @@
 import type { Bar, TickPt } from "../game/types.ts";
-import { formatPrice } from "./ticks.ts";
+import { formatPrice, limitDown, limitUp } from "./ticks.ts";
 
 export type ChartRange = { start: number; end?: number };
+
+/** The desk's 江波 view and its watch-list minis span the previous close ±10%. */
+export const JIANGBO_BAND = 0.1;
+/** EMA periods drawn on the desk charts (the course's 快樂小馬 line is EMA11). */
+export const DESK_EMA_PERIODS = [11, 24] as const;
 
 export function chartWindow(input: {
   startT: number;
@@ -221,6 +226,31 @@ export function splitPriceLine(
   return runs;
 }
 
+/** Splits time-ordered points into runs wherever two neighbours are more than `maxGap` apart. */
+export function lineRuns<T extends { t: number }>(points: readonly T[], maxGap: number): T[][] {
+  const runs: T[][] = [];
+  for (const point of points) {
+    const run = runs.at(-1);
+    const last = run?.at(-1);
+    if (run && last && point.t - last.t <= maxGap) run.push(point);
+    else runs.push([point]);
+  }
+  return runs;
+}
+
+/** Exponential moving average: the first value seeds it, then each value moves it by α = 2 / (period + 1). */
+export function emaSeries(values: readonly number[], period: number): number[] {
+  if (!Number.isInteger(period) || period < 1) return [];
+  const alpha = 2 / (period + 1);
+  const result: number[] = [];
+  let average: number | undefined;
+  for (const value of values) {
+    average = average === undefined ? value : average + alpha * (value - average);
+    result.push(average);
+  }
+  return result;
+}
+
 export function nearestTimePoint<T extends { t: number }>(
   points: readonly T[],
   time: number,
@@ -272,7 +302,7 @@ export function sessionExtremes(bars: readonly Bar[]): { high: TickPt; low: Tick
   return high && low ? { high, low } : null;
 }
 
-type PriceRange = { min: number; max: number };
+export type PriceRange = { min: number; max: number };
 const positive = (value: number) => Number.isFinite(value) && value > 0;
 
 /**
@@ -303,6 +333,25 @@ export function jiangboPriceRange(
  * Candle price range for the trading desk: the visible high and low (and the previous close),
  * padded by `padding` on each side, and never narrower than `minFraction` of the previous close.
  */
+/** The 江波 price axis: the previous close ± `band` (0.1 = ±10%); null without a usable close or band. */
+export function bandPriceRange(previous: number, band: number): PriceRange | null {
+  if (!positive(previous) || !(band > 0 && band < 1)) return null;
+  return { min: previous * (1 - band), max: previous * (1 + band) };
+}
+
+/** 江波 grid: 2% steps (10 rows) when each row is at least 2.2 text lines tall, otherwise 5% steps (4 rows). */
+export function jiangboGridRows(plotHeight: number, fontSize: number): 10 | 4 {
+  return plotHeight >= fontSize * 22 ? 10 : 4;
+}
+
+/** Prices of the 江波 grid lines from the top (previous close × (1 + band)) down: `rows + 1` of them. */
+export function jiangboGridPrices(previous: number, band: number, rows: number): number[] {
+  const range = bandPriceRange(previous, band);
+  if (!range || !(rows >= 1)) return [];
+  const span = range.max - range.min;
+  return Array.from({ length: rows + 1 }, (_, index) => range.max - (span * index) / rows);
+}
+
 export function candlePriceRange(
   high: number,
   low: number,
@@ -361,32 +410,36 @@ export function volumeTone(close: number, previousClose: number): "up" | "down" 
 export type SparkPoint = { x: number; y: number };
 
 /**
- * Watchlist sparkline geometry in CSS pixels. Uses the same symmetric range as the big intraday
- * chart and the whole lesson as its time axis, so both charts have the same shape. Closes sit at
- * the end of their minute; a missing minute breaks the line.
+ * Watchlist sparkline geometry in CSS pixels, with the whole lesson as its time axis. With `band` the
+ * scale is fixed at the previous close ±band (the watch table's 江波圖); without it, the same symmetric
+ * range as the big intraday chart. Closes sit at the end of their minute; a missing minute breaks the line.
  */
 export function sparklineLayout(input: {
-  bars: readonly Bar[];
+  bars: readonly Pick<Bar, "t" | "h" | "l" | "c">[];
   previous: number;
   startT: number;
   endT: number;
   width: number;
   height: number;
   intervalSeconds?: number;
+  band?: number;
+  pad?: { x: number; y: number };
 }): {
   previousY: number;
   runs: { above: boolean; points: SparkPoint[] }[];
   last: (SparkPoint & { above: boolean }) | null;
 } {
   const interval = input.intervalSeconds ?? 60;
-  const padX = 3;
-  const padY = 4;
+  const padX = input.pad?.x ?? 3;
+  const padY = input.pad?.y ?? 4;
   const bars = input.bars.filter((bar) => [bar.t, bar.h, bar.l, bar.c].every(Number.isFinite));
-  const range = jiangboPriceRange(
-    input.previous,
-    bars.length ? Math.max(...bars.map((bar) => bar.h)) : Number.NaN,
-    bars.length ? Math.min(...bars.map((bar) => bar.l)) : Number.NaN,
-  );
+  const range =
+    (input.band === undefined ? null : bandPriceRange(input.previous, input.band)) ??
+    jiangboPriceRange(
+      input.previous,
+      bars.length ? Math.max(...bars.map((bar) => bar.h)) : Number.NaN,
+      bars.length ? Math.min(...bars.map((bar) => bar.l)) : Number.NaN,
+    );
   const span = Math.max(range.max - range.min, Number.EPSILON);
   const plotHeight = Math.max(1, input.height - padY * 2);
   const plotWidth = Math.max(1, input.width - padX * 2);
@@ -414,8 +467,11 @@ function clock(seconds: number): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
-export type ReadoutTone = "muted" | "fg" | "up" | "down" | "average";
-export type ReadoutField = { text: string; tone: ReadoutTone };
+export type ReadoutTone = "muted" | "fg" | "up" | "down" | "average" | "emaFast" | "emaSlow";
+/** `legend` fields are drawn after a short swatch of their colour and wrap together as one unit. */
+export type ReadoutField = { text: string; tone: ReadoutTone; legend?: boolean };
+/** Width a legend field's colour swatch takes before its text: a 10px swatch and a 4px space. */
+export const LEGEND_SWATCH = 14;
 
 /**
  * Fields of the desk chart's readout strip for one completed minute: its interval, its price (or
@@ -457,9 +513,21 @@ export function terminalReadout(input: {
   return fields;
 }
 
+/** Readout fields for the EMA lines, e.g. 「EMA11 256.38」: the first is the fast line, the second the slow one. */
+export function emaReadout(values: readonly { period: number; value: number }[]): ReadoutField[] {
+  const tones: ReadoutTone[] = ["emaFast", "emaSlow"];
+  return values.flatMap((item, index) => {
+    const tone = tones[index];
+    return tone && Number.isFinite(item.value)
+      ? [{ text: `EMA${item.period} ${item.value.toFixed(2)}`, tone, legend: true }]
+      : [];
+  });
+}
+
 /**
  * Splits the readout strip into as many lines as `maxWidth` needs. Fields keep their order and
- * none is dropped; a field wider than the strip gets a line of its own.
+ * none is dropped; a field wider than the strip gets a line of its own. Consecutive legend fields
+ * (each with its swatch) move to the next line together, unless together they are wider than the strip.
  */
 export function wrapReadout(
   fields: readonly ReadoutField[],
@@ -470,8 +538,9 @@ export function wrapReadout(
   const lines: ReadoutField[][] = [];
   let line: ReadoutField[] = [];
   let width = 0;
-  for (const field of fields) {
-    const size = measure(field.text);
+  const sizeOf = (field: ReadoutField) => measure(field.text) + (field.legend ? LEGEND_SWATCH : 0);
+  const place = (field: ReadoutField) => {
+    const size = sizeOf(field);
     const next = line.length ? width + gap + size : size;
     if (line.length && next > maxWidth) {
       lines.push(line);
@@ -481,6 +550,24 @@ export function wrapReadout(
       line.push(field);
       width = next;
     }
+  };
+  for (let index = 0; index < fields.length; ) {
+    if (!fields[index]!.legend) {
+      place(fields[index]!);
+      index++;
+      continue;
+    }
+    let end = index;
+    while (end < fields.length && fields[end]!.legend) end++;
+    const unit = fields.slice(index, end);
+    const unitWidth = unit.reduce((sum, field, at) => sum + sizeOf(field) + (at ? gap : 0), 0);
+    if (unitWidth <= maxWidth && line.length && width + gap + unitWidth > maxWidth) {
+      lines.push(line);
+      line = [];
+      width = 0;
+    }
+    unit.forEach(place);
+    index = end;
   }
   if (line.length) lines.push(line);
   return lines;
@@ -529,6 +616,27 @@ export function levelChartLabels(
       y: above ? y - place.lineHeight / 2 - 1 : y + place.lineHeight / 2 + 1,
     };
   });
+}
+
+/** 漲停／跌停 labels of the 江波 view, just inside their lines: 漲停 below its line, 跌停 above. */
+export function limitChartLabels(
+  previous: number,
+  place: {
+    x: number;
+    lineHeight: number;
+    up: string;
+    down: string;
+    yOf: (price: number) => number;
+    priceText: (price: number) => string;
+  },
+): ChartLabel[] {
+  const up = limitUp(previous);
+  const down = limitDown(previous);
+  if (!positive(up) || !positive(down)) return [];
+  return [
+    { key: "limit-up", text: "漲停", price: up, priceText: place.priceText(up), color: place.up, x: place.x, anchor: "start", y: place.yOf(up) + place.lineHeight / 2 + 2 },
+    { key: "limit-down", text: "跌停", price: down, priceText: place.priceText(down), color: place.down, x: place.x, anchor: "start", y: place.yOf(down) - place.lineHeight / 2 - 2 },
+  ];
 }
 
 export function chartLabelText(label: Pick<PlacedChartLabel, "parts" | "priceText">): string {
