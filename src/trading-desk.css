@@ -4065,15 +4065,16 @@
 }
 
 /* Short desktops (laptops at 125-150% scaling, 1366x768 screens: a viewport of 760px or less). The parts above
-   the chart get denser so the chart keeps its height: the quote block sits on one line, the 自選 rows and title
-   bars shrink, and the hint bar and chart toolbar lose some padding. Nothing is hidden. */
+   the chart get denser so the chart keeps its height: the quote block sits on one line, the 自選 rows (24px) and
+   title bars shrink, and the hint bar and chart toolbar lose some padding. Nothing is hidden. */
 @media (max-height: 760px) {
   .trading-desk[data-layout="desktop"] .td-hints {
     min-height: 24px;
     padding-block: 1px;
   }
+  /* 24px is the smallest click target the desk allows (WCAG 2.2 SC 2.5.8). */
   .trading-desk[data-layout="desktop"] .td-plan-chip {
-    min-height: 22px;
+    min-height: 24px;
   }
   .trading-desk[data-layout="desktop"] :is(.td-watch-head, .td-index-head) {
     min-height: 28px;
@@ -4082,7 +4083,7 @@
     min-height: 20px;
   }
   .trading-desk[data-layout="desktop"] .td-watch-row {
-    min-height: 22px;
+    min-height: 24px;
   }
   .trading-desk[data-layout="desktop"] canvas.td-mini {
     height: 18px;

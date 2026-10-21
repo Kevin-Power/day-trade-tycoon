@@ -35,7 +35,7 @@ node --test scripts/build-manual-pdf.test.mjs
 
 這兩項在改寫前先跑過、確認會失敗，改寫後通過。
 
-這台電腦沒有 Poppler，改用 bundled Python 的 pypdfium2 以 1.4 倍逐頁渲染，看過第 1、4、5、6、8 頁，未見截斷或重疊。builder 的頁面溢出檢查也通過。PDF 為 389355 bytes，SHA-256 `66815a7642f79b9aa086802dd328a07aceb61d51003033aaba42b23f8ceed04d`。
+這台電腦沒有 Poppler，改用 bundled Python 的 pypdfium2 以 1.4 倍逐頁渲染，看過第 1、4、5、6、8 頁，未見截斷或重疊。builder 的頁面溢出檢查也通過。審查後再修：第 3 頁改寫計畫範本流程（預設「突破前高」範本，按「用這個計畫開始」；「自己寫」才是「保存計畫，進入 09:00 練習」）；第 6 頁補上成交時重新檢核資金與庫存、平均成本未含費用。同步修正網頁版手冊第 1、2 步與 README 的手冊版本。PDF 為 392505 bytes，SHA-256 `82e46c2a930395ba325e76799fe677d3ff86ea934c25518a3cfa4b1e2f3d0ad9`。
 
 ## 2026-10-07-realk2 本地產物與驗證
 

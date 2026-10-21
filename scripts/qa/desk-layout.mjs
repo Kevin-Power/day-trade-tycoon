@@ -68,6 +68,10 @@ const scan = () => {
     const height = el.getBoundingClientRect().height;
     if (height < 44) smallTargets.push(`${Math.round(height)}px ${id(el)}`);
   }
+  // Desktop click targets that shrink on short screens: 自選 rows and the plan chip (WCAG 2.2 SC 2.5.8, 24px).
+  const desktopTargets = [...document.querySelectorAll("button.td-watch-row, .td-plan-chip")]
+    .filter((el) => visible(el))
+    .map((el) => Math.round(el.getBoundingClientRect().height * 10) / 10);
   // The main order button must be visible without scrolling its column.
   const submit = [...document.querySelectorAll("button")].find((el) =>
     (el.textContent ?? "").trim().startsWith("核對模擬"),
@@ -85,6 +89,7 @@ const scan = () => {
   return {
     minFont: minFont === Infinity ? null : minFont,
     smallTargets: [...new Set(smallTargets)],
+    desktopTargets,
     submitVisible,
     small,
     clipped,
@@ -173,6 +178,8 @@ for (const row of rows) {
   if (row.small.length) failures.push(`${row.name}: ${row.small.length} text elements below 11px`);
   if (row.clipped.length || row.offscreen.length || row.pageOverflowX > 0)
     failures.push(`${row.name}: horizontal overflow or clipped text`);
+  if (!row.senior && row.width >= 1200 && row.desktopTargets.some((height) => height < 24))
+    failures.push(`${row.name}: 自選 rows or plan chip below 24px (${Math.min(...row.desktopTargets)}px)`);
   if (row.width < 768 && row.smallTargets.length)
     failures.push(`${row.name}: ${row.smallTargets.length} controls below 44px (${row.smallTargets.slice(0, 4).join(" | ")})`);
   // The stock chart's floor on desktops (spec 4.1), and it stays wider than tall.
@@ -186,8 +193,9 @@ for (const row of rows) {
     "1536x730": 380,
     "1280x689": 340,
     "1366x657": 300,
-    "1280x600": 260,
-    "1280x568": 230,
+    // 24px 自選 rows (WCAG 2.2 SC 2.5.8) cost these two about 12px against the first short-desk targets.
+    "1280x600": 250,
+    "1280x568": 220,
   }[row.name];
   if (minChart && !(row.chartHeight >= minChart))
     failures.push(`${row.name}: chart ${row.chartHeight}px, needs ${minChart}px`);

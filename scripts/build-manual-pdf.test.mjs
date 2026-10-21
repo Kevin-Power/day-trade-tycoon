@@ -55,3 +55,16 @@ test("manual PDF version matches the web manual's", () => {
   const page = readFileSync(join(root, "src", "components", "manual-page.tsx"), "utf8");
   assert.equal(source.version, page.match(/MANUAL_VERSION = "([^"]+)"/)?.[1]);
 });
+test("manual describes the plan templates, the cash re-check at the fill and average cost", () => {
+  const text = JSON.stringify(source);
+  for (const term of ["用這個計畫開始", "自己寫", "重新檢核資金", "平均成本未含費用"]) assert.ok(text.includes(term), term);
+});
+test("web manual names today's plan and replay buttons", () => {
+  const page = readFileSync(join(root, "src", "components", "manual-page.tsx"), "utf8");
+  for (const term of ["用這個計畫開始", "+1 分", "播放"]) assert.ok(page.includes(term), term);
+  assert.doesNotMatch(page, /按「前進 1 分鐘」/);
+});
+test("README names the current manual revision", () => {
+  const readme = readFileSync(join(root, "README.md"), "utf8");
+  assert.ok(readme.includes(`修訂 \`${source.version}\``), source.version);
+});
