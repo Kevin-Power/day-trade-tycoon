@@ -59,10 +59,15 @@ def assess(pages: list, code: str, day: str, meta: dict) -> dict:
             "warnings": tick_warnings(code, trades, meta["tradeVolume"], meta["close"], after_hours)}
 
 
-def covered_lots(pages: list, code: str, day: str, meta: dict) -> int:
-    """How much of the day an answer covers: its regular-session lots, or -1 when it fails the checks."""
+def coverage(pages: list, code: str, day: str, meta: dict) -> tuple:
+    """How fully an answer covers the day, to compare answers: its regular-session lots, then a whole answer before
+    one cut short (the pages after a cut may hold the 14:30 fixed-price trade), then its after-hours lots. An
+    answer that fails the checks comes last."""
     result = assess(pages, code, day, meta)
-    return sum(trade[2] for trade in result["trades"]) if "trades" in result else -1
+    if "trades" not in result:
+        return (-1,)
+    return (sum(trade[2] for trade in result["trades"]), not meta.get("cut"),
+            sum(trade[2] for trade in result["afterHours"]))
 
 
 class Ticks:
@@ -189,23 +194,28 @@ class Ticks:
 
     def fullest(self, day: str, result: dict) -> dict:
         """For a stock without a whole answer, on the day's last chance (the last attempt, or a later day's catch-up):
-        the fullest answer kept for it, its latest or one set aside earlier, the later one on a tie."""
+        the fullest answer kept for it, its latest or one set aside earlier. Ties go to the latest."""
         if result["status"] not in ("failed", "incomplete"):
             return result
         code = result["code"]
         try:
-            best = None
-            most = sum(trade[2] for trade in result["trades"]) if result["status"] == "incomplete" else -2
-            for name, pages, meta in reversed(self.store.tick_fallbacks(day, code)):  # newest first
-                lots = covered_lots(pages, code, day, meta)
-                if lots > most:
-                    best, most = (name, pages, meta), lots
-            if best is None:
+            # The latest answer is read again: a moment ago it may have been held by a scanner, say.
+            latest = self.store.load_tick_raw(day, code)
+            if latest is not None:
+                kept = assess(latest[0], code, day, latest[1])
+                if kept["status"] in ("ok", "rejected"):
+                    return kept
+            candidates = ([(None, *latest)] if latest else []) + list(reversed(self.store.tick_fallbacks(day, code)))
+            if not candidates:
                 return result
-            self.store.use_tick_fallback(day, code, *best)
-            chosen = assess(best[1], code, day, best[2])
+            # max() keeps the first of equals: the latest answer, then the newest one set aside.
+            name, pages, meta = max(candidates, key=lambda candidate: coverage(candidate[1], code, day, candidate[2]))
+            if name is None:
+                return kept
+            self.store.use_tick_fallback(day, code, name, pages, meta)
+            chosen = assess(pages, code, day, meta)
         except Exception as error:  # noqa: BLE001 - one stock's failure never stops the others
-            self.store.log(day, f"逐筆 {code}：留下的備份讀不回來（{type(error).__name__}: {error}）",
+            self.store.log(day, f"逐筆 {code}：留下的回應讀不回來（{type(error).__name__}: {error}）",
                            self.runtime.now())
             return result
         why = f"這次沒抓到（{result['error']}）" if result["status"] == "failed" else "這次的回應比留下的備份少"
@@ -218,7 +228,9 @@ class Ticks:
         rejected = [{"code": result["code"], "error": result["error"]} for result in results
                     if result["status"] == "rejected"]
         record["symbols"].update(fetched=len(kept), failed=len(results) - len(kept))
-        if not kept and not rejected:
+        # A day with nothing usable but answers that cannot be decoded is still published, as evidence, so it
+        # does not wait in staging (and notify) forever.
+        if not kept and not rejected and not self.store.has_tick_answers(day):
             record["reason"] = record["reason"] or "沒有任何逐筆成交"
             return
         # An incomplete stock carries its reason in a note: the logs that also have it are pruned after 90 days.
@@ -241,7 +253,12 @@ class Ticks:
     def publish_pending(self, today: str) -> None:
         """Publishes trades an earlier day left in staging (its evening runs never finished them). That day's last
         attempt never ran, so a day published with problems raises the notice it would have."""
-        for day in self.store.pending_tick_days(before=today):
+        try:
+            days = self.store.pending_tick_days(before=today)
+        except Exception as error:  # noqa: BLE001 - never stops today's run
+            self.run.log(f"逐筆：讀不到暫存區，這次不補上架（{type(error).__name__}: {error}）")
+            return
+        for day in days:
             record = {"date": day, "outcome": "failed", "reason": "前一天沒有上架，這次補上架",
                       "symbols": {"total": 0, "fetched": 0, "failed": 0}, "trades": 0, "finishedAt": None}
             try:

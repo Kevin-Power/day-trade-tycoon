@@ -242,10 +242,15 @@ class MarketStore:
         kept = self.load_tick_raw(day, code)
         if kept is not None:
             self.add_tick_fallback(day, code, *kept)
+            self.drop_tick_raw(day, code)  # a save cut short then leaves no answer, never old trades with new facts
         self.save_tick_raw(day, code, pages, meta)
         folder = self._fallback_folder(day, code)
         (folder / f"{name}.json.gz").unlink(missing_ok=True)
         (folder / f"{name}.json").unlink(missing_ok=True)
+
+    def has_tick_answers(self, day: str) -> bool:
+        """Whether staging holds any answer for the day, kept or set aside, decodable or not."""
+        return bool(self.tick_raw_codes(day) or self.tick_fallback_codes(day))
 
     def pending_tick_days(self, before: str) -> list[str]:
         """Days whose trades (or answers set aside) wait in staging, unpublished, earlier than `before`."""
@@ -254,7 +259,7 @@ class MarketStore:
             return []
         return sorted(folder.name for folder in staging.iterdir()
                       if DAY_NAME.match(folder.name) and folder.name < before and not self.has_ticks(folder.name)
-                      and (self.tick_raw_codes(folder.name) or self.tick_fallback_codes(folder.name)))
+                      and self.has_tick_answers(folder.name))
 
     def publish_ticks(self, day: str, entries: list[dict], trades: dict[str, list], rejected: list[dict],
                       warnings: list[dict], published_at: datetime, source: str, version: str,

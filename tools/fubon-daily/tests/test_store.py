@@ -10,6 +10,7 @@ from unittest import mock
 from datetime import date, datetime
 from pathlib import Path
 
+from fubon_daily import store as store_module
 from fubon_daily.credentials import Redactor
 from fubon_daily.normalize import TAIPEI
 from fubon_daily.store import Locked, MarketStore
@@ -256,9 +257,29 @@ class TickStoreTest(unittest.TestCase):
                 with mock.patch.object(MarketStore, step, side_effect=OSError("disk is busy")):
                     with self.assertRaises(OSError):
                         self.store.use_tick_fallback(DATE, "2330", name, pages, meta)
-                kept = [answer for answer, _meta in self.fallbacks()] + [self.store.load_tick_raw(DATE, "2330")[0]]
+                latest = self.store.load_tick_raw(DATE, "2330")
+                kept = [answer for answer, _meta in self.fallbacks()] + ([latest[0]] if latest else [])
                 self.assertIn(SHORT, kept)
                 self.assertIn(PAGES, kept)
+
+    def test_a_swap_cut_short_never_pairs_old_trades_with_new_facts(self):
+        self.store.save_tick_raw(DATE, "2330", SHORT, META)
+        self.store.add_tick_fallback(DATE, "2330", PAGES, {**META, "name": "台積電（備份）"})
+        (name, pages, meta), = self.store.tick_fallbacks(DATE, "2330")
+        real = store_module._write_atomic
+
+        def killed_before_the_trades(path, data):
+            if path == self.root / "staging-ticks" / DATE / "raw" / "2330.json.gz":
+                raise OSError("the task was stopped")
+            return real(path, data)
+
+        with mock.patch("fubon_daily.store._write_atomic", killed_before_the_trades):
+            with self.assertRaises(OSError):
+                self.store.use_tick_fallback(DATE, "2330", name, pages, meta)
+        self.assertIsNone(self.store.load_tick_raw(DATE, "2330"))  # no answer rather than a mixed one
+        kept = [answer for answer, _meta in self.fallbacks()]
+        self.assertIn(SHORT, kept)
+        self.assertIn(PAGES, kept)
 
     def test_an_answer_that_cannot_be_read_just_now_stays(self):
         self.store.save_tick_raw(DATE, "2330", PAGES, META)
@@ -290,6 +311,15 @@ class TickStoreTest(unittest.TestCase):
                 manifest = self.store.publish_ticks(DATE, [], {}, [], [], NOW, "fubon-neo test", "abc123")
                 evidence = [item["path"] for item in manifest["files"] if item["path"].endswith(".json.gz")]
                 self.assertEqual([(self.root / "ticks" / DATE / item).read_bytes() for item in evidence], [bad])
+
+    def test_an_answer_that_cannot_be_decoded_stays_until_it_is_set_aside(self):
+        self.store.save_tick_raw(DATE, "2330", PAGES, META)
+        path = self.root / "staging-ticks" / DATE / "raw" / "2330.json.gz"
+        path.write_bytes(b"not gzip")
+        with mock.patch.object(MarketStore, "_add_fallback", side_effect=OSError("disk is busy")):
+            with self.assertRaises(OSError):
+                self.store.load_tick_raw(DATE, "2330")
+        self.assertEqual(path.read_bytes(), b"not gzip")
 
     def test_answers_set_aside_go_along_as_evidence(self):
         self.store.add_tick_fallback(DATE, "2317", SHORT, {**META, "cut": "x"})

@@ -619,6 +619,62 @@ class TicksTest(PipelineHarness, unittest.TestCase):
                          [("2330", 5, False), ("1413", 26, True)])
         self.assertEqual([len(pages[0]["data"]) for pages in self.kept_aside("2330", manifest)], [2])
 
+    def test_ties_go_to_the_latest_answer(self):
+        # As many lots: the newer of two answers set aside wins, and the latest answer beats an equal one set aside.
+        def short(price):
+            return {"2330": [trade(DATE, 9, 0, 0, price, 5, 1, volume=5)]}
+
+        for last in ("failed", "short"):
+            with self.subTest(last=last):
+                self.tearDown()
+                self.setUp()
+                self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short(2440))), 0)
+                self.assertEqual(self.run_once(FakeClient(trades=short(2441)), at=MIDDLE), 0)
+                final = (FakeClient(trade_errors={"2330": ApiError("500", 500)}) if last == "failed"
+                         else FakeClient(trades=short(2442)))
+                self.assertEqual(self.run_once(final, at=EVENING), 0)
+                entry = self.tick_manifest()["symbols"][0]
+                self.assertEqual((entry["code"], entry["close"]), ("2330", 2441 if last == "failed" else 2442))
+
+    def test_a_whole_short_answer_beats_one_cut_short_with_as_many_lots(self):
+        # The pages after a cut may hold more, the 14:30 fixed-price trade for one: on a tie the answer that was
+        # not cut wins, whether or not it has that trade.
+        fixed = {"price": 2440, "size": 34, "time": trade(DATE, 14, 30, 0, 1, 1, 1)["time"], "serial": 99999999}
+        for after_hours in ([fixed], []):
+            with self.subTest(after_hours=bool(after_hours)):
+                self.tearDown()
+                self.setUp()
+                whole = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)] + after_hours}
+                self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=whole)), 0)
+                cut = FakeClient(trades={"2330": [trade(DATE, 9, 0, 0, 2441, 5, 1, volume=5),
+                                                  trade(DATE, 9, 0, 1, 2441, 1, 2, volume=6)]},
+                                 trade_errors={("2330", 1): [ApiError("500", 500)] * 3})
+                with mock.patch("fubon_daily.ticks.TRADE_PAGE_SIZE", 1):
+                    self.assertEqual(self.run_once(cut, at=MIDDLE), 0)
+                down = FakeClient(trade_errors={"2330": ApiError("500", 500)})
+                self.assertEqual(self.run_once(down, at=EVENING), 0)
+                entry = self.tick_manifest()["symbols"][0]
+                self.assertEqual((entry["code"], entry["volume"], entry["close"], entry["afterHours"]["trades"]),
+                                 ("2330", 5, 2440, len(after_hours)))
+
+    def test_a_moments_read_error_on_the_last_chance_still_publishes_the_whole_answer(self):
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        down = {"1413": [ApiError("500", 500)] * 3}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short, trade_errors=down)), 0)
+        self.assertEqual(self.run_once(FakeClient(trade_errors={"1413": [ApiError("500", 500)] * 3}), at=MIDDLE), 0)
+        real, held = MarketStore.load_tick_raw, ["2330"]
+
+        def busy_once(store, day, code):
+            if code in held:
+                held.remove(code)
+                raise PermissionError("held by a scanner")
+            return real(store, day, code)
+
+        with mock.patch.object(MarketStore, "load_tick_raw", busy_once):
+            self.assertEqual(self.run_once(FakeClient(), at=EVENING), 0)
+        entry = {entry["code"]: entry for entry in self.tick_manifest()["symbols"]}["2330"]
+        self.assertEqual((entry["volume"], entry["complete"]), (58487, True))
+
     def test_a_short_answer_stays_until_it_is_set_aside(self):
         short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
         with mock.patch.object(MarketStore, "add_tick_fallback", side_effect=OSError("disk is busy")):
@@ -692,6 +748,10 @@ class TicksTest(PipelineHarness, unittest.TestCase):
                 self.assertEqual([(entry["code"], entry["complete"]) for entry in self.tick_manifest()["symbols"]],
                                  expected)
                 self.assertFalse((self.data / "staging-ticks" / DATE).exists())
+                # What happened to the late day goes in that day's log.
+                self.assertIn("改用留下的備份", (self.data / "logs" / f"{DATE}.log").read_text(encoding="utf-8"))
+                self.assertNotIn("改用留下的備份",
+                                 (self.data / "logs" / "2026-10-16.log").read_text(encoding="utf-8"))
 
     def test_a_late_publish_survives_a_broken_stock_and_says_so(self):
         short = {"1413": [trade(DATE, 13, 30, 0, 9.44, 20, 1, volume=20)]}
@@ -713,6 +773,28 @@ class TicksTest(PipelineHarness, unittest.TestCase):
         late = [body for _title, body in self.notices if body.startswith(DATE)]
         self.assertEqual(len(late), 1)
         self.assertIn("2330", late[0])
+
+    def test_a_day_left_with_only_answers_that_cannot_be_decoded_is_published_once(self):
+        short = {"2330": [trade(DATE, 9, 0, 0, 2440, 5, 1, volume=5)]}
+        down = {"1413": [ApiError("500", 500)] * 3}
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), trades=short, trade_errors=down)), 0)
+        for path in (self.data / "staging-ticks" / DATE / "fallback" / "2330").glob("*.json.gz"):
+            path.write_bytes(b"not gzip")  # the only answer kept is damaged
+        for hour in (16, 18):
+            self.run_once(FakeClient(login_error=LoginError("down")), at=datetime(2026, 10, 16, hour, 45, tzinfo=TAIPEI))
+        self.assertTrue(MarketStore(self.data).has_ticks(DATE))  # published as evidence, not left pending
+        manifest = self.tick_manifest()
+        self.assertEqual(manifest["symbols"], [])
+        self.assertEqual([item["path"] for item in manifest["files"] if item["path"].endswith(".json.gz")],
+                         ["fallback/2330/0001.json.gz"])
+        self.assertEqual(len([body for _title, body in self.notices if body.startswith(DATE)]), 1)
+
+    def test_a_staging_listing_error_does_not_stop_the_day(self):
+        with mock.patch.object(MarketStore, "pending_tick_days", side_effect=OSError("disk is busy")):
+            self.assertEqual(self.run_once(FakeClient(minutes=good_minutes())), 0)
+        self.assertTrue((self.data / "days" / DATE / "manifest.json").is_file())
+        self.assertTrue(MarketStore(self.data).has_ticks(DATE))
+        self.assertIn("disk is busy", (self.data / "logs" / f"{DATE}.log").read_text(encoding="utf-8"))
 
     def test_a_disposition_failure_does_not_stop_the_trades(self):
         client = FakeClient(minutes=good_minutes(), disposition_error=NotFound("404", 404))
