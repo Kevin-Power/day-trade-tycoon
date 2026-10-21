@@ -116,3 +116,36 @@
 - 手機實機。
 - 老師的 EMA 定義（週期、暖身資料、起始值）是否與交易台相同。
 - 富邦逐筆資料的授權。確認前，學生看不到逐筆資料。
+
+## 正式站發布（2026-10-21）
+
+**候選 release**
+
+- 快轉合併進 `codex/course-handover`（48f4a62）。合併前主分支沒有其他工作階段的新提交。
+- 乾淨 worktree（48f4a62）先跑 `build:offline` 再跑 `build`。離線包和 `.output/downloads` 裡的那份雜湊相同（`f09a9251…`），建置裡的手冊 PDF 也和提交的版本相同（`049ee690…`）。
+- `stage-release` 產生 `20261021T145758011Z`，共 310 個檔案；隔離整合測試 4/4 通過。
+- 在以 release 啟動的三間拋棄式教室裡：
+  - 首頁 200；
+  - layout --strict（含 1200×700）、states、下單、江波 13 項、ticks、broker --strict、委託回報 8 項都通過；
+  - 選單檢查在 Chromium 和 WebKit 都通過。
+
+**停機與切換**
+
+- 15:03:40Z 正常停機，資料庫確認已關閉。
+- 備份 `backups/2026-10-21T15-03-40-430Z`：1,060 個檔案，逐檔核對通過。
+- 15:03:42Z 只改 `appEntry`：`20261021T134804197Z` → `20261021T145758011Z`。
+- 15:03:54Z 恢復健康。停機約 19 秒（從最後一次健康檢查算起，含備份）。
+
+**發布後檢查**
+
+- 46 個公開 JS／CSS 檔案的 SHA-256 與 release 相同；正式站的程式已帶有新的「教室拒絕了這次操作，但沒有讀到原因」說明。
+- 正式站 `/daytrade-tycoon-manual.pdf?v=2026-10-21-desk2` 回 200，雜湊與 release 內的 PDF 相同。
+- 設定除了 `appEntry` 都沒變；3 個機密檔案的雜湊沒變；上一份 release 仍保留。
+- 主要路由、`/sw.js`、`/manifest.webmanifest`、`/third-party-notices.txt` 都回 200；`/server/index.mjs` 回 404。
+- 沒有入場碼時，`/api/daily`、`/api/morning`、`/api/discipline` 都回 403；`/api/health` 回報 `mode: simulation`。
+
+**回復方式**
+
+- 把 `appEntry` 指回 `20261021T134804197Z` 即可。這次沒有資料庫或課程資料變更。
+- 舊手冊網址 `?v=2026-10-21-desk` 會拿到新的 PDF，內容只多了「回覆不明」的說明。
+- 發布紀錄在 `artifacts/deploy-20261021-desk-final/`。
