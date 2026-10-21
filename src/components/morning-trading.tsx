@@ -157,6 +157,7 @@ export function PaperOrder({
   session,
   code,
   busy,
+  sending = false,
   atEnd,
   canAdvance,
   variant = "desk",
@@ -172,7 +173,10 @@ export function PaperOrder({
   catalog: MorningCatalog;
   session: MorningState | null;
   code: string;
+  /** The ticket is locked: a request is in flight, or an error or notice waits above the desk. */
   busy: boolean;
+  /** A request is in flight, so the confirm button says 正在處理…; while only a banner waits it keeps its label. */
+  sending?: boolean;
   atEnd: boolean;
   canAdvance: boolean;
   /** desk: quote grid + 五檔/明細/分鐘 tabs beside the ticket; phone: only the tradable book above the ticket. */
@@ -552,7 +556,7 @@ export function PaperOrder({
                 onClick={() => void confirmOrder()}
               >
                 <Check aria-hidden />
-                {busy ? "正在處理…" : `確認送出模擬${sideName}`}
+                {sending ? "正在處理…" : `確認送出模擬${sideName}`}
               </button>
               <button
                 type="button"

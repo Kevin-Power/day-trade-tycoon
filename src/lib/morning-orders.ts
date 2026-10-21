@@ -69,6 +69,34 @@ export function sendFailureMessage(outcome: SendOutcome): string {
   }
 }
 
+/** What a failed send learned before it threw, for classifySendFailure. */
+export type SendFailureFacts = {
+  /** The 20 s deadline aborted it. */
+  timedOut: boolean;
+  /** fetch threw a TypeError: the connection dropped or never opened. */
+  networkError: boolean;
+  /** The status of the action's own reply, once one arrived. */
+  status?: number;
+  /** The reason of a 409 whose reload then failed. */
+  conflictReason?: string;
+  message: string;
+};
+
+/**
+ * How a send that threw ended:
+ * - a 409 keeps the server's reason, even when the reload after it failed;
+ * - a 2xx reply that could not be read, or no reply at all (timeout, dropped connection), is unknown: the
+ *   classroom may have the order;
+ * - any other reply is a refusal (error), even when reading its body then timed out or dropped.
+ */
+export function classifySendFailure(facts: SendFailureFacts): SendOutcome {
+  if (facts.conflictReason !== undefined) return { kind: "conflict", reason: facts.conflictReason };
+  const { message } = facts;
+  if (facts.status !== undefined)
+    return facts.status >= 200 && facts.status < 300 ? { kind: "unknown", message } : { kind: "error", message };
+  return facts.timedOut || facts.networkError ? { kind: "unknown", message } : { kind: "error", message };
+}
+
 export type OrderReport = {
   key: string;
   /** HH:MM, or null when the run did not record when it happened (a cancel or a turned-down order). */

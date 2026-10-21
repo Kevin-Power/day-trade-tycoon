@@ -45,7 +45,12 @@ import { DisciplineCelebration } from "@/components/discipline-celebration";
 import type { Celebration } from "@/lib/discipline/score";
 import { useTerminalLayout, type TerminalLayout } from "@/lib/use-terminal-layout";
 import { deriveMorningAlerts } from "@/lib/morning-alerts";
-import { sendFailureMessage, type LocalOrderFailure, type SendOutcome } from "@/lib/morning-orders";
+import {
+  classifySendFailure,
+  sendFailureMessage,
+  type LocalOrderFailure,
+  type SendOutcome,
+} from "@/lib/morning-orders";
 import { INDEX_EMPTY_TEXT, indexAvailability } from "@/lib/morning-index";
 import {
   replayClock,
@@ -148,8 +153,8 @@ function useMorningData(lessonId: string) {
       retryAction.current = action;
       // Why a 409 refused the action, kept for 委託回報 even if the reload after it fails.
       let conflictReason: string | undefined;
-      // The classroom answered 2xx: the action happened even if its reply cannot be read.
-      let answered = false;
+      // The status of the action's own reply, once one arrived.
+      let status: number | undefined;
       try {
         const response = await fetch(endpoint, {
           method: action ? "POST" : "GET",
@@ -161,7 +166,7 @@ function useMorningData(lessonId: string) {
             : {}),
         });
         if (!current()) return quiet({ kind: "stale" });
-        answered = response.ok;
+        status = response.status;
         if (response.status === 401 || response.status === 403) {
           setAccess(await readAccessProblem(response));
           setData(null);
@@ -225,10 +230,15 @@ function useMorningData(lessonId: string) {
                 ? failure.message
                 : "暫時連不上教室，請重試。";
           setError(message);
-          if (conflictReason !== undefined) return quiet({ kind: "conflict", reason: conflictReason });
-          // No reply in time, a dropped connection, or an unreadable 2xx reply: the classroom may have the order.
-          const unclear = timedOut || failure instanceof TypeError || answered;
-          return quiet(unclear ? { kind: "unknown", message } : { kind: "error", message });
+          return quiet(
+            classifySendFailure({
+              timedOut,
+              networkError: failure instanceof TypeError,
+              status,
+              conflictReason,
+              message,
+            }),
+          );
         }
         return quiet({ kind: "stale" });
       } finally {
@@ -703,6 +713,7 @@ function MorningLesson({
       session={liveMarket}
       code={code}
       busy={Boolean(busy || error || notice)}
+      sending={Boolean(busy)}
       atEnd={atEnd && !showPlan}
       canAdvance={canAdvance && !showPlan && !error && !notice}
       onSelect={setSelected}

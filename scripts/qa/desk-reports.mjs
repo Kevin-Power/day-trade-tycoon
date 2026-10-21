@@ -2,7 +2,9 @@
 // 1. the connection drops on 確認送出 (the server may or may not have the order): a 「回覆不明」 row, not 送出失敗;
 // 2. the server refuses with 409 and the reload after it also fails: the 送出失敗 row keeps the server's reason;
 // 3. the classroom stores the order but its reply is lost: 回覆不明, and after 重新載入進度 that row drops out
-//    while the order reads 委託成功 (one order, not two).
+//    while the order reads 委託成功 (one order, not two);
+// 4. a 2xx reply that cannot be read, and 5. no reply within 20 s: both 回覆不明.
+// While an error banner shows, the confirm button keeps its own label (disabled), not 「正在處理…」.
 // Usage: node scripts/qa/desk-reports.mjs <baseUrl> <label>
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -69,6 +71,7 @@ await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 }
 await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 3000 }).catch(() => {});
 await rest(page);
 
+let bannerButton = null;
 await check("1-dropped-connection", async () => {
   await openMarketBuy(page, "2317");
   const before = (await reportRows(page).allTextContents()).join("|");
@@ -78,10 +81,22 @@ await check("1-dropped-connection", async () => {
   const row = await newestReport(page, before);
   await page.unroute("**/api/morning*", drop);
   await page.screenshot({ path: `${out}dropped.png` });
+  bannerButton = await page.locator(".sim-submit").first().evaluate((node) => ({
+    text: node.textContent.trim(),
+    disabled: node.disabled,
+  }));
   await clearBanner(page);
   if (!row.includes("回覆不明")) throw new Error(`the newest report says 「${row}」`);
   if (row.includes("送出失敗")) throw new Error(`a dropped connection is reported as a failed send: 「${row}」`);
   return row;
+});
+
+await check("1b-confirm-button-while-banner", async () => {
+  if (!bannerButton) throw new Error("check 1 did not reach the banner");
+  if (bannerButton.text.includes("正在處理")) throw new Error(`the confirm button says 「${bannerButton.text}」 while nothing is being sent`);
+  if (!bannerButton.text.includes("確認送出模擬買進") || !bannerButton.disabled)
+    throw new Error(`the confirm button is 「${bannerButton.text}」, disabled ${bannerButton.disabled}`);
+  return bannerButton;
 });
 
 await check("2-409-then-reload-fails", async () => {
@@ -112,6 +127,49 @@ await check("2-409-then-reload-fails", async () => {
   await clearBanner(page);
   if (!row.includes("送出失敗") || !row.includes("練習已更新"))
     throw new Error(`the 送出失敗 row lost the server's reason: 「${row}」`);
+  return row;
+});
+
+await check("4-unreadable-2xx", async () => {
+  await openMarketBuy(page, "2317");
+  const before = (await reportRows(page).allTextContents()).join("|");
+  // A proxy page instead of the classroom's JSON: the reply says 200 but cannot be read.
+  const garble = (route) =>
+    route.request().method() === "POST"
+      ? route.fulfill({ status: 200, contentType: "text/html", body: "<html><body>gateway</body></html>" })
+      : route.continue();
+  await page.route("**/api/morning*", garble);
+  await page.getByRole("button", { name: "確認送出模擬買進" }).click();
+  const row = await newestReport(page, before);
+  await page.unroute("**/api/morning*", garble);
+  await clearBanner(page);
+  if (!row.includes("回覆不明")) throw new Error(`an unreadable 2xx reply is reported as 「${row}」`);
+  return row;
+});
+
+await check("5-no-reply-within-20s", async () => {
+  await openMarketBuy(page, "2317");
+  const before = (await reportRows(page).allTextContents()).join("|");
+  const held = [];
+  const hang = (route) => (route.request().method() === "POST" ? void held.push(route) : route.continue());
+  await page.route("**/api/morning*", hang);
+  await page.getByRole("button", { name: "確認送出模擬買進" }).click();
+  const end = Date.now() + 30000;
+  let row = "";
+  for (;;) {
+    const rows = await reportRows(page).allTextContents();
+    if (rows.length && rows.join("|") !== before) {
+      row = rows[0].replace(/\s+/g, " ").trim();
+      break;
+    }
+    if (Date.now() > end) break;
+    await page.waitForTimeout(500);
+  }
+  await page.unroute("**/api/morning*", hang);
+  for (const route of held) await route.abort("failed").catch(() => {});
+  await clearBanner(page);
+  if (!row) throw new Error("no 委託回報 row 30 s after a send that never got a reply");
+  if (!row.includes("回覆不明") || !row.includes("20 秒")) throw new Error(`a send with no reply is reported as 「${row}」`);
   return row;
 });
 

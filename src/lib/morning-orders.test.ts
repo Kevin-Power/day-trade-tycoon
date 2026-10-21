@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import type { MorningState } from "./morning.ts";
 import {
+  classifySendFailure,
   isLargeOrder,
   LARGE_ORDER_CASH_SHARE,
   orderReports,
@@ -147,6 +148,40 @@ test("sendFailureMessage stays quiet for sent orders, sign-in problems and repla
 test("sendFailureMessage keeps the message of a send whose result is unclear", () => {
   const message = "教室回應超過 20 秒，已停止等待。請核對進度，或重試同一筆操作。";
   assert.equal(sendFailureMessage({ kind: "unknown", message }), message);
+});
+
+test("classifySendFailure: no reply at all (timeout, dropped connection) is 回覆不明", () => {
+  const message = "暫時連不上教室，請重試同一筆操作或重新載入進度。";
+  assert.deepEqual(classifySendFailure({ timedOut: true, networkError: false, message }), { kind: "unknown", message });
+  assert.deepEqual(classifySendFailure({ timedOut: false, networkError: true, message }), { kind: "unknown", message });
+});
+
+test("classifySendFailure: a 2xx reply that could not be read is 回覆不明, the classroom has the action", () => {
+  const message = "這次操作尚未完成，請重試或重新載入進度。";
+  assert.deepEqual(classifySendFailure({ timedOut: false, networkError: false, status: 200, message }), { kind: "unknown", message });
+  assert.deepEqual(classifySendFailure({ timedOut: true, networkError: false, status: 201, message }), { kind: "unknown", message });
+});
+
+test("classifySendFailure: a refusal stays 送出失敗 even when reading its body then timed out or dropped", () => {
+  const message = "目前模擬資金不足，無法委託";
+  assert.deepEqual(classifySendFailure({ timedOut: true, networkError: false, status: 400, message }), { kind: "error", message });
+  assert.deepEqual(classifySendFailure({ timedOut: false, networkError: true, status: 503, message }), { kind: "error", message });
+  assert.deepEqual(classifySendFailure({ timedOut: false, networkError: false, status: 429, message }), { kind: "error", message });
+});
+
+test("classifySendFailure: a 409 whose reload failed keeps the server's reason", () => {
+  assert.deepEqual(
+    classifySendFailure({ timedOut: true, networkError: false, status: 409, conflictReason: "練習已更新，請重新讀取目前進度", message: "x" }),
+    { kind: "conflict", reason: "練習已更新，請重新讀取目前進度" },
+  );
+  assert.deepEqual(classifySendFailure({ timedOut: false, networkError: true, status: 409, conflictReason: "", message: "x" }), {
+    kind: "conflict",
+    reason: "",
+  });
+});
+
+test("classifySendFailure: any other failure before a reply is 送出失敗", () => {
+  assert.deepEqual(classifySendFailure({ timedOut: false, networkError: false, message: "m" }), { kind: "error", message: "m" });
 });
 
 test("a send whose result is unclear is reported as 回覆不明, not as a failed send", () => {
