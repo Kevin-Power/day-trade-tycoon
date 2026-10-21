@@ -19,8 +19,13 @@ TRADE_PAGE_SIZE = 500
 MAX_TRADE_ROWS = 2_000_000
 # The intraday limit is 300 calls a minute.
 INTRADAY_SPACING = 0.25
-# Earlier runs stop starting new stocks after this long, leaving time for the candles; the last run does not.
+# Earlier runs stop starting new stocks after this long, leaving time for the candles.
 TICK_BUDGET_SECONDS = 45 * 60
+# The last run has no later run to leave stocks to, but Windows stops the task after two hours, so it stops
+# starting new stocks after this long and the candles, the publish and the notice still fit.
+LAST_ATTEMPT_BUDGET_SECONDS = 70 * 60
+# This many stocks in a row that Fubon fails to answer, even after retries, means Fubon is down.
+FAILURE_STREAK = 15
 TICK_SOURCE = "fubon-neo intraday/trades"
 MESSAGE_LIMIT = 300
 
@@ -74,6 +79,15 @@ class Ticks:
             if offset > MAX_TRADE_ROWS:
                 raise ValidationError("structure", f"成交超過 {MAX_TRADE_ROWS} 筆")
 
+    def stop_reason(self, started: float, streak: int) -> str | None:
+        """Why no new stock is started: Fubon keeps failing, or this run's time for trades is spent."""
+        if streak >= FAILURE_STREAK:
+            return f"富邦連續 {streak} 檔出錯，這次先停"
+        spent = self.runtime.monotonic() - started
+        if self.run.last_attempt:
+            return "最後一次執行的時間用完" if spent > LAST_ATTEMPT_BUDGET_SECONDS else None
+        return "時間不夠，下次再抓" if spent > TICK_BUDGET_SECONDS else None
+
     def collect(self, client, candidates: list[dict]) -> None:
         """Fetches, keeps and checks today's trades, then publishes them or leaves them for the next run.
 
@@ -82,25 +96,37 @@ class Ticks:
         from .pipeline import Pacer
 
         day = self.run.target
-        chosen = candidates
         started = self.runtime.monotonic()
         results: list[dict] = []
         record = {"date": day, "outcome": "failed", "reason": None,
-                  "symbols": {"total": len(chosen), "fetched": 0, "failed": 0}, "trades": 0, "finishedAt": None}
+                  "symbols": {"total": len(candidates), "fetched": 0, "failed": 0}, "trades": 0, "finishedAt": None}
         try:
-            self.run.log(f"逐筆：{len(chosen)} 檔（當天有成交的上市普通股，成交值大的先抓）")
+            self.run.log(f"逐筆：{len(candidates)} 檔（當天有成交的上市普通股，成交值大的先抓）")
             pacer = Pacer(self.runtime, INTRADAY_SPACING)
-            for entry in chosen:
+            streak = 0  # stocks in a row that Fubon failed to answer
+            stopped = None
+            for entry in candidates:
                 code = entry["code"]
                 meta = {"name": entry["name"], "tradeVolume": entry["tradeVolume"], "close": entry["close"]}
                 try:
                     cached = self.store.load_tick_raw(day, code)
                     if cached is None:
-                        if not self.run.last_attempt and self.runtime.monotonic() - started > TICK_BUDGET_SECONDS:
-                            results.append({"code": code, "name": entry["name"], "status": "failed",
-                                            "error": "時間不夠，下次再抓"})
+                        stop = self.stop_reason(started, streak)
+                        if stop:
+                            if not stopped:
+                                stopped = stop
+                                self.run.log(f"逐筆：{stop}，之後的股票這次不再開始抓")
+                            results.append({"code": code, "name": entry["name"], "status": "failed", "error": stop})
                             continue
-                        pages = self.pages(client, pacer, code)
+                        try:
+                            pages = self.pages(client, pacer, code)
+                        except ApiError:
+                            streak += 1
+                            raise
+                        except ValidationError:
+                            streak = 0  # Fubon answered, just not with usable trades
+                            raise
+                        streak = 0
                         self.store.save_tick_raw(day, code, pages, meta)
                     else:
                         pages, meta = cached
