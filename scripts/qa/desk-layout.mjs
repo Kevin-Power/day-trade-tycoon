@@ -22,6 +22,8 @@ const cases = [
   [1366, 657, false],
   [1280, 600, false],
   [1280, 568, false],
+  // The narrowest short desktop, where the one-line hero is tightest.
+  [1200, 700, false],
   [820, 900, false],
   [375, 812, false],
   [320, 700, false],
@@ -134,6 +136,40 @@ for (const [width, height, senior] of cases) {
   const report = await page.evaluate(scan);
   const name = `${width}x${height}${senior ? "-senior" : ""}`;
   await page.screenshot({ path: `${out}${name}.png`, fullPage: true });
+  // The narrowest short desktop: the one-line hero keeps its price clear of 買進／賣出, for every stock and for the
+  // widest plausible quote (a five-digit price near the limit; fallback fonts can be wider than ours).
+  let heroSlack = null;
+  if (width === 1200 && height <= 760 && !senior) {
+    const slack = () =>
+      page.evaluate(() => {
+        const price = document.querySelector(".td-hero .td-hero-price");
+        const book = document.querySelector(".td-hero .td-hero-book");
+        if (!price || !book) return null;
+        const right = Math.max(...[...price.querySelectorAll("*")].map((node) => node.getBoundingClientRect().right));
+        return Math.round(book.getBoundingClientRect().left - right);
+      });
+    const codes = await page
+      .locator(".td-watch-row[data-code]")
+      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-code")).filter((code) => code !== "TAIEX"));
+    const stocks = {};
+    for (const code of codes) {
+      await page.locator(`.td-watch-row[data-code="${code}"]`).click();
+      await page.waitForTimeout(250);
+      stocks[code] = await slack();
+    }
+    await page.evaluate(() => {
+      const price = document.querySelector(".td-hero-price strong");
+      const parts = document.querySelectorAll(".td-hero-change > span");
+      const book = document.querySelectorAll(".td-hero-book dd");
+      if (price) price.textContent = "10,550";
+      if (parts[0]) parts[0].textContent = "▲955";
+      if (parts[1]) parts[1].textContent = "+9.95%";
+      if (book[0]) book[0].textContent = "10,545";
+      if (book[1]) book[1].textContent = "10,550";
+    });
+    heroSlack = { stocks, widest: await slack() };
+    await page.screenshot({ path: `${out}${name}-widest-hero.png` });
+  }
   // Phones and large text: the 大盤 view (自選 → 加權指數) fits the screen too.
   let indexView = null;
   const dock = page.locator("nav.td-dock");
@@ -153,7 +189,7 @@ for (const [width, height, senior] of cases) {
     indexView = { offscreen: view.offscreen, small: view.small, overflowX: view.pageOverflowX };
     await page.screenshot({ path: `${out}${name}-index.png`, fullPage: true });
   }
-  rows.push({ name, width, height, senior, ...report, indexView });
+  rows.push({ name, width, height, senior, ...report, indexView, heroSlack });
   await context.close();
 }
 await browser.close();
@@ -213,6 +249,11 @@ for (const row of rows) {
   // The ledger is always open on desks and tablets; desks keep at least 150px for it.
   if (!row.senior && row.width >= 768 && !(row.ledgerHeight >= (row.width >= 1200 ? 150 : 100)))
     failures.push(`${row.name}: ledger ${row.ledgerHeight}px`);
+  if (row.heroSlack) {
+    const tight = Object.entries(row.heroSlack.stocks).filter(([, gap]) => !(gap >= 16));
+    if (tight.length || !(row.heroSlack.widest >= 16))
+      failures.push(`${row.name}: the hero's price is within 16px of 買進／賣出 (${JSON.stringify(row.heroSlack)})`);
+  }
   // Every desktop size fits without page scroll and keeps the send button in its pane (Review Focus 5).
   if (!row.senior && row.width >= 1200) {
     if (row.submitVisible !== true) failures.push(`${row.name}: order button not visible (${row.submitVisible})`);
