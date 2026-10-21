@@ -224,6 +224,18 @@ class TickStoreTest(unittest.TestCase):
         self.assertIsNone(self.store.load_tick_raw(DATE, "2330"))
         self.assertEqual(self.store.tick_raw_codes(DATE), [])
 
+    def test_an_answer_set_aside_never_replaces_a_kept_one(self):
+        earlier = [{**PAGES[0], "data": PAGES[0]["data"][:0]}]
+        self.store.save_tick_raw(DATE, "2330", PAGES, META)
+        self.store.save_tick_raw(DATE, "2330", earlier, META, fallback=True)
+        self.assertIsNone(self.store.restore_tick_fallback(DATE, "2330"))
+        self.assertEqual(self.store.load_tick_raw(DATE, "2330"), (PAGES, META))
+        self.assertEqual(self.store.load_tick_raw(DATE, "2330", fallback=True), (earlier, META))
+        self.store.drop_tick_raw(DATE, "2330")
+        self.assertEqual(self.store.restore_tick_fallback(DATE, "2330"), (earlier, META))
+        self.assertEqual(self.store.load_tick_raw(DATE, "2330"), (earlier, META))
+        self.assertIsNone(self.store.load_tick_raw(DATE, "2330", fallback=True))
+
     def test_days_left_in_staging_are_listed_until_published(self):
         self.store.save_tick_raw("2026-10-14", "2330", PAGES, META)
         self.store.save_tick_raw(DATE, "2330", PAGES, META)
