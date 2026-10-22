@@ -212,8 +212,11 @@
   width: 15px;
   height: 15px;
 }
-.trading-desk :is(.td-home, .td-tool):hover {
-  background: rgb(255 255 255 / 0.08);
+/* Hover styles only where there is a mouse: iOS turns a tap into a hover that stays on what was tapped. */
+@media (hover: hover) {
+  .trading-desk :is(.td-home, .td-tool):hover {
+    background: rgb(255 255 255 / 0.08);
+  }
 }
 .trading-desk .td-tool:is([aria-expanded="true"], [aria-pressed="true"]) {
   color: var(--td-select-fg);
@@ -330,10 +333,12 @@
   font-size: 12px;
   font-weight: 600;
 }
-.trading-desk
-  .td-replay
-  button:hover:not(:disabled, .td-start, [aria-pressed="true"], [data-running="true"]) {
-  background: var(--td-raised);
+@media (hover: hover) {
+  .trading-desk
+    .td-replay
+    button:hover:not(:disabled, .td-start, [aria-pressed="true"], [data-running="true"]) {
+    background: var(--td-raised);
+  }
 }
 .trading-desk .td-replay svg {
   width: 15px;
@@ -546,7 +551,8 @@
   background: var(--td-bg);
   border: 1px solid var(--td-line-strong);
   border-radius: var(--td-radius);
-  font: 500 15px/1 var(--font-mono);
+  /* 16px: iOS Safari zooms the page when a smaller menu is tapped. */
+  font: 500 16px/1 var(--font-mono);
 }
 
 /* Workbench grid: the 2026-10-20 meeting's four panes on desktops —
@@ -1220,8 +1226,10 @@
 .trading-desk .td-ledger .terminal-record-table :is(th, td) {
   padding: 5px 8px;
 }
-.trading-desk .terminal-record-table tbody tr:hover {
-  background: var(--td-raised);
+@media (hover: hover) {
+  .trading-desk .terminal-record-table tbody tr:hover {
+    background: var(--td-raised);
+  }
 }
 /* Phone and large text: records as cards */
 .trading-desk .sim-cards {
@@ -1469,17 +1477,20 @@
   color: var(--td-tone);
   font-weight: 600;
 }
-.trading-desk .td-book-cell:hover:not(:disabled) {
-  background: var(--td-raised);
-  outline: 1px solid var(--td-accent);
-  outline-offset: -1px;
-}
-/* Trading: the outline says which way a click goes — red buys on the left, green sells on the right. */
-.trading-desk .td-book[data-mode="trade"] .td-book-cell[data-side="bid"]:hover:not(:disabled) {
-  outline-color: var(--td-up);
-}
-.trading-desk .td-book[data-mode="trade"] .td-book-cell[data-side="ask"]:hover:not(:disabled) {
-  outline-color: var(--td-down);
+/* On touch screens a tapped price would keep this outline as if it were picked. */
+@media (hover: hover) {
+  .trading-desk .td-book-cell:hover:not(:disabled) {
+    background: var(--td-raised);
+    outline: 1px solid var(--td-accent);
+    outline-offset: -1px;
+  }
+  /* Trading: the outline says which way a click goes — red buys on the left, green sells on the right. */
+  .trading-desk .td-book[data-mode="trade"] .td-book-cell[data-side="bid"]:hover:not(:disabled) {
+    outline-color: var(--td-up);
+  }
+  .trading-desk .td-book[data-mode="trade"] .td-book-cell[data-side="ask"]:hover:not(:disabled) {
+    outline-color: var(--td-down);
+  }
 }
 .trading-desk .td-book-cell:disabled {
   cursor: not-allowed;
@@ -3506,8 +3517,10 @@
   text-align: right;
   cursor: pointer;
 }
-.trading-desk .td-watch-row:hover {
-  background: rgb(255 255 255 / 0.04);
+@media (hover: hover) {
+  .trading-desk .td-watch-row:hover {
+    background: rgb(255 255 255 / 0.04);
+  }
 }
 .trading-desk .td-watch-row[data-code="TAIEX"] {
   background: rgb(230 194 90 / 0.05);
@@ -3741,6 +3754,11 @@
 }
 .trading-desk:is([data-layout="phone"], [data-layout="tablet"]) .sim-ticket-header select {
   height: 44px;
+}
+/* Touch layouts: every menu is at least 16px, or iOS Safari zooms the page when one is tapped (and it stays
+   zoomed). Desktops keep their denser 12px menus. */
+.trading-desk:is([data-layout="phone"], [data-layout="tablet"]) select {
+  font-size: 16px;
 }
 .trading-desk[data-layout="senior"] .sim-ticket-header select {
   height: 56px;
@@ -3998,8 +4016,10 @@
 .trading-desk .td-watch-row[data-static="true"] {
   cursor: default;
 }
-.trading-desk .td-watch-row[data-static="true"]:hover {
-  background: rgb(230 194 90 / 0.05);
+@media (hover: hover) {
+  .trading-desk .td-watch-row[data-static="true"]:hover {
+    background: rgb(230 194 90 / 0.05);
+  }
 }
 
 /* Final review (2026-10-21) */
