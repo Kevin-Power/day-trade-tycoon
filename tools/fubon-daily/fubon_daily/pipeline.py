@@ -158,10 +158,10 @@ class Run:
             client = self.runtime.make_client(credentials)
             try:
                 try:
-                    client.login()
+                    note = client.login()
                 except (LoginError, SdkUnavailable) as error:
                     return self.finish("failed", str(error), 2, urgent=True)
-                self.log("登入成功")
+                self.log("登入成功" + (f"；{note}" if note else ""))
                 return self.fetch_day(client, Pacer(self.runtime))
             finally:
                 client.logout()

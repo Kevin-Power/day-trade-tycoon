@@ -21,13 +21,14 @@ EVENING = datetime(2026, 10, 15, 19, 0, tzinfo=TAIPEI)
 
 class FakeClient:
     def __init__(self, snapshot_payload=None, minutes=None, dailies=None, login_error=None, trades=None,
-                 trade_errors=None, snapshot_error=None, disposition_error=None):
+                 trade_errors=None, snapshot_error=None, disposition_error=None, login_note=None):
         self.snapshot_payload = snapshot() if snapshot_payload is None else snapshot_payload
         self.snapshot_error = snapshot_error
         self.disposition_error = disposition_error
         self.minutes = minutes or {}
         self.dailies = dailies or {}
         self.login_error = login_error
+        self.login_note = login_note
         # Today's trades per symbol (rows); by default one 13:30 trade carrying the snapshot's whole volume.
         day = self.snapshot_payload["date"]
         self.trade_table = {item["symbol"]: [trade(day, 13, 30, 0, item["closePrice"], item["tradeVolume"], 1,
@@ -50,6 +51,7 @@ class FakeClient:
         self.calls.append("login")
         if self.login_error:
             raise self.login_error
+        return self.login_note
 
     def snapshot_quotes(self):
         self.calls.append("snapshot")
@@ -353,6 +355,12 @@ class PipelineTest(PipelineHarness, unittest.TestCase):
         for step in ("登入成功", "快照", "1 分 K", "上架"):
             self.assertIn(step, log)
         self.assertIn("秒", log)
+
+    def test_the_log_says_whether_fubon_calls_have_a_timeout(self):
+        note = "富邦行情呼叫逾時：連線 10 秒、每次讀取 60 秒"
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes(), login_note=note)), 0)
+        log = (self.data / "logs" / f"{DATE}.log").read_text(encoding="utf-8")
+        self.assertIn(f"登入成功；{note}", log)
 
 
 class TicksTest(PipelineHarness, unittest.TestCase):
