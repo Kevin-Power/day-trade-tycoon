@@ -84,3 +84,16 @@ def trades_page(symbol="2330", date=DATE, rows=()):
 def closing_trade_pages(symbol, size, price, date=DATE):
     """A whole day as one trade in the 13:30 auction: enough for pipeline tests."""
     return [trades_page(symbol, date, [trade(date, 13, 30, 0, price, size, 1, volume=size)])]
+
+
+# A books message as Fubon's WebSocket sends it (shape from the 2026-10-22 recording; time in microseconds).
+BOOK = {"symbol": "2330", "type": "EQUITY", "exchange": "TWSE", "market": "TSE",
+        "bids": [{"price": 1450 - 5 * level, "size": 10 + level} for level in range(5)],
+        "asks": [{"price": 1455 + 5 * level, "size": 20 + level} for level in range(5)],
+        "isContinuous": True, "time": 1792630813015216}
+
+
+def books_message(data=None, channel="books", event="data"):
+    import json
+
+    return json.dumps({"event": event, "channel": channel, "id": "sub-1", "data": BOOK if data is None else data})
