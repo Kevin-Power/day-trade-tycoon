@@ -374,6 +374,45 @@ class MarketStore:
         text = self.redact(json.dumps(status, ensure_ascii=False, indent=1))
         _write_atomic(self.root / "status.json", text.encode("utf-8"))
 
+    # The books recorder (books.py) runs during the session, the fetcher after it: it keeps its own status file
+    # and log, so neither ever rewrites the other's.
+    def books_raw_folder(self, day: str) -> Path:
+        return self.root / "staging-books" / day / "raw"
+
+    def remove_books_staging(self, day: str) -> None:
+        shutil.rmtree(self.root / "staging-books" / day, ignore_errors=True)
+
+    def books_log(self, day: str, message: str, at: datetime) -> None:
+        path = self.root / "logs" / "books" / f"{day}.log"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(f"{at:%Y-%m-%d %H:%M:%S} {self.redact(message)}\n")
+
+    def read_books_status(self) -> dict | None:
+        try:
+            value = json.loads((self.root / "books-status.json").read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError, UnicodeDecodeError):
+            return None
+        return value if isinstance(value, dict) else None
+
+    def write_books_status(self, entry: dict) -> None:
+        text = self.redact(json.dumps(entry, ensure_ascii=False, indent=1))
+        _write_atomic(self.root / "books-status.json", text.encode("utf-8"))
+
+    def free_bytes(self) -> int:
+        self.root.mkdir(parents=True, exist_ok=True)
+        return shutil.disk_usage(self.root).free
+
+    def latest_full_market_codes(self) -> list[str] | None:
+        """The latest published full-market day's codes, most traded first (its index is kept in that order)."""
+        try:
+            days = json.loads((self.root / "index.json").read_text(encoding="utf-8-sig"))["days"]
+            day = [entry for entry in days if entry.get("coverage") == "full-market"][-1]["date"]
+            listing = json.loads((self.root / "days" / day / "index.json").read_text(encoding="utf-8-sig"))
+            return [entry["code"] for entry in listing["symbols"]]
+        except (OSError, ValueError, KeyError, IndexError, TypeError):
+            return None
+
     def log(self, day: str, message: str, at: datetime) -> None:
         path = self.root / "logs" / f"{day}.log"
         path.parent.mkdir(parents=True, exist_ok=True)
