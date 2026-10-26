@@ -397,7 +397,9 @@ class InstalledSdkTest(unittest.TestCase):
     @staticmethod
     def client_for(base_url):
         sdk = FakeSdk()
-        sdk.marketdata = SimpleNamespace(rest_client=RestClient(sdk_token="token", base_url=base_url))
+        real = SimpleNamespace(rest_client=RestClient(sdk_token="token", base_url=base_url))
+        sdk.market_data = lambda generation: real  # init_realtime (at login) must hand back the real REST client
+        sdk.marketdata = real
         return FubonClient(CREDENTIALS, sdk_factory=lambda: sdk)
 
     def test_every_market_data_call_goes_out_with_a_timeout(self):
