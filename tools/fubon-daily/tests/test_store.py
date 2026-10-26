@@ -190,12 +190,38 @@ class StoreTest(unittest.TestCase):
             self.assertFalse((self.root / ".lock").exists())  # the fetcher's lock is a different file
         self.assertFalse((self.root / ".books.lock").exists())
 
-    def lock_from(self, started_at):
+    def lock_from(self, started_at, process_started=None):
         self.root.mkdir(parents=True, exist_ok=True)
-        (self.root / ".books.lock").write_text(json.dumps({"pid": 1234, "startedAt": started_at}), encoding="utf-8")
+        holder = {"pid": 1234, "startedAt": started_at}
+        if process_started is not None:
+            holder["processStarted"] = process_started
+        (self.root / ".books.lock").write_text(json.dumps(holder), encoding="utf-8")
+
+    def test_a_lock_records_its_process_start_time(self):
+        with MarketStore(self.root, process_started=lambda pid: 1792630000.25).lock(NOW, name=".books.lock"):
+            holder = json.loads((self.root / ".books.lock").read_text(encoding="utf-8"))
+        self.assertEqual((holder["pid"], holder["processStarted"]), (os.getpid(), 1792630000.25))
 
     def test_a_lock_whose_pid_now_belongs_to_a_newer_process_is_taken(self):
         # After a crash Windows can hand the dead recorder's PID to another process.
+        started = datetime(2026, 10, 15, 8, 59, 59, tzinfo=TAIPEI).timestamp()
+        self.lock_from("2026-10-15T09:00:00+08:00", process_started=started)
+        newer = datetime(2026, 10, 15, 9, 30, tzinfo=TAIPEI).timestamp()
+        store = MarketStore(self.root, pid_alive=lambda pid: True, process_started=lambda pid: newer)
+        with store.lock(NOW, name=".books.lock", stale_seconds=7 * 3600):
+            pass
+
+    def test_a_lock_is_held_by_its_process_even_after_the_clock_steps_back(self):
+        # Time sync after a wake can set the clock back between the process start and the lock: the lock's own
+        # time then reads earlier than the process start, but the process is the same one.
+        started = datetime(2026, 10, 15, 9, 0, 30, tzinfo=TAIPEI).timestamp()
+        self.lock_from("2026-10-15T09:00:00+08:00", process_started=started)
+        store = MarketStore(self.root, pid_alive=lambda pid: True, process_started=lambda pid: started)
+        with self.assertRaises(Locked):
+            with store.lock(NOW, name=".books.lock", stale_seconds=7 * 3600):
+                pass
+
+    def test_an_older_lock_without_its_process_start_time_is_judged_by_its_own_time(self):
         self.lock_from("2026-10-15T09:00:00+08:00")
         newer = datetime(2026, 10, 15, 9, 30, tzinfo=TAIPEI).timestamp()
         store = MarketStore(self.root, pid_alive=lambda pid: True, process_started=lambda pid: newer)

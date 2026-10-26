@@ -39,9 +39,10 @@ def book(code, moment, levels=(5, 5), price=50.0, step=0, trial=False, continuou
     return data
 
 
-def frame(data, src="ws"):
-    stamp = data.get("lastUpdated") if src == "rest" else data["time"]
-    return {"t": stamp // 1000 - epoch_ms(OPEN), "trial": bool(data.get("isTrial")),
+def frame(data, src="ws", received=None):
+    """A REST refill's row is placed when it arrived (`received`): that is when its book became known."""
+    t = epoch_ms(received) - epoch_ms(OPEN) if src == "rest" else data["time"] // 1000 - epoch_ms(OPEN)
+    return {"t": t, "trial": bool(data.get("isTrial")),
             "continuous": bool(data.get("isContinuous")), "src": src,
             "bids": [[level["price"], level["size"]] for level in data["bids"]],
             "asks": [[level["price"], level["size"]] for level in data["asks"]]}
@@ -187,7 +188,8 @@ class CompactTest(unittest.TestCase):
     def test_a_late_start_is_a_gap_from_the_opening_time(self):
         # The recorder writes a down line from 08:44 when it starts late (or its first connect fails).
         raw = Raw(self.raw)
-        raw.control("down", at(10, 0), reason="程式晚啟動", since=epoch_ms(at(8, 44)))
+        raw.control("start", at(10, 0), codes=["2330", "2317"])
+        raw.control("down", at(10, 0), reason="程式晚啟動", since=epoch_ms(at(8, 44)), codes=["2330", "2317"])
         raw.control("connected", at(10, 0, 1), generation=1, symbols=2, codes=["2330", "2317"])
         raw.control("subscribed", at(10, 0, 2), symbols=2)
         raw.books(book("2330", at(10, 0, 5)))
@@ -302,10 +304,161 @@ class CompactTest(unittest.TestCase):
         raw.close()
         encoded = encode_day(self.raw, DAY)
         frames = decode(encoded.files["2317"])
-        self.assertEqual(frames[-1], frame(quote, src="rest"))
+        self.assertEqual(frames[-1], frame(quote, src="rest", received=at(9, 2, 41)))
         rows = rows_of(encoded.files["2317"])
         self.assertTrue(rows[-1][1] & FLAG_REST and rows[-1][1] & FLAG_FULL)
         self.assertEqual(gaps_by_symbol(self.raw, DAY)["2317"], [[after_open(at(9, 1)), after_open(at(9, 2, 41))]])
+
+    # ---- gaps per stock (the recorder writes a start line per connection, and codes on down lines) ----------
+
+    def two_connections(self, start, first, second):
+        one, two = Raw(self.raw, "conn1"), Raw(self.raw, "conn2")
+        one.control("start", start, codes=first)
+        two.control("start", start, codes=second)
+        return one, two
+
+    def test_a_restart_that_moves_stocks_keeps_each_stocks_gap(self):
+        # The restart splits the stocks by a fresh snapshot order, and connection 2 never connects again.
+        p1c1, p1c2 = self.two_connections(at(8, 40), ["A", "B"], ["C", "D"])
+        p1c1.control("connected", at(8, 44), generation=1, symbols=2, codes=["A", "B"])
+        p1c1.control("subscribed", at(8, 44, 1), symbols=2)
+        p1c2.control("connected", at(8, 44, 15), generation=1, symbols=2, codes=["C", "D"])
+        p1c2.control("subscribed", at(8, 44, 16), symbols=2)
+        for code, raw in (("A", p1c1), ("B", p1c1), ("C", p1c2), ("D", p1c2)):
+            raw.books(book(code, at(9, 59, 58)))
+        p1c1.writer.flush()
+        p1c2.writer.flush()  # then the process dies
+        p2c1, p2c2 = self.two_connections(at(10, 10), ["C", "B"], ["A", "D"])
+        p2c1.control("connected", at(10, 10, 1), generation=1, symbols=2, codes=["C", "B"])
+        p2c1.control("subscribed", at(10, 10, 2), symbols=2)
+        p2c2.control("down", at(10, 10, 20), reason="連線失敗", since=epoch_ms(at(10, 10)), codes=["A", "D"])
+        p2c1.books(book("C", at(10, 10, 30)))
+        p2c1.books(book("B", at(10, 10, 40)))
+        p2c1.control("stop", at(13, 36))
+        for raw in (p2c1, p2c2, p1c1, p1c2):
+            raw.close()
+        gaps = gaps_by_symbol(self.raw, DAY)
+        crash, end = after_open(at(9, 59, 58, 5)), after_open(at(13, 36))
+        self.assertEqual(gaps["A"], [[crash, end]])  # moved onto the connection that never came back
+        self.assertEqual(gaps["D"], [[crash, end]])
+        self.assertEqual(gaps["C"], [[crash, after_open(at(10, 10, 30, 5))]])  # moved off it, heard elsewhere
+        self.assertEqual(gaps["B"], [[crash, after_open(at(10, 10, 40, 5))]])
+
+    def test_a_drop_before_a_restart_stays_with_the_stocks_that_had_it(self):
+        p1c1, p1c2 = self.two_connections(at(8, 40), ["A", "B"], ["C", "D"])
+        p1c1.control("connected", at(8, 44), generation=1, symbols=2, codes=["A", "B"])
+        p1c1.control("subscribed", at(8, 44, 1), symbols=2)
+        p1c2.control("connected", at(8, 44, 15), generation=1, symbols=2, codes=["C", "D"])
+        p1c2.control("subscribed", at(8, 44, 16), symbols=2)
+        for code, raw in (("A", p1c1), ("B", p1c1), ("C", p1c2), ("D", p1c2)):
+            raw.books(book(code, at(9, 20)))
+        p1c2.control("down", at(9, 31), reason="斷線", since=epoch_ms(at(9, 30)), codes=["C", "D"])
+        p1c1.books(book("A", at(9, 59, 58)))
+        p1c1.writer.flush()
+        p1c2.writer.flush()  # the process dies while connection 2 is still down
+        p2c1, p2c2 = self.two_connections(at(10, 10), ["C", "B"], ["A", "D"])
+        for raw, codes in ((p2c1, ["C", "B"]), (p2c2, ["A", "D"])):
+            raw.control("connected", at(10, 10, 1), generation=1, symbols=2, codes=codes)
+            raw.control("subscribed", at(10, 10, 2), symbols=2)
+        for code, raw in (("C", p2c1), ("B", p2c1), ("A", p2c2), ("D", p2c2)):
+            raw.books(book(code, at(10, 10, 30)))
+        p2c1.control("stop", at(13, 36))
+        p2c2.control("stop", at(13, 36))
+        for raw in (p2c1, p2c2, p1c1, p1c2):
+            raw.close()
+        gaps = gaps_by_symbol(self.raw, DAY)
+        back = after_open(at(10, 10, 30, 5))
+        for code in ("C", "D"):
+            self.assertEqual(gaps[code], [[after_open(at(9, 30)), back]], code)
+        for code in ("A", "B"):
+            self.assertEqual(gaps[code], [[after_open(at(9, 59, 58, 5)), back]], code)
+
+    def test_a_process_that_dies_before_its_subscription_is_confirmed_leaves_a_gap(self):
+        first = Raw(self.raw)
+        first.control("start", at(8, 59, 59), codes=["A", "B"])
+        first.control("connected", at(9, 0), generation=1, symbols=2, codes=["A", "B"])
+        first.books(book("A", at(9, 0)))  # books come with the subscription, before the subscribed line
+        first.writer.flush()  # the process dies right here
+        again = Raw(self.raw)
+        again.control("start", at(9, 30), codes=["A", "B"])
+        again.control("connected", at(9, 30, 1), generation=1, symbols=2, codes=["A", "B"])
+        again.control("subscribed", at(9, 30, 2), symbols=2)
+        again.books(book("A", at(9, 30, 5)))
+        again.books(book("B", at(9, 30, 6)))
+        again.control("stop", at(13, 36))
+        again.close()
+        first.close()
+        gaps = gaps_by_symbol(self.raw, DAY)
+        crash = after_open(at(9, 0, 0, 5))
+        self.assertEqual(gaps["A"], [[crash, after_open(at(9, 30, 5, 5))]])
+        self.assertEqual(gaps["B"], [[crash, after_open(at(9, 30, 6, 5))]])
+
+    def test_a_down_line_names_the_stocks_it_loses(self):
+        # The stocks come with the down line, so it holds even before any other line has named them.
+        raw = Raw(self.raw)
+        raw.control("down", at(10, 0), reason="程式晚啟動", since=epoch_ms(at(8, 44)), codes=["2330"])
+        raw.control("connected", at(10, 0, 1), generation=1, symbols=1, codes=["2330"])
+        raw.control("subscribed", at(10, 0, 2), symbols=1)
+        raw.books(book("2330", at(10, 0, 5)))
+        raw.control("stop", at(13, 36))
+        raw.close()
+        self.assertEqual(gaps_by_symbol(self.raw, DAY)["2330"], [[after_open(at(8, 44)), after_open(at(10, 0, 5, 5))]])
+
+    def test_what_an_unconfirmed_attempt_heard_is_unknown_again_after_it(self):
+        # Raw written without a down line for the failed attempt: the next connected line says it failed.
+        raw = Raw(self.raw)
+        raw.control("start", at(8, 40), codes=["2330"])
+        raw.control("connected", at(8, 44), generation=1, symbols=1, codes=["2330"])
+        raw.control("subscribed", at(8, 44, 1), symbols=1)
+        raw.control("down", at(10, 0), reason="斷線", since=epoch_ms(at(9, 59, 30)), codes=["2330"])
+        raw.control("connected", at(10, 0, 10), generation=2, symbols=1, codes=["2330"])
+        raw.books(book("2330", at(10, 0, 10)))  # heard on an attempt that drops before it is confirmed
+        raw.control("connected", at(10, 0, 30), generation=3, symbols=1, codes=["2330"])
+        raw.control("subscribed", at(10, 0, 31), symbols=1)
+        quote = {"symbol": "2330", "bids": [{"price": 49.9, "size": 3}], "asks": [{"price": 50, "size": 4}]}
+        raw.rest(quote, at(10, 1, 1))
+        raw.control("refill", at(10, 1, 1), symbol="2330")
+        raw.control("stop", at(13, 36))
+        raw.close()
+        self.assertEqual(gaps_by_symbol(self.raw, DAY)["2330"], [[after_open(at(9, 59, 30)), after_open(at(10, 1, 1))]])
+
+    def test_a_zeroed_tail_loses_only_the_damaged_part(self):
+        # A power cut can leave zeros after the last write; every line flushed before them must still be read.
+        raw = Raw(self.raw)
+        raw.control("start", at(9, 0), codes=["2330", "2317"])
+        raw.control("connected", at(9, 0), generation=1, symbols=2, codes=["2330", "2317"])
+        raw.control("subscribed", at(9, 0, 1), symbols=2)
+        moment = at(9, 0, 2)
+        for index in range(40_000):
+            moment += timedelta(milliseconds=50)
+            raw.books(book("2330" if index % 2 else "2317", moment, step=index % 7, price=50 + (index % 13) * 0.05))
+            if index % 2000 == 0:
+                raw.writer.flush()
+        raw.writer.flush()
+        crashed = Path(self.temp.name) / "crashed"
+        crashed.mkdir()
+        damaged = crashed / raw.writer.paths[-1].name
+        damaged.write_bytes(raw.writer.paths[-1].read_bytes() + b"\x00" * 4096)
+        raw.close()
+        encoded = encode_day(crashed, DAY)
+        self.assertEqual(sum(encoded.messages.values()), 40_000)
+        self.assertEqual(encoded.truncated, [damaged.name])
+        self.assertEqual(encoded.mismatched, [])
+
+    def test_an_unreadable_hour_is_a_gap(self):
+        raw = Raw(self.raw)
+        raw.control("start", at(8, 40), codes=["2330"])
+        raw.control("connected", at(8, 44), generation=1, symbols=1, codes=["2330"])
+        raw.control("subscribed", at(8, 44, 1), symbols=1)
+        raw.books(book("2330", at(9, 50), step=0))
+        raw.books(book("2330", at(10, 10), step=1))  # this hour's file is damaged below
+        raw.books(book("2330", at(11, 5), step=2))
+        raw.control("stop", at(13, 36))
+        raw.close()
+        hour = self.raw / "conn1-10-1.jsonl.gz"
+        hour.write_bytes(hour.read_bytes()[:10] + b"\x00" * 64)  # the gzip header, then nothing readable
+        gaps = gaps_by_symbol(self.raw, DAY)
+        self.assertEqual(gaps["2330"], [[after_open(at(9, 50, 0, 5)), after_open(at(11, 5, 0, 5))]])
 
     def test_unparsable_lines_are_reported_not_dropped_silently(self):
         self.raw.mkdir(parents=True)

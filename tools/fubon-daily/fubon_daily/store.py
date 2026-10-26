@@ -444,7 +444,8 @@ class MarketStore:
             entry["bytes"] = len(data)
             entry["sha256"] = hashlib.sha256(data).hexdigest()
             (out / entry["path"]).write_bytes(data)
-        (out / "manifest.json").write_bytes(_json_bytes(manifest, indent=1))
+        # Connection errors and gap reasons in it can echo the account, like the status file's.
+        (out / "manifest.json").write_bytes(self.redact(json.dumps(manifest, ensure_ascii=False, indent=1)).encode("utf-8"))
         target.parent.mkdir(parents=True, exist_ok=True)
         _replace(out, target)
         return manifest
@@ -472,6 +473,27 @@ class MarketStore:
         path.parent.mkdir(parents=True, exist_ok=True)
         text = self.redact(json.dumps({"at": at.isoformat(timespec="seconds"), "error": message}, ensure_ascii=False))
         _write_atomic(path, text.encode("utf-8"))
+
+    def limit_references(self, day: str) -> tuple[dict[str, float] | None, str]:
+        """Prices a day's ±10% limits are measured from, and where they came from: that day's referencePrice once
+        its 1-minute index is published (about 17:30); before that, the latest earlier published day's close (an
+        ex-dividend day moves the limits, so a few warnings can be wrong); else none ("skipped")."""
+        own = self.day_reference_prices(day)
+        if own:
+            return own, "done"
+        try:
+            days = json.loads((self.root / "index.json").read_text(encoding="utf-8-sig"))["days"]
+            earlier = sorted(entry["date"] for entry in days if isinstance(entry.get("date"), str) and entry["date"] < day)
+            if earlier:
+                listing = json.loads((self.root / "days" / earlier[-1] / "index.json").read_text(encoding="utf-8-sig"))
+                closes = {entry["code"]: float(entry["close"]) for entry in listing["symbols"]
+                          if isinstance(entry.get("close"), (int, float)) and not isinstance(entry["close"], bool)
+                          and entry["close"] > 0}
+                if closes:
+                    return closes, "previous close"
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            pass
+        return None, "skipped"
 
     def day_reference_prices(self, day: str) -> dict[str, float] | None:
         """referencePrice per stock from that day's published 1-minute index, or None before it is published."""
@@ -548,38 +570,40 @@ class MarketStore:
                 handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
                 break
             except FileExistsError:
-                age, pid, taken = 0.0, None, None
+                age, pid, holder = 0.0, None, {}
                 try:
                     age = time.time() - path.stat().st_mtime
                     holder = json.loads(path.read_text(encoding="utf-8"))
                     pid = int(holder["pid"])
-                    taken = self._taken_at(holder.get("startedAt"))
                 except FileNotFoundError:
                     continue
                 except (OSError, ValueError, KeyError, TypeError):
                     pid = None  # still being written, or damaged: only its age can release it
-                held = age <= stale_seconds and (pid is None or (self._pid_alive(pid) and not self._reused(pid, taken)))
+                held = age <= stale_seconds and (pid is None or (self._pid_alive(pid) and not self._reused(pid, holder)))
                 if attempt == 1 or held:
                     raise Locked() from None
                 path.unlink(missing_ok=True)
         with os.fdopen(handle, "w", encoding="utf-8") as stream:
-            json.dump({"pid": os.getpid(), "startedAt": now.isoformat(timespec="seconds")}, stream)
+            json.dump({"pid": os.getpid(), "startedAt": now.isoformat(timespec="seconds"),
+                       "processStarted": self._process_started(os.getpid())}, stream)
         try:
             yield
         finally:
             path.unlink(missing_ok=True)
 
-    @staticmethod
-    def _taken_at(value: object) -> float | None:
-        try:
-            return datetime.fromisoformat(value).timestamp() if isinstance(value, str) else None
-        except ValueError:
-            return None
-
-    def _reused(self, pid: int, taken: float | None) -> bool:
-        """The PID now belongs to a process that started after the lock was taken: its owner died (a native crash
-        leaves the lock behind) and Windows handed the PID on. The lock's time has whole seconds, hence the margin."""
-        if taken is None:
-            return False
+    def _reused(self, pid: int, holder: dict) -> bool:
+        """The PID now belongs to another process: its owner died (a native crash leaves the lock behind) and
+        Windows handed the PID on. The lock keeps its owner's start time as the system read it, so the two are
+        compared as they are, whatever the clock did since; a lock without it is compared with its own time
+        (whole seconds, hence the margin)."""
         started = self._process_started(pid)
-        return started is not None and started > taken + 2
+        if started is None:
+            return False
+        owner = holder.get("processStarted")
+        if isinstance(owner, (int, float)) and not isinstance(owner, bool):
+            return abs(started - owner) > 0.001
+        try:
+            taken = datetime.fromisoformat(holder["startedAt"]).timestamp()
+        except (KeyError, TypeError, ValueError):
+            return False
+        return started > taken + 2

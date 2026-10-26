@@ -69,7 +69,7 @@ def publish_day(store, day: str, version: str, now: datetime, connections: list[
         raise BooksPublishError(f"找不到 {day} 的原始五檔")
     if (store.root / "books" / day).exists():
         raise BooksPublishError(f"{day} 的五檔已經上架；要重新上架，先移走 books/{day}")
-    references = store.day_reference_prices(day)
+    references, limit_check = store.limit_references(day)
     checker = Checker(references)
     encoded = encode_day(source, day, check=checker.see)
     if encoded.mismatched:
@@ -80,7 +80,7 @@ def publish_day(store, day: str, version: str, now: datetime, connections: list[
     symbols = [{"code": code, "messages": encoded.messages[code], "first": encoded.first[code],
                 "last": encoded.last[code], "gaps": encoded.gaps.get(code, [])} for code in sorted(encoded.files)]
     manifest = {"schema": 1, "date": day, "createdAt": now.isoformat(timespec="seconds"), "version": version,
-                "source": SOURCE, "sizeUnit": "unverified", "limitCheck": "done" if references else "skipped",
+                "source": SOURCE, "sizeUnit": "unverified", "limitCheck": limit_check,
                 "counts": {"symbols": len(symbols), "messages": sum(entry["messages"] for entry in symbols)},
                 "symbols": symbols, "connections": connections or [], "warnings": checker.warnings(),
                 "unparsable": {"count": encoded.unparsable_count, "examples": encoded.unparsable},

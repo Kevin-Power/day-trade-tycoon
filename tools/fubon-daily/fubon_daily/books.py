@@ -517,6 +517,9 @@ class Recorder:
             if not group:
                 continue  # fewer stocks than connections: no point holding a slot
             stream = Stream(number, group, RawWriter(folder, f"conn{number}"), self.runtime.monotonic, self.wall_ms)
+            # Each run's first line on a connection: which stocks it holds. Stage 2 reads a restart from it (the
+            # stocks are split again by a fresh snapshot order, so they may change connection).
+            stream.mark("start", codes=stream.codes)
             link = Link(stream, Backoff(self.runtime.random), next_attempt=start)
             if self.carried:
                 earlier = carried.get(number) or {}
@@ -528,7 +531,7 @@ class Recorder:
             elif late:
                 # Nothing recorded since the opening time: a gap the raw files must show too (a down line).
                 stream.gaps.append({"from": self.iso(opening), "to": None, "reason": LATE_REASON})
-                stream.mark("down", reason=LATE_REASON, since=int(opening.timestamp() * 1000))
+                stream.mark("down", reason=LATE_REASON, since=int(opening.timestamp() * 1000), codes=stream.codes)
             self.links.append(link)
         if restart_from is not None:
             self.log(f"同一天重新啟動：接著 {restart_from} 的紀錄")
@@ -573,8 +576,11 @@ class Recorder:
                     checked = True
                     heard = any(link.ever_up for link in self.links)
                     if heard and sum(stream.messages for stream in self.streams) == 0:
-                        self.closed = True
-                        return
+                        if not self.traded_today():
+                            self.closed = True
+                            return
+                        self.log("開盤後還沒有任何五檔，但今天有交易：繼續錄")
+                        self.notice("開盤後還沒收到任何五檔，但今天有交易；繼續錄，請留意富邦行情")
                 if mono - last_status >= STATUS_EVERY:
                     self.write_status("running")
                     last_status = mono
@@ -590,6 +596,16 @@ class Recorder:
                     self.log(self.reason)
                     return
             self.runtime.sleep(1)
+
+    def traded_today(self) -> bool:
+        """At the holiday check: whether the snapshot's date is today, so silent books are Fubon's problem, not a
+        holiday. A snapshot that cannot be read counts as a trading day: `closed` deletes the day's raw files."""
+        try:
+            date, _ = snapshot_listing(self.client.snapshot_quotes())
+        except Exception as error:  # noqa: BLE001 - unsure means keep recording
+            self.log(f"休市判斷時快照讀不到（{type(error).__name__}），當成交易日繼續錄")
+            return True
+        return date == self.day
 
     # ---- one connection -------------------------------------------------------------------------------------
 
@@ -669,7 +685,7 @@ class Recorder:
         stream = link.stream
         since = self.wall_at(stream.last_seen)
         stream.gaps.append({"from": self.iso(since), "to": None, "reason": reason})
-        stream.mark("down", reason=reason, since=int(since.timestamp() * 1000))
+        stream.mark("down", reason=reason, since=int(since.timestamp() * 1000), codes=stream.codes)
         link.state = "down"
         link.down_since = mono
         link.noticed = False
@@ -685,7 +701,12 @@ class Recorder:
             # is. A gap, a down line for stage 2, and refills once it is up.
             since = max(self.started, self.at_today(self.open_at))
             stream.gaps.append({"from": self.iso(since), "to": None, "reason": reason})
-            stream.mark("down", reason=reason, since=int(since.timestamp() * 1000))
+            stream.mark("down", reason=reason, since=int(since.timestamp() * 1000), codes=stream.codes)
+        elif link.state == "subscribing":
+            # The attempt got as far as its connected line, and books may have come: from its last message, they
+            # are unknown again until heard on an attempt that works.
+            since = self.wall_at(stream.last_seen)
+            stream.mark("down", reason=reason, since=int(since.timestamp() * 1000), codes=stream.codes)
         link.state = "down" if link.ever_up else "pending"
         if link.down_since is None:
             link.down_since = mono

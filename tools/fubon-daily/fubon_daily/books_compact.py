@@ -31,6 +31,7 @@ EMPTY = (None, None)
 # Gaps run to the session's end at the latest: 13:31, after the closing auction's books at 13:30. A connection
 # whose lines end before that without a stop line after it (an early stop, a crash) has the rest as a gap.
 SESSION_END_MS = (4 * 60 + 31) * 60_000
+SALVAGE_PIECE = 1024
 
 
 @dataclass
@@ -68,20 +69,24 @@ def _levels(value: object) -> list[list] | None:
 
 
 def frame_of(record: dict, day_open: int) -> dict | None:
-    """One books message (or refill) as a frame; None when it is not one."""
+    """One books message (or refill) as a frame; None when it is not one. A refill is placed when it arrived,
+    which is when its book became known: its own lastUpdated can be hours earlier, inside the gap it ends (the
+    raw file keeps it)."""
     data = record.get("d")
     if not isinstance(data, dict) or not isinstance(data.get("symbol"), str):
         return None
     rest = record.get("src") == "rest"
-    stamp = data.get("lastUpdated") if rest else data.get("time")
-    if not isinstance(stamp, int) or isinstance(stamp, bool):
-        if not rest:
+    if rest:
+        t = record["r"] - day_open
+    else:
+        stamp = data.get("time")
+        if not isinstance(stamp, int) or isinstance(stamp, bool):
             return None
-        stamp = record["r"] * 1000  # a refill without a time of its own: when it arrived
+        t = stamp // 1000 - day_open
     bids, asks = _levels(data.get("bids")), _levels(data.get("asks"))
     if bids is None or asks is None:
         return None
-    return {"t": stamp // 1000 - day_open, "trial": data.get("isTrial") is True,
+    return {"t": t, "trial": data.get("isTrial") is True,
             "continuous": data.get("isContinuous") is True, "src": "rest" if rest else "ws",
             "bids": bids, "asks": asks}
 
@@ -143,18 +148,44 @@ class RawReport:
     cut: bool = False  # a crash cut the file short (no gzip end, or half a line)
 
 
+def _salvage(decompressor, chunk: bytes) -> bytes:
+    """What `chunk` decompresses to before its damage, from the state before it: a kilobyte at a time, then the
+    damaged kilobyte a byte at a time. zlib drops a whole call's output when it meets damage."""
+    out = []
+    for start in range(0, len(chunk), SALVAGE_PIECE):
+        piece = chunk[start:start + SALVAGE_PIECE]
+        before = decompressor.copy()
+        try:
+            out.append(decompressor.decompress(piece))
+        except zlib.error:
+            for byte in range(len(piece)):
+                try:
+                    out.append(before.decompress(piece[byte:byte + 1]))
+                except zlib.error:
+                    break
+            break
+    return b"".join(out)
+
+
 def iter_raw(path: Path, report: RawReport) -> Iterator[dict]:
     """A raw file's records, read a megabyte at a time (an hour of a busy connection is hundreds of MB once
-    decompressed). Everything up to the last sync flush still decompresses after a crash."""
+    decompressed). Everything up to the last sync flush still decompresses after a crash, and after damage (a
+    power cut can leave zeros after the last write) everything before it does: the file then counts as cut."""
     decompressor = zlib.decompressobj(16 + zlib.MAX_WBITS)
     pending = b""
     number = 0
+    damaged = False
     with Path(path).open("rb") as handle:
-        while not decompressor.eof:
+        while not decompressor.eof and not damaged:
             chunk = handle.read(1 << 20)
             if not chunk:
                 break
-            *lines, pending = (pending + decompressor.decompress(chunk)).split(b"\n")
+            before = decompressor.copy()
+            try:
+                data = decompressor.decompress(chunk)
+            except zlib.error:
+                data, damaged = _salvage(before, chunk), True
+            *lines, pending = (pending + data).split(b"\n")
             for line in lines:
                 number += 1
                 try:
@@ -166,7 +197,7 @@ def iter_raw(path: Path, report: RawReport) -> Iterator[dict]:
                     yield record
                 else:
                     report.bad.append(number)
-    report.cut = pending != b"" or not decompressor.eof
+    report.cut = damaged or pending != b"" or not decompressor.eof
 
 
 def connection_files(raw_folder: Path) -> dict[str, list[Path]]:
@@ -184,24 +215,30 @@ class _Link:
     """One connection's state while its lines are read."""
     state: str = "idle"  # idle, connecting, up, down, stopped
     codes: list[str] = field(default_factory=list)
-    gap_from: int | None = None  # where an unrecorded stretch began, until the connection is back
-    pending: dict[str, int] = field(default_factory=dict)  # stock -> its gap's start, until it is heard again
     last_r: int | None = None
+    started: bool = False  # a start line came and no connected line yet
 
 
 def _records(name: str, paths: list[Path], result: Encoded, problem: Callable[[str], None]) -> Iterator[tuple]:
-    """One connection's records as (received, connection, file name, record), in the order they were written."""
+    """One connection's records as (received, connection, file name, record), in the order they were written.
+    After a file cut short or unreadable comes a `cut` record at its last good line: nothing is known from there."""
+    last = None
     for path in paths:
         report = RawReport()
+        lost = False
         try:
             for record in iter_raw(path, report):
-                yield record["r"], name, path.name, record
+                last = record["r"]
+                yield last, name, path.name, record
         except (OSError, zlib.error) as error:
-            problem(f"{path.name}：無法解壓（{type(error).__name__}）")
+            problem(f"{path.name}：無法讀取（{type(error).__name__}）")
+            lost = True
         if report.cut:
             result.truncated.append(path.name)
         for number in report.bad:
             problem(f"{path.name}:{number}")
+        if (report.cut or lost) and last is not None:
+            yield last, name, path.name, {"r": last, "ev": "cut"}
 
 
 def _merged(spans: list[list[int]]) -> list[list[int]]:
@@ -215,84 +252,93 @@ def _merged(spans: list[list[int]]) -> list[list[int]]:
     return merged
 
 
+def _codes(record: dict) -> list[str] | None:
+    value = record.get("codes")
+    return [code for code in value if isinstance(code, str)] if isinstance(value, list) else None
+
+
 def _scan(raw_folder: Path, day: str, encode: bool) -> tuple[Encoded, dict[str, _Stock]]:
     """Gaps per stock (and, when encoding, each stock's rows) from every connection's lines. The connections are
     read side by side in the order their lines were received: a same-day restart splits the stocks by a fresh
-    snapshot order, so a stock can change connection, and its rows must still come in the order they arrived."""
+    snapshot order, so a stock can change connection. Each stock's book is unknown from the moment its connection
+    lost it (a down line, a new process, a failed attempt, a damaged file, an early end) until the stock is heard
+    again, or refilled, on whichever connection holds it then."""
     day_open = open_ms(day)
     result = Encoded()
     stocks: dict[str, _Stock] = {}
+    unknown: dict[str, int] = {}  # stock -> since when its book is unknown
 
     def problem(text: str) -> None:
         result.unparsable_count += 1
         if len(result.unparsable) < EXAMPLES:
             result.unparsable.append(text)
 
-    def close(link: _Link, code: str, end: int) -> None:
-        start = link.pending.pop(code)
-        if end > start:
-            result.gaps.setdefault(code, []).append([start - day_open, end - day_open])
+    def lose(codes: list[str], since: int) -> None:
+        for code in codes:
+            unknown.setdefault(code, since)  # an earlier start stands
+
+    def heard(code: str, at: int) -> bool:
+        since = unknown.pop(code, None)
+        if since is not None and at > since:
+            result.gaps.setdefault(code, []).append([since - day_open, at - day_open])
+        return since is not None
 
     files = connection_files(raw_folder)
     links = {name: _Link() for name in files}
     streams = [_records(name, paths, result, problem) for name, paths in files.items()]
+    latest = None
     for received, name, file_name, record in heapq.merge(*streams, key=lambda item: item[0]):
         link = links[name]
         event = record.get("ev")
-        if event == "connected":
-            if link.state in ("up", "stopped") and link.last_r is not None and link.gap_from is None:
-                link.gap_from = link.last_r  # a new process: the last one ended without a down line
-            if isinstance(record.get("codes"), list):
-                link.codes = [code for code in record["codes"] if isinstance(code, str)]
-            if link.gap_from is not None:
-                # Every stock's book is unknown from the gap's start until it is heard again or refilled. Set here,
-                # not at the subscribed line: books can arrive before that line is written.
-                for code in link.codes:
-                    link.pending.setdefault(code, link.gap_from)
-                link.gap_from = None
-            link.state = "connecting"
+        codes = _codes(record)
+        if event == "start":
+            # A new process: what this connection held is unknown from its last line on.
+            if link.last_r is not None:
+                lose(link.codes, link.last_r)
+            link.codes = codes if codes is not None else link.codes
+            link.state, link.started = "idle", True
+        elif event == "connected":
+            if link.last_r is not None and (link.state == "connecting"
+                                            or (record.get("generation") == 1 and not link.started)):
+                # The attempt before never had its subscription confirmed, or a new process wrote no start line.
+                lose(link.codes, link.last_r)
+            link.codes = codes if codes is not None else link.codes
+            link.state, link.started = "connecting", False
         elif event == "subscribed":
             link.state = "up"
         elif event == "down":
             since = record.get("since")
-            link.gap_from = since if isinstance(since, int) and not isinstance(since, bool) else received
+            lose(codes if codes is not None else link.codes,
+                 since if isinstance(since, int) and not isinstance(since, bool) else received)
             link.state = "down"
         elif event == "stop":
-            for code in list(link.pending):
-                close(link, code, received)
             link.state = "stopped"
+        elif event == "cut":
+            lose(link.codes, received)
         elif event == "refill":
-            if record.get("symbol") in link.pending:
-                close(link, record["symbol"], received)
+            if isinstance(record.get("symbol"), str):
+                heard(record["symbol"], received)
         elif "d" in record:
             frame = frame_of(record, day_open)
             if frame is None:
                 problem(f"{file_name}：不是五檔資料")
             else:
                 symbol = record["d"]["symbol"]
-                after_gap = symbol in link.pending
-                if after_gap:
-                    close(link, symbol, received)
+                after_gap = heard(symbol, received)
                 if encode:
                     if symbol not in stocks:
                         stocks[symbol] = _Stock(symbol, day)
                     stocks[symbol].add(frame, after_gap)
         link.last_r = received
+        latest = received if latest is None else max(latest, received)
     session_end = day_open + SESSION_END_MS
     for link in links.values():
-        if link.last_r is None:
-            continue
-        end = link.last_r
-        if not (link.state == "stopped" and link.last_r >= session_end):
-            # It stopped early (low disk, a failed write) or died: nothing is known after its last line.
-            if link.gap_from is None:
-                link.gap_from = link.last_r
-            end = max(link.last_r, session_end)
-        if link.gap_from is not None:
-            for code in link.codes:
-                link.pending.setdefault(code, link.gap_from)
-        for code in list(link.pending):
-            close(link, code, end)
+        if link.last_r is not None and not (link.state == "stopped" and link.last_r >= session_end):
+            lose(link.codes, link.last_r)  # it stopped early (low disk, a failed write) or died
+    end = session_end if latest is None else max(session_end, latest)
+    for code, since in unknown.items():
+        if end > since:
+            result.gaps.setdefault(code, []).append([since - day_open, end - day_open])
     result.gaps = {code: _merged(spans) for code, spans in result.gaps.items()}
     return result, stocks
 

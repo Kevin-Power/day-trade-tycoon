@@ -10,8 +10,9 @@ from pathlib import Path
 from unittest import mock
 
 from fubon_daily.books import OPEN_AT, BooksRuntime, RawWriter, Recorder
+from fubon_daily.books_compact import gaps_by_symbol
 from fubon_daily.books_publish import BooksPublishError
-from fubon_daily.client import LoginError, LoginRefused
+from fubon_daily.client import ApiError, LoginError, LoginRefused
 from fubon_daily.credentials import MASK
 from fubon_daily.normalize import TAIPEI
 from fubon_daily.store import MarketStore
@@ -113,8 +114,10 @@ class FakeStreamClient:
         elif self.behaviour != "silent":
             self.emit({"event": "subscribed", "data": [{"id": f"s{code}", "channel": "books", "symbol": code}
                                                        for code in params["symbols"]]})
-            if self.behaviour == "eager":  # books right away, before subscribe() has even returned
+            if self.behaviour in ("eager", "flash"):  # books right away, before subscribe() has even returned
                 self.books(params["symbols"][0])
+            if self.behaviour == "flash":  # and then the connection drops, still inside subscribe()
+                self.drop()
 
     def emit(self, message):
         self.handlers["message"](json.dumps(message, ensure_ascii=False) if isinstance(message, dict) else message)
@@ -135,9 +138,11 @@ class FakeStreamClient:
 
 
 class FakeBooksClient:
-    def __init__(self, clock, symbols, behaviours=(), default="ok", login_error=None, logins=(), logout_hangs=False):
+    def __init__(self, clock, symbols, behaviours=(), default="ok", login_error=None, logins=(), logout_hangs=False,
+                 snapshot_dates=()):
         self.clock = clock
         self.symbols = symbols
+        self.snapshot_dates = list(snapshot_dates)  # per call: the snapshot's date, or an exception to raise
         self.behaviours = list(behaviours)
         self.default = default
         self.login_error = login_error
@@ -164,8 +169,11 @@ class FakeBooksClient:
 
     def snapshot_quotes(self):
         self.calls.append("snapshot")
+        date = self.snapshot_dates.pop(0) if self.snapshot_dates else "2026-10-27"
+        if isinstance(date, Exception):
+            raise date
         items = [quote(code, f"股{code}", 50, 1, 1000, 10_000_000_000 - rank) for rank, code in enumerate(self.symbols)]
-        return snapshot(date="2026-10-27", items=items)
+        return snapshot(date=date, items=items)
 
     def stock_stream(self):
         stream = FakeStreamClient(self.clock, self.behaviours.pop(0) if self.behaviours else self.default)
@@ -331,6 +339,25 @@ class RecorderTest(unittest.TestCase):
         self.assertFalse((self.data / "staging-books" / DAY).exists())
         self.assertTrue(any((self.data / "raw-books" / DAY).glob("*.jsonl.gz")))
 
+    def test_the_published_manifest_is_redacted(self):
+        # An SDK error can echo the account; the manifest carries each connection's errors and gap reasons.
+        clock = Clock(at(9, 0))
+        client = FakeBooksClient(clock, codes(8))
+        real = client.stock_stream
+
+        def stock_stream():
+            if len(client.streams) == 1 and not getattr(client, "refused", False):
+                client.refused = True
+                raise ApiError("SdkError: realtime token for A123456789 refused")
+            return real()
+
+        client.stock_stream = stock_stream
+        clock.at(at(9, 1), lambda: client.streams[0].books("1000"))
+        self.record(client, time(9, 3), publish=True)
+        manifest = (self.data / "books" / DAY / "manifest.json").read_text(encoding="utf-8")
+        self.assertNotIn("A123456789", manifest)
+        self.assertIn(MASK, manifest)
+
     def test_without_publishing_the_raw_files_stay_in_staging(self):
         # Stage 1 alone (`--no-publish`): record only.
         clock = Clock(at(9, 0))
@@ -486,6 +513,30 @@ class RecorderTest(unittest.TestCase):
         self.assertEqual(len(down), 4)
         self.assertEqual(sorted(code for _, code in client.quotes), codes(8)[1:])  # all but the one heard
 
+    def test_each_connection_starts_with_its_stocks_and_every_down_line_names_them(self):
+        clock = Clock(at(9, 0))
+        client = FakeBooksClient(clock, codes(8))
+        clock.at(at(9, 1), lambda: client.streams[1].drop())
+        self.record(client, time(9, 3))
+        raw = self.data / "staging-books" / DAY / "raw"
+        for number, stream in enumerate(client.streams[:4], start=1):
+            lines = [line for path in sorted(raw.glob(f"conn{number}-*.jsonl.gz")) for line in read_lines(path)]
+            self.assertEqual((lines[0]["ev"], lines[0]["codes"]), ("start", stream.subscribes[0]["symbols"]))
+        down = [line for line in self.raw_lines() if line.get("ev") == "down"]
+        self.assertEqual([line["codes"] for line in down], [client.streams[1].subscribes[0]["symbols"]])
+
+    def test_books_heard_on_an_attempt_that_then_fails_are_unknown_until_heard_again(self):
+        clock = Clock(at(9, 58))
+        client = FakeBooksClient(clock, codes(8), behaviours=["ok"] * 4 + ["flash"])
+        clock.at(at(9, 58, 30), lambda: client.streams[0].books("1000"))
+        clock.at(at(10, 0), lambda: client.streams[0].drop())
+        self.record(client, time(10, 6))
+        gaps = gaps_by_symbol(self.data / "staging-books" / DAY / "raw", DAY)
+        after_open = lambda moment: int((moment - at(9, 0)).total_seconds() * 1000)  # noqa: E731
+        # 1000 was heard once on the attempt that dropped (10:00:10); from then until its refill it is unknown.
+        self.assertTrue(any(start <= after_open(at(10, 0, 11)) and end >= after_open(at(10, 0, 59))
+                            for start, end in gaps["1000"]), gaps["1000"])
+
     def test_books_that_arrive_with_the_subscription_follow_the_connected_line(self):
         client = FakeBooksClient(Clock(at(9, 0)), codes(8), behaviours=["eager", "ok", "ok", "ok"])
         self.record(client, time(9, 1))
@@ -532,6 +583,20 @@ class RecorderTest(unittest.TestCase):
         self.assertEqual(self.notices, [])
         self.assertLess(client.clock.now(), at(9, 7))
         self.assertIn("logout", client.calls)
+
+    def test_silent_books_on_a_trading_day_are_not_a_holiday(self):
+        # Fubon's books can fail while the connections stay up: the snapshot says whether today traded.
+        client = FakeBooksClient(Clock(at(8, 58)), codes(8), snapshot_dates=["2026-10-27", DAY])
+        self.record(client, time(9, 10))
+        self.assertNotEqual(self.status()["outcome"], "closed")
+        self.assertTrue((self.data / "staging-books" / DAY / "raw").is_dir())
+        self.assertEqual(len([body for _, body in self.notices if "五檔" in body]), 1)
+
+    def test_a_snapshot_that_cannot_be_read_at_the_holiday_check_keeps_recording(self):
+        client = FakeBooksClient(Clock(at(8, 58)), codes(8), snapshot_dates=["2026-10-27", ApiError("timeout")])
+        self.record(client, time(9, 10))
+        self.assertNotEqual(self.status()["outcome"], "closed")
+        self.assertTrue((self.data / "staging-books" / DAY / "raw").is_dir())
 
     def test_test_mode_connects_after_1330(self):
         # An off-hours trial (2026-10-26 found it never connected): the 13:30 retry limit is for trading days.

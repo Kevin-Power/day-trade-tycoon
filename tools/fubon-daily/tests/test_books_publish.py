@@ -92,6 +92,23 @@ class PublishTest(unittest.TestCase):
         self.assertIn(("2317", "limit"), kinds)  # 200 is far above 150 + 10%
         self.assertNotIn(("2330", "limit"), kinds)
 
+    def test_before_the_days_index_the_previous_close_is_the_reference(self):
+        # At 13:40 the day's 1-minute index is hours away; the latest published day's close stands in.
+        self.record_day()
+        for day, closes in (("2026-10-26", {"2330": 999.0, "2317": 999.0}), ("2026-10-27", {"2330": 50.0, "2317": 150.0})):
+            (self.root / "days" / day).mkdir(parents=True)
+            listing = {"schema": 1, "date": day, "symbols": [{"code": code, "close": close} for code, close in closes.items()]}
+            (self.root / "days" / day / "index.json").write_text(json.dumps(listing), encoding="utf-8")
+        (self.root / "index.json").write_text(json.dumps({"schema": 1, "days": [
+            {"date": "2026-10-26", "coverage": "full-market"}, {"date": "2026-10-27", "coverage": "full-market"}]}),
+            encoding="utf-8")
+        publish_day(self.store, DAY, version="test", now=NOW)
+        manifest = self.manifest()
+        self.assertEqual(manifest["limitCheck"], "previous close")
+        kinds = {(item["code"], item["kind"]) for item in manifest["warnings"]}
+        self.assertIn(("2317", "limit"), kinds)  # 200 is far above 150 + 10%
+        self.assertNotIn(("2330", "limit"), kinds)
+
     def test_a_round_trip_mismatch_blocks_the_day(self):
         self.record_day()
         real = books_compact._slots
