@@ -437,9 +437,10 @@ class MarketStore:
                     entry.unlink()
 
     @contextlib.contextmanager
-    def lock(self, now: datetime):
+    def lock(self, now: datetime, name: str = ".lock", stale_seconds: float = STALE_LOCK_SECONDS):
+        """One run at a time. A lock is stale once its process is gone or it is older than `stale_seconds`."""
         self.root.mkdir(parents=True, exist_ok=True)
-        path = self.root / ".lock"
+        path = self.root / name
         for attempt in range(2):
             try:
                 handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
@@ -453,7 +454,7 @@ class MarketStore:
                     continue
                 except (OSError, ValueError, KeyError, TypeError):
                     pid = None  # still being written, or damaged: only its age can release it
-                held = age <= STALE_LOCK_SECONDS and (pid is None or self._pid_alive(pid))
+                held = age <= stale_seconds and (pid is None or self._pid_alive(pid))
                 if attempt == 1 or held:
                     raise Locked() from None
                 path.unlink(missing_ok=True)

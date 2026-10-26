@@ -219,6 +219,18 @@ class RecorderTest(unittest.TestCase):
         self.assertEqual(self.record(client, time(13, 36)), 0)
         self.assertEqual(self.status()["outcome"], "ok")
 
+    def test_a_restart_trigger_after_a_finished_day_does_nothing(self):
+        # A holiday ends at 09:05 as closed; the 09:30 re-start trigger must not log in again.
+        for outcome in ("closed", "ok"):
+            with self.subTest(outcome=outcome):
+                self.data.mkdir(parents=True, exist_ok=True)
+                (self.data / "books-status.json").write_text(
+                    json.dumps({"schema": 1, "date": DAY, "outcome": outcome}), encoding="utf-8")
+                client = FakeBooksClient(Clock(at(9, 30)), codes(8))
+                self.assertEqual(self.record(client, time(13, 36)), 0)
+                self.assertNotIn("login", client.calls)
+                self.assertEqual(self.status()["outcome"], outcome)
+
     def test_too_little_disk_space_does_not_start(self):
         self.free = 9 * GB
         client = FakeBooksClient(Clock(at(8, 40)), codes(8))

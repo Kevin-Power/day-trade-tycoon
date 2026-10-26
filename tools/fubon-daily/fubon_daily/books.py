@@ -54,6 +54,10 @@ DISK_CHECK_SECONDS = 60
 MESSAGE_LIMIT = 300
 BOOKS_CHANNEL = "books"
 RESTART_REASON = "程式重新啟動"
+# Held for the whole session (about 5 h); the fetcher's 2.5 h rule would hand a running recorder's lock to a
+# re-start trigger.
+BOOKS_LOCK = ".books.lock"
+BOOKS_LOCK_STALE_SECONDS = 7 * 3600
 
 
 def split_symbols(codes: list[str], connections: int = CONNECTIONS,
@@ -367,12 +371,17 @@ class Recorder:
         stop = self.at_today(self.stop_at)
         if self.started >= stop:
             return self.late()
+        earlier = self.store.read_books_status()
+        today = earlier if earlier and earlier.get("date") == self.day else None
+        if today and today.get("outcome") in ("closed", "ok"):
+            # A re-start trigger after a holiday was called (or after the day ended): no new login.
+            self.log("今天已經判定休市，這次略過" if today["outcome"] == "closed" else "今天已經錄完，這次略過")
+            return 0
         free = self.store.free_bytes()
         if free < MIN_FREE_START:
             return self.fail(f"磁碟空間不足（剩 {free / 2**30:.1f} GB，至少要 {MIN_FREE_START // 2**30} GB），今天不錄", 1)
-        earlier = self.store.read_books_status()
-        if earlier and earlier.get("date") == self.day and earlier.get("outcome") in ("running", "partial"):
-            self.carried = earlier  # a crash, then a re-start trigger: go on with the same day
+        if today and today.get("outcome") in ("running", "partial"):
+            self.carried = today  # a crash, then a re-start trigger: go on with the same day
         try:
             credentials = load_credentials(self.credentials)
         except CredentialsError as error:

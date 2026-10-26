@@ -4,11 +4,13 @@
     powershell -NoProfile -File tools\fubon-daily\install.ps1 -Sdk     # venv + official SDK 2.4.0 (download)
     powershell -NoProfile -File tools\fubon-daily\install.ps1 -App     # copy the committed fetcher
     powershell -NoProfile -File tools\fubon-daily\install.ps1 -Task    # weekday 16:45 / 18:00 / 19:00
+    powershell -NoProfile -File tools\fubon-daily\install.ps1 -BooksTask  # weekday 08:40 books recorder
 #>
 param(
   [switch]$Sdk,
   [switch]$App,
   [switch]$Task,
+  [switch]$BooksTask,
   [string]$Runtime = (Join-Path $env:USERPROFILE 'YilutekServices\DayTradeTycoon'),
   [string]$Credentials = (Join-Path $env:USERPROFILE '.fubon\credentials.local.py')
 )
@@ -61,6 +63,7 @@ if ($App) {
   New-Item -ItemType Directory -Path $staging | Out-Null
   Copy-Item -Path (Join-Path $PSScriptRoot 'fubon_daily') -Destination (Join-Path $staging 'fubon_daily') -Recurse
   Copy-Item -Path (Join-Path $PSScriptRoot 'fetch_daily.py') -Destination $staging
+  Copy-Item -Path (Join-Path $PSScriptRoot 'record_books.py') -Destination $staging
   Get-ChildItem -Path $staging -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force
   Set-Content -Encoding ASCII -Path (Join-Path $staging 'VERSION.txt') -Value $commit
   if (Test-Path $target) { Remove-Item -Recurse -Force $target }
@@ -84,4 +87,23 @@ if ($Task) {
   Get-ScheduledTask -TaskName 'DayTradeTycoonMarketData' | Select-Object TaskName, State
 }
 
-if (-not ($Sdk -or $App -or $Task)) { Write-Output 'Choose -Sdk, -App and/or -Task.' }
+if ($BooksTask) {
+  $pythonw = Join-Path $venv 'Scripts\pythonw.exe'
+  if (-not (Test-Path $pythonw)) { throw 'Run -Sdk first.' }
+  $entry = Join-Path $fetcher 'app\record_books.py'
+  if (-not (Test-Path $entry)) { throw 'Run -App first.' }
+  $workBooks = Join-Path $fetcher 'work-books'
+  New-Item -ItemType Directory -Force -Path $workBooks | Out-Null
+  $arguments = '-X utf8 "{0}" --data "{1}" --credentials "{2}"' -f $entry, (Join-Path $Runtime 'market-data'), $Credentials
+  $action = New-ScheduledTaskAction -Execute $pythonw -Argument $arguments -WorkingDirectory $workBooks
+  $days = @('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
+  # 08:40 starts the session; the later triggers restart a recorder that crashed (ignored while one is running).
+  $booksTriggers = @('08:40', '09:30', '10:30', '11:30', '12:30') | ForEach-Object { New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At $_ }
+  $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 6) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 5)
+  $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+  Register-ScheduledTask -TaskName 'DayTradeTycoonBooks' -Action $action -Trigger $booksTriggers -Settings $settings `
+    -Principal $principal -Description 'DayTradeTycoon: weekday Fubon real-time order books for TWSE common stocks, 08:44-13:36 (read-only market data)' -Force | Out-Null
+  Get-ScheduledTask -TaskName 'DayTradeTycoonBooks' | Select-Object TaskName, State
+}
+
+if (-not ($Sdk -or $App -or $Task -or $BooksTask)) { Write-Output 'Choose -Sdk, -App, -Task and/or -BooksTask.' }

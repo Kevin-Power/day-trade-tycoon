@@ -167,6 +167,28 @@ class StoreTest(unittest.TestCase):
         with MarketStore(self.root, pid_alive=lambda pid: True).lock(NOW):
             pass
 
+    def test_the_books_lock_is_not_stale_after_three_hours(self):
+        # The recorder holds its lock for the whole session (about 5 h): the fetcher's 2.5 h rule would let a
+        # re-start trigger take over a recorder that is still running.
+        self.root.mkdir(parents=True)
+        lock = self.root / ".books.lock"
+        lock.write_text(json.dumps({"pid": 1234, "startedAt": "x"}), encoding="utf-8")
+        old = time.time() - 3 * 3600
+        os.utime(lock, (old, old))
+        with self.assertRaises(Locked):
+            with MarketStore(self.root, pid_alive=lambda pid: True).lock(NOW, name=".books.lock",
+                                                                         stale_seconds=7 * 3600):
+                pass
+
+    def test_a_books_lock_of_a_dead_process_is_taken(self):
+        self.root.mkdir(parents=True)
+        (self.root / ".books.lock").write_text(json.dumps({"pid": 424242, "startedAt": "x"}), encoding="utf-8")
+        with MarketStore(self.root, pid_alive=lambda pid: False).lock(NOW, name=".books.lock",
+                                                                      stale_seconds=7 * 3600):
+            self.assertEqual(json.loads((self.root / ".books.lock").read_text(encoding="utf-8"))["pid"], os.getpid())
+            self.assertFalse((self.root / ".lock").exists())  # the fetcher's lock is a different file
+        self.assertFalse((self.root / ".books.lock").exists())
+
     def test_unreadable_young_lock_counts_as_held(self):
         self.root.mkdir(parents=True)
         (self.root / ".lock").write_text("", encoding="utf-8")
