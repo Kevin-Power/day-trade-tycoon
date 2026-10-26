@@ -533,7 +533,7 @@ class Recorder:
         except Exception as error:  # noqa: BLE001 - one failed attempt, retried with backoff
             self.abandon(client)
             return self.failed_attempt(link, self.runtime.monotonic(), f"訂閱失敗：{type(error).__name__}")
-        stream.mark("connected", generation=generation, symbols=len(stream.codes))
+        stream.mark("connected", generation=generation, symbols=len(stream.codes), codes=stream.codes)
         link.state = "subscribing"
         link.subscribing_since = self.runtime.monotonic()
 
@@ -562,8 +562,9 @@ class Recorder:
 
     def went_down(self, link: Link, mono: float, reason: str) -> None:
         stream = link.stream
-        stream.gaps.append({"from": self.iso(self.wall_at(stream.last_seen)), "to": None, "reason": reason})
-        stream.mark("down", reason=reason)
+        since = self.wall_at(stream.last_seen)
+        stream.gaps.append({"from": self.iso(since), "to": None, "reason": reason})
+        stream.mark("down", reason=reason, since=int(since.timestamp() * 1000))
         link.state = "down"
         link.down_since = mono
         link.noticed = False

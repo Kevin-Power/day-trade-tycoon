@@ -293,7 +293,13 @@ class RecorderTest(unittest.TestCase):
         self.assertEqual(gap["from"], at(9, 59, 50).isoformat(timespec="seconds"))
         self.assertIsNotNone(gap["to"])
         self.assertEqual(self.status()["outcome"], "partial")
-        self.assertIn("down", [line.get("ev") for line in self.raw_lines()])
+        # The raw files alone say where the gap began and which stocks each connection held (stage 2 reads them).
+        lines = self.raw_lines()
+        down = [line for line in lines if line.get("ev") == "down"]
+        self.assertEqual([line["since"] for line in down], [int(at(9, 59, 50).timestamp() * 1000)])
+        connected = [line["codes"] for line in lines if line.get("ev") == "connected"]
+        self.assertIn(client.streams[1].subscribes[0]["symbols"], connected)
+        self.assertEqual(connected.count(client.streams[1].subscribes[0]["symbols"]), 2)
 
     def test_silence_is_a_drop(self):
         clock = Clock(at(9, 0))
