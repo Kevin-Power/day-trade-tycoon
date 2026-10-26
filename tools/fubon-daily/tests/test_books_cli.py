@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import os
 import tempfile
@@ -47,12 +49,16 @@ class BooksCliTest(unittest.TestCase):
             raw.books(book("2330", at(9, 0, 2)))
             raw.control("stop", at(13, 36))
             raw.close()
-            code = main(["--data", str(data), "--credentials", str(Path(folder) / "missing.py"),
-                         "--publish", "2026-10-28"])
+            with contextlib.redirect_stdout(io.StringIO()) as printed:
+                code = main(["--data", str(data), "--credentials", str(Path(folder) / "missing.py"),
+                             "--publish", "2026-10-28"])
             self.assertEqual(code, 0)
+            self.assertIn("2026-10-28 上架：1 檔", printed.getvalue())
             manifest = json.loads((data / "books" / "2026-10-28" / "manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["counts"], {"symbols": 1, "messages": 1})
-            self.assertEqual(main(["--data", str(data), "--credentials", "x", "--publish", "2026-10-28"]), 1)
+            with contextlib.redirect_stdout(io.StringIO()) as printed:
+                self.assertEqual(main(["--data", str(data), "--credentials", "x", "--publish", "2026-10-28"]), 1)
+            self.assertIn("上架失敗", printed.getvalue())
 
     def test_a_second_recorder_exits_at_once(self):
         with tempfile.TemporaryDirectory() as folder:
