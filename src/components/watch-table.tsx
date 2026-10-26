@@ -8,10 +8,10 @@ import { bestQuotes, quoteSummary } from "@/lib/morning-quote";
 import { formatPrice } from "@/lib/market/ticks";
 import {
   JIANGBO_BAND,
-  deviceDashPattern,
   hairlineDevicePixels,
   snapStroke,
   sparklineLayout,
+  sparkStrokePx,
 } from "@/lib/market/chart-data";
 import { TickPrice } from "@/components/tick-price";
 import { useDeviceCanvas } from "@/components/use-device-canvas";
@@ -281,6 +281,7 @@ function paintMiniJiangbo(
   const sx = transform.a > 0 ? transform.a : 1;
   const sy = transform.d > 0 ? transform.d : 1;
   const hairline = hairlineDevicePixels(Math.min(sx, sy));
+  const strokePx = sparkStrokePx(Math.min(sx, sy));
   const layout = sparklineLayout({
     bars,
     previous,
@@ -289,10 +290,23 @@ function paintMiniJiangbo(
     width,
     height,
     band: JIANGBO_BAND,
-    pad: { x: 2, y: 2 },
+    // ±10% is fixed, so every pixel of height counts: 1px above and below, the line on whole device pixels.
+    pad: { x: 2, y: 1 },
+    device: { scale: sy, strokePx },
   });
   const base = layout.previousY;
   if (Number.isFinite(base)) {
+    // The previous close: a faint solid hairline under everything. Dashes broke up the price line hugging it.
+    ctx.save();
+    ctx.strokeStyle = tape;
+    ctx.globalAlpha = 0.5;
+    ctx.lineWidth = hairline / sy;
+    const y = snapStroke(base, sy, hairline);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+    ctx.restore();
     // Shade between each run and the previous close, as the big 江波 view does.
     ctx.save();
     ctx.globalAlpha = 0.18;
@@ -307,20 +321,9 @@ function paintMiniJiangbo(
       ctx.fill();
     }
     ctx.restore();
-    // The previous close: a dash on whole device pixels across the row.
-    ctx.save();
-    ctx.strokeStyle = tape;
-    ctx.lineWidth = hairline / sy;
-    ctx.setLineDash(deviceDashPattern([2, 3], sx));
-    const y = snapStroke(base, sy, hairline);
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-    ctx.restore();
   }
   ctx.save();
-  ctx.lineWidth = 1.25;
+  ctx.lineWidth = strokePx / sy;
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
   for (const run of layout.runs) {

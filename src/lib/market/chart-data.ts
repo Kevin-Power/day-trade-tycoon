@@ -136,6 +136,14 @@ export function canvasResolution(
 
 const usableScale = (scale: number) => Number.isFinite(scale) && scale > 0;
 
+/**
+ * Device pixels in the 江波圖 mini's price line: about 1.25 CSS px, never a blurred fraction of a pixel, and at
+ * least 2 so a sloping stretch still covers a whole pixel in every column (a 1px slope is all half-tones).
+ */
+export function sparkStrokePx(scale: number): number {
+  return usableScale(scale) ? Math.max(2, Math.round(1.25 * scale)) : 2;
+}
+
 /** Device pixels in a line that is about one CSS pixel thick, never thinner than one. */
 export function hairlineDevicePixels(scale: number): number {
   return usableScale(scale) ? Math.max(1, Math.round(scale)) : 1;
@@ -453,6 +461,11 @@ export function sparklineLayout(input: {
   intervalSeconds?: number;
   band?: number;
   pad?: { x: number; y: number };
+  /**
+   * The canvas's device pixels per CSS pixel (vertically) and the price line's width in device pixels: each
+   * point then sits where that stroke covers whole device pixels, so flat stretches are crisp, not blurred.
+   */
+  device?: { scale: number; strokePx: number };
 }): {
   previousY: number;
   runs: { above: boolean; points: SparkPoint[] }[];
@@ -473,18 +486,20 @@ export function sparklineLayout(input: {
   const plotHeight = Math.max(1, input.height - padY * 2);
   const plotWidth = Math.max(1, input.width - padX * 2);
   const yOf = (price: number) => padY + ((range.max - price) / span) * plotHeight;
+  const lineY = (price: number) =>
+    input.device ? snapStroke(yOf(price), input.device.scale, input.device.strokePx) : yOf(price);
   const timeSpan = Math.max(interval, input.endT - input.startT);
   const xOf = (time: number) => padX + ((time - input.startT) / timeSpan) * plotWidth;
   const points = bars.map((bar) => ({ t: bar.t + interval, p: bar.c }));
   const runs = splitPriceLine(points, input.previous, interval).map((run) => ({
     above: run.above,
-    points: run.points.map((point) => ({ x: xOf(point.t), y: yOf(point.p) })),
+    points: run.points.map((point) => ({ x: xOf(point.t), y: lineY(point.p) })),
   }));
   const tail = points.at(-1);
   return {
     previousY: positive(input.previous) ? yOf(input.previous) : Number.NaN,
     runs,
-    last: tail ? { x: xOf(tail.t), y: yOf(tail.p), above: tail.p >= input.previous } : null,
+    last: tail ? { x: xOf(tail.t), y: lineY(tail.p), above: tail.p >= input.previous } : null,
   };
 }
 

@@ -30,8 +30,17 @@ async function dashRowSoft(page, png, palette, lines, x0f, x1f) {
       const data = ctx.getImageData(0, 0, image.width, image.height).data;
       const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
       const at = (x, y) => data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 3);
-      const colours = palette.map((hex) => (hex ? rgb(hex) : [...at(image.width - 1, 0)]));
-      const lineColours = lines.map(rgb);
+      const corner = [...at(image.width - 1, 0)];
+      // A colour is a hex, null for the canvas's own background (its corner), or { over, alpha }: that colour
+      // drawn at alpha over the background.
+      const colour = (entry) =>
+        entry === null
+          ? corner
+          : typeof entry === "string"
+            ? rgb(entry)
+            : rgb(entry.over).map((value, i) => Math.round(value * entry.alpha + corner[i] * (1 - entry.alpha)));
+      const colours = palette.map(colour);
+      const lineColours = lines.map(colour);
       const distance = (p, c) => Math.max(Math.abs(c[0] - p[0]), Math.abs(c[1] - p[1]), Math.abs(c[2] - p[2]));
       const x0 = Math.round(image.width * x0f);
       const x1 = Math.round(image.width * x1f);
@@ -119,8 +128,10 @@ for (const ratio of [1, 1.25, 1.5, 2]) {
   if (await spark.count()) {
     const sparkPng = await spark.screenshot();
     writeFileSync(`${out}spark-dpr${ratio}.png`, sparkPng);
-    // The right part of the sparkline is the not-yet-replayed session: only the previous-close dash.
-    sparkDash = await dashRowSoft(page, sparkPng, [null, palette[4], palette[2], palette[3]], [palette[4]], 0.55, 0.98);
+    // The right part of the sparkline is the not-yet-replayed session: only the previous close, a hairline of the
+    // tape colour at half strength (2026-10-26), which must sit on one whole row of device pixels.
+    const hairline = { over: palette[4], alpha: 0.5 };
+    sparkDash = await dashRowSoft(page, sparkPng, [null, hairline, palette[2], palette[3]], [hairline], 0.55, 0.98);
   }
   // 大盤 pane: past the revealed minutes only the previous-close dash crosses the plot (hour grid lines may cross it).
   const indexChart = page.locator(".td-index-chart");

@@ -32,6 +32,7 @@ import {
   snapEdge,
   snapStroke,
   sparklineLayout,
+  sparkStrokePx,
   splitPriceLine,
   terminalReadout,
   timeAxisTicks,
@@ -823,6 +824,35 @@ test("wrapReadout keeps the EMA legend together on the next line", () => {
     ["EMA11 256.38"],
     ["EMA24 257.09"],
   ]);
+});
+
+test("sparkStrokePx: the mini's price line is about 1.25 CSS px, in whole device pixels, at least 2", () => {
+  assert.equal(sparkStrokePx(1), 2);
+  assert.equal(sparkStrokePx(1.25), 2);
+  assert.equal(sparkStrokePx(1.5), 2);
+  assert.equal(sparkStrokePx(2), 3);
+  assert.equal(sparkStrokePx(Number.NaN), 2);
+});
+
+test("sparklineLayout with a device grid puts every point where its stroke covers whole device pixels", () => {
+  const closes = [101.3, 102.7, 100.4, 99.1, 103.9];
+  const layout = (scale: number, strokePx: number) =>
+    sparklineLayout({
+      bars: closes.map((c, index) => bar(index * 60, c)),
+      previous: 100,
+      startT: 0,
+      endT: 5400,
+      width: 120,
+      height: 26,
+      band: 0.1,
+      pad: { x: 2, y: 1 },
+      device: { scale, strokePx },
+    });
+  const fraction = (value: number) => Math.round((value - Math.floor(value)) * 1000) / 1000;
+  // An even stroke is centred on a device-pixel edge, an odd one on a device-pixel centre.
+  for (const run of layout(1.25, 2).runs) for (const point of run.points) assert.equal(fraction(point.y * 1.25), 0);
+  for (const run of layout(1, 3).runs) for (const point of run.points) assert.equal(fraction(point.y), 0.5);
+  assert.equal(fraction(layout(1.25, 2).last!.y * 1.25), 0);
 });
 
 test("sparklineLayout with a band uses the fixed ±band scale and its padding", () => {

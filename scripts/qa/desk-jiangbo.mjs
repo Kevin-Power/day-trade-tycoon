@@ -14,7 +14,7 @@ const out = fileURLToPath(new URL(`../../artifacts/trading-desk-qa/${label}/`, i
 mkdirSync(out, { recursive: true });
 const DPR = 2;
 const BAND = 0.1;
-const MINI_HALF = 10; // the 24px mini, 2px padding: ±10% spans 10 CSS px each way from the previous close
+const MINI_PAD = 1; // the 江波圖 mini's padding above and below: ±10% spans (height - 2) / 2 CSS px each way
 const results = {};
 const failures = [];
 async function check(name, run) {
@@ -270,7 +270,8 @@ await check("6-mini-scale", async () => {
     const previous = index ? state.index?.previousClose : data.catalog.symbols.find((s) => s.code === code)?.previousClose;
     const bars = (index ? state.index?.bars : state.bars?.[code]) ?? [];
     const dev = Math.max(0, ...bars.flatMap((bar) => [Math.abs(bar.h / previous - 1), Math.abs(bar.l / previous - 1)]));
-    const allowed = 3 + (MINI_HALF * dev) / BAND;
+    const half = ((await canvas.boundingBox())?.height ?? 24) / 2 - MINI_PAD;
+    const allowed = 3 + (half * dev) / BAND;
     const png = await canvas.screenshot();
     writeFileSync(`${out}mini-${code}.png`, png);
     const reach = await desktop.evaluate(
@@ -305,6 +306,102 @@ await check("6-mini-scale", async () => {
     report[code] = { ...reach, allowed: Number(allowed.toFixed(2)) };
     if (!reach.seen) problems.push(`${code}: no line drawn`);
     else if (reach.far > allowed) problems.push(`${code}: reaches ${reach.far}px from the centre, ±10% allows ${allowed.toFixed(2)}px`);
+  }
+  if (problems.length) throw new Error(problems.join("; "));
+  return report;
+});
+
+await check("6b-mini-sharp", async () => {
+  // The 自選 江波圖 at 100% and at 125% (the usual laptop scalings): as tall as the row allows, a price line on whole
+  // device pixels where it runs flat (each such column has a pixel in the line's own colour, not only blurred ones;
+  // a steep step is always partly blended), and a continuous 昨 line instead of dashes that break up the price line.
+  const problems = [];
+  const report = {};
+  for (const [width, height, dpr, minHeight] of [
+    [1440, 900, 1, 26],
+    [1536, 730, 1.25, 22],
+  ]) {
+    const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: dpr });
+    const page = await context.newPage();
+    const name = `${width}x${height}@${dpr}`;
+    page.on("pageerror", (error) => pageErrors.push(`${name}: ${error.message}`));
+    try {
+      await page.goto(`${base}/morning`, { waitUntil: "domcontentloaded" });
+      await chart(page).waitFor({ timeout: 20000 });
+      await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 3000 }).catch(() => {});
+      await rest(page);
+      const rows = {};
+      for (const row of await page.locator(".td-watch-row").all()) {
+        const code = await row.getAttribute("data-code");
+        const canvas = row.locator("canvas.td-mini");
+        if (!(await canvas.count())) continue;
+        const box = await canvas.boundingBox();
+        const png = await canvas.screenshot();
+        writeFileSync(`${out}mini-${name}-${code}.png`, png);
+        const quality = await page.evaluate(
+          async ({ b64, up, down }) => {
+            const image = new Image();
+            image.src = "data:image/png;base64," + b64;
+            await image.decode();
+            const surface = document.createElement("canvas");
+            surface.width = image.width;
+            surface.height = image.height;
+            const ctx = surface.getContext("2d", { willReadFrequently: true });
+            ctx.drawImage(image, 0, 0);
+            const { data } = ctx.getImageData(0, 0, image.width, image.height);
+            const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+            const at = (x, y) => (y * image.width + x) * 4;
+            const distance = (i, c) => Math.max(Math.abs(c[0] - data[i]), Math.abs(c[1] - data[i + 1]), Math.abs(c[2] - data[i + 2]));
+            const colours = [rgb(up), rgb(down)];
+            // The row's own background shows through the empty top-right corner of the canvas.
+            const corner = at(image.width - 1, 0);
+            const ground = [data[corner], data[corner + 1], data[corner + 2]];
+            let columns = 0;
+            let crisp = 0;
+            for (let x = 0; x < image.width; x++) {
+              let best = 255;
+              let top = Infinity;
+              let bottom = -Infinity;
+              for (let y = 0; y < image.height; y++)
+                for (const c of colours) {
+                  const d = distance(at(x, y), c);
+                  best = Math.min(best, d);
+                  if (d <= 60) [top, bottom] = [Math.min(top, y), Math.max(bottom, y)];
+                }
+              // A flat column: the line spans at most 4 device pixels there.
+              if (best <= 60 && bottom - top + 1 <= 4) {
+                columns++;
+                // Within 20 of the colour: the pixel is at least ~92% covered (the old blurred line reached 6–26%).
+                if (best <= 20) crisp++;
+              }
+            }
+            // 昨: the most lit row around the middle, over the right 40% where no price line is drawn yet.
+            let prevRow = 0;
+            const middle = Math.round(image.height / 2);
+            for (let y = Math.max(0, middle - 3); y <= Math.min(image.height - 1, middle + 3); y++) {
+              let lit = 0;
+              let all = 0;
+              for (let x = Math.round(image.width * 0.6); x < image.width; x++) {
+                all++;
+                if (distance(at(x, y), ground) >= 25) lit++;
+              }
+              prevRow = Math.max(prevRow, lit / all);
+            }
+            return { columns, crisp: columns ? Number((crisp / columns).toFixed(3)) : 0, prevRow: Number(prevRow.toFixed(3)) };
+          },
+          { b64: png.toString("base64"), up: colours.up, down: colours.down },
+        );
+        rows[code] = { height: Number(box.height.toFixed(1)), ...quality };
+        if (box.height < minHeight - 0.5) problems.push(`${name} ${code}: the mini is ${box.height.toFixed(1)}px, the row allows ${minHeight}px`);
+        if (quality.columns < 5) problems.push(`${name} ${code}: no flat stretch of price line found`);
+        else if (quality.crisp < 0.9)
+          problems.push(`${name} ${code}: only ${Math.round(quality.crisp * 100)}% of the line's flat columns reach its own colour (blurred)`);
+        if (quality.prevRow < 0.9) problems.push(`${name} ${code}: the 昨 line covers ${Math.round(quality.prevRow * 100)}% of its row (dashed)`);
+      }
+      report[name] = rows;
+    } finally {
+      await context.close();
+    }
   }
   if (problems.length) throw new Error(problems.join("; "));
   return report;
@@ -611,11 +708,14 @@ await check("8-phone", async () => {
   await tabs.getByRole("button", { name: /自選/ }).first().click({ timeout: 4000 });
   await phone.waitForTimeout(400);
   const header = (await phone.locator(".td-watch-cols span").last().textContent())?.trim();
+  const mini = await phone.locator("canvas.td-mini").first().boundingBox();
   await phone.screenshot({ path: `${out}phone-watch.png` });
   const problems = [];
   if (mode !== "江波") problems.push(`行情 opens on 「${mode}」`);
   if (header !== "江波") problems.push(`自選's last column is 「${header}」`);
   if (!bar || bar.height > 70) problems.push(`the chart bar takes ${bar?.height}px (wraps onto a second row)`);
+  // Phone rows are 52px tall: the 江波圖 mini uses 40px of them.
+  if (!mini || mini.height < 39.5) problems.push(`自選's 江波圖 is ${mini?.height}px tall, the row allows 40px`);
   if (problems.length) throw new Error(problems.join("; "));
 });
 

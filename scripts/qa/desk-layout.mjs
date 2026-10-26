@@ -237,8 +237,8 @@ for (const row of rows) {
     failures.push(`${row.name}: chart ${row.chartHeight}px, needs ${minChart}px`);
   if (minChart && !(row.chartWidth >= 1.2 * row.chartHeight))
     failures.push(`${row.name}: chart ${row.chartWidth}x${row.chartHeight} is not 1.2 times wider than tall`);
-  // Short desktops (760px or less) trade 6px of each 江波圖 mini for the chart.
-  const miniHeight = row.width >= 1200 && row.height <= 760 ? 18 : 24;
+  // The 江波圖 mini takes the row's height less 2px: desktops 26px (24px up to 860px tall, 22px up to 760px), tablets 36px.
+  const miniHeight = row.width >= 1200 ? (row.height <= 760 ? 22 : row.height <= 860 ? 24 : 26) : 36;
   if (!row.senior && row.width >= 768 && !(row.miniSize && row.miniSize[0] >= 100 && row.miniSize[1] >= miniHeight))
     failures.push(`${row.name}: 江波圖 ${JSON.stringify(row.miniSize)}, needs 100x${miniHeight}`);
   if (row.indexView && (row.indexView.offscreen.length || row.indexView.overflowX > 0 || row.indexView.small.length))
