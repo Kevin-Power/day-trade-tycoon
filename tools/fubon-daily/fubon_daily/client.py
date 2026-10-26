@@ -120,6 +120,7 @@ class FubonClient:
         self._rest_modules = rest_modules
         self._sdk = None
         self._rest = None
+        self._streams = 0
 
     def login(self) -> str:
         """Logs in and sets up market data. Returns a line for the log: whether market-data calls have a timeout."""
@@ -162,6 +163,20 @@ class FubonClient:
         """One page of today's trades, oldest first. Fubon keeps only the current day: there is no date."""
         return _call(lambda: self._rest.intraday.trades(symbol=symbol, offset=offset, limit=limit, sort="asc"))
 
+    def stock_stream(self) -> object:
+        """A WebSocket stock client on a connection of its own. The first is the one login set up; each later one
+        runs init_realtime again for a new token, which the 2026-10-26 probe showed leaves the earlier connections
+        working. REST then goes on with the newest token."""
+        if self._streams:
+            _call(self._sdk.init_realtime)
+            self._rest = self._sdk.marketdata.rest_client.stock
+        self._streams += 1
+        return self._sdk.marketdata.websocket_client.stock
+
+    def quote(self, symbol: str) -> dict:
+        """The current 五檔 and last trade of one stock (intraday/quote): refills a book after a reconnect."""
+        return _call(lambda: self._rest.intraday.quote(symbol=symbol))
+
     def logout(self) -> None:
         if self._sdk is None:
             return
@@ -171,3 +186,4 @@ class FubonClient:
             pass
         self._sdk = None
         self._rest = None
+        self._streams = 0

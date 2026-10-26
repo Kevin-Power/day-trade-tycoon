@@ -74,24 +74,35 @@ def fake_modules():
 
 
 class FakeSdk:
-    def __init__(self, ok=True, failure=None, message="bad key", rest_module=None):
+    def __init__(self, ok=True, failure=None, message="bad key", rest_module=None, realtime_failure=None):
         self.ok = ok
         self.message = message
         self.failure = failure
         self.rest_module = rest_module  # when given, requests are sent through it as the SDK does
+        self.realtime_failure = realtime_failure  # raised by every init_realtime after the first
         self.login_args = None
         self.realtime = False
+        self.realtime_calls = 0
         self.requests = []
-        rest = SimpleNamespace(
-            snapshot=SimpleNamespace(quotes=lambda **kw: self.answer("quotes", kw)),
-            intraday=SimpleNamespace(tickers=lambda **kw: self.answer("tickers", kw),
-                                     trades=lambda **kw: self.answer("trades", kw)),
-            historical=SimpleNamespace(candles=lambda **kw: self.answer("candles", kw)),
-        )
-        self.marketdata = SimpleNamespace(rest_client=SimpleNamespace(stock=rest))
+        self.rest_generations = []  # which init_realtime's REST client sent each request (0 = before any)
+        self.marketdata = self.market_data(0)
 
-    def answer(self, name, kwargs):
+    def market_data(self, generation):
+        """What init_realtime sets up: a REST client and a WebSocket stock client of its own."""
+        def ask(name):
+            return lambda **kw: self.answer(name, kw, generation)
+
+        rest = SimpleNamespace(
+            snapshot=SimpleNamespace(quotes=ask("quotes")),
+            intraday=SimpleNamespace(tickers=ask("tickers"), trades=ask("trades"), quote=ask("quote")),
+            historical=SimpleNamespace(candles=ask("candles")),
+        )
+        return SimpleNamespace(rest_client=SimpleNamespace(stock=rest),
+                               websocket_client=SimpleNamespace(stock=SimpleNamespace(generation=generation)))
+
+    def answer(self, name, kwargs, generation=0):
         self.requests.append((name, kwargs))
+        self.rest_generations.append(generation)
         if self.failure:
             raise self.failure
         if self.rest_module:
@@ -103,7 +114,11 @@ class FakeSdk:
         return SimpleNamespace(is_success=self.ok, message=self.message, data=["ACCOUNT-OBJECT"])
 
     def init_realtime(self):
+        self.realtime_calls += 1
+        if self.realtime_calls > 1 and self.realtime_failure:
+            raise self.realtime_failure
         self.realtime = True
+        self.marketdata = self.market_data(self.realtime_calls)
 
     def logout(self):
         raise RuntimeError("already logged out")
@@ -159,6 +174,28 @@ class ClientTest(unittest.TestCase):
                 client.minute_candles("2330", "2026-10-15")
             self.assertEqual(type(caught.exception), expected)
             self.assertEqual(caught.exception.status, status)
+
+    def test_each_stream_after_the_first_gets_its_own_connection(self):
+        # 2026-10-26 probe: one login holds several connections, one init_realtime (a new token) each.
+        sdk = FakeSdk()
+        client = FubonClient(CREDENTIALS, sdk_factory=lambda: sdk, rest_modules=fake_modules)
+        client.login()
+        streams = [client.stock_stream() for _ in range(4)]
+        self.assertEqual(len({id(stream) for stream in streams}), 4)
+        self.assertEqual([stream.generation for stream in streams], [1, 2, 3, 4])  # the first is login's own
+        self.assertEqual(sdk.realtime_calls, 4)
+        client.quote("2330")
+        self.assertEqual(sdk.requests[-1], ("quote", {"symbol": "2330"}))
+        self.assertEqual(sdk.rest_generations[-1], 4)  # REST goes on with the newest token
+
+    def test_a_failed_extra_connection_raises_api_error(self):
+        sdk = FakeSdk(realtime_failure=SdkError("busy", 503))
+        client = FubonClient(CREDENTIALS, sdk_factory=lambda: sdk, rest_modules=fake_modules)
+        client.login()
+        client.stock_stream()  # login's own connection needs no new init_realtime
+        with self.assertRaises(ApiError) as caught:
+            client.stock_stream()
+        self.assertEqual(caught.exception.status, 503)
 
     def test_logout_swallows_sdk_errors_and_is_idempotent(self):
         client = FubonClient(CREDENTIALS, sdk_factory=FakeSdk, rest_modules=fake_modules)
