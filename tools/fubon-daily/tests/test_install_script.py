@@ -30,10 +30,14 @@ class InstallScriptTest(unittest.TestCase):
         # late still counts as the last attempt, since that goes by its own start time.
         self.assertEqual(re.findall(r"-MultipleInstances (\w+)", block("Task")), ["Queue"])
 
-    def test_the_books_task_starts_at_0840_with_restart_triggers(self):
-        # The later triggers restart a recorder that crashed; Windows ignores them while one is running.
-        self.assertEqual(re.findall(r"\$booksTriggers = @\(([^)]*)\)", block("BooksTask")),
-                         ["'08:40', '09:30', '10:30', '11:30', '12:30'"])
+    def test_the_books_task_starts_at_0840_and_again_every_10_minutes_until_1320(self):
+        # The later triggers restart a recorder that crashed within 10 minutes; Windows ignores them while one is
+        # running, and a finished day exits at once. Whether a non-zero exit restarts a task is not reliable.
+        text = block("BooksTask")
+        self.assertIn("$booksTimes = 0..28 | ForEach-Object { ([datetime]'08:40').AddMinutes(10 * $_).ToString('HH:mm') }",
+                      text)
+        self.assertIn("$booksTriggers = $booksTimes | ForEach-Object { New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At $_ }",
+                      text)
 
     def test_the_books_task_ignores_a_second_start_and_restarts_on_failure(self):
         text = block("BooksTask")

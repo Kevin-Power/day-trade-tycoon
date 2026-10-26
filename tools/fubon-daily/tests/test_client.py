@@ -10,7 +10,8 @@ from types import SimpleNamespace
 from unittest import mock
 
 from fubon_daily import client as client_module
-from fubon_daily.client import ApiError, FubonClient, LoginError, NotFound, RateLimited, SdkUnavailable
+from fubon_daily.client import (ApiError, FubonClient, LoginError, LoginRefused, NotFound, RateLimited,
+                                SdkUnavailable)
 from fubon_daily.credentials import Credentials
 
 try:  # the SDK's own modules: there in the task's Python (fetcher\.venv), not in a bare Python
@@ -124,7 +125,64 @@ class FakeSdk:
         raise RuntimeError("already logged out")
 
 
+class SpinningStock:
+    """fugle_marketdata 2.7.0rc1's WebSocketClient as far as connect() and disconnect() go. connect() waits with no
+    pause for AUTHENTICATED (2) or UNAUTHENTICATED (3); a socket that fails before on_open sets neither, and
+    disconnect() puts PENDING (0) back."""
+
+    def __init__(self):
+        self.auth_status = 0
+        self.error = None
+
+    def connect(self):
+        while True:
+            if self.auth_status in (2, 3):
+                break
+        if self.error is not None:
+            raise self.error
+
+    def disconnect(self):
+        self.auth_status = 0
+        self.error = None
+
+
+class StockWrapper:
+    """fubon_neo's WebSocketStockClientWrapper: reads go on to the client, writes stay on the wrapper."""
+
+    def __init__(self, client):
+        self._client = client
+
+    def __getattr__(self, name):
+        return getattr(self._client, name)
+
+
 class ClientTest(unittest.TestCase):
+    def test_release_ends_a_connect_stuck_before_on_open(self):
+        stock = SpinningStock()
+        stream = StockWrapper(stock)
+        worker = threading.Thread(target=stream.connect, daemon=True)
+        worker.start()
+        worker.join(0.2)
+        self.assertTrue(worker.is_alive())  # spinning on a core
+        try:
+            FubonClient(CREDENTIALS, sdk_factory=FakeSdk, rest_modules=fake_modules).release(stream)
+            worker.join(2)
+            self.assertFalse(worker.is_alive())
+        finally:
+            stock.auth_status = 3  # never leave a spinning thread behind
+
+    def test_release_only_disconnects_an_sdk_release_not_checked(self):
+        stock = SpinningStock()
+        stock.auth_status = 2
+        modules = lambda: (*fake_modules()[:2], "2.8.0")
+        FubonClient(CREDENTIALS, sdk_factory=FakeSdk, rest_modules=modules).release(StockWrapper(stock))
+        self.assertEqual(stock.auth_status, 0)
+
+    def test_a_refused_login_says_so(self):
+        client = FubonClient(CREDENTIALS, sdk_factory=lambda: FakeSdk(ok=False))
+        with self.assertRaises(LoginRefused):
+            client.login()
+
     def test_login_passes_credentials_in_order_and_keeps_no_account_data(self):
         sdk = FakeSdk()
         client = FubonClient(CREDENTIALS, sdk_factory=lambda: sdk, rest_modules=fake_modules)

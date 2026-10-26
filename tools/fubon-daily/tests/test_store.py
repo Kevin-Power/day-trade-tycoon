@@ -95,7 +95,8 @@ class StoreTest(unittest.TestCase):
         self.alive[os.getpid()] = True
         with self.store.lock(NOW):
             with self.assertRaises(Locked):
-                with MarketStore(self.root, pid_alive=lambda pid: True).lock(NOW):
+                # NOW is a test date: this process really started later, which would read as a reused PID.
+                with MarketStore(self.root, pid_alive=lambda pid: True, process_started=lambda pid: None).lock(NOW):
                     pass
         self.assertFalse((self.root / ".lock").exists())
 
@@ -188,6 +189,35 @@ class StoreTest(unittest.TestCase):
             self.assertEqual(json.loads((self.root / ".books.lock").read_text(encoding="utf-8"))["pid"], os.getpid())
             self.assertFalse((self.root / ".lock").exists())  # the fetcher's lock is a different file
         self.assertFalse((self.root / ".books.lock").exists())
+
+    def lock_from(self, started_at):
+        self.root.mkdir(parents=True, exist_ok=True)
+        (self.root / ".books.lock").write_text(json.dumps({"pid": 1234, "startedAt": started_at}), encoding="utf-8")
+
+    def test_a_lock_whose_pid_now_belongs_to_a_newer_process_is_taken(self):
+        # After a crash Windows can hand the dead recorder's PID to another process.
+        self.lock_from("2026-10-15T09:00:00+08:00")
+        newer = datetime(2026, 10, 15, 9, 30, tzinfo=TAIPEI).timestamp()
+        store = MarketStore(self.root, pid_alive=lambda pid: True, process_started=lambda pid: newer)
+        with store.lock(NOW, name=".books.lock", stale_seconds=7 * 3600):
+            pass
+
+    def test_a_lock_whose_process_started_before_it_is_held(self):
+        self.lock_from("2026-10-15T09:00:00+08:00")
+        older = datetime(2026, 10, 15, 8, 59, 59, tzinfo=TAIPEI).timestamp()
+        for started in (older, None):  # None: the start time could not be read
+            with self.subTest(started=started), self.assertRaises(Locked):
+                store = MarketStore(self.root, pid_alive=lambda pid: True, process_started=lambda pid: started)
+                with store.lock(NOW, name=".books.lock", stale_seconds=7 * 3600):
+                    pass
+
+    @unittest.skipUnless(os.name == "nt", "Windows only")
+    def test_a_process_start_time_is_read_on_windows(self):
+        started = store_module.process_started(os.getpid())
+        self.assertIsNotNone(started)
+        self.assertLess(started, time.time())
+        self.assertGreater(started, time.time() - 86400)
+        self.assertIsNone(store_module.process_started(0))
 
     def test_unreadable_young_lock_counts_as_held(self):
         self.root.mkdir(parents=True)

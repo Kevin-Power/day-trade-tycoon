@@ -84,9 +84,10 @@
 富邦的五檔只能在盤中用 WebSocket 即時收，錯過的時段補不回來。所以每個交易日另有一支程式 `record_books.py`，把全部上市普通股的真實五檔，照收到的樣子錄下來。設計見 `docs/superpowers/specs/2026-10-26-fubon-books-recorder-design.md`。
 
 - **排程**：`DayTradeTycoonBooks`，週一到週五。
-  - 08:40 啟動，08:44 登入，錄到 13:36。
-  - 09:30、10:30、11:30、12:30 另有觸發，用來把當掉的程式叫起來；程式還在跑時，Windows 會忽略這些觸發。
+  - 08:40 啟動，08:44 登入，錄到 13:36，接著整理上架（見下面「上架」）。
+  - 之後每 10 分鐘有一次觸發，到 13:20，用來把當掉的程式在 10 分鐘內叫起來。程式還在跑時，Windows 會忽略這些觸發；當天已錄完、休市或不再登入時，程式一啟動就結束。
   - 最長 6 小時。只在使用者登入時執行，和每日抓取一樣。
+- **登入**：60 秒沒有回應或中途出錯，等 30 秒、90 秒再試；一天最多失敗 3 次。富邦回答「不行」（金鑰、憑證或帳號）就當天不再登入，以免帳號被鎖。之後的觸發看到「今天不再試」就直接結束。同一種失敗一天只通知一次。
 - **連線**：
   - 一次登入，開 4 條 WebSocket 連線（每條呼叫一次 `init_realtime`），每條最多 280 檔，只訂 `books`。
   - 加上正式站的唯讀行情最多 1 條，總共 5 條，低於富邦的上限 7 條。
@@ -94,14 +95,19 @@
 - **存檔**（盤中只存原樣，不轉換）：`market-data\staging-books\<日期>\raw\conn<k>-<HH>-<part>.jsonl.gz`。
   - 每條連線每小時一個檔，每行是收到時間加上富邦的原始資料：`{"r": 毫秒, "d": …}`。
   - 另有控制行 `{"r", "ev": connected | subscribed | down | stop | refill}`。斷線後補的快照標成 `"src": "rest"`。
+    - `connected` 列出這條連線的股票，在訂閱之前寫，所以它之後的五檔一定是這次連線收到的；`down` 記缺漏從哪一刻開始。
+    - 晚啟動（08:46 以後才第一次啟動）或某條連線一開始就連不上時，也寫一行 `down`，從 08:44 起算。
   - 每 5 秒 flush 一次：當機最多少掉 5 秒，已 flush 的都讀得回來。
   - 程式重新啟動時開新檔（`-2`、`-3`…），不會接在被截斷的檔案後面。
 - **斷線**：
   - 70 秒沒有任何訊息（心跳也算）就當作斷線。
   - 重連間隔 10、20、40、60、120 秒，再加 0–10 秒隨機；4 條同時斷線時彼此錯開 15 秒。
   - 連續失敗 8 次後改成每 5 分鐘試一次，一直到 13:30。收到「連線數已滿」（錯誤碼 1001）時等 5 分鐘。
-  - 重新訂閱後 30 秒內沒收到五檔的股票，用 REST `intraday/quote` 補一次，每秒最多 2 次。
-- **休市**：到 09:05（或啟動 5 分鐘後）都沒有任何五檔資料，就記成休市，刪掉當天的暫存檔並結束，不通知。之後的重啟觸發看到「休市」或「已錄完」，就直接結束，不再登入。
+  - 重新訂閱後 30 秒內沒收到五檔的股票，用 REST `intraday/quote` 補一次，每秒最多 2 次。晚啟動、重新啟動和一開始連不上的連線也一樣補。
+  - 放棄的連線會讓 SDK 的 `connect()` 停下來：SDK 在連線開啟前失敗時會無限空轉，佔滿一個核心（`FubonClient.release`）。
+- **休市**：當天第一次啟動，到 09:05（或啟動 5 分鐘後）都沒有任何五檔資料，就記成休市，刪掉當天的暫存檔並結束，不通知。之後的重啟觸發看到「休市」或「已錄完」，就直接結束，不再登入。
+  - 重新啟動的程式（狀態檔或暫存檔顯示當天錄過）不判斷休市：暫停交易或冷清的時段不能當成休市，否則會刪掉早上錄的資料。
+- **錄製迴圈出錯**：記在日誌，繼續錄；連續 120 次（約 2 分鐘）才停止。
 - **磁碟**：啟動時剩不到 10 GB 就不錄；錄製中剩不到 3 GB 就停止，已錄到的保留。
 - **狀態**：`market-data\books-status.json`。每日抓取會改寫 `status.json`，所以五檔另存一個檔，兩邊不會互相覆蓋。
   - 結果是 `running`、`ok`、`partial`、`closed`、`late`、`failed` 之一。
@@ -109,8 +115,22 @@
   - 當掉重啟時，接著同一天的計數，中斷那段記成缺漏。
 - **日誌**：`market-data\logs\books\<日期>.log`。
 - **鎖**：`market-data\.books.lock`，和每日抓取的 `.lock` 分開。一次錄製要跑約 5 小時，所以這個鎖要等原本的程式結束，或超過 7 小時，才算過期。
-- **通知**：沒有開始錄、單一連線斷超過 10 分鐘、寫入失敗或磁碟不足時，跳 Windows 通知。平常的短暫斷線只記在狀態檔。
-- **整理成每檔一個檔**（只存變動的檔位，第二階段）：還沒做。在那之前原始檔不會刪。
+  - 程式當掉後，Windows 可能把它的 PID 給了別的程式；那個程式比鎖還晚啟動，就不算持有鎖（兩支程式共用這個規則）。
+- **登出**：最後才登出，最多等 30 秒；登出卡住也不影響存檔、狀態和上架。
+- **通知**：沒有開始錄、單一連線斷超過 10 分鐘、寫入失敗、磁碟不足或上架失敗時，跳 Windows 通知。平常的短暫斷線只記在狀態檔。
+- **上架**（第二階段，`fubon_daily/books_publish.py`）：錄到 13:36 才上架；提早停止的那天留給之後的重新啟動或隔天。
+  - 每檔一個精簡檔 `market-data\books\<日期>\symbols\<代號>.json.gz`：每分鐘開頭、斷線後和補的快照存完整五檔，其他只存變動的檔位。時間是 09:00 之後的毫秒，照富邦送來的順序。
+  - 每檔都先還原、和原始逐筆比對完全一致才上架，任何一檔不一致整天都不上架。
+  - `manifest.json` 記每檔的訊息數、第一筆與最後一筆、缺漏、檔案大小與 SHA-256，以及每條連線的紀錄、警告（時間倒退、檔位順序、買一不小於賣一、超出漲跌停）、`sizeUnit: "unverified"`。
+  - 缺漏：斷線、當掉、晚啟動都從最後一行（或 `down` 的時間）算到那檔重新收到五檔或補到快照為止；提早停止或當掉沒再啟動，一直算到 13:31。
+  - 上架後原始檔移到 `market-data\raw-books\<日期>\`，14 天後刪除；沒上架的日子原始檔永遠不刪。
+  - 錄到 13:36 的那次執行，也會把前面一個還沒上架的日子（例如當天程式當掉沒再起來）一起上架，一次最多一天。
+  - 上架失敗會留下 `staging-books\<日期>\publish-error.json`，自動執行不再重試；手動重試：
+    ```powershell
+    & "$fetcher\.venv\Scripts\python.exe" -X utf8 "$fetcher\app\record_books.py" --data "$env:USERPROFILE\YilutekServices\DayTradeTycoon\market-data" --credentials "$env:USERPROFILE\.fubon\credentials.local.py" --publish 2026-10-28
+    ```
+    `--publish` 不登入；錄製程式正在執行時不會動手。已經上架的日子要先移走 `books\<日期>` 才能重做。
+  - 只錄不上架：`install.ps1 -BooksTask -BooksNoPublish`（排程加上 `--no-publish`）。
 - **試跑**（盤後也可以，不會碰正式的 market-data）：
   ```powershell
   $fetcher = "$env:USERPROFILE\YilutekServices\DayTradeTycoon\fetcher"
@@ -138,7 +158,8 @@ py -3.12 -m unittest discover -s tools/fubon-daily/tests -t tools/fubon-daily -v
 powershell -NoProfile -File tools\fubon-daily\install.ps1 -Sdk    # 建立 Python 3.12 環境並安裝官方 SDK 2.4.0（雜湊記錄在 fetcher\sdk-lock.json）
 powershell -NoProfile -File tools\fubon-daily\install.ps1 -App    # 複製已提交的程式
 powershell -NoProfile -File tools\fubon-daily\install.ps1 -Task   # 建立／更新排程
-powershell -NoProfile -File tools\fubon-daily\install.ps1 -BooksTask   # 建立／更新盤中五檔的排程
+powershell -NoProfile -File tools\fubon-daily\install.ps1 -BooksTask   # 建立／更新盤中五檔的排程（錄完上架）
+powershell -NoProfile -File tools\fubon-daily\install.ps1 -BooksTask -BooksNoPublish   # 只錄不上架
 ```
 
 ## 手動執行

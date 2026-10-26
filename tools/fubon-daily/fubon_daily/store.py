@@ -54,6 +54,32 @@ def process_alive(pid: int) -> bool:
     return True
 
 
+def process_started(pid: int) -> float | None:
+    """When a running process started (epoch seconds), or None when that cannot be read (only Windows is read)."""
+    if pid <= 0 or os.name != "nt":
+        return None
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.windll.kernel32
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    kernel32.GetProcessTimes.argtypes = (wintypes.HANDLE,) + (ctypes.POINTER(wintypes.FILETIME),) * 4
+    kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return None
+    try:
+        created, exited, kernel, user = (wintypes.FILETIME() for _ in range(4))
+        if not kernel32.GetProcessTimes(handle, ctypes.byref(created), ctypes.byref(exited), ctypes.byref(kernel),
+                                        ctypes.byref(user)):
+            return None
+        ticks = (created.dwHighDateTime << 32) | created.dwLowDateTime  # 100 ns since 1601-01-01 UTC
+        return ticks / 10_000_000 - 11_644_473_600
+    finally:
+        kernel32.CloseHandle(handle)
+
+
 def _json_bytes(value: object, indent: int | None = None) -> bytes:
     separators = None if indent else (",", ":")
     return json.dumps(value, ensure_ascii=False, sort_keys=indent is None, indent=indent,
@@ -80,9 +106,11 @@ def _write_atomic(path: Path, data: bytes) -> None:
 
 
 class MarketStore:
-    def __init__(self, root: Path, pid_alive: Callable[[int], bool] = process_alive):
+    def __init__(self, root: Path, pid_alive: Callable[[int], bool] = process_alive,
+                 process_started: Callable[[int], float | None] = process_started):
         self.root = Path(root)
         self._pid_alive = pid_alive
+        self._process_started = process_started
         self._redact: Callable[[object], str] = str
 
     # Secrets never reach the disk: status and logs pass through the redactor.
@@ -520,15 +548,17 @@ class MarketStore:
                 handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
                 break
             except FileExistsError:
-                age, pid = 0.0, None
+                age, pid, taken = 0.0, None, None
                 try:
                     age = time.time() - path.stat().st_mtime
-                    pid = int(json.loads(path.read_text(encoding="utf-8"))["pid"])
+                    holder = json.loads(path.read_text(encoding="utf-8"))
+                    pid = int(holder["pid"])
+                    taken = self._taken_at(holder.get("startedAt"))
                 except FileNotFoundError:
                     continue
                 except (OSError, ValueError, KeyError, TypeError):
                     pid = None  # still being written, or damaged: only its age can release it
-                held = age <= stale_seconds and (pid is None or self._pid_alive(pid))
+                held = age <= stale_seconds and (pid is None or (self._pid_alive(pid) and not self._reused(pid, taken)))
                 if attempt == 1 or held:
                     raise Locked() from None
                 path.unlink(missing_ok=True)
@@ -538,3 +568,18 @@ class MarketStore:
             yield
         finally:
             path.unlink(missing_ok=True)
+
+    @staticmethod
+    def _taken_at(value: object) -> float | None:
+        try:
+            return datetime.fromisoformat(value).timestamp() if isinstance(value, str) else None
+        except ValueError:
+            return None
+
+    def _reused(self, pid: int, taken: float | None) -> bool:
+        """The PID now belongs to a process that started after the lock was taken: its owner died (a native crash
+        leaves the lock behind) and Windows handed the PID on. The lock's time has whole seconds, hence the margin."""
+        if taken is None:
+            return False
+        started = self._process_started(pid)
+        return started is not None and started > taken + 2

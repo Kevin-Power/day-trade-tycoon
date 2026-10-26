@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Callable
 
 from .books_publish import NoBooks, BooksPublishError, publish_day
-from .client import ApiError, LoginError, SdkUnavailable
+from .client import ApiError, LoginError, LoginRefused, SdkUnavailable
 from .credentials import CredentialsError, Redactor, load_credentials
 from .normalize import TAIPEI, ValidationError, snapshot_listing
 from .notify import notify as windows_notify
@@ -51,6 +51,18 @@ MIN_FREE_RUN = 3 * 2**30
 # A subscription Fubon never acknowledges is a failed attempt: heartbeats alone would keep it looking alive.
 SUBSCRIBE_TIMEOUT = 20
 DISCONNECT_TIMEOUT = 5
+# Login and logout run inside the compiled SDK with no timeout of their own.
+LOGIN_TIMEOUT = 60
+LOGOUT_TIMEOUT = 30
+# A login that fails on the way (no answer, an exception) is tried again after these waits, but at most three
+# times a day in all: one refused by Fubon is not tried again that day, so the account is never locked.
+LOGIN_RETRY_WAITS = (30, 90)
+LOGIN_FAILURES_PER_DAY = 3
+# Started this long after OPEN_AT with nothing recorded yet today: what came before is a gap.
+LATE_START = timedelta(minutes=2)
+LATE_REASON = "程式晚啟動"
+# An unexpected error in one pass of the session loop is logged and the loop goes on; this many in a row end it.
+LOOP_ERROR_LIMIT = 120
 DISK_CHECK_SECONDS = 60
 MESSAGE_LIMIT = 300
 BOOKS_CHANNEL = "books"
@@ -59,6 +71,18 @@ RESTART_REASON = "程式重新啟動"
 # re-start trigger.
 BOOKS_LOCK = ".books.lock"
 BOOKS_LOCK_STALE_SECONDS = 7 * 3600
+
+
+TIMED_OUT = "逾時"  # what run_with_timeout hands back for a call still running
+
+
+class LoginGivenUp(Exception):
+    """This run stops trying to log in; `final`: so does every later run today."""
+
+    def __init__(self, reason: str, final: bool):
+        super().__init__(reason)
+        self.reason = reason
+        self.final = final
 
 
 def split_symbols(codes: list[str], connections: int = CONNECTIONS,
@@ -282,7 +306,7 @@ def run_with_timeout(call: Callable[[], object], seconds: float) -> tuple[bool, 
     worker.start()
     worker.join(seconds)
     if worker.is_alive():
-        return False, "逾時"
+        return False, TIMED_OUT
     if "error" in outcome:
         return False, outcome["error"]
     return True, outcome.get("value")
@@ -323,12 +347,13 @@ class Recorder:
     for failed; 2 for login settings or login."""
 
     def __init__(self, data: Path, credentials: Path, runtime: BooksRuntime, store, stop_at: time = STOP_AT,
-                 test_mode: bool = False, publish: bool = False):
+                 test_mode: bool = False, publish: bool = False, open_at: time = OPEN_AT):
         self.data = Path(data)
         self.credentials = Path(credentials)
         self.runtime = runtime
         self.store = store
         self.stop_at = stop_at
+        self.open_at = open_at
         self.test_mode = test_mode
         self.publish = publish
         self.published: dict | None = None
@@ -344,7 +369,13 @@ class Recorder:
         self.symbols = 0
         self.dropped: list[str] = []
         self.carried: dict | None = None
+        self.earlier_raw = False
         self.last_attempt: tuple[float, int] | None = None
+        self.login_failures = 0
+        self.failure: str | None = None  # what kind of failure ended this run: disk, credentials, login, symbols
+        self.final = False  # no more attempts today
+        self.previous_failure: str | None = None
+        self.loop_errors = 0
 
     # ---- small helpers ----------------------------------------------------------------------------------
 
@@ -383,30 +414,36 @@ class Recorder:
             # A re-start trigger after a holiday was called (or after the day ended): no new login.
             self.log("今天已經判定休市，這次略過" if today["outcome"] == "closed" else "今天已經錄完，這次略過")
             return 0
+        if today and today.get("outcome") == "failed" and today.get("final"):
+            self.log(f"今天不再試：{today.get('reason')}")
+            return 0
+        if today:
+            self.previous_failure = today.get("failure") if today.get("outcome") == "failed" else None
+            self.login_failures = int(today.get("loginFailures") or 0)
         free = self.store.free_bytes()
         if free < MIN_FREE_START:
-            return self.fail(f"磁碟空間不足（剩 {free / 2**30:.1f} GB，至少要 {MIN_FREE_START // 2**30} GB），今天不錄", 1)
+            return self.fail(f"磁碟空間不足（剩 {free / 2**30:.1f} GB，至少要 {MIN_FREE_START // 2**30} GB），今天不錄",
+                             1, "disk")
         if today and today.get("outcome") in ("running", "partial"):
             self.carried = today  # a crash, then a re-start trigger: go on with the same day
         try:
             credentials = load_credentials(self.credentials)
         except CredentialsError as error:
-            return self.fail(str(error), 2)
+            return self.fail(str(error), 2, "credentials", final=True)
         self.store.set_redactor(Redactor(credentials.secrets()))
         if not self.test_mode:
-            opening = self.at_today(OPEN_AT)
+            opening = self.at_today(self.open_at)
             while self.runtime.now() < opening:
                 self.runtime.sleep(min(60.0, (opening - self.runtime.now()).total_seconds()))
-        self.client = self.runtime.make_client(credentials)
         try:
             try:
-                note = self.client.login()
-            except (LoginError, SdkUnavailable) as error:
-                return self.fail(str(error), 2)
+                note = self.log_in(credentials)
+            except LoginGivenUp as given_up:
+                return self.fail(given_up.reason, 2, "login", final=given_up.final)
             self.log("登入成功" + (f"；{note}" if note else ""))
             codes = self.symbol_list()
             if not codes:
-                return self.fail("取不到上市普通股清單（快照和最近一天的清單都沒有）", 1)
+                return self.fail("取不到上市普通股清單（快照和最近一天的清單都沒有）", 1, "symbols")
             self.symbols = len(codes)
             groups, self.dropped = split_symbols(codes)
             if self.dropped:
@@ -420,6 +457,31 @@ class Recorder:
         finally:
             self.close_all()
         return self.conclude()
+
+    def log_in(self, credentials) -> str:
+        """Logs in within LOGIN_TIMEOUT. A login that fails on the way is tried again after LOGIN_RETRY_WAITS while
+        the day's failures stay under LOGIN_FAILURES_PER_DAY; one Fubon refuses is not tried again today."""
+        waits = list(LOGIN_RETRY_WAITS)
+        while True:
+            self.client = self.runtime.make_client(credentials)  # a fresh one: a hung login keeps its own
+            ok, value = self.runtime.run_with_timeout(self.client.login, LOGIN_TIMEOUT)
+            if ok:
+                return value
+            if isinstance(value, (LoginRefused, SdkUnavailable)):
+                raise LoginGivenUp(str(value), final=True)
+            self.login_failures += 1
+            if value == TIMED_OUT:
+                reason = f"登入 {LOGIN_TIMEOUT} 秒沒有回應"
+            elif isinstance(value, LoginError):
+                reason = str(value)
+            else:
+                reason = f"登入失敗：{type(value).__name__}: {value}"
+            if self.login_failures >= LOGIN_FAILURES_PER_DAY:
+                raise LoginGivenUp(f"{reason}（今天第 {self.login_failures} 次登入失敗）", final=True)
+            if not waits:
+                raise LoginGivenUp(reason, final=False)
+            self.log(f"{reason}，{waits[0]} 秒後再試")
+            self.runtime.sleep(waits.pop(0))
 
     def symbol_list(self) -> list[str]:
         try:
@@ -440,6 +502,17 @@ class Recorder:
         start = self.runtime.monotonic()
         carried = {item.get("index"): item for item in (self.carried or {}).get("connections", [])
                    if isinstance(item, dict)}
+        # Raw files already there come from an earlier run today, even when its status was lost or overwritten.
+        earlier_files = list(folder.glob("*.jsonl.gz")) if folder.is_dir() else []
+        self.earlier_raw = bool(earlier_files)
+        restart_from = None
+        if self.carried:
+            restart_from = self.carried.get("updatedAt")
+        elif earlier_files:
+            newest = max(path.stat().st_mtime for path in earlier_files)
+            restart_from = self.iso(datetime.fromtimestamp(newest, TAIPEI))
+        opening = self.at_today(self.open_at)
+        late = restart_from is None and not self.test_mode and self.started > opening + LATE_START
         for number, group in enumerate(groups, start=1):
             if not group:
                 continue  # fewer stocks than connections: no point holding a slot
@@ -447,53 +520,75 @@ class Recorder:
             link = Link(stream, Backoff(self.runtime.random), next_attempt=start)
             if self.carried:
                 earlier = carried.get(number) or {}
-                stream.gaps = list(earlier.get("gaps") or []) + [
-                    {"from": self.carried.get("updatedAt"), "to": None, "reason": RESTART_REASON}]
+                stream.gaps = list(earlier.get("gaps") or [])
                 link.base_messages = int(earlier.get("messages") or 0)
                 link.base_reconnects = int(earlier.get("reconnects") or 0)
+            if restart_from is not None:
+                stream.gaps.append({"from": restart_from, "to": None, "reason": RESTART_REASON})
+            elif late:
+                # Nothing recorded since the opening time: a gap the raw files must show too (a down line).
+                stream.gaps.append({"from": self.iso(opening), "to": None, "reason": LATE_REASON})
+                stream.mark("down", reason=LATE_REASON, since=int(opening.timestamp() * 1000))
             self.links.append(link)
-        if self.carried:
-            self.log(f"同一天重新啟動：接著 {self.carried.get('updatedAt')} 的紀錄")
+        if restart_from is not None:
+            self.log(f"同一天重新啟動：接著 {restart_from} 的紀錄")
+        elif late:
+            self.log(f"{self.started:%H:%M} 才啟動：{self.open_at:%H:%M} 起都是缺漏")
 
     def loop(self, stop: datetime) -> None:
         last_flush = last_status = last_disk = self.runtime.monotonic()
         holiday_check = max(self.at_today(CLOSED_CHECK), self.started + timedelta(minutes=5))
-        checked = self.test_mode
+        # Only a day's first run can call it a holiday: after a restart a halt or a quiet spell is no proof, and
+        # `closed` deletes the day's raw files.
+        checked = self.test_mode or self.carried is not None or self.earlier_raw
         # Not on a trading day's last minutes; a trial (test mode) may run at any hour.
         retry_until = stop if self.test_mode else min(self.at_today(RETRY_UNTIL), stop)
+        in_a_row = 0
         while True:
-            now, mono = self.runtime.now(), self.runtime.monotonic()
-            if now >= stop:
-                return
-            for link in self.links:
-                self.watch(link, now, mono, retry_until)
-            self.refill(now)
-            mono = self.runtime.monotonic()
-            if mono - last_flush >= FLUSH_SECONDS:
-                for stream in self.streams:
-                    stream.flush()
-                last_flush = mono
-            failed = next((stream.writer.error for stream in self.streams if stream.writer.error), None)
-            if failed:
-                self.reason = f"寫入失敗，停止錄製：{failed}"
-                self.log(self.reason)
-                return
-            if mono - last_disk >= DISK_CHECK_SECONDS:
-                last_disk = mono
-                free = self.store.free_bytes()
-                if free < MIN_FREE_RUN:
-                    self.reason = f"磁碟空間不足（剩 {free / 2**30:.1f} GB），停止錄製"
+            try:
+                now, mono = self.runtime.now(), self.runtime.monotonic()
+                if now >= stop:
+                    return
+                for link in self.links:
+                    self.watch(link, now, mono, retry_until)
+                self.refill(now)
+                mono = self.runtime.monotonic()
+                if mono - last_flush >= FLUSH_SECONDS:
+                    for stream in self.streams:
+                        stream.flush()
+                    last_flush = mono
+                failed = next((stream.writer.error for stream in self.streams if stream.writer.error), None)
+                if failed:
+                    self.reason = f"寫入失敗，停止錄製：{failed}"
                     self.log(self.reason)
                     return
-            if not checked and self.runtime.now() >= holiday_check:
-                checked = True
-                heard = any(link.ever_up for link in self.links)
-                if heard and sum(stream.messages for stream in self.streams) == 0:
-                    self.closed = True
+                if mono - last_disk >= DISK_CHECK_SECONDS:
+                    last_disk = mono
+                    free = self.store.free_bytes()
+                    if free < MIN_FREE_RUN:
+                        self.reason = f"磁碟空間不足（剩 {free / 2**30:.1f} GB），停止錄製"
+                        self.log(self.reason)
+                        return
+                if not checked and self.runtime.now() >= holiday_check:
+                    checked = True
+                    heard = any(link.ever_up for link in self.links)
+                    if heard and sum(stream.messages for stream in self.streams) == 0:
+                        self.closed = True
+                        return
+                if mono - last_status >= STATUS_EVERY:
+                    self.write_status("running")
+                    last_status = mono
+                in_a_row = 0
+            except Exception as error:  # noqa: BLE001 - one bad pass must not end the day; the SDK threads go on
+                in_a_row += 1
+                self.loop_errors += 1
+                message = f"{type(error).__name__}: {error}"
+                if in_a_row == 1 or in_a_row % 60 == 0:
+                    self.log(f"錄製迴圈出錯（今天第 {self.loop_errors} 次）：{message}")
+                if in_a_row >= LOOP_ERROR_LIMIT:
+                    self.reason = f"錄製迴圈連續出錯 {in_a_row} 次，停止錄製：{message}"
+                    self.log(self.reason)
                     return
-            if mono - last_status >= STATUS_EVERY:
-                self.write_status("running")
-                last_status = mono
             self.runtime.sleep(1)
 
     # ---- one connection -------------------------------------------------------------------------------------
@@ -534,17 +629,21 @@ class Recorder:
         if not ok:
             self.abandon(client)
             return self.failed_attempt(link, self.runtime.monotonic(), f"連線失敗：{error}")
+        # Before subscribing: books can arrive before subscribe() returns, and stage 2 reads a connection's lines
+        # in order (its stocks' gaps end at their first books after this line).
+        stream.mark("connected", generation=generation, symbols=len(stream.codes), codes=stream.codes)
         try:
             client.subscribe({"channel": BOOKS_CHANNEL, "symbols": stream.codes})
         except Exception as error:  # noqa: BLE001 - one failed attempt, retried with backoff
             self.abandon(client)
             return self.failed_attempt(link, self.runtime.monotonic(), f"訂閱失敗：{type(error).__name__}")
-        stream.mark("connected", generation=generation, symbols=len(stream.codes), codes=stream.codes)
         link.state = "subscribing"
         link.subscribing_since = self.runtime.monotonic()
 
     def abandon(self, client) -> None:
-        self.runtime.run_with_timeout(client.disconnect, DISCONNECT_TIMEOUT)
+        """Lets go of a stream client for good. release() also ends an SDK connect() still spinning on it, which
+        would otherwise hold a core for the rest of the day."""
+        self.runtime.run_with_timeout(lambda: self.client.release(client), DISCONNECT_TIMEOUT)
 
     def subscribed(self, link: Link, mono: float) -> None:
         stream = link.stream
@@ -580,6 +679,13 @@ class Recorder:
         self.log(f"第 {stream.index} 條連線：{reason}，{wait:.0f} 秒後重連")
 
     def failed_attempt(self, link: Link, mono: float, reason: str) -> None:
+        stream = link.stream
+        if not link.ever_up and not any(gap["to"] is None for gap in stream.gaps):
+            # Not up yet: nothing is recorded for its stocks from the opening time (or this run's start) until it
+            # is. A gap, a down line for stage 2, and refills once it is up.
+            since = max(self.started, self.at_today(self.open_at))
+            stream.gaps.append({"from": self.iso(since), "to": None, "reason": reason})
+            stream.mark("down", reason=reason, since=int(since.timestamp() * 1000))
         link.state = "down" if link.ever_up else "pending"
         if link.down_since is None:
             link.down_since = mono
@@ -618,10 +724,14 @@ class Recorder:
         for stream in self.streams:
             if stream.client is not None:
                 self.abandon(stream.client)
-        if self.client is not None:
-            self.client.logout()
         for stream in self.streams:
             stream.close()
+        if self.client is not None:
+            # Last, and bounded: a logout that hangs in the compiled SDK must not keep the files open or the
+            # day's status unwritten.
+            ok, error = self.runtime.run_with_timeout(self.client.logout, LOGOUT_TIMEOUT)
+            if not ok:
+                self.log(f"登出沒有完成（{error}），照常結束")
 
     def conclude(self) -> int:
         if self.closed:
@@ -681,10 +791,14 @@ class Recorder:
             self.write_status("late", f"已過 {self.stop_at:%H:%M}", finished=True)
         return 0
 
-    def fail(self, reason: str, code: int) -> int:
+    def fail(self, reason: str, code: int, kind: str, final: bool = False) -> int:
+        """Ends a run that never recorded. `final`: no later trigger today tries again. The day's later triggers
+        do not repeat a notice for the same kind of failure."""
+        self.failure, self.final = kind, final
         self.write_status("failed", reason, finished=True)
-        self.log(f"失敗：{reason}")
-        self.notice(reason)
+        self.log(f"失敗：{reason}" + ("；今天不再試" if final else ""))
+        if kind != self.previous_failure:
+            self.notice(reason + ("；今天不再試" if final else ""))
         return code
 
     def connection_summary(self) -> list[dict]:
@@ -708,5 +822,6 @@ class Recorder:
                  "messages": sum(item["messages"] for item in connections) or int(carried.get("messages") or 0),
                  "rawBytes": int(carried.get("rawBytes") or 0) + sum(stream.bytes for stream in self.streams),
                  "connections": connections, "published": self.published, "publishError": self.publish_error,
-                 "version": self.runtime.version}
+                 "failure": self.failure, "final": self.final, "loginFailures": self.login_failures,
+                 "loopErrors": self.loop_errors, "version": self.runtime.version}
         self.store.write_books_status(entry)

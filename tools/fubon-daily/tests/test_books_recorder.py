@@ -9,9 +9,9 @@ from datetime import datetime, time, timedelta
 from pathlib import Path
 from unittest import mock
 
-from fubon_daily.books import BooksRuntime, RawWriter, Recorder
+from fubon_daily.books import OPEN_AT, BooksRuntime, RawWriter, Recorder
 from fubon_daily.books_publish import BooksPublishError
-from fubon_daily.client import LoginError
+from fubon_daily.client import LoginError, LoginRefused
 from fubon_daily.credentials import MASK
 from fubon_daily.normalize import TAIPEI
 from fubon_daily.store import MarketStore
@@ -113,6 +113,8 @@ class FakeStreamClient:
         elif self.behaviour != "silent":
             self.emit({"event": "subscribed", "data": [{"id": f"s{code}", "channel": "books", "symbol": code}
                                                        for code in params["symbols"]]})
+            if self.behaviour == "eager":  # books right away, before subscribe() has even returned
+                self.books(params["symbols"][0])
 
     def emit(self, message):
         self.handlers["message"](json.dumps(message, ensure_ascii=False) if isinstance(message, dict) else message)
@@ -133,22 +135,32 @@ class FakeStreamClient:
 
 
 class FakeBooksClient:
-    def __init__(self, clock, symbols, behaviours=(), default="ok", login_error=None):
+    def __init__(self, clock, symbols, behaviours=(), default="ok", login_error=None, logins=(), logout_hangs=False):
         self.clock = clock
         self.symbols = symbols
         self.behaviours = list(behaviours)
         self.default = default
         self.login_error = login_error
+        self.logins = list(logins)  # per attempt: "ok", "hang" or an exception; then login_error, if any
+        self.logout_hangs = logout_hangs
         self.calls = []
         self.streams = []
         self.stream_times = []
         self.quotes = []
+        self.released = []
 
     def login(self):
         self.calls.append("login")
-        if self.login_error:
-            raise self.login_error
+        result = self.logins.pop(0) if self.logins else (self.login_error or "ok")
+        if result == "hang":
+            raise Hang()
+        if isinstance(result, Exception):
+            raise result
         return "富邦行情呼叫逾時：連線 10 秒、每次讀取 60 秒"
+
+    def release(self, stream):
+        self.released.append(stream)
+        stream.disconnect()
 
     def snapshot_quotes(self):
         self.calls.append("snapshot")
@@ -167,6 +179,8 @@ class FakeBooksClient:
 
     def logout(self):
         self.calls.append("logout")
+        if self.logout_hangs:
+            raise Hang()
 
 
 class RecorderTest(unittest.TestCase):
@@ -186,15 +200,18 @@ class RecorderTest(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def record(self, client, stop_at, test_mode=False, publish=False):
+    def record(self, client, stop_at, test_mode=False, publish=False, open_at=None):
+        """A session from the clock's time. Unless a test gives `open_at`, a start after 08:44 is on time (the
+        session simply begins there); a late start is a test of its own."""
         clock = client.clock
         runtime = BooksRuntime(make_client=lambda credentials: client, now=clock.now, monotonic=clock.monotonic,
                                sleep=clock.sleep, notify=lambda title, body: self.notices.append((title, body)) or True,
                                random=lambda: 0.0, version="test", run_with_timeout=clock.run_with_timeout)
         store = MarketStore(self.data)
         store.free_bytes = lambda: self.free() if callable(self.free) else self.free
+        open_at = open_at or max(OPEN_AT, clock.now().time())
         self.recorder = Recorder(self.data, self.credentials, runtime, store, stop_at=stop_at, test_mode=test_mode,
-                                 publish=publish)
+                                 publish=publish, open_at=open_at)
         return self.recorder.run()
 
     def earlier_day(self, day="2026-10-27", failed=False):
@@ -413,6 +430,7 @@ class RecorderTest(unittest.TestCase):
         self.record(client, time(9, 3))
         hung, fresh = client.streams[4], client.streams[5]
         self.assertTrue(hung.disconnected)
+        self.assertIn(hung, client.released)  # released, so the SDK's connect() stops spinning
         self.assertEqual(fresh.subscribes[0]["symbols"], client.streams[0].subscribes[0]["symbols"])
         self.assertGreaterEqual((client.stream_times[5] - client.stream_times[4]).total_seconds(), 15)
 
@@ -443,6 +461,38 @@ class RecorderTest(unittest.TestCase):
         second = [time_ for time_, stream in zip(client.stream_times, client.streams)
                   if stream.subscribes and stream.subscribes[0]["symbols"] == client.streams[1].subscribes[0]["symbols"]]
         self.assertGreaterEqual((second[1] - second[0]).total_seconds(), 300)
+
+    def test_a_connection_that_comes_up_late_records_a_gap_and_refills(self):
+        client = FakeBooksClient(Clock(at(8, 40)), codes(8), behaviours=["full", "ok", "ok", "ok"])
+        self.record(client, time(8, 52))
+        gaps = self.status()["connections"][0]["gaps"]
+        self.assertEqual(len(gaps), 1)
+        self.assertEqual(gaps[0]["from"], "2026-10-28T08:44:00+08:00")
+        self.assertIsNotNone(gaps[0]["to"])
+        down = [line for line in self.raw_lines() if line.get("ev") == "down"]
+        self.assertEqual([line["since"] for line in down], [int(at(8, 44).timestamp() * 1000)])
+        self.assertEqual(sorted(code for _, code in client.quotes), ["1000", "1004"])  # connection 1's stocks
+
+    def test_a_late_start_records_a_gap_from_the_opening_time_and_refills(self):
+        clock = Clock(at(10, 0))
+        client = FakeBooksClient(clock, codes(8))
+        clock.at(at(10, 0, 10), lambda: client.streams[0].books("1000"))
+        self.record(client, time(10, 3), open_at=time(8, 44))
+        for connection in self.status()["connections"]:
+            gap = connection["gaps"][0]
+            self.assertEqual((gap["from"], gap["reason"]), ("2026-10-28T08:44:00+08:00", "程式晚啟動"))
+            self.assertIsNotNone(gap["to"])
+        down = [line for line in self.raw_lines() if line.get("ev") == "down"]
+        self.assertEqual(len(down), 4)
+        self.assertEqual(sorted(code for _, code in client.quotes), codes(8)[1:])  # all but the one heard
+
+    def test_books_that_arrive_with_the_subscription_follow_the_connected_line(self):
+        client = FakeBooksClient(Clock(at(9, 0)), codes(8), behaviours=["eager", "ok", "ok", "ok"])
+        self.record(client, time(9, 1))
+        lines = self.raw_lines()
+        first_books = next(index for index, line in enumerate(lines) if "d" in line)
+        first_connected = next(index for index, line in enumerate(lines) if line.get("ev") == "connected")
+        self.assertLess(first_connected, first_books)
 
     def test_an_unacknowledged_subscription_is_retried(self):
         clock = Clock(at(9, 0))
@@ -528,6 +578,94 @@ class RecorderTest(unittest.TestCase):
         self.record(client, time(9, 20))
         downs = [body for _, body in self.notices if "斷線" in body]
         self.assertEqual(len(downs), 1)
+
+    def test_a_restart_that_hears_no_books_is_not_a_holiday(self):
+        # A halt or a quiet spell after a same-day restart must not call the day closed and delete the morning.
+        self.earlier_day(DAY)
+        earlier = {"schema": 1, "date": DAY, "outcome": "running", "reason": None,
+                   "startedAt": "2026-10-28T08:40:00+08:00", "updatedAt": "2026-10-28T10:00:00+08:00",
+                   "finishedAt": None, "symbols": 8, "dropped": [], "messages": 3, "rawBytes": 1000,
+                   "connections": [], "version": "old"}
+        (self.data / "books-status.json").write_text(json.dumps(earlier), encoding="utf-8")
+        self.record(FakeBooksClient(Clock(at(10, 30)), codes(8)), time(10, 45))
+        self.assertEqual(self.status()["outcome"], "partial")
+        self.assertTrue((self.data / "staging-books" / DAY / "raw" / "conn1-09-1.jsonl.gz").is_file())
+
+    def test_earlier_raw_files_alone_rule_out_a_holiday(self):
+        self.earlier_day(DAY)  # no status for the day: the earlier run's status was lost or overwritten
+        client = FakeBooksClient(Clock(at(10, 30)), codes(8))
+        self.record(client, time(10, 45))
+        self.assertNotEqual(self.status()["outcome"], "closed")
+        self.assertTrue((self.data / "staging-books" / DAY / "raw" / "conn1-09-1.jsonl.gz").is_file())
+        self.assertEqual(len(client.quotes), 8)  # a restart: every stock is refilled
+
+    def test_a_login_that_hangs_is_tried_again(self):
+        client = FakeBooksClient(Clock(at(8, 40)), codes(8), logins=["hang", "ok"])
+        self.assertEqual(self.record(client, time(8, 50)), 0)
+        self.assertEqual(client.calls.count("login"), 2)
+        self.assertEqual(self.status()["outcome"], "ok")
+
+    def test_a_refused_login_is_not_tried_again_that_day(self):
+        # Refused logins again and again could lock the account.
+        refused = LoginRefused("登入失敗：bad key")
+        client = FakeBooksClient(Clock(at(8, 40)), codes(8), login_error=refused)
+        self.assertEqual(self.record(client, time(13, 36)), 2)
+        self.assertEqual(client.calls.count("login"), 1)
+        later = FakeBooksClient(Clock(at(8, 50)), codes(8), login_error=refused)
+        self.assertEqual(self.record(later, time(13, 36)), 0)
+        self.assertNotIn("login", later.calls)
+        self.assertEqual(len(self.notices), 1)
+
+    def test_failed_logins_stop_after_three_a_day(self):
+        failing = LoginError("登入失敗：ConnectionError: timed out")
+        attempts = []
+        for start in (at(8, 40), at(8, 50), at(9, 0)):
+            client = FakeBooksClient(Clock(start), codes(8), login_error=failing)
+            self.record(client, time(13, 36))
+            attempts.append(client.calls.count("login"))
+        self.assertEqual(attempts, [3, 0, 0])
+        self.assertEqual(len(self.notices), 1)
+
+    def test_the_same_failure_is_noticed_once_a_day(self):
+        self.free = 9 * GB
+        for start in (at(8, 40), at(8, 50)):
+            self.assertEqual(self.record(FakeBooksClient(Clock(start), codes(8)), time(13, 36)), 1)
+        self.assertEqual(len(self.notices), 1)
+
+    def test_an_unexpected_error_in_the_loop_does_not_end_the_session(self):
+        real = Recorder.refill
+        calls = {"count": 0}
+
+        def flaky(recorder, now):
+            calls["count"] += 1
+            if calls["count"] == 3:
+                raise RuntimeError("boom")
+            return real(recorder, now)
+
+        with mock.patch.object(Recorder, "refill", flaky):
+            self.assertEqual(self.record(FakeBooksClient(Clock(at(9, 0)), codes(8)), time(9, 3)), 0)
+        status = self.status()
+        self.assertEqual((status["outcome"], status["finishedAt"]), ("ok", "2026-10-28T09:03:00+08:00"))
+        self.assertIn("boom", (self.data / "logs" / "books" / f"{DAY}.log").read_text(encoding="utf-8"))
+
+    def test_errors_that_keep_coming_end_the_session(self):
+        with mock.patch.object(Recorder, "refill", side_effect=RuntimeError("boom")):
+            self.record(FakeBooksClient(Clock(at(9, 0)), codes(8)), time(9, 30))
+        status = self.status()
+        self.assertEqual(status["outcome"], "partial")
+        self.assertIn("boom", status["reason"])
+        self.assertLess(status["finishedAt"], "2026-10-28T09:05:00+08:00")
+
+    def test_a_logout_that_hangs_does_not_lose_the_end_of_the_day(self):
+        clock = Clock(at(9, 0))
+        client = FakeBooksClient(clock, codes(8), logout_hangs=True)
+        clock.at(at(9, 1), lambda: client.streams[0].books("1000"))
+        self.assertEqual(self.record(client, time(9, 2), publish=True), 0)
+        status = self.status()
+        self.assertEqual(status["outcome"], "ok")
+        self.assertEqual(status["published"]["messages"], 1)
+        for path in (self.data / "raw-books" / DAY).glob("*.jsonl.gz"):
+            gzip.decompress(path.read_bytes())  # closed: every file has its gzip end
 
     def test_secrets_never_reach_status_or_log(self):
         client = FakeBooksClient(Clock(at(9, 0)), codes(8), login_error=LoginError("登入失敗：A123456789 bad key"))

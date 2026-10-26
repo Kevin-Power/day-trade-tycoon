@@ -101,8 +101,10 @@ if ($BooksTask) {
   if ($BooksNoPublish) { $arguments += ' --no-publish' }
   $action = New-ScheduledTaskAction -Execute $pythonw -Argument $arguments -WorkingDirectory $workBooks
   $days = @('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
-  # 08:40 starts the session; the later triggers restart a recorder that crashed (ignored while one is running).
-  $booksTriggers = @('08:40', '09:30', '10:30', '11:30', '12:30') | ForEach-Object { New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At $_ }
+  # 08:40 starts the session. Every 10 minutes until 13:20 a trigger restarts a recorder that crashed: Windows
+  # ignores it while one is running, and a finished day (or one with no more login attempts) exits at once.
+  $booksTimes = 0..28 | ForEach-Object { ([datetime]'08:40').AddMinutes(10 * $_).ToString('HH:mm') }
+  $booksTriggers = $booksTimes | ForEach-Object { New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At $_ }
   $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 6) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 5)
   $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
   Register-ScheduledTask -TaskName 'DayTradeTycoonBooks' -Action $action -Trigger $booksTriggers -Settings $settings `

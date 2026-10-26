@@ -24,6 +24,11 @@ class LoginError(Exception):
     pass
 
 
+class LoginRefused(LoginError):
+    """Fubon answered the login and said no (the key, the certificate or the account). Trying again and again could
+    lock the account; any other LoginError (an exception on the way, a realtime setup failure) may pass."""
+
+
 class SdkUnavailable(Exception):
     pass
 
@@ -35,6 +40,7 @@ REST_TIMEOUT = (10, 60)
 # another way (requests.request, a Session) that the stand-in below would not bound: read it, then change this.
 CHECKED_FUGLE = "2.7.0rc1"
 UNBOUNDED = "富邦行情呼叫沒有逾時"
+UNAUTHENTICATED = 3  # fugle_marketdata 2.7.0rc1 websocket AuthenticationState.UNAUTHENTICATED
 
 
 class TimedRequests:
@@ -134,7 +140,7 @@ class FubonClient:
         except Exception as error:  # noqa: BLE001 - reported, then redacted by the caller
             raise LoginError(f"登入失敗：{type(error).__name__}: {error}") from None
         if not getattr(result, "is_success", False):
-            raise LoginError(f"登入失敗：{getattr(result, 'message', '')}")
+            raise LoginRefused(f"登入失敗：{getattr(result, 'message', '')}")
         # The account list in result.data is never kept.
         self._sdk = sdk
         try:
@@ -176,6 +182,29 @@ class FubonClient:
     def quote(self, symbol: str) -> dict:
         """The current 五檔 and last trade of one stock (intraday/quote): refills a book after a reconnect."""
         return _call(lambda: self._rest.intraday.quote(symbol=symbol))
+
+    def release(self, stream: object) -> None:
+        """Lets go of a WebSocket stock client for good, even one stuck in connect(). In fugle_marketdata 2.7.0rc1,
+        connect() waits with no pause for AUTHENTICATED or UNAUTHENTICATED; a socket that fails before on_open
+        (refused, timed out, a TLS or HTTP refusal) sets neither, and disconnect() puts PENDING back, so the wait
+        would hold a core for good. UNAUTHENTICATED ends it. It is set on the client itself: fubon_neo's wrapper
+        passes reads on, not writes. Before disconnect() too, in case that one never returns."""
+        inner = getattr(stream, "_client", stream)
+        checked = self._checked_fugle() and isinstance(getattr(inner, "auth_status", None), int)
+        if checked:
+            inner.auth_status = UNAUTHENTICATED
+        try:
+            stream.disconnect()
+        except Exception:  # noqa: BLE001 - a client that cannot even disconnect is still let go
+            pass
+        if checked:
+            inner.auth_status = UNAUTHENTICATED
+
+    def _checked_fugle(self) -> bool:
+        try:
+            return self._rest_modules()[2] == CHECKED_FUGLE
+        except Exception:  # noqa: BLE001 - without the release, leave the SDK's state alone
+            return False
 
     def logout(self) -> None:
         if self._sdk is None:
