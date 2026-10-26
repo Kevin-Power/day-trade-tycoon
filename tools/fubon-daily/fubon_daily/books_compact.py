@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import gzip
 import hashlib
+import heapq
 import json
 import math
 import re
@@ -18,7 +19,7 @@ import zlib
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Iterator
+from typing import Callable, Iterator
 
 SCHEMA = 1
 KEY_EVERY = 60_000
@@ -27,6 +28,9 @@ FLAG_TRIAL, FLAG_REST, FLAG_FULL, FLAG_CONTINUOUS = 1, 2, 4, 8
 RAW_NAME = re.compile(r"^(conn\d+)-(\d{2})-(\d+)\.jsonl\.gz$")
 EXAMPLES = 20
 EMPTY = (None, None)
+# Gaps run to the session's end at the latest: 13:31, after the closing auction's books at 13:30. A connection
+# whose lines end before that without a stop line after it (an early stop, a crash) has the rest as a gap.
+SESSION_END_MS = (4 * 60 + 31) * 60_000
 
 
 @dataclass
@@ -175,77 +179,121 @@ def connection_files(raw_folder: Path) -> dict[str, list[Path]]:
     return {name: [path for _, _, path in sorted(items)] for name, items in sorted(groups.items())}
 
 
+@dataclass
+class _Link:
+    """One connection's state while its lines are read."""
+    state: str = "idle"  # idle, connecting, up, down, stopped
+    codes: list[str] = field(default_factory=list)
+    gap_from: int | None = None  # where an unrecorded stretch began, until the connection is back
+    pending: dict[str, int] = field(default_factory=dict)  # stock -> its gap's start, until it is heard again
+    last_r: int | None = None
+
+
+def _records(name: str, paths: list[Path], result: Encoded, problem: Callable[[str], None]) -> Iterator[tuple]:
+    """One connection's records as (received, connection, file name, record), in the order they were written."""
+    for path in paths:
+        report = RawReport()
+        try:
+            for record in iter_raw(path, report):
+                yield record["r"], name, path.name, record
+        except (OSError, zlib.error) as error:
+            problem(f"{path.name}：無法解壓（{type(error).__name__}）")
+        if report.cut:
+            result.truncated.append(path.name)
+        for number in report.bad:
+            problem(f"{path.name}:{number}")
+
+
+def _merged(spans: list[list[int]]) -> list[list[int]]:
+    """Overlapping or touching stretches as one."""
+    merged: list[list[int]] = []
+    for start, end in sorted(spans):
+        if merged and start <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([start, end])
+    return merged
+
+
 def _scan(raw_folder: Path, day: str, encode: bool) -> tuple[Encoded, dict[str, _Stock]]:
-    """Gaps per stock (and, when encoding, each stock's rows) from every connection's lines in written order."""
+    """Gaps per stock (and, when encoding, each stock's rows) from every connection's lines. The connections are
+    read side by side in the order their lines were received: a same-day restart splits the stocks by a fresh
+    snapshot order, so a stock can change connection, and its rows must still come in the order they arrived."""
     day_open = open_ms(day)
     result = Encoded()
     stocks: dict[str, _Stock] = {}
 
-    def problem(text: str, count: int = 1) -> None:
-        result.unparsable_count += count
+    def problem(text: str) -> None:
+        result.unparsable_count += 1
         if len(result.unparsable) < EXAMPLES:
             result.unparsable.append(text)
 
-    for paths in connection_files(raw_folder).values():
-        state, codes, gap_from, pending, last_r = "idle", [], None, {}, None
+    def close(link: _Link, code: str, end: int) -> None:
+        start = link.pending.pop(code)
+        if end > start:
+            result.gaps.setdefault(code, []).append([start - day_open, end - day_open])
 
-        def close(code: str, end: int) -> None:
-            result.gaps.setdefault(code, []).append([pending.pop(code) - day_open, end - day_open])
-
-        for path in paths:
-            report = RawReport()
-            try:
-                for record in iter_raw(path, report):
-                    received = record["r"]
-                    event = record.get("ev")
-                    if event == "connected":
-                        if state in ("up", "stopped") and last_r is not None and gap_from is None:
-                            gap_from = last_r  # a new process: the last one ended without a down line
-                        if isinstance(record.get("codes"), list):
-                            codes = [code for code in record["codes"] if isinstance(code, str)]
-                        state = "connecting"
-                    elif event == "subscribed":
-                        if gap_from is not None:
-                            for code in codes:
-                                pending.setdefault(code, gap_from)
-                            gap_from = None
-                        state = "up"
-                    elif event == "down":
-                        since = record.get("since")
-                        gap_from = since if isinstance(since, int) and not isinstance(since, bool) else received
-                        state = "down"
-                    elif event == "stop":
-                        for code in list(pending):
-                            close(code, received)
-                        state = "stopped"
-                    elif event == "refill":
-                        if record.get("symbol") in pending:
-                            close(record["symbol"], received)
-                    elif "d" in record:
-                        frame = frame_of(record, day_open)
-                        if frame is None:
-                            problem(f"{path.name}：不是五檔資料")
-                        else:
-                            symbol = record["d"]["symbol"]
-                            after_gap = symbol in pending
-                            if after_gap:
-                                close(symbol, received)
-                            if encode:
-                                if symbol not in stocks:
-                                    stocks[symbol] = _Stock(symbol, day)
-                                stocks[symbol].add(frame, after_gap)
-                    last_r = received
-            except (OSError, zlib.error) as error:
-                problem(f"{path.name}：無法解壓（{type(error).__name__}）")
-            if report.cut:
-                result.truncated.append(path.name)
-            for number in report.bad:
-                problem(f"{path.name}:{number}")
-        if gap_from is not None:  # went down and never came back
-            for code in codes:
-                pending.setdefault(code, gap_from)
-        for code in list(pending):
-            close(code, last_r)
+    files = connection_files(raw_folder)
+    links = {name: _Link() for name in files}
+    streams = [_records(name, paths, result, problem) for name, paths in files.items()]
+    for received, name, file_name, record in heapq.merge(*streams, key=lambda item: item[0]):
+        link = links[name]
+        event = record.get("ev")
+        if event == "connected":
+            if link.state in ("up", "stopped") and link.last_r is not None and link.gap_from is None:
+                link.gap_from = link.last_r  # a new process: the last one ended without a down line
+            if isinstance(record.get("codes"), list):
+                link.codes = [code for code in record["codes"] if isinstance(code, str)]
+            if link.gap_from is not None:
+                # Every stock's book is unknown from the gap's start until it is heard again or refilled. Set here,
+                # not at the subscribed line: books can arrive before that line is written.
+                for code in link.codes:
+                    link.pending.setdefault(code, link.gap_from)
+                link.gap_from = None
+            link.state = "connecting"
+        elif event == "subscribed":
+            link.state = "up"
+        elif event == "down":
+            since = record.get("since")
+            link.gap_from = since if isinstance(since, int) and not isinstance(since, bool) else received
+            link.state = "down"
+        elif event == "stop":
+            for code in list(link.pending):
+                close(link, code, received)
+            link.state = "stopped"
+        elif event == "refill":
+            if record.get("symbol") in link.pending:
+                close(link, record["symbol"], received)
+        elif "d" in record:
+            frame = frame_of(record, day_open)
+            if frame is None:
+                problem(f"{file_name}：不是五檔資料")
+            else:
+                symbol = record["d"]["symbol"]
+                after_gap = symbol in link.pending
+                if after_gap:
+                    close(link, symbol, received)
+                if encode:
+                    if symbol not in stocks:
+                        stocks[symbol] = _Stock(symbol, day)
+                    stocks[symbol].add(frame, after_gap)
+        link.last_r = received
+    session_end = day_open + SESSION_END_MS
+    for link in links.values():
+        if link.last_r is None:
+            continue
+        end = link.last_r
+        if not (link.state == "stopped" and link.last_r >= session_end):
+            # It stopped early (low disk, a failed write) or died: nothing is known after its last line.
+            if link.gap_from is None:
+                link.gap_from = link.last_r
+            end = max(link.last_r, session_end)
+        if link.gap_from is not None:
+            for code in link.codes:
+                link.pending.setdefault(code, link.gap_from)
+        for code in list(link.pending):
+            close(link, code, end)
+    result.gaps = {code: _merged(spans) for code, spans in result.gaps.items()}
     return result, stocks
 
 
@@ -274,18 +322,23 @@ def decode(blob: bytes) -> list[dict]:
 
 
 def gaps_by_symbol(raw_folder: Path, day: str) -> dict[str, list[list[int]]]:
-    """Per stock, the stretches (ms after 09:00) whose books may be missing: from the last line before a drop or
-    a crash to its first books message or refill after the resubscribe."""
+    """Per stock, the stretches (ms after 09:00) whose books may be missing: from the last line before a drop, a
+    crash or a late start (the recorder's down line) to its first books message or refill after the reconnect,
+    and from an early end of the recording to 13:31. Overlapping or touching stretches are one."""
     return _scan(raw_folder, day, encode=False)[0].gaps
 
 
-def encode_day(raw_folder: Path, day: str) -> Encoded:
+def encode_day(raw_folder: Path, day: str, check: Callable[[str, dict], None] | None = None) -> Encoded:
+    """Every stock's compact file, each decoded on its own and compared by hash with what went in. `check` sees
+    every decoded frame on the way, so publishing can look at the books without decoding them twice."""
     result, stocks = _scan(raw_folder, day, encode=True)
     for code, stock in stocks.items():
         blob = stock.finish(result.gaps.get(code, []))
         decoded = hashlib.sha256()
         for frame in iter_decode(blob):
             decoded.update(_canonical(frame))
+            if check is not None:
+                check(code, frame)
         if decoded.digest() != stock.digest.digest():
             result.mismatched.append(code)
         result.files[code] = blob

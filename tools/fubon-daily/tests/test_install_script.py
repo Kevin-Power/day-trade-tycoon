@@ -46,6 +46,10 @@ class InstallScriptTest(unittest.TestCase):
         self.assertIn("work-books", text)
         self.assertIn("-LogonType Interactive -RunLevel Limited", text)
 
+    def test_the_books_task_can_record_without_publishing(self):
+        self.assertIn("[switch]$BooksNoPublish", SCRIPT.read_text(encoding="utf-8-sig"))
+        self.assertIn("if ($BooksNoPublish) { $arguments += ' --no-publish' }", block("BooksTask"))
+
     def test_app_install_copies_record_books(self):
         self.assertIn("'record_books.py'", block("App"))
 

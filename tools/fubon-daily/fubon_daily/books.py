@@ -17,6 +17,7 @@ from datetime import datetime, time, timedelta
 from pathlib import Path
 from typing import Callable
 
+from .books_publish import NoBooks, BooksPublishError, publish_day
 from .client import ApiError, LoginError, SdkUnavailable
 from .credentials import CredentialsError, Redactor, load_credentials
 from .normalize import TAIPEI, ValidationError, snapshot_listing
@@ -318,16 +319,21 @@ class Link:
 
 class Recorder:
     """One trading session: log in once, hold a connection per group of stocks, keep every books message, end at
-    the stop time. Exit code 0 for ok, partial, closed and late; 1 for failed; 2 for login settings or login."""
+    the stop time, then (with `publish`) publish the day's books. Exit code 0 for ok, partial, closed and late; 1
+    for failed; 2 for login settings or login."""
 
     def __init__(self, data: Path, credentials: Path, runtime: BooksRuntime, store, stop_at: time = STOP_AT,
-                 test_mode: bool = False):
+                 test_mode: bool = False, publish: bool = False):
         self.data = Path(data)
         self.credentials = Path(credentials)
         self.runtime = runtime
         self.store = store
         self.stop_at = stop_at
         self.test_mode = test_mode
+        self.publish = publish
+        self.published: dict | None = None
+        self.publish_error: str | None = None
+        self.finished_at: str | None = None
         self.client = None
         self.links: list[Link] = []
         self.refills: list[tuple[Link, str]] = []
@@ -634,7 +640,39 @@ class Recorder:
         self.log(f"結束：{outcome}" + (f"：{reason}" if reason else ""))
         if self.reason:
             self.notice(self.reason)
+        elif self.publish:
+            # Only after a session that reached its stop time: after an early stop a re-start trigger may still
+            # record more of the same day.
+            self.publish_days()
+            self.write_status(outcome, reason, finished=True)
         return 0
+
+    def publish_days(self) -> None:
+        """Stage 2: today's books, then at most one earlier recorded day still unpublished (a day whose recorder
+        died before its stop time). A day that fails keeps its raw files and is not tried again on its own;
+        `record_books.py --publish <day>` does that."""
+        pending = self.store.unpublished_books_days()
+        days = [day for day in pending if day == self.day] + [day for day in pending if day < self.day][:1]
+        for day in days:
+            try:
+                summary = publish_day(self.store, day, self.runtime.version, self.runtime.now(),
+                                      connections=self.connection_summary() if day == self.day else None)
+            except NoBooks as error:
+                self.store.mark_books_publish_failed(day, str(error), self.runtime.now())
+                self.log(str(error))
+                continue
+            except Exception as error:  # noqa: BLE001 - the raw files stay where they are for --publish
+                message = str(error) if isinstance(error, BooksPublishError) else f"{type(error).__name__}: {error}"
+                self.store.mark_books_publish_failed(day, message, self.runtime.now())
+                self.log(f"{day} 上架失敗，原始資料留著：{message}")
+                self.notice(f"{day} 上架失敗，原始資料留著：{message}")
+                if day == self.day:
+                    self.publish_error = message[:MESSAGE_LIMIT]
+                continue
+            self.log(f"{day} 上架：{summary['symbols']} 檔、{summary['messages']} 筆、"
+                     f"{summary['bytes'] / 2**20:.1f} MB、警告 {summary['warnings']} 項")
+            if day == self.day:
+                self.published = summary
 
     def late(self) -> int:
         self.log(f"已過 {self.stop_at:%H:%M}，今天不再錄")
@@ -649,19 +687,26 @@ class Recorder:
         self.notice(reason)
         return code
 
+    def connection_summary(self) -> list[dict]:
+        return [{"index": link.stream.index, "symbols": len(link.stream.codes),
+                 "messages": link.base_messages + link.stream.messages,
+                 "reconnects": link.base_reconnects + link.stream.reconnects,
+                 "up": link.state == "up", "gaps": link.stream.gaps,
+                 "errors": link.stream.errors[-5:]} for link in self.links]
+
     def write_status(self, outcome: str, reason: str | None = None, finished: bool = False) -> None:
         now = self.iso(self.runtime.now())
-        connections = [{"index": link.stream.index, "symbols": len(link.stream.codes),
-                        "messages": link.base_messages + link.stream.messages,
-                        "reconnects": link.base_reconnects + link.stream.reconnects,
-                        "up": link.state == "up", "gaps": link.stream.gaps,
-                        "errors": link.stream.errors[-5:]} for link in self.links]
+        if finished and self.finished_at is None:
+            self.finished_at = now  # publishing afterwards does not move the session's end
+        connections = self.connection_summary()
         carried = self.carried or {}
         entry = {"schema": 1, "date": self.day, "outcome": outcome,
                  "reason": reason[:MESSAGE_LIMIT] if reason else None,
                  "startedAt": carried.get("startedAt") or self.iso(self.started), "updatedAt": now,
-                 "finishedAt": now if finished else None, "symbols": self.symbols, "dropped": self.dropped,
+                 "finishedAt": self.finished_at if finished else None, "symbols": self.symbols,
+                 "dropped": self.dropped,
                  "messages": sum(item["messages"] for item in connections) or int(carried.get("messages") or 0),
                  "rawBytes": int(carried.get("rawBytes") or 0) + sum(stream.bytes for stream in self.streams),
-                 "connections": connections, "version": self.runtime.version}
+                 "connections": connections, "published": self.published, "publishError": self.publish_error,
+                 "version": self.runtime.version}
         self.store.write_books_status(entry)

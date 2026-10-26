@@ -20,6 +20,8 @@ HISTORY_LIMIT = 30
 # Longer than the scheduled task's two-hour limit: an older lock belongs to a run that is gone.
 STALE_LOCK_SECONDS = 2.5 * 3600
 REPLACE_ATTEMPTS = 5
+# Left in staging-books/<day> when publishing that day's books failed: automatic runs skip the day.
+BOOKS_PUBLISH_ERROR = "publish-error.json"
 # A stored answer that reads but cannot be decoded; any other OSError (a file held by a scanner, say) may pass.
 UNDECODABLE = (EOFError, ValueError, gzip.BadGzipFile, zlib.error)
 
@@ -398,6 +400,78 @@ class MarketStore:
     def write_books_status(self, entry: dict) -> None:
         text = self.redact(json.dumps(entry, ensure_ascii=False, indent=1))
         _write_atomic(self.root / "books-status.json", text.encode("utf-8"))
+
+    def publish_books(self, day: str, files: dict[str, bytes], manifest: dict) -> dict:
+        """Writes the compact files and their manifest in staging, then moves the folder into books/<day> in one
+        step. The manifest lists every file's path, size and SHA-256 next to the stock's entry."""
+        target = self.root / "books" / day
+        if target.exists():
+            raise FileExistsError(day)
+        out = self.root / "staging-books" / day / "out"
+        shutil.rmtree(out, ignore_errors=True)
+        (out / "symbols").mkdir(parents=True)
+        for entry in manifest["symbols"]:
+            data = files[entry["code"]]
+            entry["path"] = f"symbols/{entry['code']}.json.gz"
+            entry["bytes"] = len(data)
+            entry["sha256"] = hashlib.sha256(data).hexdigest()
+            (out / entry["path"]).write_bytes(data)
+        (out / "manifest.json").write_bytes(_json_bytes(manifest, indent=1))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _replace(out, target)
+        return manifest
+
+    def archive_books_raw(self, day: str) -> None:
+        """After publishing: staging-books/<day>/raw becomes raw-books/<day> (kept 14 days), staging is cleared."""
+        target = self.root / "raw-books" / day
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _replace(self.books_raw_folder(day), target)
+        shutil.rmtree(self.root / "staging-books" / day, ignore_errors=True)
+
+    def unpublished_books_days(self) -> list[str]:
+        """Recorded days still in staging, oldest first: no published manifest yet, and no failed publish (that
+        one waits for `--publish <day>`)."""
+        staging = self.root / "staging-books"
+        if not staging.is_dir():
+            return []
+        return sorted(entry.name for entry in staging.iterdir()
+                      if DAY_NAME.match(entry.name) and (entry / "raw").is_dir()
+                      and not (entry / BOOKS_PUBLISH_ERROR).exists()
+                      and not (self.root / "books" / entry.name / "manifest.json").is_file())
+
+    def mark_books_publish_failed(self, day: str, message: str, at: datetime) -> None:
+        path = self.root / "staging-books" / day / BOOKS_PUBLISH_ERROR
+        path.parent.mkdir(parents=True, exist_ok=True)
+        text = self.redact(json.dumps({"at": at.isoformat(timespec="seconds"), "error": message}, ensure_ascii=False))
+        _write_atomic(path, text.encode("utf-8"))
+
+    def day_reference_prices(self, day: str) -> dict[str, float] | None:
+        """referencePrice per stock from that day's published 1-minute index, or None before it is published."""
+        try:
+            listing = json.loads((self.root / "days" / day / "index.json").read_text(encoding="utf-8-sig"))
+            return {entry["code"]: float(entry["referencePrice"]) for entry in listing["symbols"]
+                    if isinstance(entry.get("referencePrice"), (int, float)) and entry["referencePrice"] > 0}
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+
+    def prune_books(self, today: date, raw_days: int = 14, log_days: int = 90) -> None:
+        """Raw books go after `raw_days`, but only once their day is published; compact books are kept forever."""
+        def age(name: str) -> int | None:
+            return (today - date.fromisoformat(name)).days if DAY_NAME.match(name) else None
+
+        raw = self.root / "raw-books"
+        if raw.is_dir():
+            for entry in raw.iterdir():
+                days_old = age(entry.name)
+                published = (self.root / "books" / entry.name / "manifest.json").is_file()
+                if entry.is_dir() and days_old is not None and days_old > raw_days and published:
+                    shutil.rmtree(entry)
+        logs = self.root / "logs" / "books"
+        if logs.is_dir():
+            for entry in logs.glob("*.log"):
+                days_old = age(entry.stem)
+                if days_old is not None and days_old > log_days:
+                    entry.unlink()
 
     def free_bytes(self) -> int:
         self.root.mkdir(parents=True, exist_ok=True)

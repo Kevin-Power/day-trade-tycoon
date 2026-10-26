@@ -5,12 +5,14 @@
     powershell -NoProfile -File tools\fubon-daily\install.ps1 -App     # copy the committed fetcher
     powershell -NoProfile -File tools\fubon-daily\install.ps1 -Task    # weekday 16:45 / 18:00 / 19:00
     powershell -NoProfile -File tools\fubon-daily\install.ps1 -BooksTask  # weekday 08:40 books recorder
+    powershell -NoProfile -File tools\fubon-daily\install.ps1 -BooksTask -BooksNoPublish  # record only
 #>
 param(
   [switch]$Sdk,
   [switch]$App,
   [switch]$Task,
   [switch]$BooksTask,
+  [switch]$BooksNoPublish,
   [string]$Runtime = (Join-Path $env:USERPROFILE 'YilutekServices\DayTradeTycoon'),
   [string]$Credentials = (Join-Path $env:USERPROFILE '.fubon\credentials.local.py')
 )
@@ -95,6 +97,8 @@ if ($BooksTask) {
   $workBooks = Join-Path $fetcher 'work-books'
   New-Item -ItemType Directory -Force -Path $workBooks | Out-Null
   $arguments = '-X utf8 "{0}" --data "{1}" --credentials "{2}"' -f $entry, (Join-Path $Runtime 'market-data'), $Credentials
+  # After its stop time the recorder publishes the day's books (stage 2); -BooksNoPublish records only.
+  if ($BooksNoPublish) { $arguments += ' --no-publish' }
   $action = New-ScheduledTaskAction -Execute $pythonw -Argument $arguments -WorkingDirectory $workBooks
   $days = @('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
   # 08:40 starts the session; the later triggers restart a recorder that crashed (ignored while one is running).

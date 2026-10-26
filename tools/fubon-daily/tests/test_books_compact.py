@@ -74,10 +74,8 @@ class Raw:
 class CompactTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)  # last: after any writer a test leaves open, as a crash does
         self.raw = Path(self.temp.name) / "raw"
-
-    def tearDown(self):
-        self.temp.cleanup()
 
     def test_round_trip_equals_the_raw_messages(self):
         raw = Raw(self.raw)
@@ -104,6 +102,100 @@ class CompactTest(unittest.TestCase):
                          (1, "2330", DAY, "unverified", 60000))
         self.assertEqual(encoded.unparsable, [])
         self.assertEqual(encoded.mismatched, [])
+        self.assertEqual(encoded.gaps, {})  # connected before 09:00 and stopped after the close: nothing missing
+
+    def test_a_stock_that_moves_to_another_connection_keeps_its_order(self):
+        # A same-day restart splits the stocks by a fresh snapshot order, so 2330 can change connection.
+        morning1, morning2 = Raw(self.raw, "conn1"), Raw(self.raw, "conn2")
+        morning1.control("connected", at(8, 44), generation=1, symbols=1, codes=["2317"])
+        morning1.control("subscribed", at(8, 44, 1), symbols=1)
+        morning2.control("connected", at(8, 44, 15), generation=1, symbols=1, codes=["2330"])
+        morning2.control("subscribed", at(8, 44, 16), symbols=1)
+        early = [book("2330", at(9, 0, 10), step=0), book("2330", at(9, 0, 20), step=1)]
+        for data in early:
+            morning2.books(data)
+        morning1.books(book("2317", at(9, 0, 30)))
+        morning1.writer.flush()
+        morning2.writer.flush()  # then the process dies
+        again1, again2 = Raw(self.raw, "conn1"), Raw(self.raw, "conn2")
+        again1.control("connected", at(10, 10), generation=1, symbols=1, codes=["2330"])
+        again1.control("subscribed", at(10, 10, 1), symbols=1)
+        again2.control("connected", at(10, 10, 15), generation=1, symbols=1, codes=["2317"])
+        again2.control("subscribed", at(10, 10, 16), symbols=1)
+        late = [book("2330", at(10, 10, 30), step=2), book("2330", at(10, 10, 40), step=3)]
+        for data in late:
+            again1.books(data)
+        again1.control("stop", at(13, 36))
+        again2.control("stop", at(13, 36))
+        for raw in (again1, again2, morning1, morning2):
+            raw.close()
+        encoded = encode_day(self.raw, DAY)
+        self.assertEqual(decode(encoded.files["2330"]), [frame(data) for data in early + late])
+        self.assertEqual(encoded.mismatched, [])
+        self.assertEqual(len(encoded.gaps["2330"]), 1)  # the restart
+
+    def test_an_early_stop_or_a_crash_is_a_gap_to_the_close(self):
+        stopped, died = Raw(self.raw, "conn1"), Raw(self.raw, "conn2")
+        self.addCleanup(died.close)
+        stopped.control("connected", at(8, 44), generation=1, symbols=1, codes=["2330"])
+        stopped.control("subscribed", at(8, 44, 1), symbols=1)
+        died.control("connected", at(8, 44, 15), generation=1, symbols=1, codes=["2317"])
+        died.control("subscribed", at(8, 44, 16), symbols=1)
+        stopped.books(book("2330", at(10, 59, 50)))
+        died.books(book("2317", at(11, 0, 5)))
+        stopped.control("stop", at(11, 0))  # low disk ended the session early
+        stopped.close()
+        died.writer.flush()  # a crash: no stop line, no re-start
+        gaps = gaps_by_symbol(self.raw, DAY)
+        close = after_open(at(13, 31))
+        self.assertEqual(gaps["2330"], [[after_open(at(11, 0)), close]])
+        self.assertEqual(gaps["2317"], [[after_open(at(11, 0, 5, 5)), close]])
+
+    def test_touching_gaps_become_one(self):
+        raw = Raw(self.raw)
+        raw.control("connected", at(8, 44), generation=1, symbols=2, codes=["2330", "2317"])
+        raw.control("subscribed", at(8, 44, 1), symbols=2)
+        raw.books(book("2330", at(9, 59, 40)))
+        raw.books(book("2317", at(9, 59, 45)))
+        raw.control("down", at(10, 0, 30), reason="斷線", since=epoch_ms(at(9, 59, 50)))
+        raw.control("connected", at(10, 1), generation=2, symbols=2, codes=["2330", "2317"])
+        raw.control("subscribed", at(10, 1, 1), symbols=2)
+        raw.books(book("2330", at(10, 1, 5)))
+        raw.control("stop", at(11, 0))
+        raw.close()
+        gaps = gaps_by_symbol(self.raw, DAY)
+        close = after_open(at(13, 31))
+        self.assertEqual(gaps["2317"], [[after_open(at(9, 59, 50)), close]])  # one gap, not two
+        self.assertEqual(gaps["2330"], [[after_open(at(9, 59, 50)), after_open(at(10, 1, 5, 5))],
+                                        [after_open(at(11, 0)), close]])
+
+    def test_a_book_before_the_subscribed_line_ends_its_gap(self):
+        # The subscribed line is written up to a second after Fubon acknowledges; books can come before it.
+        raw = Raw(self.raw)
+        raw.control("connected", at(8, 44), generation=1, symbols=1, codes=["2330"])
+        raw.control("subscribed", at(8, 44, 1), symbols=1)
+        raw.books(book("2330", at(9, 0, 10)))
+        raw.control("down", at(9, 1, 30), reason="斷線", since=epoch_ms(at(9, 0, 20)))
+        raw.control("connected", at(9, 1, 40), generation=2, symbols=1, codes=["2330"])
+        raw.books(book("2330", at(9, 1, 40, 500), step=1))
+        raw.control("subscribed", at(9, 1, 41), symbols=1)
+        raw.control("stop", at(13, 36))
+        raw.close()
+        self.assertEqual(gaps_by_symbol(self.raw, DAY)["2330"],
+                         [[after_open(at(9, 0, 20)), after_open(at(9, 1, 40, 505))]])
+
+    def test_a_late_start_is_a_gap_from_the_opening_time(self):
+        # The recorder writes a down line from 08:44 when it starts late (or its first connect fails).
+        raw = Raw(self.raw)
+        raw.control("down", at(10, 0), reason="程式晚啟動", since=epoch_ms(at(8, 44)))
+        raw.control("connected", at(10, 0, 1), generation=1, symbols=2, codes=["2330", "2317"])
+        raw.control("subscribed", at(10, 0, 2), symbols=2)
+        raw.books(book("2330", at(10, 0, 5)))
+        raw.control("stop", at(13, 36))
+        raw.close()
+        gaps = gaps_by_symbol(self.raw, DAY)
+        self.assertEqual(gaps["2330"], [[after_open(at(8, 44)), after_open(at(10, 0, 5, 5))]])
+        self.assertEqual(gaps["2317"], [[after_open(at(8, 44)), after_open(at(13, 36))]])
 
     def test_arrival_order_is_kept_even_when_time_goes_back(self):
         # Fubon's time very rarely goes back (22 of 914,635 on 2026-10-22): keep the order it sent them in.
@@ -163,11 +255,11 @@ class CompactTest(unittest.TestCase):
         raw.control("connected", at(9, 1, 40), generation=2, symbols=2, codes=["2330", "2317"])
         raw.control("subscribed", at(9, 1, 41), symbols=2)
         raw.books(book("2330", at(9, 1, 45), step=1))
-        raw.control("stop", at(9, 3))
+        raw.control("stop", at(13, 36))
         raw.close()
         gaps = gaps_by_symbol(self.raw, DAY)
         self.assertEqual(gaps["2330"], [[after_open(at(9, 0, 20)), after_open(at(9, 1, 45, 5))]])
-        self.assertEqual(gaps["2317"], [[after_open(at(9, 0, 20)), after_open(at(9, 3))]])  # never heard again
+        self.assertEqual(gaps["2317"], [[after_open(at(9, 0, 20)), after_open(at(13, 36))]])  # never heard again
         encoded = encode_day(self.raw, DAY)
         header = json.loads(gzip.decompress(encoded.files["2330"]))
         self.assertEqual(header["gaps"], gaps["2330"])
@@ -176,18 +268,18 @@ class CompactTest(unittest.TestCase):
 
     def test_a_crash_and_restart_is_a_gap(self):
         first = Raw(self.raw)
-        first.control("connected", at(10, 0), generation=1, symbols=1, codes=["2330"])
-        first.control("subscribed", at(10, 0, 1), symbols=1)
+        first.control("connected", at(8, 44), generation=1, symbols=1, codes=["2330"])
+        first.control("subscribed", at(8, 44, 1), symbols=1)
         first.books(book("2330", at(10, 0, 5)))
         first.writer.flush()  # then the process dies: no stop line
         again = Raw(self.raw)  # the re-start trigger: a new part file for the same hour
         again.control("connected", at(10, 10), generation=1, symbols=1, codes=["2330"])
         again.control("subscribed", at(10, 10, 1), symbols=1)
         again.books(book("2330", at(10, 10, 30), step=2))
-        again.control("stop", at(10, 20))
+        again.control("stop", at(13, 36))
         again.close()
         self.assertEqual(sorted(path.name for path in self.raw.iterdir()),
-                         ["conn1-10-1.jsonl.gz", "conn1-10-2.jsonl.gz"])
+                         ["conn1-08-1.jsonl.gz", "conn1-10-1.jsonl.gz", "conn1-10-2.jsonl.gz", "conn1-13-1.jsonl.gz"])
         gaps = gaps_by_symbol(self.raw, DAY)
         self.assertEqual(gaps["2330"], [[after_open(at(10, 0, 5, 5)), after_open(at(10, 10, 30, 5))]])
         frames = decode(encode_day(self.raw, DAY).files["2330"])
@@ -206,6 +298,7 @@ class CompactTest(unittest.TestCase):
                  "lastUpdated": int(at(9, 2, 40).timestamp() * 1_000_000)}
         raw.rest(quote, at(9, 2, 41))
         raw.control("refill", at(9, 2, 41), symbol="2317")
+        raw.control("stop", at(13, 36))
         raw.close()
         encoded = encode_day(self.raw, DAY)
         frames = decode(encoded.files["2317"])

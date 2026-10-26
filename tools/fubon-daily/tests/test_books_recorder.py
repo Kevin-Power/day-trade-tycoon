@@ -9,7 +9,8 @@ from datetime import datetime, time, timedelta
 from pathlib import Path
 from unittest import mock
 
-from fubon_daily.books import BooksRuntime, Recorder
+from fubon_daily.books import BooksRuntime, RawWriter, Recorder
+from fubon_daily.books_publish import BooksPublishError
 from fubon_daily.client import LoginError
 from fubon_daily.credentials import MASK
 from fubon_daily.normalize import TAIPEI
@@ -185,21 +186,38 @@ class RecorderTest(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def record(self, client, stop_at, test_mode=False):
+    def record(self, client, stop_at, test_mode=False, publish=False):
         clock = client.clock
         runtime = BooksRuntime(make_client=lambda credentials: client, now=clock.now, monotonic=clock.monotonic,
                                sleep=clock.sleep, notify=lambda title, body: self.notices.append((title, body)) or True,
                                random=lambda: 0.0, version="test", run_with_timeout=clock.run_with_timeout)
         store = MarketStore(self.data)
         store.free_bytes = lambda: self.free() if callable(self.free) else self.free
-        self.recorder = Recorder(self.data, self.credentials, runtime, store, stop_at=stop_at, test_mode=test_mode)
+        self.recorder = Recorder(self.data, self.credentials, runtime, store, stop_at=stop_at, test_mode=test_mode,
+                                 publish=publish)
         return self.recorder.run()
+
+    def earlier_day(self, day="2026-10-27", failed=False):
+        """A day recorded the way a recorder that died before its stop time leaves it: raw files in staging."""
+        start = int(datetime.fromisoformat(f"{day}T09:00:00+08:00").timestamp() * 1000)
+        writer = RawWriter(MarketStore(self.data).books_raw_folder(day), "conn1")
+        writer.write({"r": start, "ev": "connected", "generation": 1, "symbols": 1, "codes": ["2330"]})
+        writer.write({"r": start + 1000, "ev": "subscribed", "symbols": 1})
+        for second in range(3):
+            stamp = (start + 2000 + 1000 * second) * 1000
+            writer.write({"r": start + 2005 + 1000 * second, "d": {**BOOK, "time": stamp}})
+        writer.close()
+        if failed:
+            MarketStore(self.data).mark_books_publish_failed(day, "1 檔還原後和原始資料不一致", at(9, 0))
 
     def status(self):
         return json.loads((self.data / "books-status.json").read_text(encoding="utf-8"))
 
     def raw_lines(self):
+        """Raw lines wherever they are: still in staging, or archived once the day was published."""
         folder = self.data / "staging-books" / DAY / "raw"
+        if not folder.is_dir():
+            folder = self.data / "raw-books" / DAY
         return [line for path in sorted(folder.glob("*.jsonl.gz")) for line in read_lines(path)]
 
     # ---- before the session ------------------------------------------------------------------------------
@@ -278,6 +296,86 @@ class RecorderTest(unittest.TestCase):
         self.assertEqual([connection["gaps"] for connection in status["connections"]], [[], [], [], []])
         self.assertIn("logout", client.calls)
         self.assertTrue(all(stream.disconnected for stream in client.streams))
+
+    # ---- publishing (stage 2) ------------------------------------------------------------------------------
+
+    def test_books_are_published_after_the_session(self):
+        clock = Clock(at(9, 0))
+        client = FakeBooksClient(clock, codes(8))
+        for second in (1, 2, 3):
+            clock.at(at(9, 1, second), lambda: client.streams[0].books("1000"))
+        self.assertEqual(self.record(client, time(9, 2), publish=True), 0)
+        manifest = json.loads((self.data / "books" / DAY / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["counts"], {"symbols": 1, "messages": 3})
+        self.assertEqual([connection["index"] for connection in manifest["connections"]], [1, 2, 3, 4])
+        status = self.status()
+        self.assertEqual((status["outcome"], status["published"]["messages"]), ("ok", 3))
+        self.assertEqual(status["finishedAt"], "2026-10-28T09:02:00+08:00")
+        self.assertFalse((self.data / "staging-books" / DAY).exists())
+        self.assertTrue(any((self.data / "raw-books" / DAY).glob("*.jsonl.gz")))
+
+    def test_without_publishing_the_raw_files_stay_in_staging(self):
+        # Stage 1 alone (`--no-publish`): record only.
+        clock = Clock(at(9, 0))
+        client = FakeBooksClient(clock, codes(8))
+        clock.at(at(9, 1), lambda: client.streams[0].books("1000"))
+        self.record(client, time(9, 2))
+        self.assertFalse((self.data / "books").exists())
+        self.assertTrue(any((self.data / "staging-books" / DAY / "raw").glob("*.jsonl.gz")))
+        self.assertIsNone(self.status()["published"])
+
+    def test_a_failed_publish_keeps_the_raw_files_and_says_why(self):
+        clock = Clock(at(9, 0))
+        client = FakeBooksClient(clock, codes(8))
+        clock.at(at(9, 1), lambda: client.streams[0].books("1000"))
+        with mock.patch("fubon_daily.books.publish_day", side_effect=BooksPublishError("1 檔還原後和原始資料不一致")):
+            self.assertEqual(self.record(client, time(9, 2), publish=True), 0)
+        status = self.status()
+        self.assertIn("不一致", status["publishError"])
+        self.assertIsNone(status.get("published"))
+        self.assertFalse((self.data / "books" / DAY).exists())
+        self.assertTrue(any((self.data / "staging-books" / DAY / "raw").glob("*.jsonl.gz")))
+        self.assertEqual(len([body for _, body in self.notices if "上架失敗" in body]), 1)
+        self.assertEqual(MarketStore(self.data).unpublished_books_days(), [])  # not again on its own
+
+    def test_a_day_without_any_books_is_not_published(self):
+        client = FakeBooksClient(Clock(at(9, 0)), codes(8))
+        self.record(client, time(9, 2), test_mode=True, publish=True)
+        self.assertFalse((self.data / "books").exists())
+        self.assertIsNone(self.status().get("published"))
+        self.assertEqual(self.notices, [])
+
+    def test_an_early_stop_leaves_publishing_for_later(self):
+        # A re-start trigger may still record more of the day; the next session publishes it.
+        clock = Clock(at(9, 0))
+        client = FakeBooksClient(clock, codes(8))
+        self.free = lambda: 50 * GB if clock.now() < at(9, 1) else 2 * GB
+        clock.at(at(9, 0, 30), lambda: client.streams[0].books("1000"))
+        self.record(client, time(9, 30), publish=True)
+        self.assertEqual(self.status()["outcome"], "partial")
+        self.assertFalse((self.data / "books").exists())
+        self.assertEqual(MarketStore(self.data).unpublished_books_days(), [DAY])
+
+    def test_an_earlier_unpublished_day_is_published_after_today(self):
+        self.earlier_day("2026-10-26")
+        self.earlier_day("2026-10-27")
+        clock = Clock(at(9, 0))
+        client = FakeBooksClient(clock, codes(8))
+        clock.at(at(9, 1), lambda: client.streams[0].books("1000"))
+        self.record(client, time(9, 2), publish=True)
+        published = sorted(path.parent.name for path in (self.data / "books").glob("*/manifest.json"))
+        self.assertEqual(published, ["2026-10-26", DAY])  # one earlier day per session, oldest first
+        self.assertEqual(MarketStore(self.data).unpublished_books_days(), ["2026-10-27"])
+
+    def test_a_day_that_failed_to_publish_waits_for_a_manual_retry(self):
+        self.earlier_day("2026-10-27", failed=True)
+        clock = Clock(at(9, 0))
+        client = FakeBooksClient(clock, codes(8))
+        clock.at(at(9, 1), lambda: client.streams[0].books("1000"))
+        self.record(client, time(9, 2), publish=True)
+        self.assertFalse((self.data / "books" / "2026-10-27").exists())
+        self.assertTrue((self.data / "staging-books" / "2026-10-27" / "raw").is_dir())
+        self.assertEqual([body for _, body in self.notices if "上架失敗" in body], [])
 
     def test_a_dropped_connection_comes_back_and_its_gap_is_recorded(self):
         clock = Clock(at(9, 58))
