@@ -453,7 +453,8 @@ class Recorder:
         last_flush = last_status = last_disk = self.runtime.monotonic()
         holiday_check = max(self.at_today(CLOSED_CHECK), self.started + timedelta(minutes=5))
         checked = self.test_mode
-        retry_until = self.at_today(RETRY_UNTIL)
+        # Not on a trading day's last minutes; a trial (test mode) may run at any hour.
+        retry_until = stop if self.test_mode else min(self.at_today(RETRY_UNTIL), stop)
         while True:
             now, mono = self.runtime.now(), self.runtime.monotonic()
             if now >= stop:

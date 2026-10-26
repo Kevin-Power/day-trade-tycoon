@@ -379,6 +379,13 @@ class RecorderTest(unittest.TestCase):
         self.assertLess(client.clock.now(), at(9, 7))
         self.assertIn("logout", client.calls)
 
+    def test_test_mode_connects_after_1330(self):
+        # An off-hours trial (2026-10-26 found it never connected): the 13:30 retry limit is for trading days.
+        client = FakeBooksClient(Clock(at(14, 9)), codes(8))
+        self.assertEqual(self.record(client, time(14, 11), test_mode=True), 0)
+        self.assertEqual(len(client.streams), 4)
+        self.assertEqual(self.status()["outcome"], "ok")
+
     def test_test_mode_never_calls_a_day_closed(self):
         clock = Clock(at(9, 0))
         client = FakeBooksClient(clock, codes(8))

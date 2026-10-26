@@ -79,6 +79,45 @@
   - 只有部分呼叫卡住、重試又成功時，每卡住一次多花約一分鐘。1 分 K 沒有時間上限，卡住的次數一多，整次執行仍可能跑滿兩小時被停掉：不上架 1 分 K、不通知；如果是當天最後一次，那天的 1 分 K 要用 `--date` 手動補抓。逐筆在 1 分 K 之前就已經存進暫存區（最後一次會先上架），不受影響。
 - 細節見 `docs/fubon-ticks-full-market-2026-10-21.md` 的「富邦行情呼叫加上逾時」。
 
+## 盤中五檔（2026-10-28 起）
+
+富邦的五檔只能在盤中用 WebSocket 即時收，錯過的時段補不回來。所以每個交易日另有一支程式 `record_books.py`，把全部上市普通股的真實五檔，照收到的樣子錄下來。設計見 `docs/superpowers/specs/2026-10-26-fubon-books-recorder-design.md`。
+
+- **排程**：`DayTradeTycoonBooks`，週一到週五。
+  - 08:40 啟動，08:44 登入，錄到 13:36。
+  - 09:30、10:30、11:30、12:30 另有觸發，用來把當掉的程式叫起來；程式還在跑時，Windows 會忽略這些觸發。
+  - 最長 6 小時。只在使用者登入時執行，和每日抓取一樣。
+- **連線**：
+  - 一次登入，開 4 條 WebSocket 連線（每條呼叫一次 `init_realtime`），每條最多 280 檔，只訂 `books`。
+  - 加上正式站的唯讀行情最多 1 條，總共 5 條，低於富邦的上限 7 條。
+- **股票**：08:44 的富邦快照裡全部的上市普通股，成交值大的先分。快照失敗就用最近一天的全市場清單。
+- **存檔**（盤中只存原樣，不轉換）：`market-data\staging-books\<日期>\raw\conn<k>-<HH>-<part>.jsonl.gz`。
+  - 每條連線每小時一個檔，每行是收到時間加上富邦的原始資料：`{"r": 毫秒, "d": …}`。
+  - 另有控制行 `{"r", "ev": connected | subscribed | down | stop | refill}`。斷線後補的快照標成 `"src": "rest"`。
+  - 每 5 秒 flush 一次：當機最多少掉 5 秒，已 flush 的都讀得回來。
+  - 程式重新啟動時開新檔（`-2`、`-3`…），不會接在被截斷的檔案後面。
+- **斷線**：
+  - 70 秒沒有任何訊息（心跳也算）就當作斷線。
+  - 重連間隔 10、20、40、60、120 秒，再加 0–10 秒隨機；4 條同時斷線時彼此錯開 15 秒。
+  - 連續失敗 8 次後改成每 5 分鐘試一次，一直到 13:30。收到「連線數已滿」（錯誤碼 1001）時等 5 分鐘。
+  - 重新訂閱後 30 秒內沒收到五檔的股票，用 REST `intraday/quote` 補一次，每秒最多 2 次。
+- **休市**：到 09:05（或啟動 5 分鐘後）都沒有任何五檔資料，就記成休市，刪掉當天的暫存檔並結束，不通知。之後的重啟觸發看到「休市」或「已錄完」，就直接結束，不再登入。
+- **磁碟**：啟動時剩不到 10 GB 就不錄；錄製中剩不到 3 GB 就停止，已錄到的保留。
+- **狀態**：`market-data\books-status.json`。每日抓取會改寫 `status.json`，所以五檔另存一個檔，兩邊不會互相覆蓋。
+  - 結果是 `running`、`ok`、`partial`、`closed`、`late`、`failed` 之一。
+  - 每條連線記訊息數、重連次數和缺漏（`gaps` 的起迄與原因）。
+  - 當掉重啟時，接著同一天的計數，中斷那段記成缺漏。
+- **日誌**：`market-data\logs\books\<日期>.log`。
+- **鎖**：`market-data\.books.lock`，和每日抓取的 `.lock` 分開。一次錄製要跑約 5 小時，所以這個鎖要等原本的程式結束，或超過 7 小時，才算過期。
+- **通知**：沒有開始錄、單一連線斷超過 10 分鐘、寫入失敗或磁碟不足時，跳 Windows 通知。平常的短暫斷線只記在狀態檔。
+- **整理成每檔一個檔**（只存變動的檔位，第二階段）：還沒做。在那之前原始檔不會刪。
+- **試跑**（盤後也可以，不會碰正式的 market-data）：
+  ```powershell
+  $fetcher = "$env:USERPROFILE\YilutekServices\DayTradeTycoon\fetcher"
+  & "$fetcher\.venv\Scripts\python.exe" -X utf8 tools\fubon-daily\record_books.py --data <暫存資料夾>\market-data --credentials "$env:USERPROFILE\.fubon\credentials.local.py" --test --stop-at <兩分鐘後的 HH:MM>
+  ```
+  `--test` 不等 08:44，也不判斷休市。不要在 2026-10-27 08:40–13:35 試跑，那段時間是唯讀行情的整日驗收。
+
 ## 測試（不需要登入，也不會連到富邦）
 
 ```powershell
@@ -99,6 +138,7 @@ py -3.12 -m unittest discover -s tools/fubon-daily/tests -t tools/fubon-daily -v
 powershell -NoProfile -File tools\fubon-daily\install.ps1 -Sdk    # 建立 Python 3.12 環境並安裝官方 SDK 2.4.0（雜湊記錄在 fetcher\sdk-lock.json）
 powershell -NoProfile -File tools\fubon-daily\install.ps1 -App    # 複製已提交的程式
 powershell -NoProfile -File tools\fubon-daily\install.ps1 -Task   # 建立／更新排程
+powershell -NoProfile -File tools\fubon-daily\install.ps1 -BooksTask   # 建立／更新盤中五檔的排程
 ```
 
 ## 手動執行
