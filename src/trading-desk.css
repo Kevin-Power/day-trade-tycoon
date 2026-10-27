@@ -223,6 +223,17 @@
   background: var(--td-select-bg);
   border-color: var(--td-select-line);
 }
+/* The owner's 富邦行情 tool (2026-10-27): icon only on narrow desktops, so the bar still fits 1200px. */
+@media (max-width: 1279px) {
+  .trading-desk[data-layout="desktop"] .td-fubon-entry {
+    justify-content: center;
+    width: 28px;
+    padding: 0;
+  }
+  .trading-desk[data-layout="desktop"] .td-fubon-entry span {
+    display: none;
+  }
+}
 .trading-desk .td-brand {
   display: inline-flex;
   align-items: center;

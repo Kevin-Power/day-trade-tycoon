@@ -15,18 +15,6 @@ const number = (v: number | null | undefined) => v == null ? "—" : v.toLocaleS
 const stamp = (us: number | null | undefined) => us ? new Date(us / 1000).toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false, month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "尚無資料";
 const tone = (price: number | null, reference: number | null) => price == null || reference == null || price === reference ? "flat" : price > reference ? "up" : "down";
 
-/** Access check reveals only owner eligibility; it never starts the SDK. */
-export function FubonEntry() {
-  const [allowed, setAllowed] = useState(false);
-  useEffect(() => {
-    const abort = new AbortController();
-    void fetch("/api/broker/quotes?access=1", { cache: "no-store", signal: abort.signal, credentials: "same-origin" })
-      .then(response => { if (!abort.signal.aborted) setAllowed(response.ok); }).catch(() => {});
-    return () => abort.abort();
-  }, []);
-  return allowed ? <Link className="td-home" to="/morning" search={{ feed: "fubon" }}>富邦唯讀行情</Link> : null;
-}
-
 function useFeed(symbols: string[]) {
   const [data, setData] = useState<FeedResponse | null>(null);
   const [error, setError] = useState("");

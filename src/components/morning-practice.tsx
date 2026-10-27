@@ -10,7 +10,6 @@ import {
 } from "@/lib/icons";
 import { TapeChart } from "@/components/charts";
 import { DeskBar, HintBar, StatusBar } from "@/components/morning-desk-bar";
-import { FubonEntry } from "@/components/fubon-readonly";
 import { REPLAY_DELAY, type ReplaySpeed } from "@/lib/replay-speed";
 import { ReplayNotice } from "@/components/replay-notice";
 import { TradeTape } from "@/components/trade-tape";
@@ -1303,7 +1302,6 @@ function PageFrame({
   return (
     <div data-market-theme="dark" data-layout={layout} className="trading-desk">
       {bar ?? <DeskBar />}
-      <FubonEntry />
       {hints}
       <main className="td-main">{children}</main>
     </div>

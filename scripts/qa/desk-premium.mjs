@@ -170,6 +170,12 @@ for (const item of cases) {
     // QA_EXTRA_CSS lets a reviewer prove a check fails, e.g. by restoring old colours.
     if (process.env.QA_EXTRA_CSS) await page.addStyleTag({ content: process.env.QA_EXTRA_CSS });
     await page.waitForTimeout(800);
+    // This classroom's account is the verified owner: its 富邦唯讀行情 link is a tool in the desk bar, never a row
+    // of its own (2026-10-27; the row shrank the chart on short desktops and was 19px on touch screens).
+    const fubonLink = page.locator('a[href*="feed=fubon"]');
+    await page.locator('.td-bar a[href*="feed=fubon"]').first().waitFor({ timeout: 5000 }).catch(() => {});
+    const fubon = await fubonLink.evaluateAll((links) => links.map((link) => Boolean(link.closest(".td-bar"))));
+    if (fubon.length !== 1 || !fubon[0]) fail(`the owner's 富邦唯讀行情 link: ${fubon.length} found, in the desk bar: ${fubon}`);
     const first = await page.evaluate(scan, Boolean(item.senior));
     await page.screenshot({ path: `${out}/${item.name}-market.png` });
     rows.push({ case: item.name, screen: "market", ...first });
@@ -325,7 +331,12 @@ for (const item of cases) {
     fail(`lobby check stopped: ${error.message.split("\n")[0]}`);
   }
   if (errors.length) fail(`console/page errors: ${errors.slice(0, 3).join(" | ")}`);
-  if (broker.length) fail(`broker requests sent: ${broker.join(", ")}`);
+  // The only broker request a desk may send is the owner's access check, once per desk opened (the desk and the
+  // lobby round trip open it at most twice); no quotes are polled from the practice desk.
+  const access = broker.filter((url) => new URL(url).search === "?access=1");
+  const other = broker.filter((url) => new URL(url).search !== "?access=1");
+  if (other.length) fail(`broker requests sent: ${other.join(", ")}`);
+  if (access.length > 2) fail(`the owner's access check ran ${access.length} times`);
   if (thirdPartyFonts.length) fail(`fonts fetched from Google: ${thirdPartyFonts.slice(0, 2).join(", ")}`);
   await context.close();
 }

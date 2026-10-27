@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, BookOpen, CandlestickChart, CirclePause, Play } from "@/lib/icons";
 import { DisplayControls } from "@/components/display-controls";
+import { FubonEntry } from "@/components/fubon-entry";
 import type { MorningAlert } from "@/lib/morning-alerts";
 import type { MorningLessonSummary, MorningState } from "@/lib/morning";
 import { replayClock } from "@/lib/morning-live";
@@ -21,6 +22,7 @@ export function DeskBar({ children }: { children?: ReactNode }) {
         <span>當沖大富翁</span>
       </span>
       {children}
+      <FubonEntry />
       <DisplayControls compact className="td-size" />
     </header>
   );

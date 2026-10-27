@@ -71,6 +71,9 @@ for (const item of cases) {
     });
   const page = await context.newPage();
   const fail = (message) => failures.push(`${item.name}: ${message}`);
+  // A guest is never the Fubon owner: its desk must not touch the broker route at all (2026-10-27).
+  const broker = [];
+  page.on("request", (request) => /\/api\/broker/.test(request.url()) && broker.push(request.url()));
   const check = async (screen, scope = null) => {
     const report = await page.evaluate(scan, { controls: NEW_CONTROLS, large: item.senior ? LARGE_PRIMARY : null, scope });
     rows.push({ case: item.name, screen, ...report });
@@ -202,6 +205,7 @@ for (const item of cases) {
     fail(`flow stopped: ${error.message.split("\n")[0]}`);
     await page.screenshot({ path: `${out}${item.name}-stopped.png` }).catch(() => {});
   }
+  if (broker.length) fail(`broker requests sent by a guest: ${broker.join(", ")}`);
   await context.close();
 }
 await browser.close();
