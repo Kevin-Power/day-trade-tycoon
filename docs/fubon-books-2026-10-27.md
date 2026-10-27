@@ -106,15 +106,30 @@
   - 補的快照改放在收到的時刻，給 ③ 用的注意事項寫進 README。
   - 其餘 Minor 記在施工紀錄，之後再處理。
 
-## 安裝
+## 安裝（2026-10-27 15:25–15:35）
 
-（待補：10/27 13:35 後）
+- **使用者的選擇**（10/27）：「明天先只錄（-BooksNoPublish），10/28 錄完檢查後再開上架。」
+- **安裝前確認**：
+  - 唯讀行情整日驗收已結案：`docs/fubon-session-acceptance-2026-10-27.md` 記錄 08:55–13:35 自然完成；沒有驗收用的 Python 程式還在跑。
+  - 安裝前的抓取程式版本是 77d9f2f。它的 `tools/fubon-daily` 和分支起點 bc54c0c 完全相同，所以這次只帶進五檔錄製的改動。
+- **合併**：主資料夾的 `codex/course-handover` 從 bc54c0c 快轉到 d1dcef6。只動到這個分支的檔案；主資料夾裡其他工作階段尚未提交的檔案都沒碰。
+- **測試**：在主資料夾用排程的 Python 跑全部 290 個，全部通過。
+- **`install.ps1 -App`**：從 d1dcef6 安裝。
+  - 安裝的 15 個程式檔和程式庫逐一比對 SHA-256，全部相同，沒有多餘的檔案；`VERSION.txt` 是 d1dcef6。
+  - 安裝好的版本能啟動（`record_books.py --help`），所有模組都能匯入。
+- **`install.ps1 -BooksTask -BooksNoPublish`**：建立排程 `DayTradeTycoonBooks`。
+  - 週一到週五，08:40 到 13:20 每 10 分鐘一個觸發，共 29 個；下次執行 2026-10-28 08:40。
+  - 執行 `pythonw`，參數最後是 `--no-publish`，工作資料夾 `fetcher\work-books`。
+  - 已在執行時不重複啟動（IgnoreNew）、最長 6 小時、錯過時補跑、失敗後每 5 分鐘重啟最多 3 次、用電池也執行、只在使用者登入時執行、一般權限。
+- **每日抓取**：今晚 16:45 起就用新版程式。共用的 `store.py`（鎖記錄程序啟動時間）和 `client.py`（拒絕登入另外標示）有改動，測試全過；今晚的結果還要確認。
+- **還沒推送**到 GitHub。
+- **接下來**（計畫的 Task 9）：10/28 錄完後檢查第一天。通過後先手動 `--publish 2026-10-28`，再執行 `install.ps1 -BooksTask`（不加 `-BooksNoPublish`）開上架。
 
 ## 回退
 
-1. 只停上架、繼續錄：`install.ps1 -BooksTask -BooksNoPublish`。
+1. 只停上架、繼續錄：`install.ps1 -BooksTask -BooksNoPublish`（目前就是這樣）。
 2. 完全不錄：`Unregister-ScheduledTask -TaskName DayTradeTycoonBooks -Confirm:$false`。
-3. 如果要換回安裝前的抓取程式，在那個版本的 worktree 執行 `install.ps1 -App`。安裝前的版本號會記在「安裝」一節。
+3. 如果要換回安裝前的抓取程式，在 77d9f2f 的 worktree 執行 `install.ps1 -App`。
 4. 已經錄到的 `market-data\staging-books\`、`raw-books\`、`books\` 和 `books-status.json` 不影響網站，可以保留。
 
 ## 尚未驗證（10/28 第一天錄完後檢查，計畫的 Task 9）
