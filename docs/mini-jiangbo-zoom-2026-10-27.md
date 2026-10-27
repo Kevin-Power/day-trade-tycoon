@@ -59,6 +59,56 @@
   - 江波、ticks、broker --strict、phone-fields（chromium／webkit）、reports、controls（chromium／webkit）。
 - **紀錄**：worktree 的 `artifacts/mini-zoom-qa/run3/`，以及 `artifacts/trading-desk-qa/run3-*`。
 
-## 尚未做
+## 發布（2026-10-27）
 
-- 沒有部署，也沒有合併到 `codex/course-handover`。依使用者 10/26 選的「選 1」，等 10/27 富邦驗收結束、富邦程式碼提交後，和 10/26 的小圖清晰度修正一起建版上線。
+### 先提交富邦程式碼
+
+- 使用者：「驗收順利，富邦已提交，可以上線」。實際檢查時，富邦那批檔案還沒提交，任何分支都沒有。回報後，使用者說「好，你代為原樣提交，然後上線」。
+- **53455d9**：原樣提交 42 個檔案，內容沒有改動。
+  - 內容：`/morning?feed=fubon`、`/api/broker/quotes`、`tools/fubon-live/worker.py`、券商可靠性輔助程式、仍固定回 501 的 `/api/broker/order`，以及 10/23–10/27 的紀錄，包括 10/27 整日驗收結果。
+  - 程式最後修改時間是 10/24 08:18，和正式版 `20261024T002006781Z`（08:20 建置）一致。
+  - `當沖大富翁-地端/` 沒有提交。
+  - 提交前掃過敏感內容：沒有身分證號、帳號、憑證或真實密碼。符合規則的只有拋棄式教室的測試密碼（`example.invalid` 帳號）和本機回送位址。
+- 我的兩筆提交 rebase 到它上面（0ad0ada、29ea82f），再快轉 `codex/course-handover`。
+
+### 測試與候選版
+
+- 合併後：單元測試 979 項（975 通過、4 跳過、0 失敗），`test:broker` 53/53，型別檢查 0，eslint src 0 errors（5 個既有 fast-refresh warnings）。
+- 乾淨建置：worker 已複製進建置，沒有 `__pycache__`，手冊 PDF 雜湊和提交的一致。
+- 富邦隔離 HTTP 檢查（`verify-fubon-http.mjs`，不登入富邦）12/12：
+  - 未入場 403、未登入 401、學員 403、跨來源 403；
+  - 行情寫入 405；
+  - 下單 501（真實下單維持鎖定）。
+- 候選版 `20261027T083942079Z`（315 檔）：整合測試 4/4。
+- 用候選版開三間教室跑完整 22 項，17 項通過。沒過的 5 項都來自富邦入口 `FubonEntry`：
+  - premium 和 premium-flat：每個交易台頁面都會送 `/api/broker/quotes?access=1` 判斷是不是業主；業主的「富邦唯讀行情」連結在平板上只有 19px 高。
+  - layout：業主畫面多一列連結，矮螢幕電腦的圖表變矮，例如 1200×800 只剩 327px（下限 340px）。
+  - sharpness 和江波 6b：這一列讓下方畫面落在小數像素，125% 縮放下大盤小圖只剩 90%，截圖也夾到相鄰列的邊線。
+  - 學員和訪客的 `FubonEntry` 不顯示任何東西，畫面沒有變化；只有背景那次詢問（回 403）。
+- 拿正式版 `20261024T002006781Z` 跑同樣的 premium 和 layout，同樣失敗，圖表高度數字完全相同。正式版還多 5 項失敗：手機上的連結 19px，以及小圖太矮（24px／18px）。所以新版在每一項都不比正式站差。
+- 使用者看過結果後選「照建議 1，切換並推送」。富邦入口另外修。
+
+### 切換
+
+- 切換前確認正式站是 `20261024T002006781Z`，服務健康。
+- 停止服務後備份到 `backups/2026-10-27T09-23-05-035Z`，1,061 個檔案逐檔核對通過。之後只改 `hosting.json.appEntry`，再由排程啟動。
+- 09:23Z（台北 17:23）上線：**`20261027T083942079Z`**。
+- 公開檢查全部通過：
+  - 各頁 200，`/server/index.mjs` 404，教室 API 未入場 403；
+  - `/morning?feed=fubon` 200，匿名 `/api/broker/quotes` 403，`worker.py` 兩種路徑都 404；
+  - health 是 `simulation`；
+  - 手冊 `?v=2026-10-27-desk3` 的雜湊和 release 相同。
+- `verify-release`：設定只有入口改變，3 個 secrets 沒變，47 個公開 js／css 的雜湊和 release 相同。
+- release 資料夾 316 檔（315 加 manifest），沒有 bytecode。
+- 退回方式：把 `appEntry` 改回 `releases/20261024T002006781Z/server/index.mjs`。這次沒有改資料庫或教材資料。
+- 紀錄在主目錄的 `artifacts/deploy-20261027-mini-zoom/`。
+
+### 待辦
+
+- **富邦入口小修正**：
+  - 連結收進頂端工具列，不再自己佔一列；
+  - 觸控版 44px；
+  - 學員不再發出那次詢問。
+
+  要改 `fubon-readonly.tsx`，「個股資訊」工作階段正以它為基礎在做，動手前要先協調。
+- **業主本人瀏覽器檢查**：`/morning?feed=fubon` 要登入業主帳號才看得到，這次沒有做。
