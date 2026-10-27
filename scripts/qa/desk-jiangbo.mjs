@@ -322,6 +322,15 @@ async function miniScale(page, mode, tag) {
   if (problems.length) throw new Error(problems.join("; "));
   return report;
 }
+// The 自選報價 title bar, read in the page: how many lines the title's text takes, and whether the 模擬 note is cut.
+function titleBar(head) {
+  const text = [...head.querySelector("span").childNodes].find((node) => node.nodeType === 3 && node.textContent.trim());
+  const range = document.createRange();
+  range.selectNodeContents(text);
+  const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+  const note = head.querySelector(".td-watch-note");
+  return { titleLines: tops.size, noteCut: note.scrollWidth > note.clientWidth + 1, note: note.textContent };
+}
 const scaleGroup = (page) => page.getByRole("group", { name: "江波圖刻度" });
 const pressedScale = async (page) =>
   (await scaleGroup(page).locator('button[aria-pressed="true"]').allTextContents()).map((text) => text.trim()).join(",");
@@ -353,9 +362,9 @@ await check("6c-mini-toggle", async () => {
 });
 
 await check("6b-mini-sharp", async () => {
-  // The 自選 江波圖 at 100% and at 125% (the usual laptop scalings): as tall as the row allows, a price line on whole
-  // device pixels where it runs flat (each such column has a pixel in the line's own colour, not only blurred ones;
-  // a steep step is always partly blended), and a continuous 昨 line instead of dashes that break up the price line.
+  // The 自選 江波圖 at 100% and at 125% (the usual laptop scalings), on 放大: as tall as the row allows, a price line
+  // on whole device pixels where it runs flat (each such column has a pixel in the line's own colour, not only blurred
+  // ones; a step is always partly blended), and a continuous 昨 line instead of dashes that break up the price line.
   const problems = [];
   const report = {};
   for (const [width, height, dpr, minHeight] of [
@@ -397,8 +406,7 @@ await check("6b-mini-sharp", async () => {
             // The row's own background shows through the empty top-right corner of the canvas.
             const corner = at(image.width - 1, 0);
             const ground = [data[corner], data[corner + 1], data[corner + 2]];
-            let columns = 0;
-            let crisp = 0;
+            const lit = [];
             for (let x = 0; x < image.width; x++) {
               let best = 255;
               let top = Infinity;
@@ -409,13 +417,21 @@ await check("6b-mini-sharp", async () => {
                   best = Math.min(best, d);
                   if (d <= 60) [top, bottom] = [Math.min(top, y), Math.max(bottom, y)];
                 }
-              // A flat column: the line spans at most 4 device pixels there.
-              if (best <= 60 && bottom - top + 1 <= 4) {
-                columns++;
-                // Within 20 of the colour: the pixel is at least ~92% covered (the old blurred line reached 6–26%).
-                if (best <= 20) crisp++;
-              }
+              lit.push({ best, top, bottom });
             }
+            // A flat column: the line spans at most 4 device pixels there, at the same height as in the columns on
+            // either side. Under 放大 a one-tick move is a step of a few pixels; the corners of those steps are
+            // always blended, so they are not flat (2026-10-27: they read 88–91% covered, the old blur 0–65%).
+            const same = (a, b) => a && b && a.top === b.top && a.bottom === b.bottom;
+            let columns = 0;
+            let crisp = 0;
+            lit.forEach((column, x) => {
+              if (column.best > 60 || column.bottom - column.top + 1 > 4) return;
+              if (!same(lit[x - 1], column) || !same(column, lit[x + 1])) return;
+              columns++;
+              // Within 20 of the colour: the pixel is at least ~92% covered (the old blurred line reached 6–26%).
+              if (column.best <= 20) crisp++;
+            });
             // 昨: the most lit row around the middle, over the right 40% where no price line is drawn yet.
             let prevRow = 0;
             const middle = Math.round(image.height / 2);
@@ -751,9 +767,13 @@ await check("8-phone", async () => {
   const header = (await phone.locator(".td-watch-cols span").last().textContent())?.trim();
   const mini = await phone.locator("canvas.td-mini").first().boundingBox();
   const scale = await pressedScale(phone);
+  const head = await phone.locator(".td-watch-head").first().evaluate(titleBar);
   await phone.screenshot({ path: `${out}phone-watch.png` });
   const problems = [];
   if (scale !== "放大") problems.push(`自選's 江波圖 scale opens on 「${scale}」, not 放大`);
+  // The 放大／±10% buttons must not squeeze the title onto two lines or cut the 模擬 note.
+  if (head.titleLines !== 1) problems.push(`「自選報價」 takes ${head.titleLines} lines`);
+  if (head.noteCut) problems.push(`the 模擬 note is cut off (${head.note})`);
   if (mode !== "江波") problems.push(`行情 opens on 「${mode}」`);
   if (header !== "江波") problems.push(`自選's last column is 「${header}」`);
   if (!bar || bar.height > 70) problems.push(`the chart bar takes ${bar?.height}px (wraps onto a second row)`);

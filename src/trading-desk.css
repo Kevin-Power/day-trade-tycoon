@@ -1364,12 +1364,31 @@
 }
 /* 江波圖 scale (2026-10-27): 放大／±10% at the title bar's right end, small enough for the desk's 34px bar
    (touch layouts raise the buttons to 44px with every other .td-segment). */
+.trading-desk .td-watch-head > span:first-child {
+  flex: none;
+  white-space: nowrap;
+}
 .trading-desk .td-watch-head .td-watch-note {
   margin-left: auto;
 }
 .trading-desk .td-watch-head .td-mini-scale {
   flex: none;
   padding: 1px;
+}
+/* Phones: the title and the buttons share the first line; the 模擬 note keeps its whole text on its own line. */
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-head {
+  flex-wrap: wrap;
+  row-gap: 2px;
+  padding-block: 4px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-head .td-mini-scale {
+  margin-left: auto;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-head .td-watch-note {
+  order: 1;
+  flex-basis: 100%;
+  margin-left: 0;
+  white-space: normal;
 }
 .trading-desk .td-watch-head .td-mini-scale button {
   min-height: 24px;
