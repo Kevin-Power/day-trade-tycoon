@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useGate } from "@/lib/gate/context";
 import { MORNING_EXERCISES } from "@/lib/morning-exercises";
 
-export const MANUAL_VERSION = "2026-10-21-desk2";
+export const MANUAL_VERSION = "2026-10-27-desk3";
 const PDF_HREF = `/daytrade-tycoon-manual.pdf?v=${MANUAL_VERSION}`;
 const GITHUB = "https://github.com/Kevin-Power/day-trade-tycoon";
 
@@ -158,7 +158,7 @@ function Brief() {
             />
             <Row
               k="自選江波圖"
-              v="自選報價每列右側的小江波圖：已揭露的每分鐘收盤價，刻度固定為昨收上下 10%，中間虛線是昨收。"
+              v="自選報價每列右側的小江波圖：已揭露的每分鐘收盤價，昨收在中間。預設「放大」：每列依到目前為止的漲跌，自動用昨收 ±1%、2%、3%、5% 或 10% 的刻度，起伏比較明顯；切到「±10%」則和主圖同一刻度，各列可以直接比強弱。滑鼠停在小圖上會顯示刻度，每台裝置會記住自己的選擇。"
             />
             <Row
               k="舊情境與紀錄"

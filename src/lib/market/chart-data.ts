@@ -372,6 +372,33 @@ export function bandPriceRange(previous: number, band: number): PriceRange | nul
   return { min: previous * (1 - band), max: previous * (1 + band) };
 }
 
+/** The 自選 江波圖's scale: 放大 (each row zoomed to its own moves, the default) or the fixed ±10%. */
+export type MiniScale = "zoom" | "fixed";
+/** 放大 steps: few enough that a row's scale changes rarely, not every minute. */
+export const MINI_ZOOM_STEPS = [0.01, 0.02, 0.03, 0.05, JIANGBO_BAND] as const;
+
+/** The device's stored choice; anything but ±10% opens on 放大. */
+export function parseMiniScale(stored: string | null): MiniScale {
+  return stored === "fixed" ? "fixed" : "zoom";
+}
+
+/**
+ * 放大: the smallest step that holds every close drawn so far (the mini draws closes, so a minute's high or
+ * low beyond it does not count). Only revealed minutes are passed in, so the scale never gives away the rest
+ * of the day. Without a usable previous close, or beyond ±10%, it is the 江波 band.
+ */
+export function miniZoomBand(previous: number, bars: readonly Pick<Bar, "c">[]): number {
+  if (!positive(previous)) return JIANGBO_BAND;
+  const reach = Math.max(0, ...bars.map((bar) => bar.c).filter(Number.isFinite).map((c) => Math.abs(c / previous - 1)));
+  // A hair of tolerance: 102 / 100 - 1 is 0.020000000000000018, which is still ±2%.
+  return MINI_ZOOM_STEPS.find((step) => reach <= step + 1e-9) ?? JIANGBO_BAND;
+}
+
+/** The mini's tooltip: which scale it is drawn on. */
+export function miniScaleLabel(band: number): string {
+  return `刻度：昨收 ±${Math.round(band * 100)}%`;
+}
+
 /** 江波 grid: 2% steps (10 rows) when each row is at least 2.2 text lines tall, otherwise 5% steps (4 rows). */
 export function jiangboGridRows(plotHeight: number, fontSize: number): 10 | 4 {
   return plotHeight >= fontSize * 22 ? 10 : 4;

@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CandlestickChart } from "@/lib/icons";
 import type { MorningCatalog } from "@/lib/morning";
 import { createMorningBook } from "@/lib/morning-book";
@@ -9,16 +9,27 @@ import { formatPrice } from "@/lib/market/ticks";
 import {
   JIANGBO_BAND,
   hairlineDevicePixels,
+  miniScaleLabel,
+  miniZoomBand,
+  parseMiniScale,
   snapStroke,
   sparklineLayout,
   sparkStrokePx,
+  type MiniScale,
 } from "@/lib/market/chart-data";
+import { browserStorage, readDeviceValue, writeDeviceValue } from "@/lib/device-storage";
 import { TickPrice } from "@/components/tick-price";
 import { useDeviceCanvas } from "@/components/use-device-canvas";
 
 type Candle = { t: number; o: number; h: number; l: number; c: number };
 const arrow = (tone: "up" | "down" | "flat") => (tone === "up" ? "▲" : tone === "down" ? "▼" : "");
 const dash = "—";
+/** Each device remembers its own 江波圖 scale (2026-10-27: 放大 by default). */
+const MINI_SCALE_KEY = "day-tycoon-watch-mini-scale-v1";
+const MINI_SCALES = [
+  ["zoom", "放大", "每列依當天漲跌放大，昨收在中間"],
+  ["fixed", "±10%", "固定昨收上下 10%，各列可直接比強弱"],
+] as const;
 const toneOf = (value: number | null | undefined, previous: number) =>
   value == null || value === previous ? "flat" : value > previous ? "up" : "down";
 
@@ -51,6 +62,13 @@ export function WatchTable({
   const columns = compact
     ? ["商品", "成交", "漲跌%", "江波"]
     : ["商品", "成交", "漲跌", "漲跌%", "買進", "賣出", "最高", "最低", "江波圖"];
+  // The server renders 放大; the device's own choice is read once mounted.
+  const [scale, setScale] = useState<MiniScale>("zoom");
+  useEffect(() => setScale(parseMiniScale(readDeviceValue(browserStorage(), MINI_SCALE_KEY))), []);
+  const chooseScale = (next: MiniScale) => {
+    setScale(next);
+    writeDeviceValue(browserStorage(), MINI_SCALE_KEY, next);
+  };
   return (
     <section className="td-watch-table" data-compact={compact} aria-label="自選報價">
       <div className="td-titlebar td-watch-head">
@@ -58,6 +76,19 @@ export function WatchTable({
           <CandlestickChart aria-hidden /> 自選報價
         </span>
         <span className="td-watch-note">分鐘內跳動為模擬逐筆 · 買進賣出為模擬五檔</span>
+        <span className="td-segment td-mini-scale" role="group" aria-label="江波圖刻度">
+          {MINI_SCALES.map(([value, label, hint]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={scale === value}
+              title={hint}
+              onClick={() => chooseScale(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </span>
       </div>
       <div className="td-watch-cols" aria-hidden="true">
         {columns.map((label) => (
@@ -103,6 +134,7 @@ export function WatchTable({
             bars={index?.bars ?? []}
             previous={index?.previousClose ?? 0}
             endT={endT}
+            scale={scale}
             empty={
               indexAvailability({ hasRun: Boolean(session), series: index }) === "none"
                 ? "無大盤資料"
@@ -174,7 +206,7 @@ export function WatchTable({
                   </span>
                 </>
               )}
-              <MiniJiangbo bars={bars} previous={symbol.previousClose} endT={endT} />
+              <MiniJiangbo bars={bars} previous={symbol.previousClose} endT={endT} scale={scale} />
             </button>
           );
         })}
@@ -227,39 +259,46 @@ function IndexRow({
 }
 
 /**
- * 江波圖 (mini): the revealed minute closes against the previous close (dashed), on the same fixed ±10%
- * scale as the big 江波 view, with the whole lesson as its time axis.
+ * 江波圖 (mini): the revealed minute closes against the previous close, centred, with the whole lesson as its
+ * time axis. 放大 zooms each row to its own moves so far (±1/2/3/5/10%); ±10% is the big 江波 view's scale.
  */
 export function MiniJiangbo({
   bars,
   previous,
   endT,
+  scale,
   empty = "等待開盤",
 }: {
   bars: readonly Candle[];
   previous: number;
   endT: number;
+  scale: MiniScale;
   /** What an empty row says: waiting for 09:00 by default, or that the lesson has no such data. */
   empty?: string;
 }) {
   if (!bars.length) return <span className="td-mini td-mini-empty">{empty}</span>;
-  return <MiniCanvas bars={bars} previous={previous} endT={endT} />;
+  const band = scale === "zoom" ? miniZoomBand(previous, bars) : JIANGBO_BAND;
+  return <MiniCanvas bars={bars} previous={previous} endT={endT} band={band} />;
 }
 
 function MiniCanvas({
   bars,
   previous,
   endT,
+  band,
 }: {
   bars: readonly Candle[];
   previous: number;
   endT: number;
+  band: number;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useDeviceCanvas(ref, (ctx, width, height) =>
-    paintMiniJiangbo(ctx, width, height, bars, previous, endT),
+    paintMiniJiangbo(ctx, width, height, bars, previous, endT, band),
   );
-  return <canvas ref={ref} className="td-mini" aria-hidden="true" />;
+  return (
+    <canvas ref={ref} className="td-mini" data-band={band} title={miniScaleLabel(band)} aria-hidden="true" />
+  );
 }
 
 function paintMiniJiangbo(
@@ -269,6 +308,7 @@ function paintMiniJiangbo(
   bars: readonly Candle[],
   previous: number,
   endT: number,
+  band: number,
 ) {
   const style = getComputedStyle(ctx.canvas);
   const read = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
@@ -289,8 +329,8 @@ function paintMiniJiangbo(
     endT,
     width,
     height,
-    band: JIANGBO_BAND,
-    // ±10% is fixed, so every pixel of height counts: 1px above and below, the line on whole device pixels.
+    band,
+    // Every pixel of height counts: 1px above and below, the line on whole device pixels.
     pad: { x: 2, y: 1 },
     device: { scale: sy, strokePx },
   });

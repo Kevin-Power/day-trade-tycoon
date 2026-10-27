@@ -23,8 +23,12 @@ import {
   jiangboGridPrices,
   jiangboGridRows,
   jiangboPriceRange,
+  JIANGBO_BAND,
+  miniScaleLabel,
+  miniZoomBand,
   minuteColumnWidth,
   nearestTimePoint,
+  parseMiniScale,
   resolveChartLabels,
   sessionExtremes,
   showVolumeAndAverage,
@@ -870,4 +874,41 @@ test("sparklineLayout with a band uses the fixed ±band scale and its padding", 
   near(layout.runs[0]!.points[0]!.y, 2);
   near(layout.last!.y, 13);
   near(layout.last!.x, 2 + (120 / 5400) * 96);
+});
+
+test("miniZoomBand picks the smallest step of ±1/2/3/5/10% that holds every close drawn so far", () => {
+  const closes = (...values: number[]) => values.map((c, index) => bar(index * 60, c));
+  assert.equal(miniZoomBand(100, closes(100.2, 99.7, 100.3)), 0.01);
+  assert.equal(miniZoomBand(100, closes(100.5, 101.4)), 0.02);
+  assert.equal(miniZoomBand(100, closes(98, 100.5)), 0.02);
+  assert.equal(miniZoomBand(100, closes(102.01)), 0.03);
+  assert.equal(miniZoomBand(100, closes(96)), 0.05);
+  assert.equal(miniZoomBand(38.05, closes(40.75)), 0.1);
+  assert.equal(miniZoomBand(100, closes(110)), 0.1);
+});
+
+test("miniZoomBand follows the closes, not the minute's high or low", () => {
+  // The mini draws closes: a minute that spiked to +4% and closed at +0.5% still fits ±1%.
+  assert.equal(miniZoomBand(100, [bar(0, 100.5, { h: 104, l: 99.5 })]), 0.01);
+});
+
+test("miniZoomBand falls back to ±1% before 09:00 and to the 江波 band without a usable close", () => {
+  assert.equal(miniZoomBand(100, []), 0.01);
+  assert.equal(miniZoomBand(100, [bar(0, Number.NaN)]), 0.01);
+  assert.equal(miniZoomBand(0, [bar(0, 10)]), JIANGBO_BAND);
+  assert.equal(miniZoomBand(Number.NaN, [bar(0, 10)]), JIANGBO_BAND);
+  // Beyond ±10% (no limit, or bad data) the scale stays at the 江波 band.
+  assert.equal(miniZoomBand(100, [bar(0, 125)]), JIANGBO_BAND);
+});
+
+test("parseMiniScale opens on 放大 unless this device chose ±10%", () => {
+  assert.equal(parseMiniScale(null), "zoom");
+  assert.equal(parseMiniScale("zoom"), "zoom");
+  assert.equal(parseMiniScale("anything"), "zoom");
+  assert.equal(parseMiniScale("fixed"), "fixed");
+});
+
+test("miniScaleLabel names the scale a mini is drawn on", () => {
+  assert.equal(miniScaleLabel(0.02), "刻度：昨收 ±2%");
+  assert.equal(miniScaleLabel(JIANGBO_BAND), "刻度：昨收 ±10%");
 });

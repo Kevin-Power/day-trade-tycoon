@@ -1,6 +1,6 @@
 # 學員 PDF 維護
 
-`docs/pdf-source.json` 是學員手冊的編輯來源。目前為八頁券商式交易台版 `2026-10-21-desk2`（前一版 `2026-10-21-desk`）。`scripts/build-manual-pdf.py` 負責 A4 排版，`scripts/build-manual-pdf.mjs` 在 Windows 選用本機 Python 並驗證輸出。
+`docs/pdf-source.json` 是學員手冊的編輯來源。目前為八頁券商式交易台版 `2026-10-27-desk3`（前一版 `2026-10-21-desk2`）。`scripts/build-manual-pdf.py` 負責 A4 排版，`scripts/build-manual-pdf.mjs` 在 Windows 選用本機 Python 並驗證輸出。
 
 ```powershell
 npm run build:manual-pdf

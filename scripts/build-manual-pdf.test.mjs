@@ -67,6 +67,15 @@ test("manual lists 回覆不明 in 委託回報 and says how to check it", () =>
   for (const term of ["委託回報", "重試這次操作", "重新載入進度", "同一操作編號", "委託成功"])
     assert.ok(unclear?.text.includes(term), term);
 });
+test("both manuals describe the 自選江波圖's 放大 and ±10% scales and its solid 昨收 line", () => {
+  const pdfRow = JSON.stringify(source).match(/\["自選江波圖","([^"]+)"\]/)?.[1] ?? "";
+  const webPage = readFileSync(join(root, "src", "components", "manual-page.tsx"), "utf8");
+  const webRow = webPage.match(/k="自選江波圖"\s*v="([^"]+)"/)?.[1] ?? "";
+  for (const [name, row] of [["PDF", pdfRow], ["web", webRow]]) {
+    for (const term of ["放大", "±10%", "昨收"]) assert.ok(row.includes(term), `${name}: ${term}`);
+    assert.doesNotMatch(row, /虛線/, `${name}: the 昨收 line is solid since 2026-10-26`);
+  }
+});
 test("every 手冊版本 the manual names is its own version", () => {
   const named = [...JSON.stringify(source).matchAll(/手冊版本：([0-9A-Za-z-]+)/g)].map((match) => match[1]);
   assert.ok(named.length >= 1, "the manual names its version");

@@ -1,6 +1,7 @@
 // 江波 ±10% and EMA11/EMA24 on a disposable classroom after desk-seed (09:27, 台積電 held): the desk
 // opens on 江波; both EMAs are drawn on 江波 and K線; the 漲停／跌停 lines frame the ±10% plot; the
-// watch table's 江波圖 minis use the fixed ±10% scale; the crosshair readout lists the EMAs; phones
+// watch table's 江波圖 minis open on 放大 (each row zoomed to its own moves) and switch to the fixed ±10% scale,
+// which the device remembers; the crosshair readout lists the EMAs; phones
 // open on 江波 too; replaying a minute moves the EMAs on with the revealed closes and raises no page
 // error; a price just under 漲停 stays visible where the 漲停 label sits, which keeps its own background under the
 // line; and a 前高 level at that height stays off the label.
@@ -14,7 +15,7 @@ const out = fileURLToPath(new URL(`../../artifacts/trading-desk-qa/${label}/`, i
 mkdirSync(out, { recursive: true });
 const DPR = 2;
 const BAND = 0.1;
-const MINI_PAD = 1; // the 江波圖 mini's padding above and below: ±10% spans (height - 2) / 2 CSS px each way
+const MINI_PAD = 1; // the 江波圖 mini's padding above and below: its scale spans (height - 2) / 2 CSS px each way
 const results = {};
 const failures = [];
 async function check(name, run) {
@@ -254,12 +255,16 @@ await check("5-kline-ema", async () => {
   return { fast, slow };
 });
 
-await check("6-mini-scale", async () => {
+// The minis' scale (2026-10-27): 放大 (default) zooms each row to the smallest of ±1/2/3/5/10% that holds the
+// closes drawn so far; ±10% is the fixed 江波 scale. Each row's line must reach where its farthest close sits on
+// that scale (within a pixel) and no farther, and its tooltip names the scale.
+const ZOOM_STEPS = [0.01, 0.02, 0.03, 0.05, BAND];
+async function miniScale(page, mode, tag) {
   const data = await api();
   const state = data.state;
   const problems = [];
   const report = {};
-  for (const row of await desktop.locator(".td-watch-row").all()) {
+  for (const row of await page.locator(".td-watch-row").all()) {
     const code = await row.getAttribute("data-code");
     const canvas = row.locator("canvas.td-mini");
     if (!(await canvas.count())) {
@@ -269,11 +274,15 @@ await check("6-mini-scale", async () => {
     const index = code === "TAIEX";
     const previous = index ? state.index?.previousClose : data.catalog.symbols.find((s) => s.code === code)?.previousClose;
     const bars = (index ? state.index?.bars : state.bars?.[code]) ?? [];
-    const dev = Math.max(0, ...bars.flatMap((bar) => [Math.abs(bar.h / previous - 1), Math.abs(bar.l / previous - 1)]));
+    const dev = Math.max(0, ...bars.map((bar) => Math.abs(bar.c / previous - 1)));
+    const band = mode === "zoom" ? (ZOOM_STEPS.find((step) => dev <= step + 1e-9) ?? BAND) : BAND;
+    const title = await canvas.getAttribute("title");
+    if (title !== `刻度：昨收 ±${Math.round(band * 100)}%`) problems.push(`${code}: tooltip 「${title}」 for ±${band * 100}%`);
     const half = ((await canvas.boundingBox())?.height ?? 24) / 2 - MINI_PAD;
-    const allowed = 3 + (half * dev) / BAND;
+    const expected = (half * dev) / band;
+    const allowed = 3 + expected;
     const png = await canvas.screenshot();
-    writeFileSync(`${out}mini-${code}.png`, png);
+    writeFileSync(`${out}mini-${tag}-${code}.png`, png);
     const reach = await desktop.evaluate(
       async ({ b64, colours, dpr }) => {
         const image = new Image();
@@ -303,12 +312,44 @@ await check("6-mini-scale", async () => {
       },
       { b64: png.toString("base64"), colours: [colours.up, colours.down], dpr: DPR },
     );
-    report[code] = { ...reach, allowed: Number(allowed.toFixed(2)) };
+    report[code] = { band, ...reach, expected: Number(expected.toFixed(2)), allowed: Number(allowed.toFixed(2)) };
     if (!reach.seen) problems.push(`${code}: no line drawn`);
-    else if (reach.far > allowed) problems.push(`${code}: reaches ${reach.far}px from the centre, ±10% allows ${allowed.toFixed(2)}px`);
+    else if (reach.far > allowed)
+      problems.push(`${code}: reaches ${reach.far}px from the centre, ±${band * 100}% allows ${allowed.toFixed(2)}px`);
+    else if (reach.far < expected - 1)
+      problems.push(`${code}: reaches only ${reach.far}px from the centre, ±${band * 100}% puts its farthest close at ${expected.toFixed(2)}px`);
   }
   if (problems.length) throw new Error(problems.join("; "));
   return report;
+}
+const scaleGroup = (page) => page.getByRole("group", { name: "江波圖刻度" });
+const pressedScale = async (page) =>
+  (await scaleGroup(page).locator('button[aria-pressed="true"]').allTextContents()).map((text) => text.trim()).join(",");
+
+await check("6-mini-scale", async () => {
+  // A fresh device opens on 放大.
+  const pressed = await pressedScale(desktop);
+  if (pressed !== "放大") throw new Error(`the 江波圖 scale opens on 「${pressed}」, not 放大`);
+  return miniScale(desktop, "zoom", "zoom");
+});
+
+await check("6c-mini-toggle", async () => {
+  // ±10% redraws every row on the fixed scale and stays chosen after a reload; 放大 brings the zoom back.
+  await scaleGroup(desktop).getByRole("button", { name: "±10%" }).click();
+  await desktop.waitForTimeout(300);
+  const fixed = await miniScale(desktop, "fixed", "fixed");
+  await desktop.reload({ waitUntil: "domcontentloaded" });
+  await chart(desktop).waitFor({ timeout: 20000 });
+  await rest(desktop);
+  const kept = await pressedScale(desktop);
+  if (kept !== "±10%") throw new Error(`after a reload the scale is 「${kept}」, not ±10%`);
+  await miniScale(desktop, "fixed", "fixed-reload");
+  await scaleGroup(desktop).getByRole("button", { name: "放大" }).click();
+  await desktop.waitForTimeout(300);
+  const back = await pressedScale(desktop);
+  if (back !== "放大") throw new Error(`放大 did not come back (「${back}」)`);
+  await miniScale(desktop, "zoom", "zoom-again");
+  return fixed;
 });
 
 await check("6b-mini-sharp", async () => {
@@ -709,8 +750,10 @@ await check("8-phone", async () => {
   await phone.waitForTimeout(400);
   const header = (await phone.locator(".td-watch-cols span").last().textContent())?.trim();
   const mini = await phone.locator("canvas.td-mini").first().boundingBox();
+  const scale = await pressedScale(phone);
   await phone.screenshot({ path: `${out}phone-watch.png` });
   const problems = [];
+  if (scale !== "放大") problems.push(`自選's 江波圖 scale opens on 「${scale}」, not 放大`);
   if (mode !== "江波") problems.push(`行情 opens on 「${mode}」`);
   if (header !== "江波") problems.push(`自選's last column is 「${header}」`);
   if (!bar || bar.height > 70) problems.push(`the chart bar takes ${bar?.height}px (wraps onto a second row)`);

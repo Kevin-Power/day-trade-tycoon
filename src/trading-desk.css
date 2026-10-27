@@ -1362,6 +1362,20 @@
   align-items: center;
   gap: 6px;
 }
+/* 江波圖 scale (2026-10-27): 放大／±10% at the title bar's right end, small enough for the desk's 34px bar
+   (touch layouts raise the buttons to 44px with every other .td-segment). */
+.trading-desk .td-watch-head .td-watch-note {
+  margin-left: auto;
+}
+.trading-desk .td-watch-head .td-mini-scale {
+  flex: none;
+  padding: 1px;
+}
+.trading-desk .td-watch-head .td-mini-scale button {
+  min-height: 24px;
+  padding: 0 10px;
+  font-size: 12px;
+}
 
 /* Tablet: watchlist becomes a horizontal quote strip */
 
