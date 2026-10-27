@@ -6,5 +6,6 @@ export function hostedAppPaths(runtime, entry) {
     PGLITE_DATA_DIR: join(runtime, 'data', 'pglite'),
     CLASSROOM_DOWNLOADS_DIR: resolve(dirname(entry), '../downloads'),
     MARKET_DATA_DIR: join(runtime, 'market-data'),
+    FUBON_READONLY_WORKER: join(dirname(entry), 'fubon-live', 'worker.py'),
   };
 }

@@ -21,6 +21,7 @@
     "check:symbols": "node scripts/check-symbols.mjs",
     "build:manual-pdf": "node scripts/build-manual-pdf.mjs",
     "test": "node scripts/test.mjs",
+    "test:broker": "node --experimental-strip-types --test src/lib/broker/reliability/order-journal.test.ts src/lib/broker/reliability/quote-guard.test.ts src/lib/broker/reliability/subscriptions.test.ts src/lib/broker/live-order-response.test.ts src/lib/broker/fubon-feed.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",

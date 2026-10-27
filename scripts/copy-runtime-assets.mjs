@@ -15,3 +15,9 @@ if (existsSync(join(root, "downloads/daytrade-tycoon-offline.zip"))) {
   copyFileSync(join(root, "downloads/daytrade-tycoon-offline.zip"), join(root, ".output/downloads/daytrade-tycoon-offline.zip"));
 }
 console.log("Standalone database runtime assets copied.");
+// Market-data worker is source-only. SDK, certificate and login settings stay
+// outside the release; it cannot import or dispatch any application order code.
+const feedWorker = join(root, ".output/server/fubon-live");
+mkdirSync(join(feedWorker, "credentials"), { recursive: true });
+copyFileSync(join(root, "tools/fubon-live/worker.py"), join(feedWorker, "worker.py"));
+copyFileSync(join(root, "tools/fubon-daily/fubon_daily/credentials.py"), join(feedWorker, "credentials/credentials.py"));

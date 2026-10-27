@@ -10,5 +10,6 @@ test('hosted app paths put market data next to, not inside, the backed-up data f
     PGLITE_DATA_DIR: join(runtime, 'data', 'pglite'),
     CLASSROOM_DOWNLOADS_DIR: join(runtime, 'releases', 'r1', 'downloads'),
     MARKET_DATA_DIR: join(runtime, 'market-data'),
+    FUBON_READONLY_WORKER: join(runtime, 'releases', 'r1', 'server', 'fubon-live', 'worker.py'),
   });
 });

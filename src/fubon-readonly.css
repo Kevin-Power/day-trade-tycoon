@@ -1,0 +1,58 @@
+.fb-desk { min-height: 100dvh; min-width: 0; width: 100%; overflow-x: clip; color: #e4e9ed; background: #10171e; padding-bottom: 2rem; }
+.fb-heading { font-size: 1.1rem; white-space: nowrap; }
+.fb-lock { margin-left: auto; padding: .35rem .7rem; border: 1px solid #71603d; border-radius: .4rem; color: #f2d495; font-size: .8rem; }
+.fb-status { display: flex; gap: .6rem 1.5rem; flex-wrap: wrap; align-items: center; padding: 1rem; border-bottom: 1px solid #34414d; font-size: .9rem; }
+.fb-status strong { color: #8ddbc9; }
+.fb-status[data-warning="true"] strong { color: #f2d495; }
+.fb-status a { color: #b3cced; margin-left: auto; text-decoration: underline; }
+.fb-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(330px, 1fr); gap: 1rem; padding: 1rem; }
+.fb-panel { min-width: 0; background: #18222c; border: 1px solid #34414d; border-radius: .6rem; overflow: hidden; }
+.fb-title { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .9rem 1rem; border-bottom: 1px solid #34414d; }
+.fb-title h1, .fb-title h2 { font-weight: 650; font-size: 1.15rem; margin: 0; }
+.fb-title span, .fb-title small { color: #b1bdc9; font-size: .85rem; }
+.fb-add { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: 1rem; }
+.fb-add input { width: 8rem; min-width: 0; border: 1px solid #5e7182; color: #eef6ff; background: #10171e; border-radius: .3rem; padding: .5rem; }
+.fb-add button { background: #2f6965; padding: .5rem .8rem; border-radius: .3rem; min-height: 44px; }
+.fb-table-scroll { overflow-x: auto; }
+.fb-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: .95rem; }
+.fb-table th, .fb-table td { padding: .65rem .55rem; text-align: right; border-bottom: 1px solid #2e3b46; white-space: nowrap; }
+.fb-table thead { color: #bdc8d2; font-size: .8rem; background: #1d2b37; }
+.fb-table th:first-child { text-align: left; }
+.fb-table [data-selected="true"] { background: #243947; }
+.fb-table [data-tone="up"] { color: #ff9c9e; }
+.fb-table [data-tone="down"] { color: #80dcc0; }
+.fb-table small { display: block; font-size: .75rem; font-weight: normal; color: #b1bdc9; margin-top: .3rem; }
+.fb-select { text-align: left; min-height: 44px; font-weight: 600; }
+.fb-remove { width: 44px; height: 44px; color: #bac9d6; font-size: 1.5rem; }
+.fb-remove:disabled { opacity: .3; }
+.fb-desk button:focus-visible, .fb-desk a:focus-visible, .fb-desk input:focus-visible { outline: 2px solid #a1d6ff; outline-offset: 2px; }
+.fb-time { font-size: .75rem; }
+.fb-note { font-size: .8rem; line-height: 1.7; color: #b7c2ce; padding: .9rem 1rem; }
+.fb-table tr[data-stale="true"] .fb-time small, .fb-book[data-stale="true"] .fb-book-status span { color: #f2d495; }
+.fb-table td[data-stale="true"] { color: #9dabb7; }
+.fb-book-status { padding: .8rem 1rem; display: flex; flex-wrap: wrap; gap: .5rem; justify-content: space-between; font-size: .85rem; }
+.fb-ladder-scroll { overflow-x: auto; }
+.fb-ladder-scroll:focus-visible { outline: 2px solid #a1d6ff; outline-offset: -2px; }
+.fb-ladder td { font-size: 1.1rem; padding-block: 1rem; }
+.fb-ladder th:first-child { text-align: right; }
+.fb-ladder td:nth-child(2) { border-right: 1px solid #46535e; }
+.fb-readonly { margin: 0 1rem 1rem; border: 1px solid #71603d; border-radius: .5rem; padding: .9rem; color: #f2d495; font-size: .95rem; text-align: center; }
+.fb-readonly small { color: #bdc8d2; }
+@media (max-width: 1000px) { .fb-layout { grid-template-columns: 1fr; } }
+@media (max-width: 520px) {
+  .fb-desk .td-bar { flex-wrap: wrap; height: auto; min-height: 64px; gap: .5rem; padding: .6rem; }
+  .fb-desk .td-brand { display: none; }
+  .fb-lock { margin-left: 0; }
+  .fb-layout { padding: .5rem; gap: .6rem; }
+  .fb-status { padding: .7rem; }
+  .fb-status a { margin-left: 0; }
+  .fb-ladder :is(th, td) { padding-inline: .25rem; }
+  .fb-table-scroll .fb-table { table-layout: fixed; }
+  .fb-table-scroll :is(th, td):nth-child(3), .fb-table-scroll :is(th, td):nth-child(4) { display: none; }
+  .fb-table-scroll :is(th, td) { padding: .5rem .25rem; white-space: normal; overflow-wrap: anywhere; }
+  .fb-table-scroll th:nth-child(1) { width: 24%; }
+  .fb-table-scroll th:nth-child(2) { width: 21%; }
+  .fb-table-scroll th:nth-child(5) { width: 43%; }
+  .fb-table-scroll th:nth-child(6) { width: 12%; }
+  .fb-table-scroll .fb-remove { width: 100%; }
+}

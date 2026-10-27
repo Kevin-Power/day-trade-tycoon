@@ -30,6 +30,7 @@ import { Route as TeacherReviewIdRouteImport } from './routes/teacher-review.$id
 import { Route as ApiAdminSetupRouteImport } from './routes/api/admin/setup'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiBrokerOrderRouteImport } from './routes/api/broker/order'
+import { Route as ApiBrokerQuotesRouteImport } from './routes/api/broker/quotes'
 import { Route as ApiDownloadOfflineRouteImport } from './routes/api/download/offline'
 import { Route as SessionIdReviewRouteImport } from './routes/session.$id.review'
 
@@ -138,6 +139,11 @@ const ApiBrokerOrderRoute = ApiBrokerOrderRouteImport.update({
   path: '/api/broker/order',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiBrokerQuotesRoute = ApiBrokerQuotesRouteImport.update({
+  id: '/api/broker/quotes',
+  path: '/api/broker/quotes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDownloadOfflineRoute = ApiDownloadOfflineRouteImport.update({
   id: '/api/download/offline',
   path: '/api/download/offline',
@@ -171,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/setup': typeof ApiAdminSetupRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
+  '/api/broker/quotes': typeof ApiBrokerQuotesRoute
   '/api/download/offline': typeof ApiDownloadOfflineRoute
   '/session/$id/review': typeof SessionIdReviewRoute
 }
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/api/admin/setup': typeof ApiAdminSetupRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
+  '/api/broker/quotes': typeof ApiBrokerQuotesRoute
   '/api/download/offline': typeof ApiDownloadOfflineRoute
   '/session/$id/review': typeof SessionIdReviewRoute
 }
@@ -222,6 +230,7 @@ export interface FileRoutesById {
   '/api/admin/setup': typeof ApiAdminSetupRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
+  '/api/broker/quotes': typeof ApiBrokerQuotesRoute
   '/api/download/offline': typeof ApiDownloadOfflineRoute
   '/session/$id/review': typeof SessionIdReviewRoute
 }
@@ -249,6 +258,7 @@ export interface FileRouteTypes {
     | '/api/admin/setup'
     | '/api/auth/$'
     | '/api/broker/order'
+    | '/api/broker/quotes'
     | '/api/download/offline'
     | '/session/$id/review'
   fileRoutesByTo: FileRoutesByTo
@@ -274,6 +284,7 @@ export interface FileRouteTypes {
     | '/api/admin/setup'
     | '/api/auth/$'
     | '/api/broker/order'
+    | '/api/broker/quotes'
     | '/api/download/offline'
     | '/session/$id/review'
   id:
@@ -299,6 +310,7 @@ export interface FileRouteTypes {
     | '/api/admin/setup'
     | '/api/auth/$'
     | '/api/broker/order'
+    | '/api/broker/quotes'
     | '/api/download/offline'
     | '/session/$id/review'
   fileRoutesById: FileRoutesById
@@ -325,6 +337,7 @@ export interface RootRouteChildren {
   ApiAdminSetupRoute: typeof ApiAdminSetupRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiBrokerOrderRoute: typeof ApiBrokerOrderRoute
+  ApiBrokerQuotesRoute: typeof ApiBrokerQuotesRoute
   ApiDownloadOfflineRoute: typeof ApiDownloadOfflineRoute
   SessionIdReviewRoute: typeof SessionIdReviewRoute
 }
@@ -478,6 +491,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBrokerOrderRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/broker/quotes': {
+      id: '/api/broker/quotes'
+      path: '/api/broker/quotes'
+      fullPath: '/api/broker/quotes'
+      preLoaderRoute: typeof ApiBrokerQuotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/download/offline': {
       id: '/api/download/offline'
       path: '/api/download/offline'
@@ -517,6 +537,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminSetupRoute: ApiAdminSetupRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiBrokerOrderRoute: ApiBrokerOrderRoute,
+  ApiBrokerQuotesRoute: ApiBrokerQuotesRoute,
   ApiDownloadOfflineRoute: ApiDownloadOfflineRoute,
   SessionIdReviewRoute: SessionIdReviewRoute,
 }

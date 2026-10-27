@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LIVE_ADAPTER_UNWIRED_REASON, LIVE_UNWIRED_REASON } from "@/lib/broker/copy";
+import { liveOrderUnavailable } from "@/lib/broker/live-order-response";
 
 /**
  * Live-order hop. Classroom currently always simulates.
@@ -12,14 +12,10 @@ export const Route = createFileRoute("/api/broker/order")({
     handlers: {
       POST: async () => {
         const configured = Boolean(process.env.BROKER_BASE_URL);
-        return Response.json(
-          {
-            ok: false,
-            venue: "live",
-            reason: configured ? LIVE_ADAPTER_UNWIRED_REASON : LIVE_UNWIRED_REASON,
-          },
-          { status: 501 },
-        );
+        return Response.json(liveOrderUnavailable(configured), {
+          status: 501,
+          headers: { "Cache-Control": "no-store" },
+        });
       },
     },
   },

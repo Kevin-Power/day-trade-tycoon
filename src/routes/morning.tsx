@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MorningPractice } from "@/components/morning-practice";
 import { getMorningExercise } from "@/lib/morning-exercises";
+import { FubonReadOnly } from "@/components/fubon-readonly";
 
 export const Route = createFileRoute("/morning")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { exercise?: string; lesson?: string; panel?: "trade"; coach?: "1"; new?: "1" } => ({
+  ): { exercise?: string; lesson?: string; panel?: "trade"; coach?: "1"; new?: "1"; feed?: "fubon" } => ({
+    feed: search.feed === "fubon" ? "fubon" : undefined,
     exercise:
       typeof search.exercise === "string" ? getMorningExercise(search.exercise)?.id : undefined,
     lesson:
@@ -32,8 +34,9 @@ export const Route = createFileRoute("/morning")({
 });
 
 function MorningPage() {
-  const { exercise, lesson, panel, coach, new: fresh } = Route.useSearch();
+  const { exercise, lesson, panel, coach, new: fresh, feed } = Route.useSearch();
   const navigate = Route.useNavigate();
+  if (feed === "fubon") return <FubonReadOnly />;
   return (
     <MorningPractice
       exerciseId={exercise}
