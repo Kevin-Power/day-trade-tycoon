@@ -3,7 +3,7 @@
 // with the desk wording of the day's default 自選. The old Yahoo lessons (10/05, 10/06) are retired: nothing of
 // theirs is read or bundled any more, and their runs only show in the records.
 // Import only from server handlers. Never include this module in a page loader, shared store or public directory.
-import { MorningError } from "./morning-engine.ts";
+import { MorningError, type MorningStoredState } from "./morning-engine.ts";
 import type { MorningCatalog, MorningLessonSummary } from "./morning.ts";
 import {
   buildRunSource,
@@ -12,8 +12,10 @@ import {
   lessonTitle,
   listLessonDays,
   parseLessonId,
+  runBookCell,
   type RunSource,
 } from "./lessons/daily-lessons.server.ts";
+import { STOCK_CATALOGUE } from "./market/universe.ts";
 import { MORNING_CELLS } from "./lessons/trades.ts";
 import { marketDataDir } from "./lessons/market-files.server.ts";
 import type { LessonPicker } from "./lessons/types.ts";
@@ -72,11 +74,13 @@ export type MorningTarget =
 export async function resolveMorningSource(
   params: URLSearchParams,
   user: { openLessonIds(): Promise<readonly string[]> },
-  dir: string = marketDataDir(),
+  market: MorningMarket | string = marketDataDir(),
 ): Promise<MorningTarget> {
   const requested = requestedLesson(params);
+  const data = typeof market === "string" ? new MorningMarket(market) : market;
+  const { dir } = data;
   if (!dir) return { kind: "unavailable", unavailable: NO_DAILY_LESSONS };
-  const days = await listLessonDays(dir);
+  const days = await data.days();
   if (!days.length) return { kind: "unavailable", unavailable: NO_LESSON_YET };
   if (requested) {
     if (!days.includes(requested.date)) throw new MorningError(400, NOT_OPEN);
@@ -173,4 +177,102 @@ export async function pickerCatalog(dir: string, picker: LessonPicker): Promise<
     booksAvailable: picker.booksAvailable,
     note,
   };
+}
+
+const STOCK_NAMES: ReadonlyMap<string, string> = new Map(STOCK_CATALOGUE.map((stock) => [stock.code, stock.name]));
+
+/**
+ * The catalog of a run whose day's data cannot be read now (its files changed or do not agree any more): the run's
+ * stocks by code and catalogue name, nothing of the market (`previousClose` 0: not known). Sent with the run's
+ * saved state only when it was just finished or abandoned, which needs no market data.
+ */
+export function textOnlyCatalog(state: MorningStoredState, date: string): MorningCatalog {
+  return {
+    lessonId: state.lessonId,
+    title: lessonTitle(date),
+    date,
+    start: "09:00",
+    end: "10:30",
+    maxCursor: MORNING_CELLS,
+    symbols: (state.codes ?? []).map((code) => ({ code, name: STOCK_NAMES.get(code) ?? code, previousClose: 0, previous5CloseMean: null })),
+    context: [],
+    strategy: [],
+    notices: [],
+    videoUrl: null,
+  };
+}
+
+// ── One request's market data ────────────────────────────────────────────────────────────────────────────────────
+
+/** Inside the transaction: the request needs market data that was not read before it (see MorningMarket). */
+export class MarketMiss extends Error {
+  constructor() {
+    super("market data needed inside the transaction was not read before it");
+  }
+}
+
+/**
+ * The market data of one request. PGlite runs every query of the process under one lock while a transaction is
+ * open, so no file may be read inside one: the request reads what it needs first, then the transaction is run with
+ * the data sealed. Anything else it asks for then is a MarketMiss, which aborts the transaction; the request reads
+ * that outside and runs again. Results and refusals are both kept for the request, so the transaction meets exactly
+ * what the reading met. Unsealed (the default), it simply reads on demand.
+ */
+export class MorningMarket {
+  readonly dir: string;
+  #sealed = false;
+  readonly #kept = new Map<string, Promise<unknown>>();
+  readonly #missed = new Map<string, () => Promise<unknown>>();
+
+  constructor(dir: string) {
+    this.dir = dir;
+  }
+
+  #get<T>(key: string, load: () => Promise<T>): Promise<T> {
+    const kept = this.#kept.get(key);
+    if (kept) return kept as Promise<T>;
+    if (this.#sealed) {
+      this.#missed.set(key, load);
+      return Promise.reject(new MarketMiss());
+    }
+    const value = load();
+    value.catch(() => undefined); // a refusal is kept as an answer; whoever awaits it handles it
+    this.#kept.set(key, value);
+    return value;
+  }
+
+  /** The open lesson days, newest first. */
+  days(): Promise<string[]> {
+    return this.#get("days", () => listLessonDays(this.dir));
+  }
+
+  picker(date: string, guest: boolean): Promise<LessonPicker | null> {
+    return this.#get(`picker|${guest}|${date}`, () => dayPicker(this.dir, date, guest));
+  }
+
+  /** The catalog shown before a run, from this audience's picker of the day. */
+  pickerCatalog(picker: LessonPicker, guest: boolean): Promise<MorningCatalog> {
+    return this.#get(`catalog|${guest}|${picker.date}`, () => pickerCatalog(this.dir, picker));
+  }
+
+  runSource(date: string, codes: readonly string[], guest: boolean): Promise<RunSource> {
+    return this.#get(`source|${guest}|${date}|${codes.join(",")}`, () => runSourceFor(this.dir, date, codes, guest));
+  }
+
+  book(date: string, code: string, cell: number): ReturnType<typeof runBookCell> {
+    return this.#get(`book|${date}|${code}|${cell}`, () => runBookCell(this.dir, date, code, cell));
+  }
+
+  /** From now on nothing is read: what was not read before is a MarketMiss. */
+  seal(): void {
+    this.#sealed = true;
+  }
+
+  /** Outside the transaction again: reads what the sealed run asked for and did not have. */
+  async loadMissed(): Promise<void> {
+    this.#sealed = false;
+    const loads = [...this.#missed].map(([key, load]) => this.#get(key, load));
+    this.#missed.clear();
+    await Promise.allSettled(loads);
+  }
 }

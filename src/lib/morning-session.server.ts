@@ -1,27 +1,27 @@
 import { createHash, randomUUID } from "node:crypto";
-import { advanceDelta, applyMorningAction, createMorningState, MorningError, parseMorningAction, visibleMorningState,
-  visibleTape, type MorningStoredState } from "./morning-engine.ts";
+import { advanceDelta, applyMorningAction, createMorningState, endMorningRun, MorningError, parseMorningAction,
+  visibleMorningState, visibleTape, type MorningStoredState } from "./morning-engine.ts";
 import type { Sql } from "./db.ts";
 import type { MorningAction, MorningBookCell, MorningReply, MorningResponse, MorningState } from "./morning.ts";
 import { celebrationAfterSave } from "./discipline/records.server.ts";
 import type { Celebration } from "./discipline/score.ts";
-import { parseLessonId, runBookCell, type RunSource } from "./lessons/daily-lessons.server.ts";
+import { parseLessonId, type RunSource } from "./lessons/daily-lessons.server.ts";
 import { MAX_RUN_CODES } from "./lessons/default-codes.ts";
 import { marketDataDir } from "./lessons/market-files.server.ts";
 import type { LessonPicker, RunRecord } from "./lessons/types.ts";
 import {
+  MarketMiss,
+  MorningMarket,
   NO_DAILY_LESSONS,
   NOT_OPEN,
   RETIRED_LESSON,
   RETIRED_LESSONS,
-  dayPicker,
   isRetiredLesson,
   lessonDate,
   lessonSummaries,
-  pickerCatalog,
   requestedLesson,
   resolveMorningSource,
-  runSourceFor,
+  textOnlyCatalog,
 } from "./morning-data.server.ts";
 
 type SessionRow = { id: string; state_json: MorningStoredState | string };
@@ -44,8 +44,17 @@ export async function requirePracticeAccess(sql: Sql, userId: string): Promise<P
   return { kind: "guest", consented: consent.length > 0 };
 }
 
-/** What a request is served with: the query, the market-data folder (default MARKET_DATA_DIR) and the clock. */
-export type MorningRequestOptions = { params?: URLSearchParams; dir?: string; clock?: number | (() => number) };
+/**
+ * What a request is served with: the query, the market data (a request's own MorningMarket, else one on `dir`,
+ * default MARKET_DATA_DIR, that reads on demand) and the clock.
+ */
+export type MorningRequestOptions = {
+  params?: URLSearchParams;
+  dir?: string;
+  market?: MorningMarket;
+  clock?: number | (() => number);
+};
+const marketOf = (options: MorningRequestOptions) => options.market ?? new MorningMarket(options.dir ?? marketDataDir());
 
 const NOT_FOUND = "找不到這份練習";
 const ONLY_RUN_STOCKS = "請選擇本課程提供的股票";
@@ -105,9 +114,9 @@ export async function readRunRecords(sql: Sql, userId: string): Promise<RunRecor
 }
 
 /** The recorded books of one of the run's stocks in the cell just revealed (cursor − 1); never any other cell. */
-async function revealedBook(dir: string, date: string, source: RunSource, state: MorningStoredState, code: string): Promise<MorningBookCell | undefined> {
+async function revealedBook(market: MorningMarket, date: string, source: RunSource, state: MorningStoredState, code: string): Promise<MorningBookCell | undefined> {
   if (!source.booksAvailable || state.cursor < 1 || !runCodes(state).includes(code)) return undefined;
-  const cell = await runBookCell(dir, date, code, state.cursor - 1);
+  const cell = await market.book(date, code, state.cursor - 1);
   return cell ? { code, ...cell } : undefined;
 }
 
@@ -125,19 +134,32 @@ function step(state: MorningStoredState, source: RunSource): MorningResponse {
 }
 
 /** An advance: the step and the cell it revealed, with the viewed stock's books of that cell when the day has them. */
-async function advanceStep(dir: string, date: string, state: MorningStoredState, source: RunSource, view: string | undefined): Promise<MorningResponse> {
+async function advanceStep(market: MorningMarket, date: string, state: MorningStoredState, source: RunSource, view: string | undefined): Promise<MorningResponse> {
   const delta = advanceDelta(state, source);
   if (view !== undefined) {
-    const book = await revealedBook(dir, date, source, state, view);
+    const book = await revealedBook(market, date, source, state, view);
     if (book) delta.book = book;
   }
   return { catalog: source.catalog, state: { ...state, bars: {} }, delta };
 }
 
-function replyTo(action: MorningAction, dir: string, date: string, state: MorningStoredState, source: RunSource): Promise<MorningResponse> | MorningResponse {
-  if (action.action === "start") return snapshot(state, source);
-  if (action.action === "advance") return advanceStep(dir, date, state, source, action.view);
-  return step(state, source);
+/**
+ * The reply to an action on this run. A finished or abandoned run needed no market data to end, and its reply does
+ * not either: when the day's data cannot be read, the saved state goes back with a text-only catalog.
+ */
+async function replyTo(action: MorningAction, market: MorningMarket, date: string, state: MorningStoredState, guest: boolean): Promise<MorningResponse> {
+  const source = market.runSource(date, runCodes(state), guest);
+  if (action.action === "finish" || action.action === "abandon") {
+    try {
+      return step(state, await source);
+    } catch (error) {
+      if (!(error instanceof MorningError)) throw error;
+      return { catalog: textOnlyCatalog(state, date), state: { ...state, bars: {} } };
+    }
+  }
+  if (action.action === "start") return snapshot(state, await source);
+  if (action.action === "advance") return advanceStep(market, date, state, await source, action.view);
+  return step(state, await source);
 }
 
 /** A new run's stocks: 1–80 different listed stocks of the day's picker, the plan's 主角股 one of them. */
@@ -152,14 +174,17 @@ function checkStart(action: Extract<MorningAction, { action: "start" }>, picker:
 /**
  * GET /api/morning. Always use a transaction-bound SQL handle and the user ID from the verified cookie session.
  * The lesson asked for shows its latest run, finished or not; with none asked for, the latest unfinished run, else
- * the newest day's picker. A guest's picker and wording never use the 當沖 list.
+ * the newest day's picker. A guest's picker and wording never use the 當沖 list. A run whose day's data cannot be
+ * read now never locks the learner out: the day's picker (the newest day's, when none was asked for) opens instead,
+ * and an unfinished one is named in `blockedRun`, as it can still be finished or abandoned.
  */
 export async function loadMorningSession(sql: Sql, userId: string, options: MorningRequestOptions = {}): Promise<MorningReply> {
   const access = await requirePracticeAccess(sql, userId);
   const guest = access.kind === "guest";
-  const target = await resolveMorningSource(options.params ?? new URLSearchParams(), { openLessonIds: () => openLessonIds(sql, userId) }, options.dir);
+  const market = marketOf(options);
+  const target = await resolveMorningSource(options.params ?? new URLSearchParams(), { openLessonIds: () => openLessonIds(sql, userId) }, market);
   if (target.kind === "unavailable") return { unavailable: target.unavailable };
-  const { dir, date, lessonId } = target;
+  const { date, lessonId } = target;
   let rows: SessionRow[] = [];
   if (target.from === "query")
     rows = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions
@@ -168,42 +193,54 @@ export async function loadMorningSession(sql: Sql, userId: string, options: Morn
     rows = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions
       WHERE user_id = ${userId} AND lesson_id = ${lessonId} AND completed = FALSE ORDER BY created_at DESC, id DESC LIMIT 1`;
   const shared = { lessons: lessonSummaries(target.days), records: await readRunRecords(sql, userId) };
-  const picker = !rows[0] || stored(rows[0]).completed ? await dayPicker(dir, date, guest) : null;
-  if (!rows[0]) {
-    if (!picker) throw new MorningError(400, NOT_OPEN);
-    return { catalog: await pickerCatalog(dir, picker), state: null, ...shared, picker };
+  let pickerDate = date;
+  let blockedRun: MorningResponse["blockedRun"];
+  if (rows[0]) {
+    const state = stored(rows[0]);
+    try {
+      const source = await market.runSource(date, runCodes(state), guest);
+      const response: MorningResponse = { ...snapshot(state, source), ...shared };
+      const book = await revealedBook(market, date, source, state, state.plan.focusCode);
+      if (book) response.book = book;
+      if (state.completed) {
+        const picker = await market.picker(date, guest);
+        if (picker) response.picker = picker;
+      }
+      return response;
+    } catch (error) {
+      if (!(error instanceof MorningError)) throw error;
+      if (!state.completed)
+        blockedRun = { id: state.id, lessonId: state.lessonId, date, revision: state.revision, message: error.message };
+      if (target.from === "open-run") pickerDate = target.days[0];
+    }
   }
-  const state = stored(rows[0]);
-  const source = await runSourceFor(dir, date, runCodes(state), guest);
-  const response: MorningResponse = { ...snapshot(state, source), ...shared };
-  const book = await revealedBook(dir, date, source, state, state.plan.focusCode);
-  if (book) response.book = book;
-  if (picker) response.picker = picker;
-  return response;
+  const picker = await market.picker(pickerDate, guest);
+  if (!picker) throw new MorningError(400, NOT_OPEN);
+  return { catalog: await market.pickerCatalog(picker, guest), state: null, ...shared, picker, ...(blockedRun ? { blockedRun } : {}) };
 }
 
 /**
  * POST /api/morning: one action, exactly once (retries return this run's current, already revealed state). A start
  * goes to the lesson in the query, else the latest unfinished run's day, else the newest day; any other action
- * finds its run by id (and, with a lesson in the query, only on that lesson).
+ * finds its run by id (and, with a lesson in the query, only on that lesson). Finishing and abandoning need no
+ * market data, so a run whose day's data cannot be read can always be ended.
  */
 export async function mutateMorningSession(sql: Sql, userId: string, input: unknown, options: MorningRequestOptions = {}): Promise<MorningReply> {
   const action = parseMorningAction(input);
   const access = await requirePracticeAccess(sql, userId);
   const guest = access.kind === "guest";
   const params = options.params ?? new URLSearchParams();
+  const market = marketOf(options);
   // A start finds its lesson like a GET (the open days are listed). Any other action, every advance included, reads
   // no lesson list: its lesson is the query's or its run's, and the day is checked open when the run's data is read.
   let lessonId: string | null;
-  let dir: string;
   if (action.action === "start") {
-    const target = await resolveMorningSource(params, { openLessonIds: () => openLessonIds(sql, userId) }, options.dir);
+    const target = await resolveMorningSource(params, { openLessonIds: () => openLessonIds(sql, userId) }, market);
     if (target.kind === "unavailable") return { unavailable: target.unavailable };
-    ({ dir, lessonId } = target);
+    lessonId = target.lessonId;
   } else {
     lessonId = requestedLesson(params)?.lessonId ?? null;
-    dir = options.dir ?? marketDataDir();
-    if (!dir) return { unavailable: NO_DAILY_LESSONS };
+    if (!market.dir) return { unavailable: NO_DAILY_LESSONS };
   }
   const acceptsTerms = action.action === "start" && action.guestTerms === true;
   if (access.kind === "member" && acceptsTerms) throw new MorningError(400, "這個帳號不需要訪客聲明");
@@ -232,11 +269,9 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
     const rows = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions WHERE id = ${previous[0].session_id}::uuid
       AND user_id = ${userId} AND lesson_id = ${lessonId} FOR UPDATE`;
     if (!rows[0]) throw new MorningError(404, NOT_FOUND);
-    const state = stored(rows[0]);
-    return replyTo(action, dir, date, state, await runSourceFor(dir, date, runCodes(state), guest));
+    return replyTo(action, market, date, stored(rows[0]), guest);
   }
   let state: MorningStoredState;
-  let source: RunSource;
   let celebration: Celebration | null = null;
   if (action.action === "start") {
     const active = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions
@@ -244,13 +279,12 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
     if (active[0]) {
       // One unfinished run per lesson: a start gives it back unchanged (to change stocks, abandon it first).
       state = stored(active[0]);
-      source = await runSourceFor(dir, date, runCodes(state), guest);
     } else {
       // Checked against the day's picker before any file of the stocks is read: only the strict check is a 409.
-      const picker = await dayPicker(dir, date, guest);
+      const picker = await market.picker(date, guest);
       if (!picker) throw new MorningError(400, NOT_OPEN);
       checkStart(action, picker);
-      source = await runSourceFor(dir, date, action.codes, guest);
+      const source = await market.runSource(date, action.codes, guest);
       state = createMorningState(randomUUID(), action.plan, source, now, action.codes);
       await sql`INSERT INTO morning_sessions (id, user_id, lesson_id, state_json)
         VALUES (${state.id}::uuid, ${userId}, ${state.lessonId}, ${JSON.stringify(state)}::jsonb)`;
@@ -261,10 +295,12 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
     if (!rows[0]) throw new MorningError(404, NOT_FOUND);
     const before = stored(rows[0]);
     const codes = runCodes(before);
-    if (action.action === "advance" && action.view !== undefined && !codes.includes(action.view))
-      throw new MorningError(400, ONLY_RUN_STOCKS);
-    source = await runSourceFor(dir, date, codes, guest);
-    state = applyMorningAction(before, action, source, now);
+    if (action.action === "finish" || action.action === "abandon") state = endMorningRun(before, action);
+    else {
+      if (action.action === "advance" && action.view !== undefined && !codes.includes(action.view))
+        throw new MorningError(400, ONLY_RUN_STOCKS);
+      state = applyMorningAction(before, action, await market.runSource(date, codes, guest), now);
+    }
     await sql`UPDATE morning_sessions SET state_json = ${JSON.stringify(state)}::jsonb,
       completed = ${state.completed}, updated_at = NOW() WHERE id = ${state.id}::uuid AND user_id = ${userId}`;
     // The engine refuses a finished run, so a finish that gets here completes it exactly once. Abandoning never counts.
@@ -275,6 +311,92 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
   if (counts[0].count >= 1_000) throw new MorningError(429, "本次練習操作次數已達上限，請聯絡講師");
   await sql`INSERT INTO morning_requests (user_id, request_id, session_id, action_hash)
     VALUES (${userId}, ${action.requestId}::uuid, ${state.id}::uuid, ${hash})`;
-  const response = await replyTo(action, dir, date, state, source);
+  const response = await replyTo(action, market, date, state, guest);
   return celebration ? { ...response, celebration } : response;
+}
+
+/**
+ * Before the transaction of a POST: which runs and stocks the action is about, read without holding anything, and
+ * their market data loaded. Best effort: whatever goes wrong here is met again inside the transaction.
+ */
+async function prepareAction(sql: Sql, userId: string, input: unknown, params: URLSearchParams, market: MorningMarket): Promise<void> {
+  const action = parseMorningAction(input);
+  const guest = (await requirePracticeAccess(sql, userId)).kind === "guest";
+  type RunRow = SessionRow & { lesson_id: string };
+  const runs: RunRow[] = [];
+  const recorded = await sql<{ session_id: string }>`
+    SELECT session_id FROM morning_requests WHERE user_id = ${userId} AND request_id = ${action.requestId}::uuid`;
+  const ids = [...recorded.map((row) => row.session_id), ...(action.action === "start" ? [] : [action.id])];
+  if (ids.length)
+    runs.push(...await sql<RunRow>`SELECT id, lesson_id, state_json FROM morning_sessions
+      WHERE user_id = ${userId} AND id = ANY(${ids}::uuid[])`);
+  if (action.action === "start") {
+    const target = await resolveMorningSource(params, { openLessonIds: () => openLessonIds(sql, userId) }, market);
+    if (target.kind !== "lesson") return;
+    const active = await sql<RunRow>`SELECT id, lesson_id, state_json FROM morning_sessions
+      WHERE user_id = ${userId} AND lesson_id = ${target.lessonId} AND completed = FALSE`;
+    runs.push(...active);
+    const picker = active[0] ? null : await market.picker(target.date, guest);
+    let accepted = false;
+    try {
+      if (picker) checkStart(action, picker);
+      accepted = picker !== null;
+    } catch {
+      // refused inside the transaction, before any stock's data is needed
+    }
+    if (accepted) await market.runSource(target.date, action.codes, guest).catch(() => undefined);
+  }
+  // An advance reveals cell `cursor`; a retried one answers with cell `cursor − 1`.
+  const view = action.action === "advance" ? action.view : undefined;
+  for (const run of runs) {
+    const date = parseLessonId(run.lesson_id);
+    const state = stored(run);
+    if (!date || !state.codes?.length) continue;
+    await market.runSource(date, state.codes, guest).catch(() => undefined);
+    if (view !== undefined && state.codes.includes(view))
+      await Promise.all([state.cursor, state.cursor - 1].filter((cell) => cell >= 0).map((cell) => market.book(date, view, cell)));
+  }
+}
+
+/** The database as /api/morning uses it: plain reads (no transaction) and one transaction per attempt. */
+export type MorningDb = {
+  read: () => Sql | Promise<Sql>;
+  transaction: <T>(run: (sql: Sql) => Promise<T>) => Promise<T>;
+};
+export type MorningRequest = { method: "GET" | "POST"; params: URLSearchParams; input?: unknown };
+/** Attempts of one request whose transaction met market data it had not read (data changed in between). */
+const ATTEMPTS = 4;
+
+/**
+ * One /api/morning request. No market-data file is read while its transaction is open (on PGlite that would hold
+ * every query of the process): the request reads what it will need first (a GET by running itself outside a
+ * transaction, as it only reads; a POST by `prepareAction`), then runs in the transaction with that data sealed.
+ * If something changed in between and the transaction needs more, it is aborted, the rest is read, and it runs again.
+ */
+export async function serveMorningRequest(
+  db: MorningDb,
+  userId: string,
+  request: MorningRequest,
+  options: { dir?: string; clock?: number | (() => number) } = {},
+): Promise<MorningReply> {
+  const market = new MorningMarket(options.dir ?? marketDataDir());
+  const settings: MorningRequestOptions = { params: request.params, market, clock: options.clock };
+  try {
+    const read = await db.read();
+    if (request.method === "POST") await prepareAction(read, userId, request.input, request.params, market);
+    else await loadMorningSession(read, userId, settings);
+  } catch {
+    // Met again, and answered, inside the transaction.
+  }
+  for (let attempt = 1; ; attempt += 1) {
+    market.seal();
+    try {
+      return await db.transaction((sql) => request.method === "POST"
+        ? mutateMorningSession(sql, userId, request.input, settings)
+        : loadMorningSession(sql, userId, settings));
+    } catch (error) {
+      if (!(error instanceof MarketMiss) || attempt >= ATTEMPTS) throw error;
+    }
+    await market.loadMissed();
+  }
 }

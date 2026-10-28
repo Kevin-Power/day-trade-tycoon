@@ -142,6 +142,12 @@ export type MorningResponse = {
   /** GET of a run: the 主角股's recorded books in the last revealed cell, when the day has them. */
   book?: MorningDelta["book"];
   retired?: boolean;
+  /**
+   * GET: the learner's unfinished run that cannot be opened now (its day's data changed or cannot be read). The
+   * picker is shown instead; the run can still be finished or abandoned (`id` and `revision` for that), and
+   * `message` says why it does not open.
+   */
+  blockedRun?: { id: string; lessonId: string; date: string; revision: number; message: string };
 };
 /** The classroom has no daily lessons: none configured (on-prem) or none published yet. Nothing else is sent. */
 export type MorningUnavailable = { unavailable: string };

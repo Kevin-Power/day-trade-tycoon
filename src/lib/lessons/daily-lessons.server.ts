@@ -164,16 +164,29 @@ async function readJson(path: string): Promise<unknown> {
 
 // ── Days ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** The full-market days of the root index.json, oldest first, each date once. */
+/** Root index.json files read, by folder and the file's size and time (it is replaced whole when a day is published). */
+const publishedIndexes = new Lru<Versioned<Promise<PublishedDay[]>>>(DAYS_KEPT);
+
+/**
+ * The full-market days of the root index.json, oldest first, each date once. Read again only when the file
+ * changed, so a warm advance costs one stat instead of reading and parsing the whole index. Never change the result.
+ */
 async function fullMarketDays(dir: string): Promise<PublishedDay[]> {
-  const seen = new Set<string>();
-  const days: PublishedDay[] = [];
-  for (const day of await listPublishedDays(dir)) {
-    if (day.coverage !== "full-market" || seen.has(day.date)) continue;
-    seen.add(day.date);
-    days.push(day);
-  }
-  return days;
+  const version = (await fileVersion(join(dir, "index.json"))) ?? "none";
+  const cached = publishedIndexes.get(dir);
+  if (cached?.version === version) return cached.value;
+  const value = listPublishedDays(dir).then((published) => {
+    const seen = new Set<string>();
+    const days: PublishedDay[] = [];
+    for (const day of published) {
+      if (day.coverage !== "full-market" || seen.has(day.date)) continue;
+      seen.add(day.date);
+      days.push(day);
+    }
+    return days;
+  });
+  publishedIndexes.set(dir, { version, value });
+  return value;
 }
 
 /** A full-market day from FIRST_LESSON_DAY on that has a ticks manifest, and the version its cached data carries. */
@@ -619,7 +632,7 @@ export async function buildRunSource(dir: string, date: string, codes: readonly 
 // ── Tests ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export function clearLessonCaches(): void {
-  for (const cache of [cores, pickers, runs, verdicts, taiexDays, booksDays, timelines]) cache.clear();
+  for (const cache of [publishedIndexes, cores, pickers, runs, verdicts, taiexDays, booksDays, timelines]) cache.clear();
   openDays.clear();
   reading.clear();
   readingBooks.clear();

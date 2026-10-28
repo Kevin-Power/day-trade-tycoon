@@ -23,14 +23,14 @@ async function handle(request: Request): Promise<Response> {
     if (!session?.user) throw new MorningError(401, "請先登入學員帳號");
     if (!traffic.practiser(session.user.id)) throw new MorningError(429, "操作較頻繁，請稍候再試");
     const input = request.method === "POST" ? await readCourseInquiryJson(request) : undefined;
-    const [{ withSqlTransaction }, { loadMorningSession, mutateMorningSession }] = await Promise.all([
+    const [{ getSql, withSqlTransaction }, { serveMorningRequest }] = await Promise.all([
       import("@/lib/db"), import("@/lib/morning-session.server"),
     ]);
-    // The lesson comes from the query (checked there); the market data from MARKET_DATA_DIR, read at run time.
+    // The lesson comes from the query (checked there); the market data from MARKET_DATA_DIR, read at run time and
+    // never while the transaction is open (PGlite holds every query of the process for its length).
     const params = new URL(request.url).searchParams;
-    return reply(await withSqlTransaction(sql => request.method === "POST"
-      ? mutateMorningSession(sql, session.user.id, input, { params })
-      : loadMorningSession(sql, session.user.id, { params })));
+    return reply(await serveMorningRequest({ read: getSql, transaction: withSqlTransaction }, session.user.id,
+      request.method === "POST" ? { method: "POST", params, input } : { method: "GET", params }));
   } catch (error) {
     if (error instanceof CourseInquiryError)
       return reply({ ok: false, message: "請從本網站重試早盤練習操作" }, error.status);

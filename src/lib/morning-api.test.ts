@@ -1,12 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import fs from "node:fs";
+import fsPromises from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
+import { join } from "node:path";
 import { readDisciplineInput } from "./discipline/records.server.ts";
+import { clearLessonCaches } from "./lessons/daily-lessons.server.ts";
 import type { MarketBarRow } from "./market-days.server.ts";
 import type { MorningBookCell, MorningReply, MorningResponse } from "./morning.ts";
 import { MORNING_LIMITS, MorningTraffic } from "./morning-traffic.server.ts";
 import { RETIRED_LESSONS } from "./morning-data.server.ts";
-import { loadMorningSession, mutateMorningSession } from "./morning-session.server.ts";
+import { loadMorningSession, mutateMorningSession, serveMorningRequest, type MorningDb } from "./morning-session.server.ts";
 import {
   SIX,
   SIX_ALL_MORNING,
@@ -15,6 +21,7 @@ import {
   minuteBook,
   putBooks,
   putRadar,
+  sqlFor,
   withClassroom,
   withMarket,
   writeDay,
@@ -387,5 +394,195 @@ test("advance with view returns only that code's book cell", () => withMarket(as
     const other = served(await post("bob", startOf(["2330"], "2330"), 0, lessonOf("2026-10-27"))).state!;
     assert.equal(served(await post("bob", advanceOf(other, { view: "2330" }), 1_000)).delta!.book, undefined);
     assert.equal(served(await get("bob")).book, undefined);
+  });
+}));
+
+/**
+ * Every call through node:fs and node:fs/promises that touches `root`, split by whether one of the returned db's
+ * transactions is open. The readers import these functions by name; syncBuiltinESMExports() makes them see the wrapper.
+ */
+function watchMarketFiles(root: string, classroom: Classroom) {
+  const reads = { inTransaction: [] as string[], outside: 0 };
+  let open = 0;
+  const undo: (() => void)[] = [];
+  const wrap = (target: Record<string, unknown>, names: string[]) => {
+    for (const name of names) {
+      const original = target[name] as (...args: unknown[]) => unknown;
+      target[name] = function (this: unknown, ...args: unknown[]) {
+        const path = String(args[0]);
+        if (path.startsWith(root)) {
+          if (open > 0) reads.inTransaction.push(`${name} ${path}`);
+          else reads.outside += 1;
+        }
+        return original.apply(this, args);
+      };
+      undo.push(() => {
+        target[name] = original;
+      });
+    }
+  };
+  wrap(fsPromises as unknown as Record<string, unknown>, ["readFile", "stat", "lstat", "readdir", "open", "access"]);
+  wrap(fs as unknown as Record<string, unknown>, ["readFile", "stat", "readdir", "open", "createReadStream", "readFileSync", "statSync",
+    "readdirSync", "openSync", "existsSync"]);
+  syncBuiltinESMExports();
+  const hooks: { beforeTransaction: (() => Promise<void>) | null; transactions: number } = { beforeTransaction: null, transactions: 0 };
+  const db: MorningDb = {
+    read: () => sqlFor(classroom.db),
+    transaction: async (run) => {
+      const hook = hooks.beforeTransaction;
+      hooks.beforeTransaction = null;
+      if (hook) await hook();
+      hooks.transactions += 1;
+      return classroom.db.transaction(async (tx) => {
+        open += 1;
+        try {
+          return await run(sqlFor(tx));
+        } finally {
+          open -= 1;
+        }
+      });
+    },
+  };
+  return {
+    reads,
+    hooks,
+    db,
+    restore() {
+      for (const step of undo) step();
+      syncBuiltinESMExports();
+    },
+  };
+}
+
+/** The API through serveMorningRequest, as the route runs it. */
+function serving(db: MorningDb, dir: string) {
+  const params = (lesson?: string) => new URLSearchParams(lesson === undefined ? {} : { lesson });
+  return {
+    get: (user: string, lesson?: string) => serveMorningRequest(db, user, { method: "GET", params: params(lesson) }, { dir }),
+    post: (user: string, input: unknown, now: number, lesson?: string) =>
+      serveMorningRequest(db, user, { method: "POST", params: params(lesson), input }, { dir, clock: now }),
+  };
+}
+
+test("no market-data file is read while a transaction is open", () => withMarket(async (dir) => {
+  await writeDay(dir, "2026-10-27", SIX_ALL_MORNING);
+  await writeDay(dir, "2026-10-28", SIX_ALL_MORNING, { taiex: true });
+  await putRadar(dir, "2026-10-27", ["2454", "2330"]);
+  await putBooks(dir, "2026-10-28", "lot", { "2330": minuteBook(1000), "2317": minuteBook(200) });
+  await withClassroom(async (classroom) => {
+    const watch = watchMarketFiles(dir, classroom);
+    try {
+      const { get, post } = serving(watch.db, dir);
+      // Everything cold: no lesson cache, no picker, no trades read yet.
+      const opened = served(await get("alice"));
+      assert.deepEqual(opened.picker!.defaults, ["2330", "2454"]);
+      let state = served(await post("alice", startOf(["2330", "2454", "2317"], "2330"), 0)).state!;
+      for (let step = 1; step <= 3; step += 1)
+        state = served(await post("alice", advanceOf(state, { view: step % 2 ? "2330" : "2317" }), step * 1_000)).state!;
+      state = served(await post("alice", {
+        action: "order", requestId: randomUUID(), id: state.id, expectedRevision: state.revision, code: "2454", side: "buy", lots: 1,
+      }, 3_100)).state!;
+      state = served(await post("alice", {
+        action: "cancel", requestId: randomUUID(), id: state.id, expectedRevision: state.revision, orderId: state.orders[0].id,
+      }, 3_200)).state!;
+      const resumed = served(await get("alice"));
+      assert.equal(resumed.state!.cursor, 3);
+      assert.equal(resumed.book!.code, "2330");
+      await assert.rejects(post("alice", startOf(["2330", "6488"]), 3_300, lessonOf("2026-10-27")), { status: 400 });
+      const guest = served(await get("guest"));
+      let visitor = served(await post("guest", startOf(guest.picker!.defaults, "2330", { guestTerms: true }), 0)).state!;
+      visitor = served(await post("guest", advanceOf(visitor, { view: "2330" }), 1_000)).state!;
+      await post("guest", abandonOf(visitor), 1_100);
+      assert.deepEqual(watch.reads.inTransaction, []);
+      assert.ok(watch.reads.outside > 0, "the watch sees the readers");
+
+      // The run moves on (another tab) between this GET's reading and its transaction: the transaction needs the
+      // book of a cell it did not read, so it is aborted, that book is read outside, and the GET runs again.
+      const before = watch.hooks.transactions;
+      watch.hooks.beforeTransaction = async () => {
+        served(await post("alice", advanceOf(state), 5_000));
+      };
+      const raced = served(await get("alice"));
+      assert.equal(raced.state!.cursor, 4);
+      assert.ok(raced.book!.frames.every(([ms]) => ms >= 3 * 60_000 && ms < 4 * 60_000), "the book of the cell revealed last");
+      assert.equal(watch.hooks.transactions - before, 3, "the other tab's advance, then this GET twice");
+      state = raced.state!;
+      served(await post("alice", {
+        action: "finish", requestId: randomUUID(), id: state.id, expectedRevision: state.revision, reflection: "照計畫。",
+      }, 5_100));
+      served(await get("alice"));
+      assert.deepEqual(watch.reads.inTransaction, []);
+    } finally {
+      watch.restore();
+    }
+  });
+}));
+
+test("a run whose day's data changed can still be finished or abandoned, and a bare GET opens the newest day", () => withMarket(async (dir) => {
+  await writeDay(dir, "2026-10-27", SIX_ALL_MORNING);
+  await writeDay(dir, "2026-10-28", SIX_ALL_MORNING);
+  await withClassroom(async (classroom) => {
+    const { get, post } = serving({ read: () => sqlFor(classroom.db), transaction: (run) => classroom.tx(run) }, dir);
+    const finishOf = (run: { id: string; revision: number }, reflection: string) =>
+      ({ action: "finish", requestId: randomUUID(), id: run.id, expectedRevision: run.revision, reflection });
+    const buy = (run: { id: string; revision: number }, code: string) =>
+      ({ action: "order", requestId: randomUUID(), id: run.id, expectedRevision: run.revision, code, side: "buy", lots: 1 });
+
+    // A run on 10/27 holding 2317 with a market order for 2330 waiting; then the day's files are published again.
+    let run = served(await post("alice", startOf(["2330", "2317"]), 0, lessonOf("2026-10-27"))).state!;
+    run = served(await post("alice", advanceOf(run), 1_000)).state!;
+    run = served(await post("alice", buy(run, "2317"), 1_100)).state!;
+    run = served(await post("alice", advanceOf(run), 2_000)).state!;
+    run = served(await post("alice", buy(run, "2330"), 2_100)).state!;
+    assert.equal(run.positions[0].code, "2317");
+    assert.equal(run.orders[1].status, "pending");
+    const manifest = join(dir, "ticks/2026-10-27/manifest.json");
+    const republished = JSON.parse(await readFile(manifest, "utf8"));
+    republished.symbols.push({ code: "2881", complete: false });
+    await writeFile(manifest, JSON.stringify(republished));
+
+    await assert.rejects(post("alice", advanceOf(run), 3_000), { status: 409, message: "課程版本已變更，請聯絡講師確認這份練習" });
+    const blocked = served(await get("alice"));
+    assert.equal(blocked.state, null);
+    assert.equal(blocked.picker!.date, "2026-10-28", "the newest day's picker");
+    assert.equal(blocked.catalog.lessonId, lessonOf("2026-10-28"));
+    assert.deepEqual(blocked.blockedRun, {
+      id: run.id, lessonId: lessonOf("2026-10-27"), date: "2026-10-27", revision: run.revision, message: "課程版本已變更，請聯絡講師確認這份練習",
+    });
+    assert.deepEqual(blocked.records!.map((record) => [record.id, record.completed]), [[run.id, false]]);
+    const byId = served(await get("alice", lessonOf("2026-10-27")));
+    assert.equal(byId.picker!.date, "2026-10-27");
+    assert.equal(byId.blockedRun!.id, run.id);
+
+    // Finishing needs no market data: holdings keep the saved value, the waiting order is cancelled.
+    const finished = served(await post("alice", finishOf(run, "資料重新發布了，照記錄復盤。"), 3_100));
+    const ended = finished.state!;
+    assert.deepEqual([ended.completed, ended.reflection, ended.equity, ended.cash], [true, "資料重新發布了，照記錄復盤。", run.equity, run.cash]);
+    assert.deepEqual([ended.orders[1].status, ended.orders[1].reason], ["cancelled", "結束練習時取消尚未成交委託"]);
+    assert.deepEqual(ended.positions, run.positions);
+    assert.deepEqual(ended.bars, {});
+    assert.deepEqual(finished.catalog.symbols.map((symbol) => [symbol.code, symbol.name]), [["2330", "台積電"], ["2317", "鴻海"]]);
+    assert.equal(finished.celebration!.source, "practice");
+    const after = served(await get("alice"));
+    assert.deepEqual([after.state, after.blockedRun, after.picker!.date], [null, undefined, "2026-10-28"]);
+    assert.deepEqual(after.records![0], {
+      id: run.id, lessonId: lessonOf("2026-10-27"), date: "2026-10-27", codes: 2, pnl: Math.round((run.equity - run.startingCash) * 100) / 100,
+      reflected: true, abandoned: false, retired: false, completed: true,
+    });
+
+    // A run whose stock no longer agrees (its trades file is gone, read again after a restart) can be abandoned.
+    let other = served(await post("bob", startOf(["2454", "2330"]), 0)).state!;
+    other = served(await post("bob", advanceOf(other), 1_000)).state!;
+    await rm(join(dir, "ticks/2026-10-28/symbols/2454.json.gz"));
+    clearLessonCaches();
+    const stuck = served(await get("bob"));
+    assert.equal(stuck.state, null);
+    assert.deepEqual([stuck.blockedRun!.id, stuck.blockedRun!.message], [other.id, "這幾檔這天的資料對不起來：2454，請改選其他股票"]);
+    const gaveUp = served(await post("bob", abandonOf(other), 1_100));
+    assert.deepEqual([gaveUp.state!.abandoned, gaveUp.state!.completed, gaveUp.state!.equity], [true, true, other.equity]);
+    await assert.rejects(post("bob", abandonOf(gaveUp.state!), 1_200), { status: 409, message: "這局已經結束" });
+    const free = served(await get("bob"));
+    assert.deepEqual([free.state, free.blockedRun, free.picker!.date], [null, undefined, "2026-10-28"]);
+    assert.equal(free.records![0].abandoned, true);
   });
 }));

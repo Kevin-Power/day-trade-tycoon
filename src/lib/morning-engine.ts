@@ -412,12 +412,7 @@ export function applyMorningAction(
   now: number,
 ): MorningStoredState {
   assertLesson(previous, source);
-  if (action.id !== previous.id) throw new MorningError(404, "找不到這份練習");
-  // Abandoning an ended run gets the same answer whatever revision it is sent with.
-  if (action.action === "abandon" && previous.completed) throw new MorningError(409, "這局已經結束");
-  if (action.expectedRevision !== previous.revision)
-    throw new MorningError(409, "練習已更新，請重新讀取目前進度");
-  if (previous.completed) throw new MorningError(409, "這份練習已完成，無法再修改");
+  assertActionable(previous, action);
   const state = structuredClone(previous);
   const pending = state.orders.find((order) => order.status === "pending");
   if (action.action === "advance") {
@@ -471,7 +466,24 @@ export function applyMorningAction(
       throw new MorningError(409, "這筆委託已不在等待成交狀態");
     pending.status = "cancelled";
     pending.reason = "由學員取消";
-  } else if (action.action === "abandon") {
+  } else closeRun(state, action);
+  state.revision++;
+  valueHoldings(state, source);
+  return state;
+}
+/** The checks every action on a saved run passes first, in this order. */
+function assertActionable(previous: MorningStoredState, action: Exclude<MorningAction, { action: "start" }>): void {
+  if (action.id !== previous.id) throw new MorningError(404, "找不到這份練習");
+  // Abandoning an ended run gets the same answer whatever revision it is sent with.
+  if (action.action === "abandon" && previous.completed) throw new MorningError(409, "這局已經結束");
+  if (action.expectedRevision !== previous.revision)
+    throw new MorningError(409, "練習已更新，請重新讀取目前進度");
+  if (previous.completed) throw new MorningError(409, "這份練習已完成，無法再修改");
+}
+/** Finish (with the reflection) or abandon: the waiting order is cancelled and the run is completed. */
+function closeRun(state: MorningStoredState, action: Extract<MorningAction, { action: "finish" | "abandon" }>): void {
+  const pending = state.orders.find((order) => order.status === "pending");
+  if (action.action === "abandon") {
     if (pending) {
       pending.status = "cancelled";
       pending.reason = "放棄這局時取消尚未成交委託";
@@ -486,7 +498,19 @@ export function applyMorningAction(
     state.completed = true;
     state.reflection = action.reflection;
   }
+}
+/**
+ * Finish or abandon from what is saved, without the lesson's data (③ decision R): holdings keep the value saved
+ * with the last action, which is what valuing them again would give, since nothing is revealed in between. A run
+ * whose data can no longer be read (republished, not agreeing, unreadable) can still be ended.
+ */
+export function endMorningRun(
+  previous: MorningStoredState,
+  action: Extract<MorningAction, { action: "finish" | "abandon" }>,
+): MorningStoredState {
+  assertActionable(previous, action);
+  const state = structuredClone(previous);
+  closeRun(state, action);
   state.revision++;
-  valueHoldings(state, source);
   return state;
 }
