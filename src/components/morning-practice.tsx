@@ -86,6 +86,9 @@ type MorningPane = "market" | "watch" | "trade" | "positions";
 type ChartMode = "quote" | "chart";
 
 function readResponse(value: unknown): MorningResponse {
+  // No daily lessons in this classroom (yet): show the server's sentence until the picker has a place for it.
+  if (value && typeof value === "object" && "unavailable" in value && typeof value.unavailable === "string")
+    throw new Error(value.unavailable);
   if (!value || typeof value !== "object" || !("catalog" in value) || !("state" in value)) {
     throw new Error("教室回傳的資料不完整，請重試。");
   }

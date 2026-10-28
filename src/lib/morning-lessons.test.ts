@@ -1,83 +1,80 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createHash } from "node:crypto";
-import { getMorningSource, morningCatalog, morningLessons, morningSources, selectMorningSource } from "./morning-data.server.ts";
+import {
+  RETIRED_LESSONS,
+  dayPicker,
+  lessonSummaries,
+  requestedLesson,
+  resolveMorningSource,
+} from "./morning-data.server.ts";
+import { SIX, SIX_ALL_MORNING, putRadar, withMarket, writeDay } from "./morning-fixtures.ts";
 
-test("lesson selection accepts exactly one approved identifier and preserves the original default", () => {
-  assert.deepEqual(morningSources.map(source => source.catalog.date), ["2026-10-05", "2026-10-06"]);
-  assert.equal(getMorningSource().catalog.date, "2026-10-06");
-  assert.equal(selectMorningSource(new URLSearchParams()).catalog.lessonId, morningCatalog.lessonId);
-  assert.equal(new Set(morningSources.map(source => source.catalog.lessonId)).size, morningSources.length);
-  for (const source of morningSources) {
-    assert.equal(getMorningSource(source.catalog.lessonId), source);
-    assert.equal(selectMorningSource(new URLSearchParams({ lesson: source.catalog.lessonId })), source);
-    assert.match(source.catalog.lessonId, /^morning-\d{8}-v1-[a-f0-9]{12}$/);
-  }
-  for (const value of ["", "2026-10-06", "morning-20261007", "__proto__", "../../server/data/morning-2026-10-06.json"])
-    assert.throws(() => getMorningSource(value), { status: 400 });
-  for (const value of ["lesson=", "date=2026-10-06", "lesson=unknown", "lesson=x&lesson=x", "lesson=x&cursor=90", "cursor=90"])
-    assert.throws(() => selectMorningSource(new URLSearchParams(value)), { status: 400 });
-  const approved = morningCatalog.lessonId;
-  assert.throws(() => selectMorningSource(new URLSearchParams(`lesson=${approved}&lesson=${approved}`)), { status: 400 });
-  assert.throws(() => selectMorningSource(new URLSearchParams(`lesson=${approved}&cursor=90`)), { status: 400 });
+const noOpenRun = { openLessonIds: async () => [] };
+
+test("lesson selection accepts exactly one daily lesson id; the retired lessons answer 404", () => {
+  assert.deepEqual(RETIRED_LESSONS, {
+    "morning-20261005-v1-bd566804b809": "2026-10-05",
+    "morning-20261006-v1-ce4a95ce69f1": "2026-10-06",
+  });
+  assert.equal(requestedLesson(new URLSearchParams()), null);
+  assert.deepEqual(requestedLesson(new URLSearchParams({ lesson: "fubon-20261028-am" })), { lessonId: "fubon-20261028-am", date: "2026-10-28" });
+  for (const id of Object.keys(RETIRED_LESSONS))
+    assert.throws(() => requestedLesson(new URLSearchParams({ lesson: id })), { status: 404, message: "這堂舊課已停用" });
+  for (const value of ["", "2026-10-28", "fubon-20261028", "fubon-20261028-day", "fubon-20261332-am", "morning-20261007-v1-000000000000",
+    "__proto__", "constructor", "hasOwnProperty", "../../server/data/morning-2026-10-06.json", " fubon-20261028-am"])
+    assert.throws(() => requestedLesson(new URLSearchParams({ lesson: value })), { status: 400 }, value);
+  for (const query of ["lesson=", "date=2026-10-28", "lesson=x&lesson=x", "lesson=x&cursor=90", "cursor=90",
+    "lesson=fubon-20261028-am&lesson=fubon-20261028-am", "lesson=fubon-20261028-am&cursor=90"])
+    assert.throws(() => requestedLesson(new URLSearchParams(query)), { status: 400 }, query);
 });
 
-test("available lesson summaries disclose metadata only, never bars, prices or market context", () => {
-  assert.equal(morningLessons.length, morningSources.length);
-  for (const lesson of morningLessons) {
-    // A summary is the date list's entry only: no stocks either (the picker sends those).
-    assert.deepEqual(Object.keys(lesson).sort(), ["date", "lessonId", "title"]);
-    const source = getMorningSource(lesson.lessonId);
-    assert.deepEqual(lesson, { lessonId: source.catalog.lessonId, date: source.catalog.date, title: source.catalog.title });
-  }
-  assert.equal(morningLessons.some(lesson => lesson.date === "2026-10-07" || lesson.date === "2026-10-02"), false,
-    "Dates with known null minutes must not become selectable by fallback");
+test("the lesson served: the one asked for, else the latest open run's day, else the newest day", () => withMarket(async (dir) => {
+  assert.deepEqual(await resolveMorningSource(new URLSearchParams(), noOpenRun, ""), { kind: "unavailable", unavailable: "此教室沒有每日教材" });
+  await assert.rejects(resolveMorningSource(new URLSearchParams({ lesson: "morning-20261006-v1-ce4a95ce69f1" }), noOpenRun, ""), { status: 404 },
+    "a retired lesson is retired whether or not the classroom has daily lessons");
+  assert.deepEqual(await resolveMorningSource(new URLSearchParams(), noOpenRun, dir), { kind: "unavailable", unavailable: "目前還沒有每日教材" });
+  await writeDay(dir, "2026-10-20", SIX); // before the first lesson day
+  await writeDay(dir, "2026-10-27", SIX);
+  await writeDay(dir, "2026-10-28", SIX);
+  const days = ["2026-10-28", "2026-10-27"];
+  const lesson = (date: string, from: string) =>
+    ({ kind: "lesson", dir, days, lessonId: `fubon-${date.replaceAll("-", "")}-am`, date, from });
+
+  assert.deepEqual(await resolveMorningSource(new URLSearchParams(), noOpenRun, dir), lesson("2026-10-28", "newest"));
+  assert.deepEqual(await resolveMorningSource(new URLSearchParams({ lesson: "fubon-20261027-am" }), noOpenRun, dir), lesson("2026-10-27", "query"));
+  for (const id of ["fubon-20261020-am", "fubon-20261026-am", "fubon-20261029-am"])
+    await assert.rejects(resolveMorningSource(new URLSearchParams({ lesson: id }), noOpenRun, dir), { status: 400, message: "請選擇已提供真實行情的練習日期" }, id);
+  // Open runs come newest first; one on a day that is not open (or not a daily lesson at all) is passed over.
+  let asked = 0;
+  const openRuns = (ids: string[]) => ({ openLessonIds: async () => { asked += 1; return ids; } });
+  assert.deepEqual(await resolveMorningSource(new URLSearchParams(), openRuns(["fubon-20261020-am", "old", "fubon-20261027-am", "fubon-20261028-am"]), dir),
+    lesson("2026-10-27", "open-run"));
+  assert.deepEqual(await resolveMorningSource(new URLSearchParams(), openRuns(["fubon-20261020-am"]), dir), lesson("2026-10-28", "newest"));
+  asked = 0;
+  await resolveMorningSource(new URLSearchParams({ lesson: "fubon-20261028-am" }), openRuns(["fubon-20261027-am"]), dir);
+  assert.equal(asked, 0, "a lesson in the query never looks up open runs");
+}));
+
+test("lesson summaries disclose metadata only, never stocks, prices or market context", () => {
+  const summaries = lessonSummaries(["2026-10-28", "2026-10-21"]);
+  assert.deepEqual(summaries, [
+    { lessonId: "fubon-20261028-am", date: "2026-10-28", title: "10/28 早盤" },
+    { lessonId: "fubon-20261021-am", date: "2026-10-21", title: "10/21 早盤" },
+  ]);
+  for (const summary of summaries) assert.deepEqual(Object.keys(summary).sort(), ["date", "lessonId", "title"]);
 });
 
-test("every lesson's notices say each revealed minute is replayed with simulated trades", () => {
-  for (const source of morningSources) {
-    const notices = source.catalog.notices.join("\n");
-    assert.match(notices, /模擬逐筆/, `${source.catalog.date} notices must disclose the simulated replay`);
-    assert.doesNotMatch(notices, /沒有合成逐筆/, `${source.catalog.date} notices must not deny the simulated replay`);
-  }
-});
-
-test("every lesson carries the real TAIEX: 90 bars of 12 five-second points", () => {
-  const expected: Record<string, { previousClose: number; open: number }> = {
-    "2026-10-05": { previousClose: 48475.74, open: 48574.95 },
-    "2026-10-06": { previousClose: 49712.04, open: 49736.37 },
-  };
-  for (const source of morningSources) {
-    const index = source.index;
-    assert.ok(index, `${source.catalog.date} has no TAIEX`);
-    assert.equal(index.code, "TAIEX");
-    assert.equal(index.bars.length, 90);
-    assert.equal(index.bars[0].t, 0);
-    assert.ok(index.bars.every((bar) => bar.p.length === 12));
-    assert.match(index.source, /TWSE|證交所/);
-    assert.equal(index.previousClose, expected[source.catalog.date].previousClose);
-    assert.equal(index.bars[0].o, expected[source.catalog.date].open);
-  }
-});
-
-test("every lesson's notices explain the TAIEX source and its 09:00:05 open", () => {
-  for (const source of morningSources) {
-    const notice = source.catalog.notices.find((text) => text.includes("加權指數"));
-    assert.ok(notice, `${source.catalog.date} notices must describe the TAIEX`);
-    assert.match(notice, /證交所/);
-    assert.match(notice, /09:00:05/);
-  }
-});
-
-test("notice edits never change a lesson's identity or its real minute bars", () => {
-  // Pinned when the notices were revised (2026-10-20); a change here is a data change, not a copy edit.
-  const pinned: Record<string, [string, string]> = {
-    "2026-10-05": ["morning-20261005-v1-bd566804b809", "c479585230c4991749abb220b40105e7bc124f9c7869b8511a4169438b859750"],
-    "2026-10-06": ["morning-20261006-v1-ce4a95ce69f1", "dccfb8587e20f24045cbcf324965ce967cc7a8eff7c9abf288551c33cc9f9525"],
-  };
-  for (const source of morningSources) {
-    const [lessonId, barsSha256] = pinned[source.catalog.date];
-    assert.equal(source.catalog.lessonId, lessonId);
-    assert.equal(createHash("sha256").update(JSON.stringify(source.bars)).digest("hex"), barsSha256);
-  }
-});
+test("a day's picker is kept for a minute per audience, then read again", () => withMarket(async (dir) => {
+  await writeDay(dir, "2026-10-27", SIX);
+  await writeDay(dir, "2026-10-28", SIX_ALL_MORNING);
+  const first = await dayPicker(dir, "2026-10-28", false, 0);
+  assert.equal(first!.note.title, "前一交易日沒有熱門當沖名單，改用成交值前 5 名");
+  await putRadar(dir, "2026-10-27", ["2454", "2330"]); // the list arrives late
+  assert.equal(await dayPicker(dir, "2026-10-28", false, 59_999), first);
+  const later = await dayPicker(dir, "2026-10-28", false, 60_000);
+  assert.equal(later!.note.title, "預設：前一交易日熱門當沖股（10/27 盤後）");
+  assert.deepEqual(later!.defaults, ["2330", "2454"]);
+  const guest = await dayPicker(dir, "2026-10-28", true, 60_000);
+  assert.deepEqual(guest!.note, { title: "預設：成交值前 5 名", detail: null });
+  assert.equal(await dayPicker(dir, "2026-10-26", false, 0), null);
+}));

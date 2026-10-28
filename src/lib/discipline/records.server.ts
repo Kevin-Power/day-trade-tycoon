@@ -27,7 +27,8 @@ function readOf(outcome: DailyOutcome | string | null, level: number | string | 
 
 /**
  * The learner's saved answers and finished rounds, reduced to what scoring needs. Only the question's
- * level and outcome are read, never its bars; only finished rounds count.
+ * level and outcome are read, never its bars; only finished rounds count, and an abandoned round (given up
+ * without a reflection, ③ §3) never does.
  */
 export async function readDisciplineInput(sql: Sql, userId: string, now: number): Promise<DisciplineInput> {
   const answers = await sql<{
@@ -50,7 +51,8 @@ export async function readDisciplineInput(sql: Sql, userId: string, now: number)
       (extract(epoch FROM updated_at) * 1000)::float8 AS at,
       state_json->'plan'->>'focusCode' AS focus, state_json->>'reflection' AS reflection,
       state_json->'orders' AS orders, state_json->'positions' AS positions
-    FROM morning_sessions WHERE user_id = ${userId} AND completed`;
+    FROM morning_sessions WHERE user_id = ${userId} AND completed
+      AND NOT COALESCE((state_json->>'abandoned')::boolean, false)`;
   return {
     daily: answers.map((row) => ({
       questionId: row.question_id,

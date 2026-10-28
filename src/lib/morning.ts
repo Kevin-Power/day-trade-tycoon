@@ -44,10 +44,6 @@ export type MorningIndexSeries = {
 };
 /** A lesson in the date list: no stocks, no bars, nothing of the day's market. */
 export type MorningLessonSummary = { lessonId: string; date: string; title: string };
-/** Public selection metadata only: no source bars or unrevealed market context. */
-export function summarizeMorningLesson(catalog: MorningCatalog): MorningLessonSummary {
-  return { lessonId: catalog.lessonId, date: catalog.date, title: catalog.title };
-}
 export type MorningOrder = {
   id: string;
   code: string;
@@ -122,19 +118,34 @@ export type MorningDelta = {
 };
 /** The latest revealed trades of every stock of the run, for the trade list when a run is opened. */
 export type MorningTape = Record<string, TradeRow[]>;
+/**
+ * What /api/morning answers. A snapshot (GET, and a start) carries the run's revealed bars, TAIEX and `tape`; a step
+ * (advance, order, cancel, finish, abandon) carries the run without them (`state.bars` is `{}`, no `index`): the desk
+ * keeps what it has and adds each advance's `delta`. Nothing in either is at or after the cursor.
+ */
 export type MorningResponse = {
+  /** A run's stocks in the order chosen; with no run, the day's default 自選. `note` is the default's desk wording. */
   catalog: MorningCatalog;
   state: MorningState | null;
+  /** GET only: the open lesson days, newest first. */
   lessons?: MorningLessonSummary[];
   /** Only on the request that finished the round; retries and other actions have none. */
   celebration?: Celebration | null;
+  /** Advance only: the cell just revealed. */
   delta?: MorningDelta;
+  /** Snapshots only: the last revealed trades of each stock of the run. */
   tape?: MorningTape;
+  /** GET with no unfinished run shown: the day's stocks and default 自選 for a new run (a guest's never uses the list). */
   picker?: LessonPicker;
+  /** GET only: the learner's latest 20 runs, newest first, the retired lessons' included. */
   records?: RunRecord[];
+  /** GET of a run: the 主角股's recorded books in the last revealed cell, when the day has them. */
   book?: MorningDelta["book"];
   retired?: boolean;
 };
+/** The classroom has no daily lessons: none configured (on-prem) or none published yet. Nothing else is sent. */
+export type MorningUnavailable = { unavailable: string };
+export type MorningReply = MorningResponse | MorningUnavailable;
 export type MorningAction =
   | { action: "start"; requestId: string; plan: MorningPlan; codes: string[]; guestTerms?: true }
   | { action: "advance"; requestId: string; id: string; expectedRevision: number; view?: string }

@@ -68,7 +68,7 @@ export function parseLessonId(id: string): string | null {
 }
 
 /** "2026-10-27" → "10/27 早盤". */
-function lessonTitle(date: string): string {
+export function lessonTitle(date: string): string {
   const [, month, day] = date.split("-");
   return `${Number(month)}/${Number(day)} 早盤`;
 }

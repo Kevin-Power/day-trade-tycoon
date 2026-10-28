@@ -11,7 +11,7 @@ export const Route = createFileRoute("/morning")({
     exercise:
       typeof search.exercise === "string" ? getMorningExercise(search.exercise)?.id : undefined,
     lesson:
-      typeof search.lesson === "string" && /^morning-\d{8}-v\d+-[a-f0-9]{12}$/.test(search.lesson)
+      typeof search.lesson === "string" && /^(morning-\d{8}-v\d+-[a-f0-9]{12}|fubon-\d{8}-am)$/.test(search.lesson)
         ? search.lesson
         : undefined,
     panel: search.panel === "trade" ? "trade" : undefined,
