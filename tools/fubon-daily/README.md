@@ -149,6 +149,50 @@
   ```
   `--test` 不等 08:44，也不判斷休市。不要在 2026-10-27 08:40–13:35 試跑，那段時間是唯讀行情的整日驗收。
 
+## 證交所大盤（2026-10-28 起）
+
+每日課程的大盤格用證交所每 5 秒的加權指數（`MI_5MINS_INDEX`），公開資料，不需登入。這一步接在每日執行的最後面，不影響 1 分 K 和逐筆。
+
+- **什麼時候跑**：每日執行（不是 `--date` 補抓）從 16:30 起，結果不論是上架、已完成、休市或登入失敗，都會接著跑，而且在同一把鎖裡。拿不到鎖、16:30 以前、補抓模式都不跑。
+  - 附加步驟本身出錯（不該發生）只在日誌記「大盤、名單的附加步驟出錯，已略過」，不改結束碼，也不留例外內容。
+- **抓哪些日子**：已上架的全市場日（`index.json` 裡 `coverage` 是 `full-market`）、2026-10-21 起、還沒有 `taiex\<日期>\` 的。
+  - 補抓：一次最多 5 天，由舊到新，兩次請求之間隔 2 秒（證交所會擋太頻繁的請求）。缺很多天時分幾次補齊。
+  - 抓到就上架；失敗記原因，不擋別的日子。
+- **下載**：`urllib.request`（`cli.py` 的 `twse_get`），帶 `User-Agent: Mozilla/5.0 (DayTradeTycoon fetcher)`。
+  - 逾時照全部呼叫的 `(10, 60)`：連線最多等 10 秒，之後每次讀取最多等 60 秒。urllib 的 `timeout` 只有一個數字，連線和讀取共用，所以 `cli.py` 的 `ReadTimeout` 在連線完成後把 socket 的逾時改成 60 秒（連線與加密握手維持 10 秒）。
+  - 回應超過 8 MB 當作失敗（一天的檔案約 250 KB）。HTTP 錯誤、連不上、逾時一律只記「無法連上證交所」。
+- **先存再檢查**：收到的回應先原樣存成 `staging-taiex\<日期>\received-<雜湊前 12 碼>.json`，再解析、檢查。所以任何沒通過的回應（缺點、重複、擋人的網頁、日期不符……）都留作證據。
+  - 內容相同的回應只存一份，不同的並存。證據留到該日成功上架時一起清掉，不會被自動清理。
+- **檢查**（`fubon_daily/taiex.py`）：`stat` 是 `OK`、日期相符、09:00:00 到 13:30:00 每 5 秒一點共 3,241 點、沒有缺漏或重複；前一交易日的檔案如果在，它 13:30:00 的值要等於今天 09:00:00 的值（兩天中間夾著已上架卻沒有大盤檔的交易日時不比）。
+- **存放位置**：`market-data\taiex\<日期>\`，寫一次、永久保留，不會被清理。
+  - `raw.json`：證交所的回應原樣；`points.json`：檢查過的點 `[09:00:00 後的秒, 指數]`；`manifest.json`：版本和雜湊。
+- **狀態**：`status.json` 的 `taiex`：`{date, outcome, reason, points, failed, finishedAt}`。這次沒有要補的日子時不改寫。
+  - `date`：這次處理的最新一天。
+  - `outcome`：這次處理的日子全部存好是 `ok`，有任何一天沒存好是 `failed`。
+  - `reason`：`failed` 時是最新一個失敗日的「日期：原因」，否則是 `null`。原因是固定的文字：`無法連上證交所`、`證交所回覆是空的`、`證交所回覆不是 JSON`、`證交所回覆不是 OK`、`日期不符`、`大盤檔案格式不正確`、`大盤資料不連續`、`大盤資料重複`、`大盤數值不正確`、`前一交易日收盤與今天 09:00:00 不同`、`大盤處理時發生未預期的錯誤`。
+  - `points`：`date` 那天存了幾點（3241），那天沒存好時是 `null`。
+  - `failed`：這次沒存好的日子；`finishedAt`：這個步驟開始的時間。
+- **失敗時**：只記原因，不擋 1 分 K、逐筆，也不擋其他日子；沒存好的日子下一次排程再抓。最舊的 5 天一直失敗時（一次最多處理 5 天），更新的日子就輪不到，要先處理掉那幾天的問題。教材照樣開放，只是那天的大盤格顯示「本教材沒有大盤資料」。
+- **日誌**：每個日子一行（「大盤 2026-10-27：已存（3241 點）」或「失敗：原因」）。
+
+## 熱門當沖名單（2026-10-28 起）
+
+自選股預設用「前一個交易日的熱門當沖名單」。名單是使用者自己在 Google 試算表（分頁「定格名單」）整理的，抓取程式用一個只讀的服務帳戶把它讀下來，每個日子定格存成一個檔。設計見 `docs/superpowers/specs/2026-10-28-radar-watchlist-design.md`。
+
+- **什麼時候跑**：和大盤一起，在每日執行之後（條件相同），而且一定在鎖裡：存名單檔是「先檢查再替換」，沒有鎖不安全。
+- **設定檔**：`%USERPROFILE%\.daytrade-tycoon\radar.local.json`（`--radar-config` 可以換路徑），內容 `{"sheetId": …, "tab": "定格名單", "keyFile": "google-radar-reader.json"}`；`keyFile` 相對於設定檔所在的資料夾。
+  - 金鑰檔（服務帳戶的 JSON）不放在 git 專案裡，放在同一個資料夾，見下面「安裝與更新」。金鑰檔的內容（和 Google 回的任何文字）不會寫進日誌、狀態或錯誤訊息。
+  - **沒有設定檔**：不讀試算表，也不算失敗；`status.json` 的 `radar.outcome` 是 `not-configured`。
+- **讀取**：每次只讀一次（A 到 K 欄），逾時 `(10, 60)` 秒。第一列必須和約定的欄名完全一樣，不一樣整次失敗。只留類型是「當沖」的列的代號和名稱（4 到 6 碼的數字或大寫英文），同一天重複的代號只算一次；分數、等級、收盤等其他欄位在讀取時就丟掉，不存。
+  - 需要 `google-auth`：`install.ps1 -Sdk` 會裝 `google-auth==2.62.0` 和 `requests==2.34.2`；沒裝的電腦其他功能照常，名單記「沒有安裝 google-auth」。
+- **存哪些日子**：從 2026-10-20 起、早於今天的日子（今天的名單還在整理，不存）、還沒存過、至少一檔。一次把所有該存的日子存好，所以休市或漏跑之後會自己補上。
+- **存放位置**：`market-data\radar\<日期>.json`，只有代號和名稱，另有 `fetchedAt` 和雜湊。寫一次、永久保留：之後試算表改了同一天的內容，只在日誌記一行，不覆蓋，這樣課程可以重播。已存的檔讀不出來時也不覆蓋，日誌記一行。
+- **狀態**：`status.json` 的 `radar`：`{outcome, reason, latest, symbols, stored, finishedAt}`。
+  - `outcome`：`ok`、`failed` 或 `not-configured`；`reason`：`failed` 時的固定文字，否則 `null`。
+  - `latest`：目前已存的最新一天；`symbols`：那天有幾檔；`stored`：這次新存的日子。沒有任何已存的日子時，`latest` 和 `symbols` 是 `null`。
+  - `finishedAt`：這個步驟開始的時間。
+- **失敗時**：只記固定的原因，不擋大盤、1 分 K 和逐筆，已存的日子不動，下一次排程再讀。原因有：`試算表欄位改了`、`Google 授權失敗`、`連線逾時`、`讀不到試算表（HTTP n）`、`找不到 Google 金鑰檔`、`沒有安裝 google-auth`、`設定檔格式不正確`、`金鑰檔不能放在 git 專案裡`、`找不到設定檔`、`名單存檔失敗`（某一天寫不進去，其他日子照存）、`名單處理時發生未預期的錯誤`。名單讀不到的日子，課程端退回成交值前 5 名。
+
 ## 測試（不需要登入，也不會連到富邦）
 
 ```powershell
@@ -163,6 +207,16 @@ py -3.12 -m unittest discover -s tools/fubon-daily/tests -t tools/fubon-daily -v
 & "$env:USERPROFILE\YilutekServices\DayTradeTycoon\fetcher\.venv\Scripts\python.exe" -m unittest discover -s tools/fubon-daily/tests -t tools/fubon-daily -v
 ```
 
+`tests/test_radar.py` 裡讀 Google 試算表的測試（`GoogleFake`，14 個）要用 `google-auth`，對本機的假伺服器（假的 token 與試算表）測，不連 Google。用上面的 `py -3.12` 沒有 `google-auth` 會跳過，要在 `.venv-test` 跑；證交所的下載（`tests/test_cli.py`）同樣只連本機的假伺服器。
+
+```powershell
+py -3.12 -m venv tools\fubon-daily\.venv-test
+tools\fubon-daily\.venv-test\Scripts\python.exe -m pip install google-auth==2.62.0 requests==2.34.2 cryptography
+tools\fubon-daily\.venv-test\Scripts\python.exe -m unittest discover -s tools/fubon-daily/tests -t tools/fubon-daily -v
+```
+
+`.venv-test` 不進 git（已列入本機的 `.git/info/exclude`）。`google-auth` 的版本和 `install.ps1 -Sdk` 釘的一樣。
+
 ## 安裝與更新
 
 ```powershell
@@ -173,6 +227,17 @@ powershell -NoProfile -File tools\fubon-daily\install.ps1 -BooksTask   # 建立�
 powershell -NoProfile -File tools\fubon-daily\install.ps1 -BooksTask -BooksNoPublish   # 只錄不上架
 ```
 
+**熱門當沖名單的設定**（一次就好，順序：`-Sdk`、`-App`、`-RadarSheet`）：
+
+```powershell
+powershell -NoProfile -File tools\fubon-daily\install.ps1 -RadarSheet <試算表 ID>   # 寫入 %USERPROFILE%\.daytrade-tycoon\radar.local.json
+```
+
+- `<試算表 ID>` 是試算表網址裡 `/d/` 和 `/edit` 中間那一串，只接受英數、`-`、`_`。
+- 寫入 `{"sheetId": <ID>, "tab": "定格名單", "keyFile": "google-radar-reader.json"}`，用 UTF-8 無 BOM 寫，資料夾不存在就建立。重跑會換成新的 ID。
+- **金鑰檔不由安裝程式處理**：照 `docs/superpowers/specs/2026-10-28-radar-watchlist-design.md` 的附錄 A，自己在 Google Cloud 建一個只能檢視的服務帳戶，下載 JSON 金鑰，改名 `google-radar-reader.json`，放到 `C:\Users\kevin\.daytrade-tycoon\`（和 `radar.local.json` 同一個資料夾），再把試算表以「檢視者」共用給那個服務帳戶。金鑰檔不要放進 git 專案，也不要貼給別人。安裝程式只會檢查它在不在，不讀、不複製、不改。
+- 排程不用改：沒有 `--radar-config` 時，程式就讀 `%USERPROFILE%\.daytrade-tycoon\radar.local.json`，排程用同一個使用者執行。已經安裝過 SDK 的電腦，要補裝 `google-auth` 就再執行一次 `-Sdk`（SDK 壓縮檔的雜湊不變才會裝）。
+
 ## 手動執行
 
 ```powershell
@@ -181,5 +246,7 @@ $fetcher = "$env:USERPROFILE\YilutekServices\DayTradeTycoon\fetcher"
 # 補抓過去的日子（可只抓部分股票）：
 #   ... --date 2026-10-05 --symbols 2330,2317,2454,2382,2308
 ```
+
+補抓（`--date`）只抓 1 分 K，不跑大盤和名單；它們隨每日執行跑。`--radar-config <路徑>` 可以換名單設定檔的位置。
 
 結束碼：0 表示成功、休市或已完成；1 表示失敗，等下一次排程；2 表示設定、登入、憑證或 SDK 錯誤，需要人處理。狀態在 `market-data\status.json`，每日日誌在 `market-data\logs\`。

@@ -79,6 +79,20 @@ class StoreTest(unittest.TestCase):
         top = json.loads((self.root / "index.json").read_text(encoding="utf-8"))
         self.assertEqual([entry["date"] for entry in top["days"]], ["2026-10-15", "2026-10-16"])
 
+    def test_full_market_days_lists_only_full_market_days_oldest_first(self):
+        self.assertEqual(self.store.full_market_days(), [])
+        self.publish("2026-10-22")
+        self.store.publish_day("2026-10-21", "selected", [ENTRY], BARS, [], 0, NOW, "fubon-neo test", "abc123")
+        self.publish("2026-10-20")
+        self.assertEqual(self.store.full_market_days(), ["2026-10-20", "2026-10-22"])
+
+    def test_full_market_days_reads_nothing_from_a_damaged_index(self):
+        self.publish("2026-10-22")
+        for damaged in (b"{broken", b"[]", b'{"days": 5}', b'{"days": [5, {"date": 7, "coverage": "full-market"}]}'):
+            (self.root / "index.json").write_bytes(damaged)
+            self.assertEqual(self.store.full_market_days(), [])
+        self.assertTrue((self.root / "index.json").is_file())  # a read never moves a file aside
+
     def test_prune_removes_old_raw_and_logs_but_keeps_lessons(self):
         for path in ("raw/2025-10-01", "raw/2026-10-01", "days/2025-10-01", "logs"):
             (self.root / path).mkdir(parents=True, exist_ok=True)

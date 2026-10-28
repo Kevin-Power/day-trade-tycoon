@@ -23,6 +23,8 @@ HISTORY_LIMIT = 30
 # Longer than the scheduled task's two-hour limit: an older lock belongs to a run that is gone.
 STALE_LOCK_SECONDS = 2.5 * 3600
 REPLACE_ATTEMPTS = 5
+# Prefix of the answers kept in staging-taiex/<day> until the day is stored (see stage_taiex_raw).
+TAIEX_RECEIVED = "received-"
 # Left in staging-books/<day> when publishing that day's books failed: automatic runs skip the day.
 BOOKS_PUBLISH_ERROR = "publish-error.json"
 # A stored answer that reads but cannot be decoded; any other OSError (a file held by a scanner, say) may pass.
@@ -133,6 +135,17 @@ class MarketStore:
 
     def has_day(self, day: str) -> bool:
         return (self.root / "days" / day / "manifest.json").is_file()
+
+    def full_market_days(self) -> list[str]:
+        """The published days that cover the whole market, oldest first, as index.json lists them ([] when it cannot
+        be read; unlike _read_json, this never moves a file aside)."""
+        try:
+            days = json.loads((self.root / "index.json").read_text(encoding="utf-8-sig"))["days"]
+            return sorted(entry["date"] for entry in days
+                          if isinstance(entry, dict) and entry.get("coverage") == "full-market"
+                          and isinstance(entry.get("date"), str) and DAY_NAME.match(entry["date"]))
+        except (OSError, ValueError, KeyError, TypeError):
+            return []
 
     def _raw_path(self, day: str, kind: str, name: str | None) -> Path:
         base = self.root / "staging" / day / "raw"
@@ -397,10 +410,20 @@ class MarketStore:
             return None
         return self.taiex_close(earlier[-1])
 
+    def stage_taiex_raw(self, day: str | date, raw: bytes) -> None:
+        """Keeps an answer exactly as TWSE sent it before anything checks it, as
+        staging-taiex/<day>/received-<first 12 hex of its sha256>.json: an answer that fails the checks (a gap, a block
+        page ...) stays as evidence, a different answer next time is kept beside it, the same one is not stored twice.
+        publish_taiex clears them when the day is finally stored."""
+        name = _day_name(day)
+        _write_atomic(self.root / "staging-taiex" / name / f"{TAIEX_RECEIVED}{hashlib.sha256(raw).hexdigest()[:12]}.json",
+                      bytes(raw))
+
     def publish_taiex(self, day: str | date, raw: bytes, points: list[list], version: str, now: datetime) -> None:
         """Stores a checked day write-once: the answer as received goes to staging-taiex/<day> first, then the
         comparison with the previous day's close (TaiexError when they differ, the answer stays in staging as
-        evidence), then the points and the manifest, and the folder moves to taiex/<day> in one step."""
+        evidence), then the points and the manifest, and the folder moves to taiex/<day> in one step. The answers
+        stage_taiex_raw kept there are dropped first: they are not part of the stored day."""
         name = _day_name(day)
         target = self.root / "taiex" / name
         if target.exists():
@@ -420,6 +443,10 @@ class MarketStore:
         manifest = {"schema": 1, "date": name, "createdAt": now.isoformat(timespec="seconds"), "version": version,
                     "files": files}
         (staging / "manifest.json").write_bytes(_json_bytes(manifest, indent=1))
+        for leftover in list(staging.iterdir()):
+            if leftover.name.lstrip(".").startswith(TAIEX_RECEIVED):
+                # evidence of earlier tries (or a temporary file of one cut short): the stored raw.json is the answer
+                leftover.unlink(missing_ok=True)
         target.parent.mkdir(parents=True, exist_ok=True)
         _replace(staging, target)
 

@@ -123,11 +123,11 @@ class PipelineHarness:
     def tearDown(self):
         self.temp.cleanup()
 
-    def run_once(self, client, at=AFTERNOON, alive=False, **options):
+    def run_once(self, client, at=AFTERNOON, alive=False, extras=None, **options):
         self.clock = Clock(at)
         runtime = Runtime(make_client=lambda credentials: client, now=self.clock.now,
                           monotonic=self.clock.monotonic, sleep=self.clock.sleep,
-                          notify=lambda title, body: self.notices.append((title, body)) or True)
+                          notify=lambda title, body: self.notices.append((title, body)) or True, extras=extras)
         store = MarketStore(self.data, pid_alive=lambda pid: alive)
         return run(Options(data=self.data, credentials=self.credentials, **options), runtime, store)
 
@@ -143,6 +143,88 @@ class PipelineHarness:
                 text = path.read_text(encoding="utf-8")
                 for secret in SECRETS:
                     self.assertNotIn(secret, text, str(path))
+
+
+class ExtrasTest(PipelineHarness, unittest.TestCase):
+    """run() hands over to the extras (TAIEX, the 當沖 list) after a daily run, inside the lock, whatever its result."""
+
+    def setUp(self):
+        super().setUp()
+        self.extras_calls = []
+
+    def extras(self, store, now):
+        self.extras_calls.append({"root": store.root, "now": now, "locked": (store.root / ".lock").is_file()})
+
+    def test_extras_default_to_none_so_nothing_reaches_the_network(self):
+        self.assertIsNone(Runtime(make_client=lambda credentials: None).extras)
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes())), 0)
+
+    def test_extras_run_after_a_good_run_inside_the_lock(self):
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes()), extras=self.extras), 0)
+        self.assertEqual(self.extras_calls, [{"root": self.data, "now": AFTERNOON, "locked": True}])
+        self.assertFalse((self.data / ".lock").exists())
+
+    def test_extras_run_after_already_done(self):
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes())), 0)
+        again = FakeClient(login_error=LoginError("should not log in"))
+        self.assertEqual(self.run_once(again, extras=self.extras), 0)
+        self.assertEqual(again.calls, [])
+        self.assertEqual([call["now"] for call in self.extras_calls], [AFTERNOON])
+
+    def test_extras_run_after_a_failed_run(self):
+        client = FakeClient(login_error=LoginError("登入失敗"))
+        self.assertEqual(self.run_once(client, extras=self.extras), 2)
+        self.assertEqual(len(self.extras_calls), 1)
+
+    def test_extras_run_on_a_day_the_market_was_closed(self):
+        client = FakeClient(snapshot_payload=snapshot(date="2026-10-14"), minutes=good_minutes())
+        self.assertEqual(self.run_once(client, extras=self.extras), 0)
+        self.assertEqual(self.status()["lastRun"]["outcome"], "closed")
+        self.assertEqual(len(self.extras_calls), 1)
+
+    def test_extras_get_the_time_they_run_at(self):
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes()), at=EVENING, extras=self.extras), 0)
+        self.assertEqual([call["now"] for call in self.extras_calls], [EVENING])
+
+    def test_extras_not_before_1630(self):
+        for at in (datetime(2026, 10, 15, 10, 1, tzinfo=TAIPEI), datetime(2026, 10, 15, 16, 29, tzinfo=TAIPEI)):
+            with self.subTest(at=at):
+                client = FakeClient(minutes=good_minutes())
+                self.assertEqual(self.run_once(client, at=at, extras=self.extras), 0)
+                self.assertEqual(client.calls, [])
+        self.assertEqual(self.extras_calls, [])
+        # a day already stored does not bring them forward either
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes())), 0)
+        self.assertEqual(self.run_once(FakeClient(), at=datetime(2026, 10, 15, 10, 1, tzinfo=TAIPEI),
+                                       extras=self.extras), 0)
+        self.assertEqual(self.extras_calls, [])
+        self.assertEqual(self.run_once(FakeClient(), at=datetime(2026, 10, 15, 16, 30, tzinfo=TAIPEI),
+                                       extras=self.extras), 0)
+        self.assertEqual(len(self.extras_calls), 1)
+
+    def test_extras_not_when_locked(self):
+        self.data.mkdir(parents=True)
+        (self.data / ".lock").write_text(json.dumps({"pid": 1234, "startedAt": "x"}), encoding="utf-8")
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes()), alive=True, extras=self.extras), 0)
+        self.assertEqual(self.extras_calls, [])
+
+    def test_extras_not_in_a_backfill(self):
+        client = FakeClient(snapshot_payload=snapshot(date="2026-10-16"))
+        at = datetime(2026, 10, 16, 20, 0, tzinfo=TAIPEI)
+        self.assertEqual(self.run_once(client, at=at, date="2026-10-05", symbols=["0000"], extras=self.extras), 1)
+        self.assertEqual(self.extras_calls, [])
+
+    def test_a_failing_extras_changes_nothing_about_the_run(self):
+        def broken(store, now):
+            raise RuntimeError("SECRETKEY123 echoed by a library")
+
+        self.assertEqual(self.run_once(FakeClient(minutes=good_minutes()), extras=broken), 0)
+        self.assertEqual(self.status()["lastRun"]["outcome"], "ok")
+        log = (self.data / "logs" / f"{DATE}.log").read_text(encoding="utf-8")
+        self.assertIn("大盤、名單", log)
+        self.assertNotIn("SECRETKEY123", log)
+        self.assertFalse((self.data / ".lock").exists())
+        self.assertNoSecretsOnDisk()
 
 
 class PipelineTest(PipelineHarness, unittest.TestCase):

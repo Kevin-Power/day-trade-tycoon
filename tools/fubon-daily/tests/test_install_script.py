@@ -57,6 +57,60 @@ class InstallScriptTest(unittest.TestCase):
     def test_app_install_copies_record_books(self):
         self.assertIn("'record_books.py'", block("App"))
 
+    def test_the_sdk_install_pins_google_auth_and_requests_before_the_freeze(self):
+        # google-auth reads the sheet; requests is only an extra of google-auth, so it is pinned on its own.
+        text = block("Sdk")
+        self.assertIn("pip install --disable-pip-version-check google-auth==2.62.0 requests==2.34.2", text)
+        self.assertLess(text.index("google-auth==2.62.0"), text.index("pip freeze"))
+        self.assertIn("if ($LASTEXITCODE)", text[text.index("google-auth==2.62.0"):text.index("pip freeze")])
+
+    def test_the_pinned_google_auth_is_the_one_the_tests_run_against(self):
+        # tests/test_radar.py runs in a venv built from this pin (see the README, Tests).
+        self.assertIn("google-auth==2.62.0", (SCRIPT.parent / "README.md").read_text(encoding="utf-8"))
+
+    def test_radar_sheet_is_a_parameter_that_writes_the_local_config(self):
+        text = SCRIPT.read_text(encoding="utf-8-sig")
+        self.assertIn("[string]$RadarSheet", text)
+        body = block("RadarSheet")
+        self.assertIn("-notmatch '^[A-Za-z0-9_-]+$'", body)  # the id is checked before it goes anywhere
+        self.assertIn("Join-Path $env:USERPROFILE '.daytrade-tycoon'", body)
+        self.assertIn("New-Item -ItemType Directory -Force -Path $radarFolder", body)
+        self.assertIn("'radar.local.json'", body)
+        self.assertIn("sheetId = $RadarSheet", body)
+        self.assertIn("keyFile = 'google-radar-reader.json'", body)
+        codes = re.search(r"\[char\[\]\]\(([^)]*)\)", body)
+        self.assertIsNotNone(codes)
+        self.assertEqual("".join(chr(int(code, 16)) for code in re.findall(r"0x[0-9A-Fa-f]+", codes.group(1))),
+                         "定格名單")
+        self.assertIn("tab = $radarTab", body)
+
+    def test_the_radar_config_is_written_as_utf8_without_a_bom(self):
+        # Set-Content / Out-File -Encoding UTF8 would put a BOM in front of the JSON.
+        body = block("RadarSheet")
+        self.assertIn("[IO.File]::WriteAllText(", body)
+        self.assertIn("(New-Object System.Text.UTF8Encoding($false))", body)
+        for command in ("Set-Content", "Out-File", "Add-Content", " > "):
+            self.assertNotIn(command, body)
+
+    def test_the_radar_setup_never_touches_the_key_file(self):
+        # The key file's name goes into the config and a missing file is only noted (Test-Path): nothing reads,
+        # copies, moves, deletes or writes it.
+        body = block("RadarSheet")
+        for command in ("Get-Content", "Copy-Item", "Move-Item", "Remove-Item", "Rename-Item", "Set-Acl", "icacls"):
+            self.assertNotIn(command, body)
+        self.assertEqual(body.count("WriteAllText"), 1)
+
+    def test_a_radar_sheet_alone_is_a_complete_request(self):
+        self.assertIn("$RadarSheet", re.search(r"^if \(-not \(.*\)\) \{ Write-Output.*$",
+                                               SCRIPT.read_text(encoding="utf-8-sig"), re.M).group(0))
+
+    def test_the_script_stays_plain_ascii(self):
+        # It has no byte order mark, and Windows PowerShell 5.1 reads such a file in the system's ANSI code page:
+        # the tab name is therefore built from code points, not written out.
+        data = SCRIPT.read_bytes()
+        self.assertFalse(data.startswith(b"\xef\xbb\xbf"))
+        self.assertTrue(data.isascii())
+
 
 if __name__ == "__main__":
     unittest.main()

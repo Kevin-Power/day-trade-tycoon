@@ -6,6 +6,7 @@
     powershell -NoProfile -File tools\fubon-daily\install.ps1 -Task    # weekday 16:45 / 18:00 / 19:00
     powershell -NoProfile -File tools\fubon-daily\install.ps1 -BooksTask  # weekday 08:40 books recorder
     powershell -NoProfile -File tools\fubon-daily\install.ps1 -BooksTask -BooksNoPublish  # record only
+    powershell -NoProfile -File tools\fubon-daily\install.ps1 -RadarSheet <sheet id>  # settings for the day-trade list
 #>
 param(
   [switch]$Sdk,
@@ -13,6 +14,7 @@ param(
   [switch]$Task,
   [switch]$BooksTask,
   [switch]$BooksNoPublish,
+  [string]$RadarSheet,
   [string]$Runtime = (Join-Path $env:USERPROFILE 'YilutekServices\DayTradeTycoon'),
   [string]$Credentials = (Join-Path $env:USERPROFILE '.fubon\credentials.local.py')
 )
@@ -52,6 +54,10 @@ if ($Sdk) {
   }
   & $venvPython -m pip install --disable-pip-version-check $wheel.FullName
   if ($LASTEXITCODE) { throw 'pip install failed.' }
+  # The day-trade list is read from a Google Sheet with google-auth. requests is only an extra of google-auth, so it is
+  # pinned on its own (the version the SDK brings; the tests run against the same two pins).
+  & $venvPython -m pip install --disable-pip-version-check google-auth==2.62.0 requests==2.34.2
+  if ($LASTEXITCODE) { throw 'pip install of google-auth failed.' }
   & $venvPython -m pip freeze --disable-pip-version-check | Set-Content -Encoding UTF8 (Join-Path $fetcher 'requirements.lock.txt')
   & $venvPython -c "from importlib.metadata import version; print('fubon_neo', version('fubon_neo'))"
 }
@@ -112,4 +118,22 @@ if ($BooksTask) {
   Get-ScheduledTask -TaskName 'DayTradeTycoonBooks' | Select-Object TaskName, State
 }
 
-if (-not ($Sdk -or $App -or $Task -or $BooksTask)) { Write-Output 'Choose -Sdk, -App, -Task and/or -BooksTask.' }
+if ($RadarSheet) {
+  # radar.local.json says which sheet to read; google-radar-reader.json (the service account's key, appendix A of
+  # the design) sits next to it and is never read, copied or changed here.
+  if ($RadarSheet -notmatch '^[A-Za-z0-9_-]+$') { throw '-RadarSheet must be the sheet id: letters, digits, - and _ only.' }
+  $radarFolder = Join-Path $env:USERPROFILE '.daytrade-tycoon'
+  New-Item -ItemType Directory -Force -Path $radarFolder | Out-Null
+  # This script stays plain ASCII (Windows PowerShell 5.1 reads a file without a byte order mark as ANSI), so the tab's
+  # name is written as code points.
+  $radarTab = -join ([char[]](0x5B9A, 0x683C, 0x540D, 0x55AE))
+  $radarJson = [ordered]@{ sheetId = $RadarSheet; tab = $radarTab; keyFile = 'google-radar-reader.json' } | ConvertTo-Json
+  # UTF-8 without a byte order mark (the cmdlets' -Encoding UTF8 of Windows PowerShell 5.1 would add one).
+  [IO.File]::WriteAllText((Join-Path $radarFolder 'radar.local.json'), $radarJson, (New-Object System.Text.UTF8Encoding($false)))
+  Write-Output "radar settings written to $radarFolder\radar.local.json"
+  if (-not (Test-Path (Join-Path $radarFolder 'google-radar-reader.json'))) {
+    Write-Output "The key file google-radar-reader.json is not in $radarFolder yet (appendix A of the design); the list stays off until it is."
+  }
+}
+
+if (-not ($Sdk -or $App -or $Task -or $BooksTask -or $RadarSheet)) { Write-Output 'Choose -Sdk, -App, -Task, -BooksTask and/or -RadarSheet <sheet id>.' }

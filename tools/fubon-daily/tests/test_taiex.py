@@ -256,6 +256,45 @@ class StoreTaiexTest(unittest.TestCase):
         with self.assertRaises(TaiexError):
             self.publish(DAY, previous_close=33001.0)
 
+    # An answer is staged as received before anything checks it, so a rejected one stays as evidence.
+    def staged(self, day="2026-10-27"):
+        folder = self.root / "staging-taiex" / day
+        return sorted(folder.iterdir()) if folder.is_dir() else []
+
+    def test_stage_taiex_raw_keeps_every_distinct_answer(self):
+        block_page = "<html>請稍後再試</html>".encode("utf-8")
+        good = json.dumps(taiex_5s("20261027")).encode("utf-8")
+        self.store.stage_taiex_raw("2026-10-27", block_page)
+        self.store.stage_taiex_raw("2026-10-27", block_page)  # the same answer again: the same file
+        self.store.stage_taiex_raw("2026-10-27", good)
+        files = self.staged()
+        self.assertEqual({path.read_bytes() for path in files}, {block_page, good})
+        self.assertEqual(len(files), 2)
+        for path in files:
+            self.assertRegex(path.name, r"^received-[0-9a-f]{12}\.json$")
+        self.assertFalse(self.store.has_taiex("2026-10-27"))
+
+    def test_stage_taiex_raw_refuses_a_name_that_is_no_day(self):
+        with self.assertRaises(ValueError):
+            self.store.stage_taiex_raw("../days", b"{}")
+        self.assertFalse((self.root / "staging-taiex").exists())
+
+    def test_staged_answers_survive_a_failed_check_and_go_with_the_next_good_publish(self):
+        self.publish(date(2026, 10, 26), previous_close=32900.0, close=33000.0)
+        self.store.stage_taiex_raw("2026-10-27", b"<html>blocked</html>")
+        bad = taiex_5s("20261027", previous_close=33001.0)
+        bad_raw = json.dumps(bad).encode("utf-8")
+        self.store.stage_taiex_raw("2026-10-27", bad_raw)
+        with self.assertRaises(TaiexError):
+            self.store.publish_taiex("2026-10-27", bad_raw, taiex.parse_points(bad, DAY), "abc123", NOW)
+        self.assertEqual(len(self.staged()), 3)  # two received answers and raw.json
+        (self.root / "staging-taiex" / "2026-10-27" / ".received-0123456789ab.json.deadbeef.tmp").write_bytes(b"{")
+        self.publish(DAY, previous_close=33000.0)
+        self.assertEqual(self.staged(), [])
+        # the published folder holds exactly what the manifest lists, nothing staged
+        self.assertEqual(sorted(path.name for path in (self.root / "taiex" / "2026-10-27").iterdir()),
+                         ["manifest.json", "points.json", "raw.json"])
+
     def test_status_key_survives_write_run(self):
         self.store.write_status_key("taiex", {"date": "2026-10-27", "outcome": "ok", "points": 3241})
         self.store.write_run({"date": "2026-10-27", "mode": "daily", "startedAt": "s", "finishedAt": "f",

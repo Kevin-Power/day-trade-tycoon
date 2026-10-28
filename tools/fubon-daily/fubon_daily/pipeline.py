@@ -44,6 +44,9 @@ class Runtime:
     notify: Callable[[str, str], bool] = windows_notify
     version: str = "dev"
     source: str = "fubon-neo historical/candles timeframe=1"
+    # Called with the store and the time after a daily run (whatever its result), inside the run lock, from 16:30 on:
+    # TWSE's index and the 當沖 list (extras.run_extras). None: nothing else runs, and nothing touches the network.
+    extras: Callable[[MarketStore, datetime], None] | None = None
 
 
 @dataclass
@@ -275,6 +278,19 @@ class Run:
         return self.finish("ok")
 
 
+def run_after(options: Options, runtime: Runtime, store: MarketStore, started: datetime, target: str) -> None:
+    """The extras of a daily run that started at 16:30 or later (the time the daily fetch itself starts at). They
+    run in the lock `run` holds, and nothing they do changes the result: an error is only noted in the log."""
+    if runtime.extras is None or options.date is not None or (started.hour, started.minute) < DAILY_EARLIEST:
+        return
+    try:
+        runtime.extras(store, runtime.now())
+    except Exception:  # noqa: BLE001 - the fetch is done and published; the error's own text is not kept
+        try:
+            store.log(target, "大盤、名單的附加步驟出錯，已略過", runtime.now())
+        except Exception:  # noqa: BLE001
+            pass
+
 
 def run(options: Options, runtime: Runtime, store: MarketStore | None = None) -> int:
     store = store or MarketStore(options.data)
@@ -282,7 +298,9 @@ def run(options: Options, runtime: Runtime, store: MarketStore | None = None) ->
     target = options.date or started.date().isoformat()
     try:
         with store.lock(started):
-            return Run(options, runtime, store).execute()
+            code = Run(options, runtime, store).execute()
+            run_after(options, runtime, store, started, target)
+            return code
     except Locked:
         store.log(target, "上一個工作仍在執行，這次略過", started)
         return 0
