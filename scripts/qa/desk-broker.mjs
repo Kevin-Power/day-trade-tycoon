@@ -336,18 +336,52 @@ await check("8-order-reports", async () => {
     await reload.click();
     await desktop.waitForTimeout(600);
   }
-  // A send the server refuses: more 台積電 than the cash allows.
-  const state = await api();
-  const tsmc = state.bars["2330"].at(-1).c * 1000;
-  if (tsmc * 3 <= state.cash) return "skipped: cash covers 3 lots";
+  // A send the server refuses: more 台積電 than the cash allows. An order is 1 to 3 lots, so when the cash left after
+  // the seed still covers 3 lots (the fixture's 台積電 is about 1,480 a share against ~7 M), lots of 台積電 are bought
+  // and filled through the API first until it does not; the desk is then reloaded on that state. Never skipped: if 3
+  // lots still fit the cash, the check fails.
+  await clearPending(desktop);
+  let state = await api();
+  const lotOf = (run) => run.bars["2330"].at(-1).c * 1000;
+  const spent = [];
+  for (let guard = 0; guard < 4 && lotOf(state) * 3 <= state.cash; guard++) {
+    const lots = Math.min(3, Math.floor((state.cash - 3 * lotOf(state)) / lotOf(state)) + 1);
+    const send = async (action) => {
+      const response = await fetch(`${base}/api/morning`, {
+        method: "POST",
+        headers: { origin: base, "content-type": "application/json" },
+        body: JSON.stringify({ ...action, id: state.id, expectedRevision: state.revision, requestId: crypto.randomUUID() }),
+      });
+      if (response.status !== 200) throw new Error(`spending the cash: ${action.action} answered ${response.status}`);
+      state = (await response.json()).state;
+    };
+    await send({ action: "order", code: "2330", side: "buy", lots });
+    await new Promise((resolve) => setTimeout(resolve, Math.max(0, state.nextAdvanceAt - Date.now()) + 60));
+    await send({ action: "advance" });
+    state = await api();
+    if (state.orders.at(-1)?.status !== "filled") throw new Error(`the ${lots}-lot 台積電 buy that spends the cash was not filled (${state.orders.at(-1)?.status})`);
+    spent.push(lots);
+  }
+  const lot = lotOf(state);
+  const lots = Math.min(3, Math.floor(state.cash / lot) + 1);
+  if (lot * lots <= state.cash) throw new Error(`no 台積電 order of 1 to 3 lots exceeds the cash (${state.cash} for ${lot} a lot)`);
+  if (spent.length) {
+    await desktop.reload({ waitUntil: "domcontentloaded" });
+    await desktop.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 });
+    await rest(desktop);
+  }
   await selectStock(desktop, "2330");
-  await setLots(desktop, 3);
+  await desktop.getByRole("button", { name: "市價" }).first().click();
+  await setLots(desktop, lots);
   await desktop.getByRole("button", { name: /^核對模擬買進/ }).click();
   if (await desktop.locator("#sim-large-ack").isVisible().catch(() => false)) await desktop.locator("#sim-large-ack").check();
+  const ordersBefore = state.orders.length;
   await desktop.getByRole("button", { name: "確認送出模擬買進" }).click();
-  await until(async () => /資金不足/.test(await desktop.locator('.sim-reports li[data-tone="failed"]').first().textContent().catch(() => "")), "no failed report");
+  await until(async () => /資金不足/.test(await desktop.locator('.sim-reports li[data-tone="failed"]').first().textContent().catch(() => "")), "no 送出失敗 report saying 資金不足");
+  const failed = clean(await desktop.locator('.sim-reports li[data-tone="failed"]').first().textContent());
+  if ((await api()).orders.length !== ordersBefore) throw new Error("the refused order was stored anyway");
   await desktop.getByRole("button", { name: /重新載入進度/ }).first().click({ timeout: 4000 }).catch(() => {});
-  return "pass";
+  return { refused: { lots, lot, cash: state.cash, report: failed }, spentLots: spent };
 });
 
 await check("11-plan-chip", async () => {
