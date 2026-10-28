@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { ArrowDownLeft, ArrowUpRight, Check, Clock3, Minus, Plus, Wallet } from "@/lib/icons";
-import type { MorningCatalog, MorningState } from "@/lib/morning";
+import type { MorningBookCell, MorningCatalog, MorningState } from "@/lib/morning";
 import { ledgerSummary } from "@/lib/morning-ledger";
-import { lastTrade, serverSession } from "@/lib/morning-live";
+import { referencePrice, serverSession, shownBook, type LiveMorningState } from "@/lib/morning-live";
 import { formatMoney, formatTime } from "@/lib/utils";
 import { estimateRoundTripCost, formatPrice, stepTick } from "@/lib/market/ticks";
 import { validMorningLimit } from "@/lib/morning-book";
@@ -117,22 +117,24 @@ export function PendingOrder({
 }
 
 /**
- * The phone's 行情 book: the same teaching book, display only. A tap hands its price and direction to 下單
+ * The phone's 行情 book: the same book, display only. A tap hands its price and direction to 下單
  * (a bid buys, an ask sells); nothing is sent from here.
  */
 export function DisplayBook({
   catalog,
   session,
+  book,
   code,
   onPick,
 }: {
   catalog: MorningCatalog;
-  session: MorningState | null;
+  session: LiveMorningState | null;
+  /** The recorded book of the newest minute the server sent (one stock's). */
+  book?: MorningBookCell;
   code: string;
   onPick: (price: number, side: "buy" | "sell") => void;
 }) {
   const symbol = catalog.symbols.find((item) => item.code === code);
-  const trade = session ? lastTrade(session, code, catalog) : null;
   return (
     <MorningOrderBook
       mode="display"
@@ -140,7 +142,7 @@ export function DisplayBook({
       cursor={session?.cursor ?? 0}
       last={session?.bars[code]?.at(-1)?.c}
       previousClose={symbol?.previousClose ?? 0}
-      trade={trade ? { index: trade.index, side: trade.side } : undefined}
+      book={shownBook(session, catalog, book, code)}
       revision={session?.revision ?? 0}
       simulated={Boolean(session && "replay" in session && session.replay)}
       lots={1}
@@ -155,6 +157,7 @@ export function DisplayBook({
 export function PaperOrder({
   catalog,
   session,
+  book: recordedBook,
   code,
   busy,
   sending = false,
@@ -171,7 +174,9 @@ export function PaperOrder({
   onCancel,
 }: {
   catalog: MorningCatalog;
-  session: MorningState | null;
+  session: LiveMorningState | null;
+  /** The recorded book of the newest minute the server sent (one stock's). */
+  book?: MorningBookCell;
   code: string;
   /** The ticket is locked: a request is in flight, or an error or notice waits above the desk. */
   busy: boolean;
@@ -200,9 +205,12 @@ export function PaperOrder({
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [lots, setLots] = useState(1);
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
-  // Limit defaults and the reference amount use the revealed close, never a replayed in-minute price.
+  // Limit defaults and the reference amount use the last trade played (what the desk shows), never the playing
+  // minute's close before the replay reaches it; before the stock's first trade, the last settled close.
   const [limitDraft, setLimitDraft] = useState(() =>
-    String((session ? serverSession(session) : null)?.bars[code]?.at(-1)?.c ?? ""),
+    String(
+      referencePrice(session, code, catalog.symbols.find((item) => item.code === code)?.previousClose) ?? "",
+    ),
   );
   const [flash, setFlash] = useState(false);
   const flashRef = useRef(false);
@@ -258,8 +266,7 @@ export function PaperOrder({
   }, [pendingId]);
   const symbol = catalog.symbols.find((item) => item.code === code);
   const last = session?.bars[code]?.at(-1);
-  const revealed = session ? serverSession(session).bars[code]?.at(-1) : undefined;
-  const latestTrade = session ? lastTrade(session, code, catalog) : null;
+  const reference = referencePrice(session, code, symbol?.previousClose);
   const holdingLots = (position?.shares ?? 0) / 1000;
   const invalidSell = side === "sell" && lots > holdingLots;
   const ready = Boolean(session && session.cursor >= 1 && !session.completed && !atEnd);
@@ -276,14 +283,14 @@ export function PaperOrder({
       ? invalidLimit
         ? null
         : limitPrice * lots * 1000
-      : revealed
-        ? revealed.c * lots * 1000
+      : reference !== null
+        ? reference * lots * 1000
         : null;
 
   const names = Object.fromEntries(catalog.symbols.map((item) => [item.code, item.name]));
   const reports = orderReports(session ? serverSession(session) : null, names, failures);
   const reviewAmount = review
-    ? (review.limitPrice ?? revealed?.c ?? Number.NaN) * review.lots * 1000
+    ? (review.limitPrice ?? reference ?? Number.NaN) * review.lots * 1000
     : null;
   const reviewLarge = Boolean(
     review &&
@@ -397,7 +404,7 @@ export function PaperOrder({
       cursor={session?.cursor ?? 0}
       last={last?.c}
       previousClose={symbol?.previousClose ?? 0}
-      trade={latestTrade ? { index: latestTrade.index, side: latestTrade.side } : undefined}
+      book={shownBook(session, catalog, recordedBook, code)}
       revision={session?.revision ?? 0}
       simulated={Boolean(session && "replay" in session && session.replay)}
       lots={lots}
@@ -633,7 +640,7 @@ export function PaperOrder({
                       aria-pressed={orderType === "limit"}
                       onClick={() => {
                         setOrderType("limit");
-                        if (!limitDraft && revealed) setLimitDraft(formatPrice(revealed.c));
+                        if (!limitDraft && reference !== null) setLimitDraft(formatPrice(reference));
                       }}
                     >
                       限價

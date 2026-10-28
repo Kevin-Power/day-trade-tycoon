@@ -2,16 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import type { Bar } from "./game/types.ts";
 import type { TradeRow } from "./lessons/trades.ts";
-import { createMorningBook } from "./morning-book.ts";
+import type { MorningBookCell } from "./morning.ts";
 import {
   advanceReplay,
   lastTrade,
   liveSession,
   recentTrades,
+  referencePrice,
   replayClock,
+  replayMs,
   replayStep,
   serverSession,
   settledSession,
+  shownBook,
   startReplay,
   type ReplayCatalog,
   withoutNewestMinute,
@@ -190,16 +193,70 @@ test("replay progress starts with the new minute, runs at the current speed and 
   assert.equal(advanceReplay(advanceReplay(playing, 2900, 1800), 2950, 3600).fraction > 0.5, true);
 });
 
-test("the teaching book follows the latest trade: an uptick lifted the ask, a downtick hit the bid", () => {
-  const lifted = createMorningBook("2317", 3, 262, 254, { index: 4, side: "ask" });
-  assert.equal(lifted.asks[0].price, 262);
-  assert.equal(lifted.bids[0].price, 261.5);
-  const hit = createMorningBook("2317", 3, 262, 254, { index: 4, side: "bid" });
-  assert.equal(hit.bids[0].price, 262);
-  assert.equal(hit.asks[0].price, 262.5);
-  const next = createMorningBook("2317", 3, 262, 254, { index: 5, side: "bid" });
-  assert.notDeepEqual(next.bids.map((l) => l.lots), hit.bids.map((l) => l.lots));
-  assert.deepEqual(createMorningBook("2317", 3, 262, 254, { index: 5, side: "bid" }), next);
+// 2317's recorded book in the playing minute (cell 2: 120 000 to 179 999 ms).
+const BOOK: MorningBookCell = {
+  code: "2317",
+  start: { bids: [[100, 10]], asks: [[100.5, 12]] },
+  frames: [
+    [130_000, { bids: [[100.5, 4]], asks: [[101, 6]] }],
+    [150_000, { bids: [[101, 9]], asks: [[101.5, 2]] }],
+  ],
+  gaps: [],
+  sizes: true,
+};
+const BOOKS_DAY = { booksAvailable: true };
+
+test("the desk's moment is the replay's, and at rest the last millisecond of the newest minute", () => {
+  assert.equal(replayMs(liveSession(session(), 0.25, CATALOG)), 135_000);
+  assert.equal(replayMs(liveSession(session(), 0, CATALOG)), 120_000);
+  assert.equal(replayMs(session()), 179_999);
+  assert.equal(replayMs(session({ cursor: 0, latest: undefined })), -1);
+});
+
+test("the five levels follow the replay: the recorded book at the moment played, the real quote of the last trade without one", () => {
+  const live = (fraction: number) => liveSession(session(), fraction, CATALOG);
+  const bids = (shown: ReturnType<typeof shownBook>) => shown.bids.map((level) => level.price);
+  // The minute starts on its starting book, then follows the changes as the replay reaches them, and rests on the last.
+  assert.deepEqual(bids(shownBook(live(0), BOOKS_DAY, BOOK, "2317")), [100]);
+  assert.deepEqual(bids(shownBook(live(0.25), BOOKS_DAY, BOOK, "2317")), [100.5]);
+  assert.deepEqual(bids(shownBook(live(0.5), BOOKS_DAY, BOOK, "2317")), [101]);
+  assert.deepEqual(bids(shownBook(session(), BOOKS_DAY, BOOK, "2317")), [101]);
+  assert.equal(shownBook(live(0.25), BOOKS_DAY, BOOK, "2317").depth, "full");
+  // Another stock never takes this stock's book: its real best bid and ask, from the trade last played.
+  const other = shownBook(live(0.25), BOOKS_DAY, BOOK, "2330");
+  assert.equal(other.depth, "top");
+  assert.deepEqual([other.bids, other.asks], [[], []], "2330 has not traded yet");
+  const traded = shownBook(session(), { booksAvailable: false }, undefined, "2317");
+  assert.deepEqual([traded.depth, traded.bids[0].price, traded.asks[0].price], ["top", 101, 102]);
+  assert.equal(traded.note, "這天沒有五檔掛單資料");
+  // Before a run there is nothing to show but the note.
+  const preview = shownBook(null, { booksAvailable: false }, undefined, "2317");
+  assert.deepEqual([preview.bids, preview.asks, preview.depth], [[], [], "top"]);
+});
+
+test("the ticket's reference price is the last trade played, never the minute's close before the replay reaches it", () => {
+  const live = (fraction: number) => liveSession(session(), fraction, CATALOG);
+  // 2317's minute closes at 101.5; the first trade of the minute (100.5) is only played at 09:02:02.
+  assert.equal(referencePrice(live(0), "2317", 99), 100.5, "the trade before the minute");
+  assert.equal(referencePrice(live(0.25), "2317", 99), 102);
+  assert.equal(referencePrice(live(0.9), "2317", 99), 101.5);
+  assert.equal(referencePrice(session(), "2317", 99), 101.5, "at rest, the newest trade");
+  // 2330 trades for the first time inside the playing minute: before that, its previous close.
+  assert.equal(referencePrice(live(0.25), "2330", 990), 990);
+  assert.equal(referencePrice(live(0.4), "2330", 990), 1000);
+  assert.equal(referencePrice(live(0.5), "2330", 990), 1005);
+  assert.equal(referencePrice(session(), "2330", 990), 1005);
+  assert.equal(referencePrice(live(0.25), "2330"), null, "nothing to fall back to");
+  assert.equal(referencePrice(null, "2317", 99), null);
+});
+
+test("without trades to play, the reference is the last settled close", () => {
+  // A loaded run holds its trades on the tape only; a stock whose tape is empty falls back to its settled close.
+  const loaded = session({ latest: undefined, tape: { "2317": [], "2330": [] } });
+  assert.equal(referencePrice(loaded, "2317", 99), 101.5);
+  // While the minute replays, the server's newest bar is the playing minute's own and is not used.
+  const playing = liveSession(session({ tape: { "2317": [], "2330": [] } }), 0, CATALOG);
+  assert.equal(referencePrice(playing, "2317", 99), 100.5, "the minute before it closed at 100.5; this minute's close is 101.5");
 });
 
 const indexBar = (minute: number) => {

@@ -31,6 +31,7 @@ import { AccessCard } from "@/components/access-card";
 import { GuestBanner, GuestSaveCard, LinkNoticeBanner } from "@/components/guest-prompts";
 import { clearLinkNoticeCookie, readLinkNotice, type LinkNotice } from "@/lib/guest-link";
 import { describeAccessProblem } from "@/lib/morning-access";
+import { bookView } from "@/lib/morning-book";
 import { PlanForm } from "@/components/morning-plan-form";
 import { CARD, INPUT, PRIMARY, SECONDARY } from "@/components/morning-styles";
 import { CoachMarks } from "@/components/coach-marks";
@@ -422,6 +423,13 @@ function MorningLesson({
     ? selected
     : (session?.plan.focusCode ?? catalog?.symbols[0]?.code ?? "");
   const singlePane = layout === "phone" || layout === "senior";
+  // The stock whose recorded books the next advance asks for, read when the auto-advance timer fires (so picking
+  // another stock never restarts the wait). Its books come with the advance after the pick; until then the desk
+  // shows the real best bid and ask.
+  const viewing = useRef(code);
+  useEffect(() => {
+    viewing.current = code;
+  }, [code]);
   // Clicking the TAIEX row on a desktop points at the index pane (it is always shown there).
   const [indexPing, setIndexPing] = useState(0);
   // Phones: the TAIEX row in 自選 turns 行情 into the index view until a stock is picked; the view belongs to
@@ -493,6 +501,7 @@ function MorningLesson({
           requestId: crypto.randomUUID(),
           id: session.id,
           expectedRevision: session.revision,
+          ...bookView(session, viewing.current),
         }).then((result) => {
           if (
             !result?.state ||
@@ -586,6 +595,7 @@ function MorningLesson({
       requestId: crypto.randomUUID(),
       id: session.id,
       expectedRevision: session.revision,
+      ...bookView(session, code),
     });
     if (next?.state)
       setFeedback(
@@ -634,6 +644,8 @@ function MorningLesson({
           requestId: crypto.randomUUID(),
           id: opening.id,
           expectedRevision: opening.revision,
+          // The run opens on its 主角股, whose books the first minute brings.
+          view: plan.focusCode,
         });
       }
     }
@@ -719,6 +731,8 @@ function MorningLesson({
 
   const showPlan = !session || newPlan;
   const marketSession = newPlan ? null : session;
+  // The recorded book of the newest minute (one stock's); a new plan's preview has none.
+  const deskBook = newPlan ? undefined : data?.book;
   const pendingOrder = marketSession?.orders.find((item) => item.status === "pending");
   // What the desk shows: a newly revealed minute plays trade by trade. Orders use the same run and revision.
   const liveMarket = useTickReplay(marketSession ?? null, catalog, REPLAY_DELAY[speed] * 0.9);
@@ -736,6 +750,7 @@ function MorningLesson({
       key={`${marketSession?.id ?? "preview"}:${code}`}
       catalog={catalog}
       session={liveMarket}
+      book={deskBook}
       code={code}
       busy={Boolean(busy || error || notice)}
       sending={busy === "order"}
@@ -947,6 +962,7 @@ function MorningLesson({
                     <WatchTable
                       catalog={catalog}
                       session={liveMarket}
+                      book={deskBook}
                       code={code}
                       compact={layout === "tablet"}
                       onSelect={setSelected}
@@ -985,6 +1001,7 @@ function MorningLesson({
                       <QuoteHero
                         catalog={catalog}
                         session={liveMarket}
+                        book={deskBook}
                         code={code}
                         titleRef={practiceHeading}
                         onSelect={singlePane ? setSelected : undefined}
@@ -1018,6 +1035,7 @@ function MorningLesson({
                               <DisplayBook
                                 catalog={catalog}
                                 session={liveMarket}
+                                book={deskBook}
                                 code={code}
                                 onPick={(price, side) => {
                                   setPrefill({ price, side, nonce: Date.now(), code });
@@ -1055,6 +1073,7 @@ function MorningLesson({
                       <WatchTable
                         catalog={catalog}
                         session={liveMarket}
+                        book={deskBook}
                         code={code}
                         compact
                         indexSelected={indexView}

@@ -1,8 +1,7 @@
 import type { ReactNode, RefObject } from "react";
 import { ChevronLeft, ChevronRight } from "@/lib/icons";
-import type { MorningCatalog } from "@/lib/morning";
-import { createMorningBook } from "@/lib/morning-book";
-import { lastTrade, type LiveMorningState } from "@/lib/morning-live";
+import type { MorningBookCell, MorningCatalog } from "@/lib/morning";
+import { lastTrade, shownBook, type LiveMorningState } from "@/lib/morning-live";
 import { bestQuotes, quoteSummary } from "@/lib/morning-quote";
 import { formatPrice } from "@/lib/market/ticks";
 import { formatTime } from "@/lib/utils";
@@ -12,12 +11,14 @@ const arrow = (tone: "up" | "down" | "flat") => (tone === "up" ? "▲" : tone ==
 const price = (value: number | null) => (value === null ? "—" : formatPrice(value));
 
 /**
- * The selected stock's quote: the latest trade (the minute's close at rest), change, the teaching book's
- * best bid and ask, and the day's revealed open/high/low. Display only; every value comes from the session.
+ * The selected stock's quote: the latest trade (the minute's close at rest), change, the best bid and ask
+ * (the recorded book's, otherwise the last trade's), and the day's revealed open/high/low. Display only; every
+ * value comes from the session.
  */
 export function QuoteHero({
   catalog,
   session,
+  book,
   code,
   titleRef,
   onSelect,
@@ -25,6 +26,8 @@ export function QuoteHero({
 }: {
   catalog: MorningCatalog;
   session: LiveMorningState | null;
+  /** The recorded book of the newest minute the server sent (one stock's), when the day has books. */
+  book?: MorningBookCell;
   code: string;
   titleRef?: RefObject<HTMLHeadingElement | null>;
   /** Phones: ◀ ▶ on both sides of the name step through the lesson's stocks. */
@@ -41,15 +44,7 @@ export function QuoteHero({
   const bars = session?.bars[symbol.code] ?? [];
   const quote = quoteSummary(bars, symbol.previousClose);
   const trade = session ? lastTrade(session, symbol.code, catalog) : null;
-  const best = bestQuotes(
-    createMorningBook(
-      symbol.code,
-      session?.cursor ?? 0,
-      quote.last ?? 0,
-      symbol.previousClose,
-      trade ? { index: trade.index, side: trade.side } : undefined,
-    ),
-  );
+  const best = bestQuotes(shownBook(session, catalog, book, symbol.code));
   const toneOf = (value: number | null) =>
     value === null || value === symbol.previousClose
       ? "flat"
@@ -112,17 +107,13 @@ export function QuoteHero({
           </span>
         )}
       </p>
-      <dl className="td-hero-book" aria-label="教學模擬五檔的最佳買價與賣價">
+      <dl className="td-hero-book" aria-label="最佳買價與賣價">
         <div data-side="bid" data-tone={toneOf(best.bid)}>
-          <dt>
-            買進<span className="td-sim-tag">模擬</span>
-          </dt>
+          <dt>買進</dt>
           <dd>{price(best.bid)}</dd>
         </div>
         <div data-side="ask" data-tone={toneOf(best.ask)}>
-          <dt>
-            賣出<span className="td-sim-tag">模擬</span>
-          </dt>
+          <dt>賣出</dt>
           <dd>{price(best.ask)}</dd>
         </div>
       </dl>

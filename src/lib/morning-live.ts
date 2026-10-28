@@ -8,8 +8,9 @@
 // (serverSession / settledSession), so nothing played here reaches the server and nothing is announced early.
 import type { Bar } from "./game/types.ts";
 import { CELL_MS, type TradeRow } from "./lessons/trades.ts";
-import type { MorningCatalog, MorningState } from "./morning.ts";
+import type { MorningBookCell, MorningCatalog, MorningState } from "./morning.ts";
 import { formingBar, liveTrade, tradesUpTo, type LiveTrade, type ReplayState } from "./market/real-replay.ts";
+import { displayBook, type DisplayedBook } from "./morning-book.ts";
 import { formingIndexBar } from "./morning-index.ts";
 
 export type LiveMorningState = ReplayState & {
@@ -125,6 +126,51 @@ export function lastTrade(session: LiveMorningState, code: string, _catalog?: Re
 /** Seconds after 09:00 on the replay clock: inside the playing minute, or the end of the newest minute. */
 export function replayClock(session: LiveMorningState): number {
   return session.replay ? Math.floor(session.replay.playedMs / 1000) : session.cursor * 60;
+}
+
+/**
+ * How far the desk has played, in ms after 09:00: inside the playing minute, or at rest the last millisecond of the
+ * newest minute (its end itself belongs to the minute after). A book is shown at this moment and no later one.
+ */
+export function replayMs(session: LiveMorningState): number {
+  return session.replay ? session.replay.playedMs : session.cursor * CELL_MS - 1;
+}
+
+/**
+ * The five-level area of one stock now. `book` is what the server sent for the newest minute (one stock's); it only
+ * counts for its own stock. Without it, or inside a recording gap, the real best bid and ask of the last played trade.
+ */
+export function shownBook(
+  session: LiveMorningState | null,
+  catalog: Pick<MorningCatalog, "booksAvailable">,
+  book: MorningBookCell | undefined,
+  code: string,
+): DisplayedBook {
+  return displayBook({
+    catalog,
+    book: book?.code === code ? book : undefined,
+    lastTrade: session ? lastTrade(session, code) : null,
+    playedMs: session ? replayMs(session) : 0,
+  });
+}
+
+/** The close of a stock's newest settled minute: while a minute replays, the one before it. */
+function settledClose(session: LiveMorningState, code: string): number | undefined {
+  const source = serverSession(session);
+  const list = source.bars[code] ?? [];
+  const last = list.at(-1);
+  if (!session.replay || !last) return last?.c;
+  // The server's newest bar is the playing minute's own: its close has not been played yet.
+  return last.t >= (source.cursor - 1) * 60 ? list.at(-2)?.c : last.c;
+}
+
+/**
+ * The price an order ticket starts from and values an order at: the last trade the replay has played, else the
+ * newest settled minute's close, else the previous close. Never the playing minute's close before it is reached.
+ */
+export function referencePrice(session: LiveMorningState | null, code: string, previousClose?: number): number | null {
+  if (!session) return null;
+  return lastTrade(session, code)?.price ?? settledClose(session, code) ?? previousClose ?? null;
 }
 
 /** Trades of one stock, newest first, up to the point the replay has reached. */

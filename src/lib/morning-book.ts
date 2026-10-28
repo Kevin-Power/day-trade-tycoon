@@ -1,6 +1,26 @@
-import { limitDown, limitUp, roundToTick, stepTick } from "./market/ticks.ts";
+import type { BookLevels } from "./lessons/books.ts";
+import type { LiveTrade } from "./market/real-replay.ts";
+import { limitDown, limitUp, roundToTick } from "./market/ticks.ts";
+import type { MorningBookCell, MorningCatalog } from "./morning.ts";
 
-export type MorningBookLevel = { level: number; price: number; lots: number };
+/** One shown level, best first from 1. `lots` is null where the recording has no size unit (shown as 「—」). */
+export type MorningBookLevel = { level: number; price: number; lots: number | null };
+
+/** What the five-level area shows: the real recorded book (`full`) or only the real best bid and ask (`top`). */
+export type DisplayedBook = {
+  bids: MorningBookLevel[];
+  asks: MorningBookLevel[];
+  depth: "full" | "top";
+  /** Whether the levels carry order sizes (only a recorded book whose day documents its size unit). */
+  sizes: boolean;
+  /** The line under a `top` book saying why there are no five levels; null with a full book. */
+  note: string | null;
+};
+
+/** The lesson day has no recorded books at all. */
+export const NO_BOOKS_NOTE = "這天沒有五檔掛單資料";
+/** The day has books but this stock's book is unknown now (a recording gap, or not delivered for this stock yet). */
+export const BOOK_GAP_NOTE = "這段時間沒有五檔資料";
 
 export function validMorningLimit(price: number, previousClose: number): boolean {
   return (
@@ -12,42 +32,76 @@ export function validMorningLimit(price: number, previousClose: number): boolean
   );
 }
 
-/**
- * Illustrative depth only: no source volume, future bars, network feed or fill authority. With the latest
- * replayed trade, the last price sits on the side that trade took (an uptick lifted the ask, a downtick hit
- * the bid) and the quantities shift from trade to trade; without it, 買1 is the last price.
- */
-export function createMorningBook(
-  code: string,
-  cursor: number,
-  last: number,
-  previousClose: number,
-  trade?: { index: number; side: "ask" | "bid" | null },
-): {
-  bids: MorningBookLevel[];
-  asks: MorningBookLevel[];
-} {
-  if (cursor < 1 || !Number.isFinite(last) || last <= 0) return { bids: [], asks: [] };
-  const center = roundToTick(last);
-  const seed = [...code].reduce((sum, character) => sum * 31 + character.charCodeAt(0), 0) >>> 0;
-  const lifted = trade?.side === "ask";
-  const shift = trade ? trade.index * 13 : 0;
-  const levels = (ask: boolean) =>
-    Array.from({ length: 5 }, (_, index) => ({
-      level: index + 1,
-      price: stepTick(center, ask ? (lifted ? index : index + 1) : lifted ? -(index + 1) : -index),
-      lots: 3 + ((seed + cursor * 17 + index * 29 + (ask ? 41 : 0) + shift) % 78),
-    })).filter((level) => validMorningLimit(level.price, previousClose));
-  return { bids: levels(false), asks: levels(true) };
+/** How many frames (in time order) are at or before `ms`. */
+function framesUpTo(frames: readonly (readonly [number, BookLevels])[], ms: number): number {
+  let low = 0;
+  let high = frames.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (frames[middle][0] <= ms) low = middle + 1;
+    else high = middle;
+  }
+  return low;
 }
 
-/** Share of illustrative bid lots among all shown lots; 0.5 when nothing is shown. Teaching data only. */
+/** The recorded book at `ms` of the cell the server sent: the last change at or before it; null when unknown then. */
+function bookAt(book: MorningBookCell, ms: number): BookLevels | null {
+  if (book.gaps.some(([from, to]) => ms >= from && ms < to)) return null;
+  const count = framesUpTo(book.frames, ms);
+  return count > 0 ? book.frames[count - 1][1] : book.start;
+}
+
+const levelsOf = (levels: readonly (readonly [number, number])[], sizes: boolean): MorningBookLevel[] =>
+  levels.map(([price, size], index) => ({ level: index + 1, price, lots: sizes ? size : null }));
+
+const quoted = (price: number | null | undefined): price is number =>
+  typeof price === "number" && Number.isFinite(price) && price > 0;
+
+/**
+ * The five-level area for one stock at the replay position `playedMs` (ms after 09:00; a book is never shown before
+ * its own time). With the recorded book of the stock's newest minute: the last change at or before `playedMs`
+ * (the minute's starting book before its first change), its sizes only when the day documents their unit. Without
+ * one, or inside a recording gap: only the real best bid and ask the last played trade came with, one level each
+ * and no sizes, and the line saying why. Matching never looks at any of this (decision K).
+ */
+export function displayBook(input: {
+  catalog: Pick<MorningCatalog, "booksAvailable">;
+  book: MorningBookCell | undefined;
+  lastTrade: LiveTrade | null;
+  playedMs: number;
+}): DisplayedBook {
+  const { book, lastTrade } = input;
+  const recorded = book ? bookAt(book, input.playedMs) : null;
+  if (book && recorded) {
+    return {
+      bids: levelsOf(recorded.bids, book.sizes),
+      asks: levelsOf(recorded.asks, book.sizes),
+      depth: "full",
+      sizes: book.sizes,
+      note: null,
+    };
+  }
+  return {
+    bids: quoted(lastTrade?.bid) ? [{ level: 1, price: lastTrade.bid, lots: null }] : [],
+    asks: quoted(lastTrade?.ask) ? [{ level: 1, price: lastTrade.ask, lots: null }] : [],
+    depth: "top",
+    sizes: false,
+    note: input.catalog.booksAvailable ? BOOK_GAP_NOTE : NO_BOOKS_NOTE,
+  };
+}
+
+/** What an advance asks for besides the minute: the books of the selected stock, when it is one of the run's. */
+export function bookView(run: { codes?: readonly string[] }, code: string): { view?: string } {
+  return code && (!run.codes || run.codes.includes(code)) ? { view: code } : {};
+}
+
+/** Share of bid lots among all shown lots; 0.5 when nothing is shown. Levels without a size count for nothing. */
 export function bookPressure(book: {
   bids: readonly MorningBookLevel[];
   asks: readonly MorningBookLevel[];
 }): { bidLots: number; askLots: number; bidShare: number } {
-  const bidLots = book.bids.reduce((sum, level) => sum + level.lots, 0);
-  const askLots = book.asks.reduce((sum, level) => sum + level.lots, 0);
+  const bidLots = book.bids.reduce((sum, level) => sum + (level.lots ?? 0), 0);
+  const askLots = book.asks.reduce((sum, level) => sum + (level.lots ?? 0), 0);
   const total = bidLots + askLots;
   return { bidLots, askLots, bidShare: total > 0 ? bidLots / total : 0.5 };
 }

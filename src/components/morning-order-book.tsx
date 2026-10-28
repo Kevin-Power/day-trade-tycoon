@@ -6,7 +6,8 @@ import {
   bookCellLabel,
   bookCellOrder,
   bookPressure,
-  createMorningBook,
+  NO_BOOKS_NOTE,
+  type DisplayedBook,
   type MorningBookLevel,
 } from "@/lib/morning-book";
 import { formatPrice } from "@/lib/market/ticks";
@@ -14,17 +15,19 @@ import { formatPrice } from "@/lib/market/ticks";
 type Tone = "up" | "down" | "flat";
 
 /**
- * 教學模擬五檔, side by side like a broker's book: 委買 on the left, 委賣 on the right, best levels on the top
- * row. Lightning goes left-to-buy, right-to-sell (the 10/20 meeting): a left cell buys at its price, a right cell
- * sells at its price. `mode="display"` shows the same book without the lightning controls (the phone's 行情 page,
- * where a tap hands the price to the ticket).
+ * 五檔, side by side like a broker's book: 委買 on the left, 委賣 on the right, best levels on the top row. It shows
+ * the real recorded book when the lesson has one for this moment (with order sizes when the day documents their
+ * unit), otherwise only the real best bid and ask of the last trade, with a line saying why. Lightning goes
+ * left-to-buy, right-to-sell (the 10/20 meeting): a left cell buys at its price, a right cell sells at its price.
+ * `mode="display"` shows the same book without the lightning controls (the phone's 行情 page, where a tap hands
+ * the price to the ticket).
  */
 export function MorningOrderBook({
   code,
   cursor,
   last,
   previousClose,
-  trade,
+  book: shown,
   revision,
   simulated,
   lots,
@@ -40,8 +43,8 @@ export function MorningOrderBook({
   cursor: number;
   last?: number;
   previousClose: number;
-  /** The latest replayed trade: which side the last price sits on (null: neither), and its place among the trades. */
-  trade?: { index: number; side: "ask" | "bid" | null };
+  /** The levels to show now (displayBook). */
+  book: DisplayedBook;
   /** The session's revision: an order or fill refreshes a held book. */
   revision: number;
   /** A minute is replaying, so the last price is a simulated trade. */
@@ -56,11 +59,7 @@ export function MorningOrderBook({
   onPick: (price: number, side: "buy" | "sell") => void;
 }) {
   const key = `${code}:${cursor}:${revision}`;
-  const live = {
-    key,
-    last,
-    book: createMorningBook(code, cursor, last ?? 0, previousClose, trade),
-  };
+  const live = { key, last, book: shown };
   // With 即送 armed the book holds still while the mouse is on it, a price has keyboard focus, or a finger is down
   // on it, so a click sends the price that was on screen while trades keep coming in. A new minute, an order or
   // another stock refreshes the held book once; leaving releases it.
@@ -73,6 +72,8 @@ export function MorningOrderBook({
   const holding = wantHold && held?.key === key ? held : null;
   const { book } = holding ?? live;
   const shownLast = (holding ?? live).last;
+  // Before the first minute no book is expected, so there is nothing to explain yet.
+  const note = cursor >= 1 ? book.note : null;
   const pick = (price: number, side: "buy" | "sell") => {
     onPick(price, side);
     if (touch.current) {
@@ -83,8 +84,8 @@ export function MorningOrderBook({
   const tick = useTickFlash(shownLast, code);
   const maxLots = Math.max(
     1,
-    ...book.asks.map((level) => level.lots),
-    ...book.bids.map((level) => level.lots),
+    ...book.asks.map((level) => level.lots ?? 0),
+    ...book.bids.map((level) => level.lots ?? 0),
   );
   const pressure = bookPressure(book);
   const tone = (price: number): Tone =>
@@ -120,8 +121,8 @@ export function MorningOrderBook({
       {/* One line whatever the state: holding swaps the price's label instead of adding one, so the levels
           never move under a pointer that is about to click. */}
       <div className="td-book-head">
-        <span className="td-chip" data-kind="sim">
-          教學模擬五檔
+        <span className="td-chip" data-kind="real">
+          {book.depth === "full" ? "真實五檔" : "買一賣一"}
         </span>
         <span className="td-book-last" data-tone={shownLast ? tone(shownLast) : "flat"}>
           {holding ? (
@@ -178,18 +179,27 @@ export function MorningOrderBook({
         ))}
       </div>
       {!book.bids.length && !book.asks.length && (
-        <p className="td-ladder-empty">{shownLast ? "漲跌停範圍內無價位" : "等待第一分鐘"}</p>
+        <p className="td-ladder-empty">
+          {cursor < 1
+            ? "等待第一分鐘"
+            : !shownLast
+              ? "尚無成交"
+              : book.depth === "full"
+                ? "目前沒有委託"
+                : "這筆成交沒有買賣價"}
+        </p>
       )}
-      <div
-        className="td-pressure"
-        role="img"
-        aria-label={`教學模擬委買 ${pressure.bidLots} 張、委賣 ${pressure.askLots} 張`}
-      >
-        <span style={{ width: `${pressure.bidShare * 100}%` }} />
-        <small>委買 {pressure.bidLots}</small>
-        <small>模擬</small>
-        <small>委賣 {pressure.askLots}</small>
-      </div>
+      {book.sizes && (
+        <div
+          className="td-pressure"
+          role="img"
+          aria-label={`委買 ${pressure.bidLots} 張、委賣 ${pressure.askLots} 張`}
+        >
+          <span style={{ width: `${pressure.bidShare * 100}%` }} />
+          <small>委買 {pressure.bidLots}</small>
+          <small>委賣 {pressure.askLots}</small>
+        </div>
+      )}
       {trading && (
         <>
           <div className="td-flash">
@@ -231,7 +241,10 @@ export function MorningOrderBook({
           </p>
         </>
       )}
-      <p className="td-book-source">五檔價量為教學生成，非真實委託簿。</p>
+      {/* Always there, so the controls above never move when the book changes between full and top. */}
+      <p className="td-book-source" data-quiet={!note} aria-hidden={note ? undefined : true}>
+        {note ?? NO_BOOKS_NOTE}
+      </p>
     </div>
   );
 }
@@ -282,10 +295,10 @@ function BookCell({
     >
       <i
         className="td-book-fill"
-        style={{ width: `${(level.lots / maxLots) * 100}%` }}
+        style={{ width: `${((level.lots ?? 0) / maxLots) * 100}%` }}
         aria-hidden
       />
-      <span className="td-book-lots td-num">{level.lots}</span>
+      <span className="td-book-lots td-num">{level.lots ?? "—"}</span>
       <strong className="td-book-price td-num">{formatPrice(level.price)}</strong>
     </button>
   );

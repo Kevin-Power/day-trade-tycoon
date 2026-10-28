@@ -1668,6 +1668,11 @@
   font-size: 11px;
   border-top: var(--td-hairline) solid var(--td-line);
 }
+/* A full book has nothing to explain: the line keeps its place so the controls above never move. */
+.trading-desk .td-book-source[data-quiet="true"] {
+  color: transparent;
+  user-select: none;
+}
 
 /* Phones: the order station is one column (book over ticket). */
 .trading-desk .morning-order-station {

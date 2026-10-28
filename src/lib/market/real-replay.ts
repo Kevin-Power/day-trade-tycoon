@@ -25,8 +25,18 @@ export type ReplayState = MorningState & {
 /** /api/morning's answer as the desk keeps it: the run with its trades. */
 export type DeskResponse = Omit<MorningResponse, "state"> & { state: ReplayState | null };
 
-/** One real trade on the desk: when (ms after 09:00), price, size in lots, and 外盤 (ask) or 內盤 (bid) when known. */
-export type LiveTrade = { ms: number; price: number; size: number; side: "ask" | "bid" | null };
+/**
+ * One real trade on the desk: when (ms after 09:00), price, size in lots, 外盤 (ask) or 內盤 (bid) when known, and
+ * the best bid and ask the trade came with (null when it carried none, e.g. an auction trade).
+ */
+export type LiveTrade = {
+  ms: number;
+  price: number;
+  size: number;
+  side: "ask" | "bid" | null;
+  bid: number | null;
+  ask: number | null;
+};
 
 const TOLERANCE = 1e-9;
 const same = (a: number | null, b: number) => a !== null && Math.abs(a - b) <= TOLERANCE;
@@ -39,7 +49,14 @@ export function tradeSide(row: TradeRow): "ask" | "bid" | null {
   return null;
 }
 
-export const liveTrade = (row: TradeRow): LiveTrade => ({ ms: row[0], price: row[1], size: row[2], side: tradeSide(row) });
+export const liveTrade = (row: TradeRow): LiveTrade => ({
+  ms: row[0],
+  price: row[1],
+  size: row[2],
+  side: tradeSide(row),
+  bid: row[3],
+  ask: row[4],
+});
 
 /** How many of the trades (in time order) were at or before `ms`. */
 export function tradesUpTo(rows: readonly TradeRow[], ms: number): number {

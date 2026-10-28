@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CandlestickChart } from "@/lib/icons";
-import type { MorningCatalog } from "@/lib/morning";
-import { createMorningBook } from "@/lib/morning-book";
+import type { MorningBookCell, MorningCatalog } from "@/lib/morning";
 import { formatIndexValue, indexAvailability, indexSummary } from "@/lib/morning-index";
-import { lastTrade, type LiveMorningState } from "@/lib/morning-live";
+import { shownBook, type LiveMorningState } from "@/lib/morning-live";
 import { bestQuotes, quoteSummary } from "@/lib/morning-quote";
 import { formatPrice } from "@/lib/market/ticks";
 import {
@@ -35,11 +34,13 @@ const toneOf = (value: number | null | undefined, previous: number) =>
 
 /**
  * 自選報價 as a broker table: the TAIEX first, then the lesson's stocks, each with its 江波圖. Prices move with
- * the replayed trades; bid/ask are the teaching book's (模擬). Volume columns would need verified volume.
+ * the replayed trades; bid/ask are the real best quotes: the recorded book's for the selected stock when the day
+ * has one, otherwise those of each stock's last played trade. Volume columns would need verified volume.
  */
 export function WatchTable({
   catalog,
   session,
+  book,
   code,
   compact = false,
   indexSelected,
@@ -48,6 +49,8 @@ export function WatchTable({
 }: {
   catalog: MorningCatalog;
   session: LiveMorningState | null;
+  /** The recorded book of the newest minute the server sent (one stock's): the selected stock's bid/ask. */
+  book?: MorningBookCell;
   code: string;
   compact?: boolean;
   /** Phones: whether 行情 shows the index (a toggle); desktops leave it out (the row only points at the pane). */
@@ -75,7 +78,7 @@ export function WatchTable({
         <span>
           <CandlestickChart aria-hidden /> 自選報價
         </span>
-        <span className="td-watch-note">分鐘內跳動為模擬逐筆 · 買進賣出為模擬五檔</span>
+        <span className="td-watch-note">分鐘內跳動為模擬逐筆</span>
         <span className="td-segment td-mini-scale" role="group" aria-label="江波圖刻度">
           {MINI_SCALES.map(([value, label, hint]) => (
             <button
@@ -145,16 +148,10 @@ export function WatchTable({
         {catalog.symbols.map((symbol) => {
           const bars = session?.bars[symbol.code] ?? [];
           const quote = quoteSummary(bars, symbol.previousClose);
-          const trade = session ? lastTrade(session, symbol.code, catalog) : null;
-          const best = bestQuotes(
-            createMorningBook(
-              symbol.code,
-              session?.cursor ?? 0,
-              quote.last ?? 0,
-              symbol.previousClose,
-              trade ? { index: trade.index, side: trade.side } : undefined,
-            ),
-          );
+          // The 買進／賣出 columns are not on the compact list, so it does not work them out.
+          const best = compact
+            ? { bid: null, ask: null }
+            : bestQuotes(shownBook(session, catalog, book, symbol.code));
           return (
             <button
               type="button"

@@ -37,7 +37,7 @@ export function quoteSummary(bars: readonly Bar[], previousClose: number): Quote
   };
 }
 
-/** Best bid and ask of the illustrative teaching book (the ladder's 買1 and 賣1). */
+/** Best bid and ask of the book the ladder shows (its 買1 and 賣1): the recorded book's, or the last trade's quote. */
 export function bestQuotes(book: {
   bids: readonly MorningBookLevel[];
   asks: readonly MorningBookLevel[];

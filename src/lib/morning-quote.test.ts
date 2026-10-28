@@ -1,8 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { bestQuotes, positionMark, quoteDetailRows, quoteSummary } from "./morning-quote.ts";
-import { createMorningBook } from "./morning-book.ts";
-import { limitUp } from "./market/ticks.ts";
+import { displayBook } from "./morning-book.ts";
 
 const bar = (t: number, o: number, h: number, l: number, c: number) => ({ t, o, h, l, c, v: 0 });
 
@@ -46,12 +45,31 @@ test("before the first minute nothing is invented", () => {
   });
 });
 
-test("best bid and ask come from the same teaching book the ladder shows", () => {
-  const book = createMorningBook("2330", 27, 2580, 2575);
-  assert.deepEqual(bestQuotes(book), { bid: book.bids[0].price, ask: book.asks[0].price });
-  assert.deepEqual(bestQuotes(createMorningBook("2330", 0, 2580, 2575)), { bid: null, ask: null });
-  // At the limit-up price there is no ask level, so no ask is shown.
-  assert.equal(bestQuotes(createMorningBook("2330", 3, limitUp(100), 100)).ask, null);
+test("best bid and ask are the first level of the book the ladder shows, recorded or from the last trade", () => {
+  const recorded = displayBook({
+    catalog: { booksAvailable: true },
+    book: {
+      code: "2330",
+      start: { bids: [[2575, 8], [2570, 3]], asks: [[2580, 5]] },
+      frames: [],
+      gaps: [],
+      sizes: true,
+    },
+    lastTrade: null,
+    playedMs: 1_000,
+  });
+  assert.deepEqual(bestQuotes(recorded), { bid: 2575, ask: 2580 });
+  const quoted = displayBook({
+    catalog: {},
+    book: undefined,
+    lastTrade: { ms: 5_000, price: 2580, size: 1, side: "ask", bid: 2575, ask: 2580 },
+    playedMs: 5_000,
+  });
+  assert.deepEqual(bestQuotes(quoted), { bid: 2575, ask: 2580 });
+  // No trade yet, or a side the trade did not quote (at the limit price, say): that side shows nothing.
+  assert.deepEqual(bestQuotes(displayBook({ catalog: {}, book: undefined, lastTrade: null, playedMs: 0 })), { bid: null, ask: null });
+  const limitUpTrade = { ms: 9_000, price: 110, size: 4, side: "ask" as const, bid: 110, ask: null };
+  assert.deepEqual(bestQuotes(displayBook({ catalog: {}, book: undefined, lastTrade: limitUpTrade, playedMs: 9_000 })), { bid: 110, ask: null });
 });
 
 test("a position's reference P&L is (last close − average cost) × shares, before fees and tax", () => {
