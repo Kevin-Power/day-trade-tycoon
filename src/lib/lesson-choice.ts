@@ -64,19 +64,23 @@ export function removeCode(codes: readonly string[], code: string): string[] {
   return codes.filter((item) => item !== code);
 }
 
+/** What a search compares: NFKC (a Chinese keyboard's full-width 「２３３０」 or 「ＡＳＵＳ」 as half-width), trimmed, lower case. */
+const searchText = (value: string): string => value.normalize("NFKC").trim().toLowerCase();
+
 /**
- * The day's stocks matching what was typed: a code from its start, or a name containing it (case ignored). An exact
- * code comes first, then by code. Nothing for an empty query. At most `limit`, and how many matched in all.
+ * The day's stocks matching what was typed: a code from its start, or a name containing it (case and full-width
+ * ignored). An exact code comes first, then by code. Nothing for an empty query. At most `limit`, and how many
+ * matched in all.
  */
 export function searchSymbols(
   symbols: readonly PickerSymbol[],
   query: string,
   limit = SEARCH_SHOWN,
 ): { shown: PickerSymbol[]; total: number } {
-  const text = query.trim().toLowerCase();
+  const text = searchText(query);
   if (!text) return { shown: [], total: 0 };
   const matches = symbols.filter(
-    (symbol) => symbol.code.startsWith(text) || symbol.name.toLowerCase().includes(text),
+    (symbol) => symbol.code.startsWith(text) || searchText(symbol.name).includes(text),
   );
   matches.sort((a, b) => Number(b.code === text) - Number(a.code === text) || compareCodes(a.code, b.code));
   return { shown: matches.slice(0, limit), total: matches.length };

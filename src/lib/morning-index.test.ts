@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dataSourceLabel, formingIndexBar, INDEX_EMPTY_TEXT, indexAvailability, indexSummary } from "./morning-index.ts";
+import {
+  dataSourceLabel,
+  detailsSourceNote,
+  formingIndexBar,
+  INDEX_EMPTY_TEXT,
+  indexAvailability,
+  indexSummary,
+  priceSourceNote,
+} from "./morning-index.ts";
 import type { MorningIndexBar } from "./morning.ts";
 
 const p = [10, 12, 8, 11, 15, 9, 13, 14, 7, 12, 11, 10];
@@ -88,4 +96,18 @@ test("the quote area names its data source: 富邦逐筆, and 證交所大盤 on
   assert.equal(dataSourceLabel("none"), "富邦逐筆");
   // Before a run nothing says the lesson has an index, so only what is certain is claimed.
   assert.equal(dataSourceLabel("no-run"), "富邦逐筆");
+});
+
+test("the data notes mention 證交所大盤 only for a run that has the index, as the quote area's label", () => {
+  const withIndex = ["ready", "waiting"] as const;
+  const without = ["none", "no-run"] as const;
+  for (const state of withIndex) {
+    assert.equal(priceSourceNote(state), "價格來源：富邦收盤後提供的逐筆成交與 1 分 K，依真實成交時間重播；大盤是證交所每 5 秒的加權指數。");
+    assert.equal(detailsSourceNote(state), "來源：富邦收盤後提供的逐筆成交與 1 分 K，大盤是證交所每 5 秒的加權指數。這是真實歷史行情的重播，不是即時行情。");
+  }
+  for (const state of without) {
+    assert.equal(priceSourceNote(state), "價格來源：富邦收盤後提供的逐筆成交與 1 分 K，依真實成交時間重播。");
+    assert.equal(detailsSourceNote(state), "來源：富邦收盤後提供的逐筆成交與 1 分 K。這是真實歷史行情的重播，不是即時行情。");
+    for (const text of [priceSourceNote(state), detailsSourceNote(state)]) assert.doesNotMatch(text, /大盤|證交所|加權/, state);
+  }
 });

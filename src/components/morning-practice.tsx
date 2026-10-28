@@ -54,7 +54,14 @@ import {
   type LocalOrderFailure,
   type SendOutcome,
 } from "@/lib/morning-orders";
-import { INDEX_EMPTY_TEXT, dataSourceLabel, indexAvailability } from "@/lib/morning-index";
+import {
+  INDEX_EMPTY_TEXT,
+  dataSourceLabel,
+  detailsSourceNote,
+  indexAvailability,
+  priceSourceNote,
+  type IndexAvailability,
+} from "@/lib/morning-index";
 import {
   replayClock,
   settledSession,
@@ -1672,11 +1679,11 @@ function MorningLesson({
                     />
                   </div>
                 )}
-                <MorningDataDetails catalog={catalog} session={settled} code={code} />
+                <MorningDataDetails catalog={catalog} session={settled} code={code} indexState={indexState} />
                 <details className="td-section">
                   <summary>資料來源與本課使用說明</summary>
                   <ul className="list-disc space-y-2 px-6 pb-4 text-sm text-muted">
-                    {[...DATA_NOTES, ...catalog.notices].map((item) => (
+                    {[priceSourceNote(indexState), ...DATA_NOTES, ...catalog.notices].map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
@@ -1782,9 +1789,11 @@ function ExerciseGuide({ exercise, compact }: { exercise: MorningExercise; compa
   );
 }
 
-/** What every daily lesson says about its data, under 「資料來源與本課使用說明」 (a lesson's own notices follow). */
+/**
+ * What every daily lesson says about its data, under 「資料來源與本課使用說明」, after the price source
+ * (priceSourceNote: TWSE's index only when the run has it); a lesson's own notices follow.
+ */
 const DATA_NOTES = [
-  "價格來源：富邦收盤後提供的逐筆成交與 1 分 K，依真實成交時間重播；大盤是證交所每 5 秒的加權指數。",
   "五檔：有錄到的日子顯示真實五檔，其他日子只有買一賣一，不補出沒有的掛單。",
   "紙上委託：市價用委託後的第一筆真實成交；限價碰到就成交，不考慮排隊與張數，對學員稍微有利。不連接券商。",
 ] as const;
@@ -1937,10 +1946,13 @@ function MorningDataDetails({
   catalog,
   session,
   code,
+  indexState,
 }: {
   catalog: MorningCatalog;
   session: MorningState | null;
   code: string;
+  /** Whether the run has TWSE's index: the source sentence names it only then. */
+  indexState: IndexAvailability;
 }) {
   const symbol = catalog.symbols.find((item) => item.code === code) ?? catalog.symbols[0];
   if (!symbol) return null;
@@ -2002,9 +2014,7 @@ function MorningDataDetails({
         <p>
           K 線直接使用富邦 1 分 K 的開高低收，該分鐘完成後才揭露。揭露後，交易台把這一分鐘內富邦的真實逐筆成交，照它們真實的秒數在幾秒內重播，播完時收在這分鐘的收盤價。撮合只看委託送出之後才揭露的真實成交。江波圖只連接各分鐘收價，點位標在分鐘結束時間，刻度固定為昨收上下 10%；沒有成交的分鐘保持原價。EMA11、EMA24 以已揭露的一分鐘收盤價計算，從 09:00 第一分鐘起算，只供觀察。點按圖表或用左右方向鍵查看資料。
         </p>
-        <p>
-          來源：富邦收盤後提供的逐筆成交與 1 分 K，大盤是證交所每 5 秒的加權指數。這是真實歷史行情的重播，不是即時行情。
-        </p>
+        <p>{detailsSourceNote(indexState)}</p>
         <p>
           成交量以張計；五檔在有錄到的日子顯示真實五檔，其他日子只有買一賣一。資料缺漏不會以生成價格補齊。
         </p>

@@ -68,5 +68,21 @@ export const INDEX_EMPTY_TEXT: Record<Exclude<IndexAvailability, "ready">, strin
  * an index (and the plan preview, before a run) only claims the trades.
  */
 export function dataSourceLabel(availability: IndexAvailability): string {
-  return availability === "ready" || availability === "waiting" ? "富邦逐筆／證交所大盤" : "富邦逐筆";
+  return hasIndex(availability) ? "富邦逐筆／證交所大盤" : "富邦逐筆";
+}
+
+/** The run has TWSE's index (shown, or waiting for its first minute). Before a run nothing says the lesson has one. */
+const hasIndex = (availability: IndexAvailability): boolean => availability === "ready" || availability === "waiting";
+
+const TRADES_SOURCE = "富邦收盤後提供的逐筆成交與 1 分 K";
+const INDEX_SOURCE = "大盤是證交所每 5 秒的加權指數";
+
+/** The first of 「資料來源與本課使用說明」: names TWSE's index only when the run has it, as dataSourceLabel. */
+export function priceSourceNote(availability: IndexAvailability): string {
+  return `價格來源：${TRADES_SOURCE}，依真實成交時間重播${hasIndex(availability) ? `；${INDEX_SOURCE}` : ""}。`;
+}
+
+/** The source sentence of 「報價彙總與 K 棒明細」: names TWSE's index only when the run has it. */
+export function detailsSourceNote(availability: IndexAvailability): string {
+  return `來源：${TRADES_SOURCE}${hasIndex(availability) ? `，${INDEX_SOURCE}` : ""}。這是真實歷史行情的重播，不是即時行情。`;
 }

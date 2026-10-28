@@ -70,6 +70,15 @@ test("the matching text is the real rule: the first real trade after the order, 
   assert.ok(!source("src/lib/morning-orders.ts").includes("下一分鐘開盤"));
 });
 
+test("the desk names TWSE's index as a source only through the helpers that know whether the run has one", () => {
+  // morning-index.ts: dataSourceLabel, priceSourceNote and detailsSourceNote mention 證交所大盤 only for a run with
+  // the index; a lesson without one must not be told it has one in the data notes or the data details.
+  const practice = source("src/components/morning-practice.tsx");
+  assert.doesNotMatch(practice, /大盤是證交所|證交所每 5 秒/);
+  for (const call of ["priceSourceNote(indexState)", "detailsSourceNote(", "dataSourceLabel(indexState)"])
+    assert.ok(practice.includes(call), call);
+});
+
 test("a fill's time is shown to the second from the real trade", () => {
   const trading = source("src/components/morning-trading.tsx");
   assert.ok(trading.includes("fillClock(fill)"));

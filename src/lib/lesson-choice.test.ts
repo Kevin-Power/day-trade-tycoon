@@ -103,6 +103,17 @@ test("search: a code from its start or part of a name, exact code first, at most
   assert.deepEqual(found.shown.map((item) => item.code), ["20", "2000", "2001", "2002", "2003"]);
 });
 
+test("search: full-width digits and letters (a Chinese keyboard's) match as the half-width ones (NFKC)", () => {
+  assert.deepEqual(searchSymbols(SYMBOLS, "２３３０").shown.map((item) => item.code), ["2330"]);
+  assert.deepEqual(searchSymbols(SYMBOLS, "２３３").shown.map((item) => item.code), ["2330", "2331"]);
+  assert.deepEqual(searchSymbols(SYMBOLS, "　２３３１　").shown.map((item) => item.code), ["2331"], "full-width spaces trimmed");
+  // Names are normalised the same way, both ways round.
+  const names = [symbol("2002", "中鋼"), symbol("3231", "緯創"), symbol("2357", "ＡＳＵＳ華碩"), symbol("2409", "AUO友達")];
+  assert.deepEqual(searchSymbols(names, "asus").shown.map((item) => item.code), ["2357"]);
+  assert.deepEqual(searchSymbols(names, "ａｕｏ").shown.map((item) => item.code), ["2409"]);
+  assert.equal(searchSymbols(SYMBOLS, "２３３０").shown[0]?.code, "2330", "an exact full-width code comes first");
+});
+
 const record = (id: string, lessonId: string, extra: Partial<RunRecord> = {}): RunRecord => ({
   id,
   lessonId,
