@@ -19,8 +19,13 @@ export type DisplayedBook = {
 
 /** The lesson day has no recorded books at all. */
 export const NO_BOOKS_NOTE = "這天沒有五檔掛單資料";
-/** The day has books but this stock's book is unknown now (a recording gap, or not delivered for this stock yet). */
+/** The day has books and this stock's own book was delivered, but it is unknown for this stretch (a recording gap). */
 export const BOOK_GAP_NOTE = "這段時間沒有五檔資料";
+/**
+ * The day has books but the server has not delivered this stock's book: the stock was just picked (its books come
+ * with the next advance), or the recording has no file for it.
+ */
+export const BOOK_PENDING_NOTE = "下一分鐘起顯示這檔的五檔";
 
 export function validMorningLimit(price: number, previousClose: number): boolean {
   return (
@@ -51,8 +56,26 @@ function bookAt(book: MorningBookCell, ms: number): BookLevels | null {
   return count > 0 ? book.frames[count - 1][1] : book.start;
 }
 
-const levelsOf = (levels: readonly (readonly [number, number])[], sizes: boolean): MorningBookLevel[] =>
-  levels.map(([price, size], index) => ({ level: index + 1, price, lots: sizes ? size : null }));
+/**
+ * Whether a recorded level can be offered as a clickable limit price: positive, finite and on the tick grid, and
+ * inside the day's ±10% band when the previous close is known. A recording can hold a market-order marker (0) or a
+ * stray price; those are not prices a learner may send.
+ */
+function offeredLevel(price: number, previousClose: number | undefined): boolean {
+  if (previousClose !== undefined && Number.isFinite(previousClose) && previousClose > 0)
+    return validMorningLimit(price, previousClose);
+  return Number.isFinite(price) && price > 0 && Math.abs(roundToTick(price) - price) < 1e-8;
+}
+
+/** The offered levels of one side, renumbered from 1 (best first) after the ones that are not prices are left out. */
+const levelsOf = (
+  levels: readonly (readonly [number, number])[],
+  sizes: boolean,
+  previousClose: number | undefined,
+): MorningBookLevel[] =>
+  levels
+    .filter(([price]) => offeredLevel(price, previousClose))
+    .map(([price, size], index) => ({ level: index + 1, price, lots: sizes ? size : null }));
 
 const quoted = (price: number | null | undefined): price is number =>
   typeof price === "number" && Number.isFinite(price) && price > 0;
@@ -62,20 +85,23 @@ const quoted = (price: number | null | undefined): price is number =>
  * its own time). With the recorded book of the stock's newest minute: the last change at or before `playedMs`
  * (the minute's starting book before its first change), its sizes only when the day documents their unit. Without
  * one, or inside a recording gap: only the real best bid and ask the last played trade came with, one level each
- * and no sizes, and the line saying why. Matching never looks at any of this (decision K).
+ * and no sizes, and the line saying why (not delivered yet, a gap, or no books that day). A recorded level that is
+ * not a valid limit price is left out. Matching never looks at any of this (decision K).
  */
 export function displayBook(input: {
   catalog: Pick<MorningCatalog, "booksAvailable">;
   book: MorningBookCell | undefined;
   lastTrade: LiveTrade | null;
   playedMs: number;
+  /** The stock's previous close: recorded levels outside its ±10% band are not offered. */
+  previousClose?: number;
 }): DisplayedBook {
-  const { book, lastTrade } = input;
+  const { book, lastTrade, previousClose } = input;
   const recorded = book ? bookAt(book, input.playedMs) : null;
   if (book && recorded) {
     return {
-      bids: levelsOf(recorded.bids, book.sizes),
-      asks: levelsOf(recorded.asks, book.sizes),
+      bids: levelsOf(recorded.bids, book.sizes, previousClose),
+      asks: levelsOf(recorded.asks, book.sizes, previousClose),
       depth: "full",
       sizes: book.sizes,
       note: null,
@@ -86,7 +112,8 @@ export function displayBook(input: {
     asks: quoted(lastTrade?.ask) ? [{ level: 1, price: lastTrade.ask, lots: null }] : [],
     depth: "top",
     sizes: false,
-    note: input.catalog.booksAvailable ? BOOK_GAP_NOTE : NO_BOOKS_NOTE,
+    // A day with books: a book that was delivered but is unknown here is a gap; no book yet is "coming".
+    note: input.catalog.booksAvailable ? (book ? BOOK_GAP_NOTE : BOOK_PENDING_NOTE) : NO_BOOKS_NOTE,
   };
 }
 

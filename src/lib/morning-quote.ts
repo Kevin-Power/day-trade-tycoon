@@ -55,18 +55,17 @@ export function positionMark(
   return { value: value === 0 ? 0 : value, tone: toneOf(value) };
 }
 
-export type QuoteDetailRow = { label: string; value: string; tone: QuoteTone; simulated?: boolean };
+export type QuoteDetailRow = { label: string; value: string; tone: QuoteTone };
 
 /**
  * 報價明細 in broker order: trade, change, open/high/low, previous close, [average], amplitude and time. 振幅 is
  * (high − low) ÷ previous close; 均價 appears only when every revealed minute carries the source's average (no
- * estimate); volume fields wait for verified volume. While a minute replays, 成交 is a simulated trade.
+ * estimate); volume fields wait for verified volume.
  */
 export function quoteDetailRows(input: {
   bars: readonly Bar[];
   previousClose: number;
   time: string;
-  simulated: boolean;
 }): QuoteDetailRow[] {
   const { bars, previousClose } = input;
   const quote = quoteSummary(bars, previousClose);
@@ -80,7 +79,7 @@ export function quoteDetailRows(input: {
       ? `${(((quote.high - quote.low) / previousClose) * 100).toFixed(2)}%`
       : "—";
   return [
-    { label: "成交", value: price(quote.last), tone: quote.tone, ...(input.simulated && quote.last !== null ? { simulated: true } : {}) },
+    { label: "成交", value: price(quote.last), tone: quote.tone },
     { label: "漲跌", value: quote.last === null ? "—" : `${arrow}${quote.changeText}`, tone: quote.tone },
     { label: "漲跌幅", value: quote.percentText || "—", tone: quote.tone },
     { label: "開盤", value: price(quote.open), tone: tone(quote.open) },

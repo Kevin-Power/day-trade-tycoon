@@ -96,7 +96,7 @@ test("a position's reference P&L is (last close − average cost) × shares, bef
 test("報價明細 shows 振幅 to two decimals and 均價 only when every revealed minute has the source average", () => {
   const bars = [bar(0, 2575, 2590, 2575, 2585), bar(60, 2585, 2585, 2570, 2580)];
   const value = (rows: { label: string; value: string }[], label: string) => rows.find((row) => row.label === label)?.value;
-  const plain = quoteDetailRows({ bars, previousClose: 2575, time: "09:02", simulated: false });
+  const plain = quoteDetailRows({ bars, previousClose: 2575, time: "09:02" });
   assert.equal(value(plain, "振幅"), "0.78%");
   assert.equal(value(plain, "成交"), "2580");
   assert.equal(value(plain, "均價"), undefined);
@@ -108,16 +108,18 @@ test("報價明細 shows 振幅 to two decimals and 均價 only when every revea
     bars: bars.map((item) => ({ ...item, a: 2580 })),
     previousClose: 2575,
     time: "09:02",
-    simulated: false,
   });
   assert.equal(value(averaged, "均價"), "2580");
-  const partly = quoteDetailRows({ bars: [{ ...bars[0], a: 2580 }, bars[1]], previousClose: 2575, time: "09:02", simulated: false });
+  const partly = quoteDetailRows({ bars: [{ ...bars[0], a: 2580 }, bars[1]], previousClose: 2575, time: "09:02" });
   assert.equal(value(partly, "均價"), undefined);
 });
 
-test("before the first minute the quote details are dashes, and only 成交 is marked 模擬 while a minute replays", () => {
-  const empty = quoteDetailRows({ bars: [], previousClose: 2575, time: "—", simulated: false });
+test("before the first minute the quote details are dashes, and no row is marked 模擬: the replayed trades are real", () => {
+  const empty = quoteDetailRows({ bars: [], previousClose: 2575, time: "—" });
   for (const row of empty) assert.equal(row.value, row.label === "昨收" ? "2575" : "—", row.label);
-  const live = quoteDetailRows({ bars: [bar(0, 2575, 2590, 2575, 2585)], previousClose: 2575, time: "09:00:37", simulated: true });
-  assert.deepEqual(live.filter((row) => row.simulated).map((row) => row.label), ["成交"]);
+  const live = quoteDetailRows({ bars: [bar(0, 2575, 2590, 2575, 2585)], previousClose: 2575, time: "09:00:37" });
+  assert.deepEqual(
+    live.filter((row) => "simulated" in row),
+    [],
+  );
 });

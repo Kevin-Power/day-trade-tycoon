@@ -62,3 +62,11 @@ export const INDEX_EMPTY_TEXT: Record<Exclude<IndexAvailability, "ready">, strin
   waiting: "第一分鐘揭露後顯示大盤",
   none: "本教材沒有大盤資料",
 };
+
+/**
+ * The data source the quote area names: the real Fubon trades, and TWSE's index when the run has one. A run without
+ * an index (and the plan preview, before a run) only claims the trades.
+ */
+export function dataSourceLabel(availability: IndexAvailability): string {
+  return availability === "ready" || availability === "waiting" ? "富邦逐筆／證交所大盤" : "富邦逐筆";
+}

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formingIndexBar, INDEX_EMPTY_TEXT, indexAvailability, indexSummary } from "./morning-index.ts";
+import { dataSourceLabel, formingIndexBar, INDEX_EMPTY_TEXT, indexAvailability, indexSummary } from "./morning-index.ts";
 import type { MorningIndexBar } from "./morning.ts";
 
 const p = [10, 12, 8, 11, 15, 9, 13, 14, 7, 12, 11, 10];
@@ -79,4 +79,13 @@ test("only a run without an index says the lesson has no index data", () => {
 test("revealed index bars are ready to draw", () => {
   const series = { code: "TAIEX" as const, name: "加權指數", previousClose: 49712.04, source: "證交所", bars: [FIRST_1006] };
   assert.equal(indexAvailability({ hasRun: true, series }), "ready");
+});
+
+test("the quote area names its data source: 富邦逐筆, and 證交所大盤 only for a run that has the index", () => {
+  // A lesson with a TAIEX (ready, or waiting for its first minute) names both; one without says only the trades.
+  assert.equal(dataSourceLabel("ready"), "富邦逐筆／證交所大盤");
+  assert.equal(dataSourceLabel("waiting"), "富邦逐筆／證交所大盤");
+  assert.equal(dataSourceLabel("none"), "富邦逐筆");
+  // Before a run nothing says the lesson has an index, so only what is certain is claimed.
+  assert.equal(dataSourceLabel("no-run"), "富邦逐筆");
 });

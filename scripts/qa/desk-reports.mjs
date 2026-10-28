@@ -31,7 +31,7 @@ async function rest(page) {
       () => {
         const clock = document.querySelector(".td-clock strong")?.textContent?.trim() ?? "";
         const stamp = document.querySelector(".td-hero-stamp")?.textContent ?? "";
-        return clock.endsWith(":00") && !stamp.includes("模擬成交");
+        return clock.endsWith(":00") && !stamp.includes("成交 · 歷史重播");
       },
       null,
       { timeout: 8000 },

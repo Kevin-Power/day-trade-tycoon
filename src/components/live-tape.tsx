@@ -9,11 +9,10 @@ export function LiveTape() {
       aria-labelledby="additional-market-title"
     >
       <h3 id="additional-market-title" className="text-lg font-semibold">
-        其他日期待補真實分鐘行情
+        每日真實行情教材
       </h3>
       <p className="mt-2 text-base leading-relaxed text-muted">
-        日開高低收或大盤指數不能替代個股真實分鐘
-        K。原「每日實盤」生成練習已停止，也不再以日資料建立新的模擬盤。
+        日開高低收或大盤指數不能替代個股的真實成交。原「每日實盤」生成練習已停止，也不再以日資料建立新的模擬盤。
       </p>
       {CLASSROOM_OFFLINE ? (
         <p className="mt-3 text-base leading-relaxed text-muted">
@@ -21,9 +20,9 @@ export function LiveTape() {
         </p>
       ) : (
         <div className="mt-4">
-          <RealCandlesLink>開啟已提供的真實 K 教材</RealCandlesLink>
+          <RealCandlesLink>開啟每日真實行情教材</RealCandlesLink>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            目前僅 2026/10/06、5 檔股票、09:00–10:30；不是每日自動更新或即時行情。
+            從 2026/10/21 起，每個交易日收盤後多一堂富邦的真實逐筆教材（09:00–10:30，每局 1 到 80 檔）；不是即時行情。
           </p>
         </div>
       )}

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   BOOK_GAP_NOTE,
+  BOOK_PENDING_NOTE,
   NO_BOOKS_NOTE,
   bookCellBlocked,
   bookCellLabel,
@@ -127,12 +128,59 @@ test("no book → best bid/ask from the last trade, sizes hidden", () => {
 });
 
 test("a day with books but no book for this stock yet is not told as a day without books", () => {
-  // The desk gets a stock's books with the next advance after it is picked; until then, the real best bid/ask.
+  // The desk gets a stock's books with the next advance after it is picked; until then, the real best bid/ask,
+  // and the line says when the five levels come (R8) instead of calling it a recording gap.
   const shown = displayBook({ catalog: WITH_BOOKS, book: undefined, lastTrade: trade(), playedMs: 140_000 });
   assert.equal(shown.depth, "top");
-  assert.equal(shown.note, BOOK_GAP_NOTE);
+  assert.equal(shown.note, BOOK_PENDING_NOTE);
+  assert.equal(BOOK_PENDING_NOTE, "下一分鐘起顯示這檔的五檔");
+  assert.notEqual(shown.note, BOOK_GAP_NOTE);
   assert.equal(BOOK_GAP_NOTE, "這段時間沒有五檔資料");
   assert.deepEqual([shown.bids[0].price, shown.asks[0].price], [100, 100.5]);
+});
+
+test("only a book the server did deliver can be a gap: the gap note is for an unknown stretch inside it", () => {
+  const gapped = displayBook({ catalog: WITH_BOOKS, book: book({ gaps: [[120_000, 180_000]] }), lastTrade: trade(), playedMs: 140_000 });
+  assert.equal(gapped.note, BOOK_GAP_NOTE);
+  const without = displayBook({ catalog: WITHOUT_BOOKS, book: undefined, lastTrade: trade(), playedMs: 140_000 });
+  assert.equal(without.note, NO_BOOKS_NOTE, "a day without books keeps its own line");
+});
+
+test("a recorded level that cannot be a limit price is not offered (R: levelsOf bypassed validMorningLimit)", () => {
+  const PREVIOUS = 100;
+  const odd = book({
+    start: {
+      // 0 (a market-order marker), 100.2 (off the 0.5 grid), 89 (below the ±10% floor) — and two good ones after them.
+      bids: [[0, 9], [100.2, 4], [89, 3], [99.5, 7], [99, 2]],
+      // negative, NaN, above the ceiling, then good ones.
+      asks: [[-1, 5], [Number.NaN, 5], [111, 6], [100.5, 4], [101, 3]],
+    },
+    frames: [],
+  });
+  const shown = displayBook({ catalog: WITH_BOOKS, book: odd, lastTrade: trade(), playedMs: 125_000, previousClose: PREVIOUS });
+  assert.equal(shown.depth, "full");
+  assert.deepEqual(shown.bids.map((level) => level.price), [99.5, 99]);
+  assert.deepEqual(shown.asks.map((level) => level.price), [100.5, 101]);
+  // What remains is numbered from 1, best first, and every one is a price validMorningLimit accepts.
+  assert.deepEqual(shown.bids.map((level) => level.level), [1, 2]);
+  for (const level of [...shown.bids, ...shown.asks]) assert.ok(validMorningLimit(level.price, PREVIOUS), String(level.price));
+  assert.deepEqual(shown.bids[0], { level: 1, price: 99.5, lots: 7 }, "sizes stay with their prices");
+  // Without the previous close the band cannot be checked, but a price that is not positive, finite and on the grid still is.
+  const unknown = displayBook({ catalog: WITH_BOOKS, book: odd, lastTrade: trade(), playedMs: 125_000 });
+  assert.deepEqual(unknown.bids.map((level) => level.price), [89, 99.5, 99]);
+  assert.deepEqual(unknown.asks.map((level) => level.price), [111, 100.5, 101]);
+  // A garbage previous close is as good as none.
+  const garbage = displayBook({ catalog: WITH_BOOKS, book: odd, lastTrade: trade(), playedMs: 125_000, previousClose: 0 });
+  assert.deepEqual(garbage.bids.map((level) => level.price), [89, 99.5, 99]);
+  // All levels invalid: the full book is empty, not a crash (the ladder says 目前沒有委託).
+  const empty = displayBook({
+    catalog: WITH_BOOKS,
+    book: book({ start: { bids: [[0, 1]], asks: [[-5, 1]] }, frames: [] }),
+    lastTrade: trade(),
+    playedMs: 125_000,
+    previousClose: PREVIOUS,
+  });
+  assert.deepEqual([empty.bids, empty.asks, empty.depth], [[], [], "full"]);
 });
 
 test("gap → top with the gap note", () => {

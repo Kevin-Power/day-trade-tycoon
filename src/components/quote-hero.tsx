@@ -81,7 +81,7 @@ export function QuoteHero({
             "待揭露第一分鐘"
           ) : session?.replay && trade ? (
             <>
-              <time>{formatTime(trade.second)}</time> 模擬成交 · 歷史重播
+              <time>{formatTime(trade.second)}</time> 成交 · 歷史重播
             </>
           ) : (
             <>
@@ -92,7 +92,7 @@ export function QuoteHero({
       </div>
       <p
         className="td-hero-price"
-        title={session?.replay ? "分鐘內模擬成交價，這分鐘結束時為真實收盤價" : "最新完整分鐘收價"}
+        title={session?.replay ? "這分鐘已重播到的最新成交價，播完時是這分鐘的收盤價" : "最新完整分鐘收價"}
       >
         <strong key={tick.key} data-flash={tick.flash}>
           {price(quote.last)}
@@ -159,11 +159,12 @@ export function QuoteLine({
   );
 }
 
-/** Chart toolbar: stock stepper, 江波／K線 and the data label of the active chart. */
+/** Chart toolbar: stock stepper, 江波／K線 and the lesson's data source (富邦逐筆／證交所大盤) with its date. */
 export function ChartToolbar({
   catalog,
   code,
   mode,
+  source,
   onMode,
   onSelect,
   stepper = true,
@@ -171,6 +172,8 @@ export function ChartToolbar({
   catalog: MorningCatalog;
   code: string;
   mode: "quote" | "chart";
+  /** The data source named in the chip (dataSourceLabel): 證交所大盤 only when the run has the index. */
+  source: string;
   onMode: (mode: "quote" | "chart") => void;
   onSelect: (code: string) => void;
   /** Phones step from the quote block's ◀ ▶ instead. */
@@ -227,7 +230,7 @@ export function ChartToolbar({
       </nav>
       <p className="td-chartbar-source">
         <span className="td-chip" data-kind="real">
-          {mode === "quote" ? "真實歷史 分鐘收價" : "真實歷史 1 分 K"}
+          {source}
         </span>
         <span>{catalog.date} 台北時間</span>
       </p>

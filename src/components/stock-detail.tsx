@@ -28,21 +28,13 @@ export function QuoteDetailGrid({
         ? formatTime(replayClock(session))
         : formatTime(bars.at(-1)!.t + 60).slice(0, 5)
       : "—";
-  // While a minute replays, 成交 (and the high, low, amplitude and time after it) move with simulated trades.
-  const rows = quoteDetailRows({
-    bars,
-    previousClose: symbol.previousClose,
-    time,
-    simulated: Boolean(session?.replay),
-  });
+  // While a minute replays, 成交 (and the high, low, amplitude and time after it) follow the real trades played so far.
+  const rows = quoteDetailRows({ bars, previousClose: symbol.previousClose, time });
   return (
     <dl className="td-quote-grid" aria-label={`${symbol.name}報價明細`}>
       {rows.map((row) => (
         <div key={row.label} data-tone={row.tone}>
-          <dt>
-            {row.label}
-            {row.simulated && <span className="td-sim-tag">模擬</span>}
-          </dt>
+          <dt>{row.label}</dt>
           <dd className="td-num">{row.value}</dd>
         </div>
       ))}
@@ -56,7 +48,7 @@ export type StockTab = {
   content: ReactNode;
 };
 
-/** The stock's information pages: 五檔, 明細 (simulated trades), 分鐘 (completed minutes), 詳細. */
+/** The stock's information pages: 五檔, 明細 (the real trades), 分鐘 (completed minutes), 詳細. */
 export function StockTabs({
   tabs,
   onChange,

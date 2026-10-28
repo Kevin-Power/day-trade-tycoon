@@ -4,12 +4,15 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  LICENSE_DATA,
+  LICENSE_DATA_CONFIRMED,
   LICENSE_EXCLUDED,
   LICENSE_INCLUDED,
   LICENSE_PAYMENT_NOTE,
   LICENSE_PRICING_NOTE,
   LICENSE_QUOTE,
   LICENSE_SKUS,
+  LICENSE_VERSION,
   SEAT_ROADMAP,
   SEAT_TODAY,
   licensePlainText,
@@ -67,6 +70,20 @@ describe("classroom license copy", () => {
     assert.match(lobby, /課程說明/);
     assert.match(gate, /to="\/license"/);
     assert.match(gate, /無須入場碼即可查看/);
+  });
+
+  it("says where the daily lessons' data comes from, when it was confirmed, and that the list is shown after the close", () => {
+    assert.equal(LICENSE_VERSION, "2026-10-28");
+    assert.equal(LICENSE_DATA_CONFIRMED, "2026-10-22");
+    const market = LICENSE_DATA.find((item) => item.id === "market")?.body ?? "";
+    for (const phrase of ["富邦", "逐筆", "證交所", "2026-10-22", "不是即時行情"]) assert.ok(market.includes(phrase), phrase);
+    const list = LICENSE_DATA.find((item) => item.id === "list")?.body ?? "";
+    for (const phrase of ["收盤後", "代號與名稱", "體驗訪客看不到名單"]) assert.ok(list.includes(phrase), phrase);
+    assert.match(text, /2026-10-22/);
+    assert.match(page, /LICENSE_DATA/);
+    // The list is shown without its score or level, and is never called a recommendation, a win rate or a radar.
+    for (const word of ["推薦", "勝率", "漲停雷達"]) assert.equal(text.includes(word), false, word);
+    assert.ok(list.includes("不含分數與等級"));
   });
 
   it("records P0-7/8/9 done and P1-7 progress in the roadmap", () => {

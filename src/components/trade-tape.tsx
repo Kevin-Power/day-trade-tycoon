@@ -7,8 +7,9 @@ const ROWS = 40;
 const ARROW = { up: "▲", down: "▼", same: "" } as const;
 
 /**
- * 成交明細: the replay's simulated trades of one stock, newest first. Lot sizes and 內外盤 appear only for
- * lessons whose volume is verified; otherwise the tape shows time, price and which way each trade ticked.
+ * 成交明細: the real Fubon trades of one stock that the replay has reached, newest first, each at its real second.
+ * Lot sizes and 內外盤 appear when the lesson documents its volume unit; otherwise the tape shows time, price and
+ * which way each trade ticked.
  */
 export function TradeTape({
   catalog,
@@ -25,15 +26,15 @@ export function TradeTape({
   const tone = (price: number) =>
     !symbol || price === symbol.previousClose ? "flat" : price > symbol.previousClose ? "up" : "down";
   return (
-    <section className="td-tape" data-sized={sized} aria-label="成交明細，依真實一分鐘開高低收模擬的逐筆成交">
+    <section className="td-tape" data-sized={sized} aria-label="成交明細，富邦的真實逐筆成交，依真實成交時間重播">
       <header className="td-tape-head">
         <h2>成交明細</h2>
         <span
           className="td-chip"
-          data-kind="sim"
-          title="教材只有一分鐘 K 線；每分鐘內的逐筆依真實開高低收模擬，收在真實收盤價。撮合仍以下一分鐘開盤價為準。"
+          data-kind="real"
+          title="富邦收盤後提供的真實逐筆成交，依真實成交時間重播，只顯示播放到的部分。"
         >
-          模擬逐筆
+          富邦逐筆
         </span>
       </header>
       <div className="td-tape-labels" aria-hidden="true">

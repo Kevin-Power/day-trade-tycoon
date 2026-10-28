@@ -1,4 +1,5 @@
-import type { MorningState } from "./morning.ts";
+import type { MorningFill, MorningState } from "./morning.ts";
+import { formatTime } from "./utils.ts";
 
 export type LedgerSummary = { positions: number; orders: number; pending: number; fills: number };
 
@@ -12,4 +13,14 @@ export function ledgerSummary(
     pending: session.orders.filter((order) => order.status === "pending").length,
     fills: session.fills.length,
   };
+}
+
+/**
+ * When a fill happened, as the 成交紀錄 shows it: to the second (HH:MM:SS) from the real trade's `ms`; a run made
+ * before the trades were kept has no `ms`, and shows the minute of its bar (HH:MM) from `t`, as it always did.
+ */
+export function fillClock(fill: Pick<MorningFill, "t" | "ms">): string {
+  if (typeof fill.ms === "number" && Number.isFinite(fill.ms) && fill.ms >= 0)
+    return formatTime(Math.floor(fill.ms / 1000));
+  return formatTime(fill.t).slice(0, 5);
 }

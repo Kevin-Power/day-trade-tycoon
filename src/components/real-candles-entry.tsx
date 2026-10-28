@@ -50,8 +50,8 @@ export function SyntheticChartNotice() {
         <div className="mt-2 flex min-w-0 flex-wrap items-center gap-3">
           <RealCandlesLink />
           <p className="min-w-0 flex-1 basis-52 text-sm leading-relaxed text-muted">
-            真實教室可選 2026/10/05、10/06，每日 5
-            檔股票、09:00–10:30，搭配六個練習主題。原有歷史紀錄保留，不將舊課行情視為真實分鐘 K。
+            真實教室每個交易日收盤後多一堂早盤教材（從 2026/10/21 起，09:00–10:30，每局 1 到 80
+            檔），搭配六個練習主題。原有歷史紀錄保留，不將舊課行情視為真實行情。
           </p>
         </div>
       )}

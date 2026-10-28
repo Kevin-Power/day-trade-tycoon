@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { CalendarClock, RefreshCw } from "@/lib/icons";
 import { loadMarketDataStatus } from "@/lib/market-data";
-import type { MarketDataState, MarketDataSummary } from "@/lib/market-data-status";
+import { extraLines, type MarketDataState, type MarketDataSummary } from "@/lib/market-data-status";
 import { cn } from "@/lib/utils";
 
 const STATE_TEXT: Record<MarketDataState, string> = {
@@ -98,6 +98,16 @@ export function MarketDataCard() {
                 </p>
               )}
               {summary.reason && <p className="text-warn">原因：{summary.reason}</p>}
+              <ul className="space-y-1" aria-label="逐筆、大盤與熱門當沖名單">
+                {extraLines(summary).map((line) => (
+                  <li key={line.key} className="text-muted">
+                    {line.label}：
+                    <span className={cn(line.tone === "warn" && "text-warn", line.tone === "ok" && "text-fg")}>
+                      {line.text}
+                    </span>
+                  </li>
+                ))}
+              </ul>
               {summary.missingExpectedDay && (
                 <p className="text-warn">
                   預期應有 {summary.missingExpectedDay} 的教材，請檢查排程與這台電腦是否開機。

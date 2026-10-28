@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { ArrowDownLeft, ArrowUpRight, Check, Clock3, Minus, Plus, Wallet } from "@/lib/icons";
 import type { MorningBookCell, MorningCatalog, MorningState } from "@/lib/morning";
-import { ledgerSummary } from "@/lib/morning-ledger";
+import { fillClock, ledgerSummary } from "@/lib/morning-ledger";
 import { referencePrice, serverSession, shownBook, type LiveMorningState } from "@/lib/morning-live";
 import { formatMoney, formatTime } from "@/lib/utils";
 import { estimateRoundTripCost, formatPrice, stepTick } from "@/lib/market/ticks";
@@ -101,8 +101,8 @@ export function PendingOrder({
       </p>
       <small>
         {pending.limitPrice === undefined
-          ? "前進下一分鐘後，依開盤價與資金／庫存檢核處理。"
-          : "之後每分鐘開盤價達限價才成交；未達價繼續留單，可隨時撤回。"}
+          ? "以委託後的第一筆真實成交處理，成交時重新檢核資金／庫存。"
+          : "委託後只要有成交碰到限價就成交，不考慮排隊與張數；沒碰到繼續留單，可隨時撤回。"}
       </small>
       <div className="sim-pending-actions">
         <button type="button" disabled={busy || !canAdvance} onClick={() => void onAdvance()}>
@@ -144,7 +144,6 @@ export function DisplayBook({
       previousClose={symbol?.previousClose ?? 0}
       book={shownBook(session, catalog, book, code)}
       revision={session?.revision ?? 0}
-      simulated={Boolean(session && "replay" in session && session.replay)}
       lots={1}
       holdingLots={0}
       flash={false}
@@ -406,7 +405,6 @@ export function PaperOrder({
       previousClose={symbol?.previousClose ?? 0}
       book={shownBook(session, catalog, recordedBook, code)}
       revision={session?.revision ?? 0}
-      simulated={Boolean(session && "replay" in session && session.replay)}
       lots={lots}
       holdingLots={holdingLots}
       flash={flash}
@@ -547,8 +545,8 @@ export function PaperOrder({
               )}
               <p className="sim-help">
                 {review.limitPrice === undefined
-                  ? "參考金額依已揭露收盤價計算，下一分鐘開盤價撮合。"
-                  : "依後續分鐘開盤價檢核：買進不高於限價、賣出不低於限價，未達價繼續留單。"}
+                  ? "參考金額依目前最新的成交價計算，實際以委託後的第一筆真實成交撮合。"
+                  : "委託後只要有成交碰到限價就成交：買進不高於限價、賣出不低於限價，沒碰到繼續留單。"}
                 送出當下尚未成交。
               </p>
               {staleReview && (
@@ -647,7 +645,7 @@ export function PaperOrder({
                     </button>
                   </div>
                   <strong>
-                    {orderType === "market" ? "下一分鐘開盤價撮合" : "開盤價達價才成交"}
+                    {orderType === "market" ? "委託後第一筆成交撮合" : "碰到限價就成交"}
                   </strong>
                 </div>
                 {orderType === "limit" && (
@@ -788,11 +786,11 @@ export function PaperOrder({
             <summary>撮合方式與教材費用</summary>
             <p>
               每筆 1–3
-              張，同時一筆待撮合。市價採下一分鐘開盤價；限價依之後每分鐘開盤價檢核，買進不高於限價、賣出不低於限價，未達價留單至撤回或教材結束。每次成交重新檢核資金與庫存。
+              張，同時一筆待撮合。撮合只看委託送出之後才揭露的真實成交：市價用委託後的第一筆成交價；限價買進在成交價不高於限價（賣出不低於限價）時，碰到就成交，第一筆已碰到就用那筆成交價，之後才碰到則用限價。不考慮排隊順序與那筆成交的張數，所以對學員稍微有利。沒碰到的限價單繼續留單，到撤回或 10:30 教材結束（結束時取消）。每次成交重新檢核資金與庫存。
             </p>
             <p>
               教材手續費買賣各 0.0855%（最低 20 元），賣出稅費
-              0.15%，逐筆四捨五入。五檔價量與分鐘內的逐筆跳動都是教學模擬，不代表真實排隊、成交或成交量；撮合不依分鐘高低價或模擬逐筆推算盤中成交。
+              0.15%，逐筆四捨五入。成交價與時間是富邦的真實逐筆；五檔掛單量只供參考，不用於撮合。紙上委託不會排隊，也不影響市場，結果不代表實盤。
             </p>
           </details>
           <p className="sim-ticket-footnote">教學模擬・不連接券商、不送出真實委託</p>
@@ -869,7 +867,7 @@ export function Ledger({
                 ? "目前沒有庫存"
                 : pane === "orders"
                   ? "尚未送出委託"
-                  : "尚無模擬成交"}
+                  : "尚無成交"}
             </strong>
             <p>
               {pane === "positions"
@@ -1041,7 +1039,7 @@ function ledgerRecords(
     .map((fill) => ({
       key: fill.id,
       name: name(fill.code),
-      sub: `${fill.code} · ${formatTime(fill.t).slice(0, 5)}`,
+      sub: `${fill.code} · ${fillClock(fill)}`,
       cells: [
         {
           label: "方向 / 張數",

@@ -28,7 +28,6 @@ export function MorningOrderBook({
   previousClose,
   book: shown,
   revision,
-  simulated,
   lots,
   holdingLots,
   flash,
@@ -46,8 +45,6 @@ export function MorningOrderBook({
   book: DisplayedBook;
   /** The session's revision: an order or fill refreshes a held book. */
   revision: number;
-  /** A minute is replaying, so the last price is a simulated trade. */
-  simulated: boolean;
   lots: number;
   holdingLots: number;
   flash: boolean;
@@ -128,8 +125,6 @@ export function MorningOrderBook({
             <span className="td-book-held" aria-hidden="true">
               暫停跳動
             </span>
-          ) : simulated ? (
-            "模擬成交"
           ) : (
             "最新"
           )}

@@ -69,7 +69,7 @@ test("reports read newest first: a failed send, the cancel, its send, the fill a
       { tone: "closed", time: null, text: "已撤回 · 賣出 台積電 1 張 限價 2595 · 由學員取消" },
       { tone: "sent", time: "09:36", text: "委託成功 · 賣出 台積電 1 張 限價 2595" },
       { tone: "filled", time: "09:20", text: "成交 · 買進 台積電 1 張 @ 2575" },
-      { tone: "sent", time: "09:20", text: "委託成功 · 買進 台積電 1 張 市價（待下一分鐘開盤撮合）" },
+      { tone: "sent", time: "09:20", text: "委託成功 · 買進 台積電 1 張 市價（以之後第一筆成交撮合）" },
     ],
   );
 });
@@ -102,7 +102,7 @@ test("an order the next open turned down reads 未成交 with its reason", () =>
     { tone: latest.tone, time: latest.time, text: latest.text },
     { tone: "closed", time: null, text: "未成交 · 買進 鴻海 2 張 市價 · 下一分鐘開盤價變動後，模擬資金不足，未成交" },
   );
-  assert.equal(sent.text, "委託成功 · 買進 鴻海 2 張 市價（待下一分鐘開盤撮合）");
+  assert.equal(sent.text, "委託成功 · 買進 鴻海 2 張 市價（以之後第一筆成交撮合）");
 });
 
 test("a lightning order says so", () => {
@@ -247,7 +247,7 @@ test("a 回覆不明 send the classroom turns out to have drops out of 委託回
     reports.slice(0, 2).map(({ tone, text }) => ({ tone, text })),
     [
       { tone: "unknown", text: "回覆不明 · 買進 台積電 1 張 · 暫時連不上教室，請重試同一筆操作或重新載入進度。" },
-      { tone: "sent", text: "委託成功 · 買進 台積電 1 張 市價（待下一分鐘開盤撮合）" },
+      { tone: "sent", text: "委託成功 · 買進 台積電 1 張 市價（以之後第一筆成交撮合）" },
     ],
   );
   assert.equal(reports.filter((report) => report.text.includes("超過 20 秒")).length, 0);

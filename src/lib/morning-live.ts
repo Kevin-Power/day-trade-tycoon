@@ -139,18 +139,21 @@ export function replayMs(session: LiveMorningState): number {
 /**
  * The five-level area of one stock now. `book` is what the server sent for the newest minute (one stock's); it only
  * counts for its own stock. Without it, or inside a recording gap, the real best bid and ask of the last played trade.
+ * The catalog's previous close of the stock bounds the recorded levels offered.
  */
 export function shownBook(
   session: LiveMorningState | null,
-  catalog: Pick<MorningCatalog, "booksAvailable">,
+  catalog: Pick<MorningCatalog, "booksAvailable"> & { symbols?: ReplayCatalog["symbols"] },
   book: MorningBookCell | undefined,
   code: string,
 ): DisplayedBook {
+  const previousClose = catalog.symbols?.find((symbol) => symbol.code === code)?.previousClose;
   return displayBook({
     catalog,
     book: book?.code === code ? book : undefined,
     lastTrade: session ? lastTrade(session, code) : null,
     playedMs: session ? replayMs(session) : 0,
+    ...(previousClose !== undefined ? { previousClose } : {}),
   });
 }
 

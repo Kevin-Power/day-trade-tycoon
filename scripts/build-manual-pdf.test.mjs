@@ -25,13 +25,15 @@ test("obsolete network/browser arguments cannot trigger a web request", () => {
   assert.ok(parsePdfArgs(["--output"], {}).error);
   assert.equal(parsePdfArgs([], {}).python, "");
 });
-test("manual source explains the real-minute replay and its current limits", () => {
+test("manual source explains the daily real lessons and their current limits", () => {
   assert.equal(source.pages.length, 8);
   const text = JSON.stringify(source);
   for (const term of [
     "09:00",
     "10:30",
-    "下一分鐘開盤價",
+    "富邦逐筆",
+    "熱門當沖",
+    "1 到 80 檔",
     "1,000 萬元",
     "保存復盤",
     "註冊帳號不等於完成繳費",
@@ -39,6 +41,24 @@ test("manual source explains the real-minute replay and its current limits", () 
   ])
     assert.ok(text.includes(term), term);
   assert.doesNotMatch(text, /Grok|45 分鐘|註冊時班級代碼填 TEACHER|個股分時.*套用大盤節奏/);
+  // The first lessons (Yahoo minutes of 10/05 and 10/06), the old fill at the next open and the made-up ticks are gone.
+  assert.doesNotMatch(text, /Yahoo|10\/05|10\/06|下一分鐘開盤價|模擬逐筆/);
+  // The list is never called a recommendation, a win rate or the radar.
+  assert.doesNotMatch(text, /推薦|勝率|漲停雷達/);
+});
+test("manual source tells the matching rule, the real books and the default 自選", () => {
+  const text = JSON.stringify(source);
+  for (const term of [
+    "委託後第一筆",
+    "不考慮排隊",
+    "對學員稍微有利",
+    "真實五檔",
+    "買一賣一",
+    "前一交易日的熱門當沖名單",
+    "成交值前 5 名",
+    "從 2026/10/21 起",
+  ])
+    assert.ok(text.includes(term), term);
 });
 test("static PDF exists for the learner manual download", () => {
   assert.equal(existsSync(pdf), true);
@@ -47,7 +67,7 @@ test("static PDF exists for the learner manual download", () => {
 });
 test("manual source describes today's trading desk, not the old one", () => {
   const text = JSON.stringify(source);
-  for (const term of ["江波圖", "EMA11", "EMA24", "加權指數", "限價", "閃電即送", "大額委託", "委託回報", "模擬逐筆", "教學模擬"])
+  for (const term of ["江波圖", "EMA11", "EMA24", "加權指數", "限價", "閃電即送", "大額委託", "委託回報", "教學模擬"])
     assert.ok(text.includes(term), term);
   assert.doesNotMatch(text, /沒有掛限價|閃電下單也不在|自動播放 · 每 2 秒 1 分鐘|收價連線|暫停重播/);
 });

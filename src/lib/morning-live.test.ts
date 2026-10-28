@@ -229,6 +229,16 @@ test("the five levels follow the replay: the recorded book at the moment played,
   const traded = shownBook(session(), { booksAvailable: false }, undefined, "2317");
   assert.deepEqual([traded.depth, traded.bids[0].price, traded.asks[0].price], ["top", 101, 102]);
   assert.equal(traded.note, "這天沒有五檔掛單資料");
+  // On a day with books, the stock just picked has none until the next advance brings it (R8): the line says when.
+  const pending = shownBook(live(0.25), BOOKS_DAY, undefined, "2317");
+  assert.equal(pending.note, "下一分鐘起顯示這檔的五檔");
+  assert.equal(shownBook(live(0.25), BOOKS_DAY, BOOK, "2330").note, "下一分鐘起顯示這檔的五檔", "another stock's book is not this stock's");
+  const gapped = shownBook(live(0.25), BOOKS_DAY, { ...BOOK, gaps: [[120_000, 180_000]] }, "2317");
+  assert.equal(gapped.note, "這段時間沒有五檔資料", "a gap inside this stock's own book keeps the gap line");
+  // The previous close of the catalog's stock bounds the levels shown.
+  const wild: MorningBookCell = { ...BOOK, start: { bids: [[100, 10], [0, 1], [80, 2]], asks: [[100.5, 12], [130, 3]] }, frames: [] };
+  const bounded = shownBook(live(0), { ...BOOKS_DAY, symbols: [{ code: "2317", previousClose: 99 }] }, wild, "2317");
+  assert.deepEqual([bounded.bids.map((level) => level.price), bounded.asks.map((level) => level.price)], [[100], [100.5]]);
   // Before a run there is nothing to show but the note.
   const preview = shownBook(null, { booksAvailable: false }, undefined, "2317");
   assert.deepEqual([preview.bids, preview.asks, preview.depth], [[], [], "top"]);

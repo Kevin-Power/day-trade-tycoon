@@ -233,8 +233,7 @@ export function PlanForm({
         )}
         {choice === "custom" && startBlock}
         <div className="border border-border bg-bg p-2 text-xs leading-relaxed text-muted">
-          本課紙上資金為新臺幣 1,000 萬元，每筆 1–3 張。價格來自歷史分鐘
-          K；學員成交依教材模型估算，不是真實成交回放。
+          本課紙上資金為新臺幣 1,000 萬元，每筆 1–3 張。行情是富邦的真實逐筆成交；你的紙上委託依教材規則撮合（碰到就成交，不考慮排隊與張數），不是真實成交。
         </div>
         {onCancel && (
           <button

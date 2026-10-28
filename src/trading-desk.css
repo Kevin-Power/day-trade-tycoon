@@ -169,11 +169,6 @@
   background: var(--td-down);
   border-radius: 50%;
 }
-.trading-desk .td-chip[data-kind="sim"] {
-  color: var(--td-warn);
-  border-color: rgb(230 184 110 / 0.55);
-  background: rgb(230 184 110 / 0.08);
-}
 
 /* The shared primary button (plan start, 再試一次) carries white text: same deep fill as .td-button. */
 .trading-desk .bg-brand {
@@ -427,56 +422,9 @@
 .trading-desk .td-feedback {
   color: #9ce6ce;
 }
-/* The lesson's notice about the simulated replay, at the top of the centre column until dismissed; the order
-   column beside it keeps its full height. */
-.trading-desk .td-notice {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 8px 12px;
-  padding: 8px 14px;
-  background: rgb(230 184 110 / 0.08);
-  border-bottom: var(--td-hairline) solid rgb(230 184 110 / 0.35);
-  font-size: 13px;
-  line-height: 1.55;
-}
-.trading-desk .td-notice p {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  color: var(--td-fg);
-}
-.trading-desk .td-notice :is(.td-chip, .td-button) {
-  flex: none;
-}
-/* Desktops and tablets: over the top of the chart row, so the chart keeps its full height. */
+/* Desktops and tablets: the chart row is the positioning context of what floats over the chart. */
 .trading-desk .td-chart-row {
   position: relative;
-}
-.trading-desk .td-notice[data-floating="true"] {
-  position: absolute;
-  inset: 8px 10px auto;
-  z-index: 4;
-  background: #1d1a14;
-  border: 1px solid rgb(230 184 110 / 0.55);
-  border-radius: var(--td-radius);
-  box-shadow: 0 6px 18px rgb(0 0 0 / 0.45);
-}
-.trading-desk .td-notice .td-button {
-  min-height: 44px;
-}
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-notice {
-  flex-wrap: wrap;
-  font-size: 14px;
-}
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-notice p {
-  flex-basis: 100%;
-}
-.trading-desk[data-layout="senior"] .td-notice {
-  font-size: 16px;
-}
-.trading-desk[data-layout="senior"] .td-notice .td-button {
-  min-height: 56px;
 }
 .trading-desk .td-banner {
   display: flex;
@@ -1178,16 +1126,6 @@
   color: var(--td-tone);
   font: 600 24px/1 var(--font-mono);
   text-align: right;
-}
-/* 買價／賣價 come from the teaching book, so each box says 模擬. */
-.trading-desk .td-sim-tag {
-  margin-left: 6px;
-  padding: 0 4px;
-  color: var(--td-warn);
-  border: 1px solid rgb(230 184 110 / 0.5);
-  border-radius: 3px;
-  font-size: 11px;
-  line-height: 14px;
 }
 @container (max-width: 760px) {
   .trading-desk .td-hero {
@@ -2739,7 +2677,7 @@
 .trading-desk[data-layout="senior"] .td-hero-book dd {
   font-size: 30px;
 }
-.trading-desk[data-layout="senior"] :is(.td-sim-tag, .td-chip) {
+.trading-desk[data-layout="senior"] .td-chip {
   font-size: 13px;
   line-height: 18px;
 }

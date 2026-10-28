@@ -13,7 +13,6 @@ import { DeskBar, HintBar, LessonSelect, StatusBar } from "@/components/morning-
 import { LessonPicker } from "@/components/lesson-picker";
 import { AbandonRun, RunRecords } from "@/components/run-records";
 import { REPLAY_DELAY, type ReplaySpeed } from "@/lib/replay-speed";
-import { ReplayNotice } from "@/components/replay-notice";
 import { TradeTape } from "@/components/trade-tape";
 import { useTickReplay } from "@/components/use-tick-replay";
 import {
@@ -55,7 +54,7 @@ import {
   type LocalOrderFailure,
   type SendOutcome,
 } from "@/lib/morning-orders";
-import { INDEX_EMPTY_TEXT, indexAvailability } from "@/lib/morning-index";
+import { INDEX_EMPTY_TEXT, dataSourceLabel, indexAvailability } from "@/lib/morning-index";
 import {
   replayClock,
   settledSession,
@@ -967,8 +966,6 @@ function MorningLesson({
       marketSession && replaying ? withoutNewestMinute(marketSession) : (marketSession ?? null),
     [marketSession, replaying],
   );
-  // The lesson's approved notice about the simulated replay greets learners at the top of the desk.
-  const replayNotice = catalog?.notices.find((text) => text.includes("模擬逐筆"));
   const orderTicket = catalog ? (
     <PaperOrder
       key={`${marketSession?.id ?? "preview"}:${code}`}
@@ -991,22 +988,23 @@ function MorningLesson({
       prefill={singlePane ? prefill : undefined}
     />
   ) : null;
+  // Before 09:00 is revealed the pane waits; only a run without index data says the lesson has none.
+  const indexState = indexAvailability({
+    hasRun: Boolean(marketSession),
+    series: liveMarket?.index,
+  });
   const chartBar = catalog ? (
     <ChartToolbar
       catalog={catalog}
       code={code}
       mode={chartMode}
+      source={dataSourceLabel(indexState)}
       onMode={setChartMode}
       onSelect={setSelected}
       stepper={!singlePane}
     />
   ) : null;
   const replayClockText = liveMarket ? formatTime(replayClock(liveMarket)) : "09:00:00";
-  // Before 09:00 is revealed the pane waits; only a run without index data says the lesson has none.
-  const indexState = indexAvailability({
-    hasRun: Boolean(marketSession),
-    series: liveMarket?.index,
-  });
   const indexEmptyText = indexState === "ready" ? "" : INDEX_EMPTY_TEXT[indexState];
   const indexPanel = (
     <IndexPanel series={liveMarket?.index} clock={replayClockText} placeholder={indexEmptyText} />
@@ -1319,9 +1317,6 @@ function MorningLesson({
                   </div>
                 )}
                 <div className="td-center" data-pane="center">
-                  {singlePane && replayNotice && (
-                    <ReplayNotice key={replayNotice} text={replayNotice} />
-                  )}
                   {singlePane && (activePane !== "market" || indexView) && (
                     <h1 className="sr-only" ref={practiceHeading} tabIndex={-1}>
                       真實歷史行情・模擬交易工作台
@@ -1345,9 +1340,6 @@ function MorningLesson({
                     {singlePane && activePane === "market" && indexView && indexPanel}
                     {(!singlePane || (activePane === "market" && !indexView)) && (
                       <div className="td-chart-row">
-                        {!singlePane && replayNotice && (
-                          <ReplayNotice key={replayNotice} text={replayNotice} floating />
-                        )}
                         <MorningChart
                           catalog={catalog}
                           session={liveMarket}
@@ -1650,7 +1642,7 @@ function MorningLesson({
                     </label>
                   </div>
                   <p className="px-3 pb-3 text-sm text-muted">
-                    兩日分別保存進度；完成本輪復盤後可換主題。同日重練可能已知道後續行情。
+                    每個交易日分別保存進度；完成本輪復盤後可換主題。同日重練可能已知道後續行情。
                   </p>
                   {session &&
                     !completed &&
@@ -1684,7 +1676,7 @@ function MorningLesson({
                 <details className="td-section">
                   <summary>資料來源與本課使用說明</summary>
                   <ul className="list-disc space-y-2 px-6 pb-4 text-sm text-muted">
-                    {catalog.notices.map((item) => (
+                    {[...DATA_NOTES, ...catalog.notices].map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
@@ -1790,6 +1782,13 @@ function ExerciseGuide({ exercise, compact }: { exercise: MorningExercise; compa
   );
 }
 
+/** What every daily lesson says about its data, under 「資料來源與本課使用說明」 (a lesson's own notices follow). */
+const DATA_NOTES = [
+  "價格來源：富邦收盤後提供的逐筆成交與 1 分 K，依真實成交時間重播；大盤是證交所每 5 秒的加權指數。",
+  "五檔：有錄到的日子顯示真實五檔，其他日子只有買一賣一，不補出沒有的掛單。",
+  "紙上委託：市價用委託後的第一筆真實成交；限價碰到就成交，不考慮排隊與張數，對學員稍微有利。不連接券商。",
+] as const;
+
 function Background({
   catalog,
   expanded = false,
@@ -1805,9 +1804,11 @@ function Background({
           先讀背景與教材規則
         </summary>
         <div className="mt-4">
-          <p className="rounded-xl border border-warn/25 bg-warn/5 p-3 text-base leading-relaxed">
-            以下是事後蒐集的歷史參考，未驗證每筆在當日 09:00 前已可取得，不能視為嚴格盤前快照。
-          </p>
+          {catalog.context.length > 0 && (
+            <p className="rounded-xl border border-warn/25 bg-warn/5 p-3 text-base leading-relaxed">
+              以下是事後蒐集的歷史參考，未驗證每筆在當日 09:00 前已可取得，不能視為嚴格盤前快照。
+            </p>
+          )}
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {catalog.context.map((item) => (
               <dl
@@ -1820,17 +1821,21 @@ function Background({
               </dl>
             ))}
           </div>
-          <h3 className="mt-6 text-xl font-semibold">這一課，先練習怎麼觀察</h3>
-          <ol className="mt-4 space-y-4">
-            {catalog.strategy.map((item, index) => (
-              <li key={item} className="flex items-start gap-3 text-base leading-relaxed">
-                <span className="mt-0.5 shrink-0 font-mono text-brand">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <span className="min-w-0">{item}</span>
-              </li>
-            ))}
-          </ol>
+          {catalog.strategy.length > 0 && (
+            <>
+              <h3 className="mt-6 text-xl font-semibold">這一課，先練習怎麼觀察</h3>
+              <ol className="mt-4 space-y-4">
+                {catalog.strategy.map((item, index) => (
+                  <li key={item} className="flex items-start gap-3 text-base leading-relaxed">
+                    <span className="mt-0.5 shrink-0 font-mono text-brand">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span className="min-w-0">{item}</span>
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
           {catalog.videoUrl ? (
             <a
               href={catalog.videoUrl}
@@ -1912,7 +1917,7 @@ function MorningChart({
             priceBand={candles ? undefined : JIANGBO_BAND}
             emaPeriods={DESK_EMA_PERIODS}
             interactive
-            ariaLabel={`${catalog.date} ${code} ${symbol.name}歷史${candles ? "一分鐘K線" : "江波圖（昨收上下 10%）"}，含 EMA11、EMA24（一分鐘收盤價），只包含已揭露分鐘，最新一分鐘以模擬逐筆重播後收在真實收盤價，${sourceBacked ? "含均價與成交量（張）" : "不顯示成交量或均價"}。${lastComplete ? `最新完整分鐘 ${formatTime(lastComplete.t).slice(0, 5)} 開 ${formatPrice(lastComplete.o)} 高 ${formatPrice(lastComplete.h)} 低 ${formatPrice(lastComplete.l)} 收 ${formatPrice(lastComplete.c)}。` : "第一分鐘重播中。"}`}
+            ariaLabel={`${catalog.date} ${code} ${symbol.name}歷史${candles ? "一分鐘K線" : "江波圖（昨收上下 10%）"}，含 EMA11、EMA24（一分鐘收盤價），只包含已揭露分鐘，最新一分鐘依富邦的真實逐筆成交重播，播完時是這分鐘的收盤價，${sourceBacked ? "含均價與成交量（張）" : "不顯示成交量或均價"}。${lastComplete ? `最新完整分鐘 ${formatTime(lastComplete.t).slice(0, 5)} 開 ${formatPrice(lastComplete.o)} 高 ${formatPrice(lastComplete.h)} 低 ${formatPrice(lastComplete.l)} 收 ${formatPrice(lastComplete.c)}。` : "第一分鐘重播中。"}`}
           />
         ) : (
           <div className="td-chart-waiting">
@@ -1969,8 +1974,8 @@ function MorningDataDetails({
           >
             <table>
               <caption>
-                {catalog.date} · {symbol.name} {symbol.code} · Yahoo Finance 原始
-                OHLC。時間為分鐘起點，整根於下一分鐘揭露。
+                {catalog.date} · {symbol.name} {symbol.code} · 富邦 1 分 K（已與逐筆成交核對）。
+                時間為分鐘起點，整根於下一分鐘揭露。
               </caption>
               <thead>
                 <tr>
@@ -1995,14 +2000,13 @@ function MorningDataDetails({
           </div>
         )}
         <p>
-          K 線直接使用來源開高低收，該分鐘完成後才揭露。揭露後，交易台用約 2
-          秒的模擬逐筆重播這一分鐘：價格只在這分鐘真實的最高與最低之間跳動，最後收在真實收盤價；成交明細與分鐘內的跳動都是模擬，不是真實逐筆紀錄，撮合仍以下一分鐘開盤價為準。江波圖只連接各分鐘收價，點位標在分鐘結束時間，刻度固定為昨收上下 10%；缺漏區間保留斷線。EMA11、EMA24 以已揭露的一分鐘收盤價計算，從 09:00 第一分鐘起算，只供觀察。點按圖表或用左右方向鍵查看資料。
+          K 線直接使用富邦 1 分 K 的開高低收，該分鐘完成後才揭露。揭露後，交易台把這一分鐘內富邦的真實逐筆成交，照它們真實的秒數在幾秒內重播，播完時收在這分鐘的收盤價。撮合只看委託送出之後才揭露的真實成交。江波圖只連接各分鐘收價，點位標在分鐘結束時間，刻度固定為昨收上下 10%；沒有成交的分鐘保持原價。EMA11、EMA24 以已揭露的一分鐘收盤價計算，從 09:00 第一分鐘起算，只供觀察。點按圖表或用左右方向鍵查看資料。
         </p>
         <p>
-          來源：Yahoo Finance 歷史 1 分鐘 OHLC。這是真實歷史分鐘 K，尚非富邦即時或逐筆江波行情。
+          來源：富邦收盤後提供的逐筆成交與 1 分 K，大盤是證交所每 5 秒的加權指數。這是真實歷史行情的重播，不是即時行情。
         </p>
         <p>
-          分鐘量尚未核對，不顯示量柱、均價或量能訊號，成交明細也不顯示張數；沒有真實五檔或逐筆。資料缺漏不會以生成價格補齊。
+          成交量以張計；五檔在有錄到的日子顯示真實五檔，其他日子只有買一賣一。資料缺漏不會以生成價格補齊。
         </p>
       </div>
     </details>

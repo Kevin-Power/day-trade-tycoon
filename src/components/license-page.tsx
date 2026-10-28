@@ -23,6 +23,7 @@ import { DISCLAIMER } from "@/lib/provenance";
 import { useGate } from "@/lib/gate/context";
 import { MORNING_EXERCISES } from "@/lib/morning-exercises";
 import {
+  LICENSE_DATA,
   LICENSE_EXCLUDED,
   LICENSE_INCLUDED,
   LICENSE_LEAD,
@@ -252,8 +253,8 @@ function Courses() {
   return (
     <Section id="courses" eyebrow="三階段 · 六組課程任務" title="從跟著做，到自己完成復盤">
       <p className="max-w-3xl text-base leading-8 text-muted">
-        六個主題已接上真實歷史 K 線，可選 2026/10/05 或 10/06，每日 5
-        檔股票、09:00–10:30。主題共用這兩日行情，並非六種預設走勢；實際堂數、上課節奏與講師回饋安排，由開課班級確認。
+        六個主題用富邦的真實逐筆行情練習。從 2026/10/21 起，每個交易日收盤後多一堂早盤教材（09:00–10:30），每局 1 到 80
+        檔股票。主題共用當天行情，並非六種預設走勢；實際堂數、上課節奏與講師回饋安排，由開課班級確認。
       </p>
       <div className="mt-8 space-y-8">
         {STAGES.map((stage, stageIndex) => {
@@ -337,7 +338,7 @@ function Practice() {
           },
           {
             title: "自己操作，逐步核對",
-            body: "逐分鐘觀看真實歷史 K 線。紙上委託以下一分鐘開盤價處理；條件沒出現時，也可以選擇等待。",
+            body: "逐分鐘觀看真實行情。紙上委託以委託後的第一筆真實成交處理，限價碰到就成交、不考慮排隊；條件沒出現時，也可以選擇等待。",
           },
           {
             title: "打開復盤，看見足跡",
@@ -393,7 +394,7 @@ function Devices() {
         />
       </div>
       <p className="mt-4 text-base leading-7 text-muted">
-        真實 K 線版使用逐分鐘紙上委託。五檔與閃電下單待有對應真實資料及完成串接後再開放。
+        真實行情版使用逐分鐘紙上委託與閃電下單（僅教室模擬）。五檔在有錄到的日子顯示真實五檔，其他日子只有買一賣一。
       </p>
     </Section>
   );
@@ -452,6 +453,11 @@ function Included() {
     <Section id="included" eyebrow="教材與使用範圍" title="教室授權／班級方案">
       <div className="grid gap-4 sm:grid-cols-2">
         {LICENSE_INCLUDED.map((item) => (
+          <Fact key={item.id} label={item.title} body={item.body} />
+        ))}
+      </div>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2" aria-label="行情資料與授權">
+        {LICENSE_DATA.map((item) => (
           <Fact key={item.id} label={item.title} body={item.body} />
         ))}
       </div>

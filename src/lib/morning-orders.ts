@@ -146,7 +146,7 @@ export function orderReports(
         time: clock(order.submittedCursor * 60),
         tone: "sent",
         text: `委託成功 · ${order.entryMode === "lightning" ? "閃電 · " : ""}${subject} ${how(order.limitPrice)}${
-          order.limitPrice === undefined ? "（待下一分鐘開盤撮合）" : ""
+          order.limitPrice === undefined ? "（以之後第一筆成交撮合）" : ""
         }`,
       },
     });
