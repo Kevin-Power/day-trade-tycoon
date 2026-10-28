@@ -15,6 +15,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Callable
 
+from .radar import KIND as RADAR_KIND
 from .taiex import LAST_SECOND, SOURCE as TAIEX_SOURCE, check_previous_close
 
 DAY_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -421,6 +422,58 @@ class MarketStore:
         (staging / "manifest.json").write_bytes(_json_bytes(manifest, indent=1))
         target.parent.mkdir(parents=True, exist_ok=True)
         _replace(staging, target)
+
+    # The 當沖 list from the user's sheet, one file per day (radar/<day>.json): code and name only, kept for good and
+    # written once, so that a lesson can be replayed. A later change in the sheet is only noted in the log.
+    def _radar_path(self, day: str | date) -> Path:
+        return self.root / "radar" / f"{_day_name(day)}.json"
+
+    def radar_dates(self) -> list[str]:
+        folder = self.root / "radar"
+        if not folder.is_dir():
+            return []
+        return sorted(path.stem for path in folder.glob("*.json") if DAY_NAME.match(path.stem) and path.is_file())
+
+    def read_radar(self, day: str | date) -> dict | None:
+        """A stored day, or None when it is not stored or does not read as what write_radar wrote (its hash included)."""
+        name = _day_name(day)
+        try:
+            stored = json.loads(self._radar_path(name).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        if not (isinstance(stored, dict) and type(stored.get("schema")) is int and stored["schema"] == 1
+                and stored.get("date") == name and stored.get("kind") == RADAR_KIND
+                and isinstance(stored.get("fetchedAt"), str) and isinstance(stored.get("symbols"), list)):
+            return None
+        symbols = stored["symbols"]
+        if not all(isinstance(entry, dict) and set(entry) == {"code", "name"}
+                   and isinstance(entry["code"], str) and isinstance(entry["name"], str) for entry in symbols):
+            return None
+        return stored if stored.get("sha256") == hashlib.sha256(_json_bytes(symbols)).hexdigest() else None
+
+    def write_radar(self, day: str | date, symbols: list[tuple[str, str]], fetched_at: datetime) -> bool:
+        """Stores a day's list as (code, name) pairs; True when written. A day already stored is never overwritten:
+        False, and the log of the day of `fetched_at` says so when the list now differs."""
+        name = _day_name(day)
+        entries = [{"code": code, "name": label} for code, label in symbols]
+        if not entries:
+            raise ValueError("a day's list needs a stock")
+        target = self._radar_path(name)
+        if target.exists():
+            stored = self.read_radar(name)
+            if stored is None:
+                message = f"已存的 {name} 名單讀不出來，沒有覆蓋"
+            elif {(entry["code"], entry["name"]) for entry in stored["symbols"]} != {
+                    (entry["code"], entry["name"]) for entry in entries}:
+                message = f"試算表的 {name} 名單和已存的不同"
+            else:
+                return False
+            self.log(fetched_at.date().isoformat(), message, fetched_at)
+            return False
+        _write_atomic(target, _json_bytes({
+            "schema": 1, "date": name, "kind": RADAR_KIND, "fetchedAt": fetched_at.isoformat(timespec="seconds"),
+            "sha256": hashlib.sha256(_json_bytes(entries)).hexdigest(), "symbols": entries}, indent=1))
+        return True
 
     def reconcile(self) -> None:
         """Repairs a publish interrupted after its day folder moved: index entry and raw evidence."""
