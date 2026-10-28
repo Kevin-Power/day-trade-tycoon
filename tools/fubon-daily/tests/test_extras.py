@@ -242,6 +242,29 @@ class ExtrasTest(unittest.TestCase):
         self.assertEqual(self.status()["radar"]["outcome"], "failed")
         self.assertEqual(self.status()["radar"]["reason"], "試算表欄位改了")
 
+    def test_a_sheet_whose_rows_were_all_skipped_is_a_failure_not_ok(self):
+        self.run_extras(radar_read=lambda: values("2026-10-27"), radar_config_present=True)
+        bad = [list(HEADER),
+               ["2026-10-28", "當沖", "", "台積電", "", "", "", "", "", "", ""],   # no code
+               ["10/28", "當沖", "2330", "台積電", "", "", "", "", "", "", ""],    # not a date
+               ["2026-10-28", "", "2317", "鴻海", "", "", "", "", "", "", ""],      # no kind
+               ["2026-10-28", "隔日衝", "2454", "聯發科", "", "", "", "", "", "", ""]]  # another kind: not counted
+        self.run_extras(radar_read=lambda: bad, radar_config_present=True)
+        self.assertEqual(self.status()["radar"], {
+            "outcome": "failed", "reason": "試算表沒有可用的當沖列", "latest": "2026-10-27", "symbols": 1,
+            "stored": [], "finishedAt": "2026-10-30T17:05:00+08:00"})
+        self.assertEqual(self.store.radar_dates(), ["2026-10-27"])
+        self.assertIn("名單：試算表有 3 列不能用，已略過", self.log_text())
+        self.assertIn("名單：失敗：試算表沒有可用的當沖列", self.log_text())
+        # A sheet with only the header (or only other kinds) skipped nothing: nothing new, still ok.
+        for rows in ([list(HEADER)], [list(HEADER), bad[-1]]):
+            with self.subTest(rows=len(rows)):
+                self.run_extras(radar_read=lambda: rows, radar_config_present=True)
+                self.assertEqual((self.status()["radar"]["outcome"], self.status()["radar"]["reason"]), ("ok", None))
+        # One usable 當沖 row among skipped ones is still ok: the skipped rows are only logged.
+        self.run_extras(radar_read=lambda: bad + values("2026-10-28")[1:], radar_config_present=True)
+        self.assertEqual((self.status()["radar"]["outcome"], self.status()["radar"]["stored"]), ("ok", ["2026-10-28"]))
+
     def test_a_day_that_cannot_be_written_does_not_stop_the_others(self):
         real = MarketStore.write_radar
 

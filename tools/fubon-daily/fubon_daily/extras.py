@@ -25,6 +25,8 @@ TAIEX_SPACING = 2.0
 TAIEX_UNEXPECTED = "大盤處理時發生未預期的錯誤"
 RADAR_UNEXPECTED = "名單處理時發生未預期的錯誤"
 RADAR_WRITE_FAILED = "名單存檔失敗"
+# Rows were skipped and not one 當沖 row was usable: the sheet changed in a way the header check cannot see.
+RADAR_NO_ROWS = "試算表沒有可用的當沖列"
 STATUS_LOST = "狀態檔寫入失敗"
 
 
@@ -116,6 +118,8 @@ def _radar(store: MarketStore, log: _Log, now: datetime, radar_read: Callable[[]
         lists, skipped = radar.parse_values(radar_read())
         if skipped:
             log(f"名單：試算表有 {skipped} 列不能用，已略過")
+            if not lists:
+                raise radar.RadarError(RADAR_NO_ROWS)
         for day in radar.dates_to_store(lists, set(store.radar_dates()), now.date()):
             try:
                 if store.write_radar(day, lists[day], now):
