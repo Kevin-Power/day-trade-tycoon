@@ -94,9 +94,16 @@ test("old run opens text-only", () => withMarket(async (dir) => {
     await classroom.db.query("UPDATE morning_sessions SET completed = TRUE WHERE id = $1", [finished]);
     const other = served(await api(classroom, "").get("alice", OLD_ID_2));
     assert.deepEqual([other.retired, other.state!.id, other.state!.completed, other.state!.reflection, other.catalog.date], [true, finished, true, "完成", "2026-10-06"]);
-    // Nobody else's run, and no run at all, is served.
-    await assert.rejects(api(classroom, dir).get("bob", OLD_ID), { status: 404, message: "這堂舊課已停用" });
-    await assert.rejects(api(classroom, dir).get("guest", OLD_ID), { status: 404 });
+    // Nobody else's run is served. A learner with no run of the old lesson (an old link, a guest) gets what a GET
+    // with no lesson gives: the newest day's picker, or the classroom's sentence when it has no daily lessons.
+    for (const user of ["bob", "guest"]) {
+      const noRun = served(await api(classroom, dir).get(user, OLD_ID));
+      assert.deepEqual([noRun.retired, noRun.state, noRun.picker?.date], [undefined, null, "2026-10-28"], user);
+      assert.deepEqual(noRun, served(await api(classroom, dir).get(user)), user);
+      assert.ok(!JSON.stringify(noRun).includes(OLD_ID), `${user}: nothing of the old lesson`);
+    }
+    assert.deepEqual(await api(classroom, "").get("bob", OLD_ID), await api(classroom, "").get("bob"));
+    assert.ok("unavailable" in (await api(classroom, "").get("bob", OLD_ID)));
     // A run saved without its id still opens, under the id it is stored with.
     const bare = await seed(classroom, "bob", OLD_ID, { id: undefined });
     assert.equal(served(await api(classroom, "").get("bob", OLD_ID)).state!.id, bare);

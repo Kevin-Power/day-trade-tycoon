@@ -187,7 +187,8 @@ function checkStart(action: Extract<MorningAction, { action: "start" }>, picker:
  * GET /api/morning. Always use a transaction-bound SQL handle and the user ID from the verified cookie session.
  * The lesson asked for shows its latest run, finished or not; with none asked for, the latest unfinished run, else
  * the newest day's picker. A retired lesson asked for by id shows its latest run as text only (`retired: true`), with
- * or without daily lessons. A guest's picker and wording never use the 當沖 list. A run whose day's data cannot be
+ * or without daily lessons; with no run of the learner's on it (an old link), the reply is a GET's with no lesson asked
+ * for (POSTs on it keep their errors). A guest's picker and wording never use the 當沖 list. A run whose day's data cannot be
  * read now never locks the learner out: the day's picker (the newest day's, when none was asked for) opens instead,
  * and an unfinished one is named in `blockedRun`, as it can still be finished or abandoned.
  */
@@ -195,19 +196,22 @@ export async function loadMorningSession(sql: Sql, userId: string, options: Morn
   const access = await requirePracticeAccess(sql, userId);
   const guest = access.kind === "guest";
   const market = marketOf(options);
-  const target = await resolveMorningSource(options.params ?? new URLSearchParams(), { openLessonIds: () => openLessonIds(sql, userId) }, market);
+  const user = { openLessonIds: () => openLessonIds(sql, userId) };
+  let target = await resolveMorningSource(options.params ?? new URLSearchParams(), user, market);
+  if (target.kind === "retired") {
+    // The latest run of the retired lesson, finished or not, as text.
+    const rows = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions
+      WHERE user_id = ${userId} AND lesson_id = ${target.lessonId} ORDER BY created_at DESC, id DESC LIMIT 1`;
+    if (rows[0]) return { ...retiredReply(retiredRun(rows[0]), target.date), records: await readRunRecords(sql, userId) };
+    // No run of the learner's on it (an old link): what a GET with no lesson asked for gives.
+    target = await resolveMorningSource(new URLSearchParams(), user, market);
+  }
   if (target.kind === "unavailable") {
     // The runs are the learner's own, not the classroom's: they list (and open, by their lesson) without daily lessons.
     const records = await readRunRecords(sql, userId);
     return { unavailable: target.unavailable, ...(records.length ? { records } : {}) };
   }
-  if (target.kind === "retired") {
-    // The latest run of the retired lesson, finished or not, as text; no run of the learner's is a lesson that is closed.
-    const rows = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions
-      WHERE user_id = ${userId} AND lesson_id = ${target.lessonId} ORDER BY created_at DESC, id DESC LIMIT 1`;
-    if (!rows[0]) throw new MorningError(404, RETIRED_LESSON);
-    return { ...retiredReply(retiredRun(rows[0]), target.date), records: await readRunRecords(sql, userId) };
-  }
+  if (target.kind === "retired") throw new MorningError(404, RETIRED_LESSON); // a GET with no lesson is never one
   const { date, lessonId } = target;
   let rows: SessionRow[] = [];
   if (target.from === "query")
