@@ -3862,10 +3862,16 @@
 .trading-desk[data-layout="senior"] .td-watch-table {
   --td-watch-row: 56px;
 }
-/* The second max-height wins where dvh exists (the first is its fallback). The 1px is for fractions. */
+/* Half the screen, or the sticky block plus five rows when that is more (ruling R9). The 1px is for fractions.
+   The dvh height is in @supports, not a second declaration: a declaration with var() is only checked when it is
+   used, so a browser without dvh would drop it then and end with max-height: none instead of the vh one. */
 .trading-desk:is([data-layout="tablet"], [data-layout="phone"], [data-layout="senior"]) .td-watch-table {
   max-height: max(50vh, calc(var(--td-watch-fixed, 0px) + 5 * var(--td-watch-row) + 1px));
-  max-height: max(50dvh, calc(var(--td-watch-fixed, 0px) + 5 * var(--td-watch-row) + 1px));
+}
+@supports (height: 1dvh) {
+  .trading-desk:is([data-layout="tablet"], [data-layout="phone"], [data-layout="senior"]) .td-watch-table {
+    max-height: max(50dvh, calc(var(--td-watch-fixed, 0px) + 5 * var(--td-watch-row) + 1px));
+  }
 }
 .trading-desk .td-watch-fixed {
   position: sticky;
