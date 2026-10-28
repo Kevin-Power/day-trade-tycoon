@@ -576,9 +576,17 @@
   display: grid;
   height: 100%;
   grid-template-columns: minmax(0, 1fr) 300px clamp(380px, 30vw, 500px);
-  /* The top row is never shorter than the 自選 table, so every stock stays in view; the ticket row gives way
-     (its pane scrolls, the send button stays pinned) before the ledger drops under 150px. */
-  grid-template-rows: minmax(min-content, 25vh) minmax(0, auto) minmax(150px, 1fr);
+  /* 自選 holds up to 80 stocks and scrolls in place, so its content no longer sets the top row. The row is a
+     quarter of the screen, and never less than the table's title bar and column names plus six rows (the TAIEX
+     and the usual five stocks stay in view whole) and the pane's 1px border. The note's second line (a list
+     with stocks left out; such a list is long, so it scrolls anyway) is not counted: the chart keeps its height.
+     The ticket row gives way (its pane scrolls, the send button stays pinned) before the ledger drops under
+     150px. */
+  --td-watch-row: 28px;
+  --td-watch-bars: 58px;
+  grid-template-rows:
+    max(25vh, calc(var(--td-watch-bars) + 6 * var(--td-watch-row) + 1px))
+    minmax(0, auto) minmax(150px, 1fr);
   grid-template-areas:
     "watch watch index"
     "center book ticket"
@@ -605,15 +613,16 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  overflow: auto;
+  /* The table inside scrolls itself, under its own sticky bars. */
+  overflow: hidden;
   background: var(--td-panel);
   border-bottom: 1px solid var(--td-line);
 }
 .trading-desk .td-index {
   grid-area: index;
   position: relative;
-  /* The top row is sized by the 自選 table alone: the index chart's canvas would otherwise feed its own last
-     drawn height back into the row (a canvas's intrinsic size is its backing store). */
+  /* The top row is set by the grid alone: the index chart's canvas would otherwise feed its own last drawn
+     height back into the row (a canvas's intrinsic size is its backing store). */
   contain: size;
   display: flex;
   flex-direction: column;
@@ -1386,7 +1395,8 @@
   flex: none;
   padding: 1px;
 }
-/* Phones: the title and the buttons share the first line; the 模擬 note keeps its whole text on its own line. */
+/* Phones: the title and the buttons share the first line; the note (where the list came from) keeps its whole text
+   on its own line, and its detail line follows under the bar. */
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-head {
   flex-wrap: wrap;
   row-gap: 2px;
@@ -1668,9 +1678,9 @@
   font-size: 11px;
   border-top: var(--td-hairline) solid var(--td-line);
 }
-/* A full book has nothing to explain: the line keeps its place so the controls above never move. */
+/* A full book has nothing to explain: an empty line (one no-break space) keeps the place so the controls above
+   never move. No sentence is hidden in it, so forced-colors mode has nothing to reveal. */
 .trading-desk .td-book-source[data-quiet="true"] {
-  color: transparent;
   user-select: none;
 }
 
@@ -3517,10 +3527,34 @@
 }
 
 /* Broker panes (2026-10-21): 自選報價 table, 江波圖 minis, 大盤, 報價明細, 個股分頁, 本輪計畫 chip */
+/* 自選 holds up to 80 stocks and scrolls in place: the title bar, column names and TAIEX row stay on top (one
+   sticky block), and a row brought into view stops below them (scroll-padding, set to the block's height by
+   WatchTable). Desktops give the table the pane's whole height (the grid sets it); every other layout gives it
+   at most half the screen. */
 .trading-desk .td-watch-table {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: auto;
+  isolation: isolate;
+  scroll-padding-top: var(--td-watch-fixed, 0px);
+}
+.trading-desk .td-watch > .td-watch-table {
+  flex: 1 1 auto;
+}
+.trading-desk:is([data-layout="tablet"], [data-layout="phone"], [data-layout="senior"]) .td-watch-table {
+  max-height: 50vh;
+  max-height: 50dvh;
+}
+.trading-desk .td-watch-fixed {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  /* A column, like the rows below it: the TAIEX button then fills the width as the stock buttons do. */
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  background: var(--td-panel);
 }
 .trading-desk .td-watch-note {
   overflow: hidden;
@@ -3529,6 +3563,24 @@
   font-weight: 500;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+/* Where the list came from, a second line when stocks were left out: a continuation of the title bar. */
+.trading-desk .td-watch-detail {
+  margin: 0;
+  padding: 2px 12px 3px;
+  color: var(--td-muted);
+  background: var(--td-title);
+  box-shadow: inset 0 calc(-1 * var(--td-hairline)) 0 var(--td-title-line);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+.trading-desk .td-watch-head:has(+ .td-watch-detail) {
+  box-shadow: none;
+}
+.trading-desk[data-layout="senior"] :is(.td-watch-note, .td-watch-detail) {
+  font-size: 14px;
+  line-height: 1.4;
 }
 .trading-desk :is(.td-watch-cols, .td-watch-row) {
   display: grid;
@@ -3539,6 +3591,14 @@
 }
 .trading-desk .td-watch-table[data-compact="true"] :is(.td-watch-cols, .td-watch-row) {
   grid-template-columns: minmax(88px, 1.2fr) minmax(64px, 1fr) minmax(60px, 0.9fr) minmax(84px, 1.2fr);
+}
+/* The narrowest phones (320px): tighter columns and gaps, so the list fits its table without a sideways scroll. */
+@media (max-width: 359px) {
+  .trading-desk .td-watch-table[data-compact="true"] :is(.td-watch-cols, .td-watch-row) {
+    grid-template-columns: minmax(72px, 1.2fr) minmax(58px, 1fr) minmax(60px, 0.9fr) minmax(64px, 1.2fr);
+    column-gap: 6px;
+    padding: 0 10px;
+  }
 }
 .trading-desk .td-watch-cols {
   min-height: 24px;
@@ -3554,6 +3614,7 @@
 }
 .trading-desk .td-watch-rows {
   display: flex;
+  flex: none;
   flex-direction: column;
 }
 .trading-desk .td-watch-row {
@@ -4081,6 +4142,9 @@
 /* Final review (2026-10-21) */
 /* Short desktops: 26px 自選 rows keep the whole table in view without taking the chart's floor. */
 @media (max-height: 860px) {
+  .trading-desk[data-layout="desktop"] .td-workbench {
+    --td-watch-row: 26px;
+  }
   .trading-desk[data-layout="desktop"] .td-watch-row {
     min-height: 26px;
   }
@@ -4169,6 +4233,10 @@
   }
   .trading-desk[data-layout="desktop"] .td-watch-cols {
     min-height: 20px;
+  }
+  .trading-desk[data-layout="desktop"] .td-workbench {
+    --td-watch-row: 24px;
+    --td-watch-bars: 48px;
   }
   .trading-desk[data-layout="desktop"] .td-watch-row {
     min-height: 24px;

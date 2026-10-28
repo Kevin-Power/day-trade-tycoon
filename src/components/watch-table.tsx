@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { CandlestickChart } from "@/lib/icons";
+import type { Bar } from "@/lib/game/types";
 import type { MorningBookCell, MorningCatalog } from "@/lib/morning";
 import { formatIndexValue, indexAvailability, indexSummary } from "@/lib/morning-index";
 import { shownBook, type LiveMorningState } from "@/lib/morning-live";
@@ -11,6 +12,7 @@ import {
   miniScaleLabel,
   miniZoomBand,
   parseMiniScale,
+  sameBars,
   snapStroke,
   sparklineLayout,
   sparkStrokePx,
@@ -19,6 +21,7 @@ import {
 import { browserStorage, readDeviceValue, writeDeviceValue } from "@/lib/device-storage";
 import { TickPrice } from "@/components/tick-price";
 import { useDeviceCanvas } from "@/components/use-device-canvas";
+import { useInView } from "@/components/use-in-view";
 
 type Candle = { t: number; o: number; h: number; l: number; c: number };
 const arrow = (tone: "up" | "down" | "flat") => (tone === "up" ? "▲" : tone === "down" ? "▼" : "");
@@ -33,9 +36,11 @@ const toneOf = (value: number | null | undefined, previous: number) =>
   value == null || value === previous ? "flat" : value > previous ? "up" : "down";
 
 /**
- * 自選報價 as a broker table: the TAIEX first, then the lesson's stocks, each with its 江波圖. Prices move with
- * the replayed trades; bid/ask are the real best quotes: the recorded book's for the selected stock when the day
- * has one, otherwise those of each stock's last played trade. Volume columns would need verified volume.
+ * 自選報價 as a broker table: the TAIEX first, then the lesson's stocks (1 to 80), each with its 江波圖. The table
+ * scrolls in place and keeps its title bar, column names and TAIEX row on top. Prices move with the replayed
+ * trades; bid/ask are the real best quotes: the recorded book's for the selected stock when the day has one,
+ * otherwise those of each stock's last played trade. A row draws again only when its own stock moved, and its
+ * 江波圖 is drawn only while the row is within a row of the visible part. Volume columns would need verified volume.
  */
 export function WatchTable({
   catalog,
@@ -62,6 +67,7 @@ export function WatchTable({
   const index = session?.index;
   const indexQuote = index ? indexSummary(index.bars, index.previousClose) : null;
   const endT = catalog.maxCursor * 60;
+  const note = catalog.note;
   const columns = compact
     ? ["商品", "成交", "漲跌%", "江波"]
     : ["商品", "成交", "漲跌", "漲跌%", "買進", "賣出", "最高", "最低", "江波圖"];
@@ -72,33 +78,65 @@ export function WatchTable({
     setScale(next);
     writeDeviceValue(browserStorage(), MINI_SCALE_KEY, next);
   };
+  // Rows get one function for good, so a parent that passes a new one each render does not redraw them all.
+  const latestSelect = useRef(onSelect);
+  useEffect(() => {
+    latestSelect.current = onSelect;
+  });
+  const select = useCallback((next: string) => latestSelect.current(next), []);
+  // Whatever sticks to the top hides what scrolls under it. Its height is the scrollport's top padding, so a row
+  // brought into view (selected, or reached with Tab) stops below it, not behind it.
+  const tableRef = useRef<HTMLElement>(null);
+  const fixedRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const table = tableRef.current;
+    const fixed = fixedRef.current;
+    if (!table || !fixed) return;
+    const sync = () => table.style.setProperty("--td-watch-fixed", `${fixed.offsetHeight}px`);
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(fixed);
+    return () => observer.disconnect();
+  }, []);
+  // The chosen stock stays chosen while the table scrolls and the lesson moves on. A new choice (from the chart's
+  // tabs, or a run reopened on a stock far down the list) scrolls into view, and only then.
+  useEffect(() => {
+    tableRef.current
+      ?.querySelector<HTMLElement>('.td-watch-rows [aria-pressed="true"]')
+      ?.scrollIntoView({ block: "nearest" });
+  }, [code, indexSelected]);
   return (
-    <section className="td-watch-table" data-compact={compact} aria-label="自選報價">
-      <div className="td-titlebar td-watch-head">
-        <span>
-          <CandlestickChart aria-hidden /> 自選報價
-        </span>
-        <span className="td-watch-note">分鐘內跳動為模擬逐筆</span>
-        <span className="td-segment td-mini-scale" role="group" aria-label="江波圖刻度">
-          {MINI_SCALES.map(([value, label, hint]) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={scale === value}
-              title={hint}
-              onClick={() => chooseScale(value)}
-            >
-              {label}
-            </button>
+    <section ref={tableRef} className="td-watch-table" data-compact={compact} aria-label="自選報價">
+      <div ref={fixedRef} className="td-watch-fixed">
+        <div className="td-titlebar td-watch-head">
+          <span>
+            <CandlestickChart aria-hidden /> 自選報價
+          </span>
+          {note && (
+            <span className="td-watch-note" title={note.title}>
+              {note.title}
+            </span>
+          )}
+          <span className="td-segment td-mini-scale" role="group" aria-label="江波圖刻度">
+            {MINI_SCALES.map(([value, label, hint]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={scale === value}
+                title={hint}
+                onClick={() => chooseScale(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </span>
+        </div>
+        {note?.detail && <p className="td-watch-detail">{note.detail}</p>}
+        <div className="td-watch-cols" aria-hidden="true">
+          {columns.map((label) => (
+            <span key={label}>{label}</span>
           ))}
-        </span>
-      </div>
-      <div className="td-watch-cols" aria-hidden="true">
-        {columns.map((label) => (
-          <span key={label}>{label}</span>
-        ))}
-      </div>
-      <div className="td-watch-rows" role="group" aria-label="選擇商品">
+        </div>
         <IndexRow tone={indexQuote?.tone ?? "flat"} selected={indexSelected} onIndex={onIndex}>
           <span className="td-watch-name">
             <span>{index?.name ?? "加權指數"}</span>
@@ -145,72 +183,122 @@ export function WatchTable({
             }
           />
         </IndexRow>
+      </div>
+      <div className="td-watch-rows" role="group" aria-label="選擇商品">
         {catalog.symbols.map((symbol) => {
-          const bars = session?.bars[symbol.code] ?? [];
-          const quote = quoteSummary(bars, symbol.previousClose);
           // The 買進／賣出 columns are not on the compact list, so it does not work them out.
           const best = compact
             ? { bid: null, ask: null }
             : bestQuotes(shownBook(session, catalog, book, symbol.code));
           return (
-            <button
-              type="button"
+            <StockRow
               key={symbol.code}
-              className="td-watch-row"
-              data-code={symbol.code}
-              data-tone={quote.tone}
-              aria-pressed={indexSelected !== true && code === symbol.code}
-              onClick={() => onSelect(symbol.code)}
-            >
-              <span className="td-watch-name">
-                <span>{symbol.name}</span>
-                <small>{symbol.code}</small>
-              </span>
-              <TickPrice className="td-watch-price" value={quote.last} identity={symbol.code}>
-                {quote.last === null ? dash : formatPrice(quote.last)}
-              </TickPrice>
-              {!compact && (
-                <span className="td-watch-cell">
-                  {quote.last === null ? dash : `${arrow(quote.tone)}${quote.changeText}`}
-                </span>
-              )}
-              <span className="td-watch-cell">{quote.percentText || dash}</span>
-              {!compact && (
-                <>
-                  <span
-                    className="td-watch-cell"
-                    data-tone={toneOf(best.bid, symbol.previousClose)}
-                  >
-                    {best.bid === null ? dash : formatPrice(best.bid)}
-                  </span>
-                  <span
-                    className="td-watch-cell"
-                    data-tone={toneOf(best.ask, symbol.previousClose)}
-                  >
-                    {best.ask === null ? dash : formatPrice(best.ask)}
-                  </span>
-                  <span
-                    className="td-watch-cell"
-                    data-tone={toneOf(quote.high, symbol.previousClose)}
-                  >
-                    {quote.high === null ? dash : formatPrice(quote.high)}
-                  </span>
-                  <span
-                    className="td-watch-cell"
-                    data-tone={toneOf(quote.low, symbol.previousClose)}
-                  >
-                    {quote.low === null ? dash : formatPrice(quote.low)}
-                  </span>
-                </>
-              )}
-              <MiniJiangbo bars={bars} previous={symbol.previousClose} endT={endT} scale={scale} />
-            </button>
+              symbol={symbol}
+              bars={session?.bars[symbol.code] ?? NO_BARS}
+              bid={best.bid}
+              ask={best.ask}
+              compact={compact}
+              selected={indexSelected !== true && code === symbol.code}
+              scale={scale}
+              endT={endT}
+              onSelect={select}
+            />
           );
         })}
       </div>
     </section>
   );
 }
+
+const NO_BARS: readonly Bar[] = [];
+
+type RowProps = {
+  symbol: MorningCatalog["symbols"][number];
+  bars: readonly Bar[];
+  bid: number | null;
+  ask: number | null;
+  compact: boolean;
+  selected: boolean;
+  scale: MiniScale;
+  endT: number;
+  onSelect: (code: string) => void;
+};
+
+/**
+ * A row draws again only when something it shows changed. While a minute replays, the desk hands every stock a new
+ * list of bars on each update (about ten a second); the count and the newest bar say whether this stock moved.
+ */
+function sameRow(a: RowProps, b: RowProps): boolean {
+  return (
+    (a.symbol === b.symbol ||
+      (a.symbol.code === b.symbol.code &&
+        a.symbol.name === b.symbol.name &&
+        a.symbol.previousClose === b.symbol.previousClose)) &&
+    a.bid === b.bid &&
+    a.ask === b.ask &&
+    a.compact === b.compact &&
+    a.selected === b.selected &&
+    a.scale === b.scale &&
+    a.endT === b.endT &&
+    a.onSelect === b.onSelect &&
+    sameBars(a.bars, b.bars)
+  );
+}
+
+const StockRow = memo(function StockRow({
+  symbol,
+  bars,
+  bid,
+  ask,
+  compact,
+  selected,
+  scale,
+  endT,
+  onSelect,
+}: RowProps) {
+  const quote = quoteSummary(bars, symbol.previousClose);
+  return (
+    <button
+      type="button"
+      className="td-watch-row"
+      data-code={symbol.code}
+      data-tone={quote.tone}
+      aria-pressed={selected}
+      onClick={() => onSelect(symbol.code)}
+    >
+      <span className="td-watch-name">
+        <span>{symbol.name}</span>
+        <small>{symbol.code}</small>
+      </span>
+      <TickPrice className="td-watch-price" value={quote.last} identity={symbol.code}>
+        {quote.last === null ? dash : formatPrice(quote.last)}
+      </TickPrice>
+      {!compact && (
+        <span className="td-watch-cell">
+          {quote.last === null ? dash : `${arrow(quote.tone)}${quote.changeText}`}
+        </span>
+      )}
+      <span className="td-watch-cell">{quote.percentText || dash}</span>
+      {!compact && (
+        <>
+          <span className="td-watch-cell" data-tone={toneOf(bid, symbol.previousClose)}>
+            {bid === null ? dash : formatPrice(bid)}
+          </span>
+          <span className="td-watch-cell" data-tone={toneOf(ask, symbol.previousClose)}>
+            {ask === null ? dash : formatPrice(ask)}
+          </span>
+          <span className="td-watch-cell" data-tone={toneOf(quote.high, symbol.previousClose)}>
+            {quote.high === null ? dash : formatPrice(quote.high)}
+          </span>
+          <span className="td-watch-cell" data-tone={toneOf(quote.low, symbol.previousClose)}>
+            {quote.low === null ? dash : formatPrice(quote.low)}
+          </span>
+        </>
+      )}
+      <MiniJiangbo bars={bars} previous={symbol.previousClose} endT={endT} scale={scale} />
+    </button>
+  );
+}, sameRow);
 
 /** Index points with the decimals in their own span, which phones hide in the compact list. */
 function IndexPoints({ value }: { value: number }) {
@@ -290,8 +378,17 @@ function MiniCanvas({
   band: number;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  useDeviceCanvas(ref, (ctx, width, height) =>
-    paintMiniJiangbo(ctx, width, height, bars, previous, endT, band),
+  // A table of 80 rows draws only the minis within a row of the visible part. `data-painted` marks the ones drawn.
+  const near = useInView(ref, ".td-watch-table", (canvas) =>
+    (canvas.closest(".td-watch-row") ?? canvas).getBoundingClientRect().height,
+  );
+  useDeviceCanvas(
+    ref,
+    (ctx, width, height) => {
+      paintMiniJiangbo(ctx, width, height, bars, previous, endT, band);
+      ctx.canvas.dataset.painted = "true";
+    },
+    { active: near },
   );
   return (
     <canvas ref={ref} className="td-mini" data-band={band} title={miniScaleLabel(band)} aria-hidden="true" />

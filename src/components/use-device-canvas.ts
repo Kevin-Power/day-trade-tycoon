@@ -8,18 +8,22 @@ type Render = (ctx: CanvasRenderingContext2D, width: number, height: number) => 
  * React render and whenever its size, theme, reading mode, fonts or screen resolution change.
  * `render` draws in CSS pixels. An opaque canvas must paint its whole area (browsers then use
  * sharper text); a transparent one is cleared first. Returns a function that schedules a repaint.
+ * While `active` is false (a canvas scrolled far out of view) nothing is sized or painted, and the
+ * canvas paints as soon as it turns true again.
  */
 export function useDeviceCanvas(
   ref: RefObject<HTMLCanvasElement | null>,
   render: Render,
-  { opaque = false }: { opaque?: boolean } = {},
+  { opaque = false, active = true }: { opaque?: boolean; active?: boolean } = {},
 ): () => void {
   const latest = useRef(render);
+  const running = useRef(active);
   const redraw = useRef<() => void>(() => {});
 
   // Keep observers stable even when the caller supplies a new render function each render.
   useEffect(() => {
     latest.current = render;
+    running.current = active;
     redraw.current();
   });
   useEffect(() => {
@@ -31,7 +35,7 @@ export function useDeviceCanvas(
     let deviceBox: { width: number; height: number } | undefined;
     const draw = () => {
       frame = 0;
-      if (disposed) return;
+      if (disposed || !running.current) return;
       const { width, height } = canvas.getBoundingClientRect();
       if (width < 8 || height < 8) return;
       // Backing pixels must match the screen's device pixels one to one: any other size is

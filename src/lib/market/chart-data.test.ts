@@ -30,6 +30,7 @@ import {
   nearestTimePoint,
   parseMiniScale,
   resolveChartLabels,
+  sameBars,
   sessionExtremes,
   showVolumeAndAverage,
   snapColumn,
@@ -911,4 +912,20 @@ test("parseMiniScale opens on 放大 unless this device chose ±10%", () => {
 test("miniScaleLabel names the scale a mini is drawn on", () => {
   assert.equal(miniScaleLabel(0.02), "刻度：昨收 ±2%");
   assert.equal(miniScaleLabel(JIANGBO_BAND), "刻度：昨收 ±10%");
+});
+
+test("sameBars: a replay's new list with the same minutes and newest bar is the same picture", () => {
+  const settled = [bar(0, 100), bar(60, 101)];
+  const forming = bar(120, 102, { h: 103, v: 5 });
+  assert.equal(sameBars([], []), true);
+  assert.equal(sameBars(settled, settled), true);
+  // The replay rebuilds the list on every update, with the newest bar equal until another trade plays.
+  assert.equal(sameBars([...settled, forming], [...settled, { ...forming }]), true);
+  assert.equal(sameBars([...settled, forming], [...settled, bar(120, 102, { h: 104, v: 5 })]), false);
+  assert.equal(sameBars([...settled, forming], [...settled, bar(120, 102, { h: 103, v: 6 })]), false);
+  assert.equal(sameBars([...settled, forming], [...settled, bar(120, 103, { h: 103, v: 5 })]), false);
+  assert.equal(sameBars(settled, [...settled, forming]), false);
+  assert.equal(sameBars([], settled), false);
+  // The next minute replaces the forming bar with the finished one and adds another: never the same.
+  assert.equal(sameBars([...settled, forming], [...settled, forming, bar(180, 102)]), false);
 });

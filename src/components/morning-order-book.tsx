@@ -6,7 +6,6 @@ import {
   bookCellLabel,
   bookCellOrder,
   bookPressure,
-  NO_BOOKS_NOTE,
   type DisplayedBook,
   type MorningBookLevel,
 } from "@/lib/morning-book";
@@ -241,9 +240,11 @@ export function MorningOrderBook({
           </p>
         </>
       )}
-      {/* Always there, so the controls above never move when the book changes between full and top. */}
+      {/* Always there, so the controls above never move when the book changes between full and top. With nothing
+          to explain it holds one empty line (a no-break space), not a hidden sentence that forced-colors mode
+          would show. */}
       <p className="td-book-source" data-quiet={!note} aria-hidden={note ? undefined : true}>
-        {note ?? NO_BOOKS_NOTE}
+        {note ?? " "}
       </p>
     </div>
   );

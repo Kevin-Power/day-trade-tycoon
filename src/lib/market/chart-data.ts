@@ -399,6 +399,20 @@ export function miniScaleLabel(band: number): string {
   return `刻度：昨收 ±${Math.round(band * 100)}%`;
 }
 
+/**
+ * Whether two lists of one stock's bars are the same picture. Revealed minutes never change, and while a minute
+ * replays only the newest bar is rebuilt (a new list every update), so the count and the newest bar tell. Lets a
+ * 自選 row keep what it drew when an update did not move its stock.
+ */
+export function sameBars(a: readonly Bar[], b: readonly Bar[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  const last = a.length - 1;
+  if (last < 0) return true;
+  const [x, y] = [a[last], b[last]];
+  return x.t === y.t && x.o === y.o && x.h === y.h && x.l === y.l && x.c === y.c && x.v === y.v;
+}
+
 /** 江波 grid: 2% steps (10 rows) when each row is at least 2.2 text lines tall, otherwise 5% steps (4 rows). */
 export function jiangboGridRows(plotHeight: number, fontSize: number): 10 | 4 {
   return plotHeight >= fontSize * 22 ? 10 : 4;
