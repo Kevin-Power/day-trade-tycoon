@@ -21,6 +21,7 @@ import {
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const page = readFileSync(join(root, "src/components/license-page.tsx"), "utf8");
 const lobby = readFileSync(join(root, "src/components/lobby.tsx"), "utf8");
+const manual = readFileSync(join(root, "src/components/manual-page.tsx"), "utf8");
 const gate = readFileSync(join(root, "src/components/gate-screen.tsx"), "utf8");
 const gaps = readFileSync(join(root, "docs/feature-gaps.md"), "utf8");
 const text = licensePlainText();
@@ -83,7 +84,12 @@ describe("classroom license copy", () => {
     assert.match(page, /LICENSE_DATA/);
     // The list is shown without its score or level, and is never called a recommendation, a win rate or a radar.
     for (const word of ["推薦", "勝率", "漲停雷達"]) assert.equal(text.includes(word), false, word);
-    assert.ok(list.includes("不含分數與等級"));
+    // Decision D: no score and no level, and not even the words for them.
+    assert.ok(list.includes("只顯示代號與名稱"));
+    for (const word of ["分數", "等級"]) {
+      assert.equal(JSON.stringify(LICENSE_DATA).includes(word), false, `LICENSE_DATA says ${word}`);
+      assert.equal(manual.includes(word), false, `the manual page says ${word}`);
+    }
   });
 
   it("records P0-7/8/9 done and P1-7 progress in the roadmap", () => {
