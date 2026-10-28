@@ -1207,7 +1207,7 @@ function MorningLesson({
                     >
                       {(data.lessons ?? [catalog]).map((lesson) => (
                         <option key={lesson.lessonId} value={lesson.lessonId}>
-                          {lesson.date} · {lesson.symbols.length} 檔
+                          {lesson.date}
                         </option>
                       ))}
                     </select>
@@ -1539,10 +1539,14 @@ function MorningDataDetails({
           <Metric label="前一交易日收盤" value={formatPrice(symbol.previousClose)} />
           <Metric
             label="前 5 個完整交易日收盤均值"
-            value={symbol.previous5CloseMean.toLocaleString("zh-TW", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
+            value={
+              symbol.previous5CloseMean === null
+                ? "—"
+                : symbol.previous5CloseMean.toLocaleString("zh-TW", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })
+            }
           />
         </dl>
         <p>以上均值不含本日，僅供歷史參考；當日 SMA5 的計算定義尚未確認。</p>

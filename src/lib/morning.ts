@@ -16,13 +16,18 @@ export type MorningCatalog = {
   start: string;
   end: string;
   maxCursor: number;
-  symbols: { code: string; name: string; previousClose: number; previous5CloseMean: number }[];
+  /** `previous5CloseMean` is null when fewer than five full-market days come before the lesson (③ decision N). */
+  symbols: { code: string; name: string; previousClose: number; previous5CloseMean: number | null }[];
   context: { label: string; value: string; asOf: string }[];
   strategy: string[];
   notices: string[];
   videoUrl: string | null;
   /** Present only when the source documents whole-share minute volume in lots (張). */
   volumeUnit?: "lot";
+  /** The default 自選's desk wording, on a catalog made of a picker's defaults. */
+  note?: { title: string; detail: string | null };
+  /** The lesson day has recorded books (五檔). */
+  booksAvailable?: boolean;
 };
 /** One TAIEX minute built from TWSE's twelve 5-second values after the minute starts (`p`, oldest first). */
 export type MorningIndexBar = { t: number; o: number; h: number; l: number; c: number; p: number[] };
@@ -34,23 +39,11 @@ export type MorningIndexSeries = {
   source: string;
   bars: MorningIndexBar[];
 };
-export type MorningLessonSummary = Pick<
-  MorningCatalog,
-  "lessonId" | "title" | "date" | "start" | "end" | "maxCursor"
-> & {
-  symbols: { code: string; name: string }[];
-};
+/** A lesson in the date list: no stocks, no bars, nothing of the day's market. */
+export type MorningLessonSummary = { lessonId: string; date: string; title: string };
 /** Public selection metadata only: no source bars or unrevealed market context. */
 export function summarizeMorningLesson(catalog: MorningCatalog): MorningLessonSummary {
-  return {
-    lessonId: catalog.lessonId,
-    title: catalog.title,
-    date: catalog.date,
-    start: catalog.start,
-    end: catalog.end,
-    maxCursor: catalog.maxCursor,
-    symbols: catalog.symbols.map(({ code, name }) => ({ code, name })),
-  };
+  return { lessonId: catalog.lessonId, date: catalog.date, title: catalog.title };
 }
 export type MorningOrder = {
   id: string;

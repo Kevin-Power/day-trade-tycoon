@@ -24,6 +24,7 @@ test("published days, a day's symbols and one symbol's bars are read back", () =
   await writeFile(join(dir, "days/2026-10-14/symbols/2330.json.gz"),
     gzipSync(JSON.stringify({ schema: 1, code: "2330", bars: [[0, 100, 101, 99, 100.5, 10, 100.2], [60, 100.5, 101, 100, 101, 5, 100.6]] })));
   assert.deepEqual((await listPublishedDays(dir)).map((value) => value.date), ["2026-10-13", "2026-10-14"]);
+  assert.deepEqual((await listPublishedDays(dir))[1], day); // manifestSha256 kept for the daily lessons' source hash
   assert.equal((await readDaySymbols(dir, "2026-10-14"))![0].name, "台積電");
   assert.deepEqual((await readSymbolBars(dir, "2026-10-14", "2330"))![1], [60, 100.5, 101, 100, 101, 5, 100.6]);
 }));

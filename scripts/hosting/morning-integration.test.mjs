@@ -136,10 +136,7 @@ test('real HTTP morning replay: private completed bars, durable cursor and exact
       assert.equal(initial.body.catalog.lessonId, source.catalog.lessonId);
       assert.equal(Object.hasOwn(initial.body.catalog, 'bars'), false);
       assert.deepEqual(initial.body.lessons.map(lesson => lesson.lessonId).sort(), approvedSources.map(value => value.catalog.lessonId).sort());
-      for (const lesson of initial.body.lessons) {
-        assert.deepEqual(Object.keys(lesson).sort(), ['date', 'end', 'lessonId', 'maxCursor', 'start', 'symbols', 'title']);
-        for (const symbol of lesson.symbols) assert.deepEqual(Object.keys(symbol).sort(), ['code', 'name']);
-      }
+      for (const lesson of initial.body.lessons) assert.deepEqual(Object.keys(lesson).sort(), ['date', 'lessonId', 'title']);
     }
     const code = source.catalog.symbols[0].code;
     const start = { action: 'start', requestId: randomUUID(), plan: { exerciseId: 'first-order', bias: 'observe', focusCode: code,

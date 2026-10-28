@@ -25,13 +25,10 @@ test("lesson selection accepts exactly one approved identifier and preserves the
 test("available lesson summaries disclose metadata only, never bars, prices or market context", () => {
   assert.equal(morningLessons.length, morningSources.length);
   for (const lesson of morningLessons) {
-    assert.deepEqual(Object.keys(lesson).sort(), ["date", "end", "lessonId", "maxCursor", "start", "symbols", "title"]);
-    assert.equal(lesson.start, "09:00"); assert.equal(lesson.end, "10:30"); assert.equal(lesson.maxCursor, 90);
-    assert.equal(lesson.symbols.length, 5);
-    for (const symbol of lesson.symbols) assert.deepEqual(Object.keys(symbol).sort(), ["code", "name"]);
+    // A summary is the date list's entry only: no stocks either (the picker sends those).
+    assert.deepEqual(Object.keys(lesson).sort(), ["date", "lessonId", "title"]);
     const source = getMorningSource(lesson.lessonId);
-    assert.notEqual(lesson.symbols, source.catalog.symbols);
-    assert.ok(lesson.symbols.every((symbol, index) => symbol !== source.catalog.symbols[index]));
+    assert.deepEqual(lesson, { lessonId: source.catalog.lessonId, date: source.catalog.date, title: source.catalog.title });
   }
   assert.equal(morningLessons.some(lesson => lesson.date === "2026-10-07" || lesson.date === "2026-10-02"), false,
     "Dates with known null minutes must not become selectable by fallback");

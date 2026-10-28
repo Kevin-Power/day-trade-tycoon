@@ -87,7 +87,7 @@ export function StatusBar({
         >
           {lessons.map((lesson) => (
             <option key={lesson.lessonId} value={lesson.lessonId}>
-              {lesson.date} · {lesson.symbols.length} 檔
+              {lesson.date}
             </option>
           ))}
         </select>

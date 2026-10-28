@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 
 /** Read-only access to the Fubon fetcher's published market data (MARKET_DATA_DIR). */
-export type PublishedDay = { date: string; coverage: string; symbols: number; publishedAt: string };
+/** `manifestSha256` is the SHA-256 of days/<date>/manifest.json, when index.json has it. */
+export type PublishedDay = { date: string; coverage: string; symbols: number; publishedAt: string; manifestSha256?: string };
 export type DaySymbol = {
   code: string;
   name: string;
@@ -35,7 +36,13 @@ export async function listPublishedDays(dir: string): Promise<PublishedDay[]> {
       (day): day is PublishedDay =>
         !!day && typeof day === "object" && typeof (day as PublishedDay).date === "string" && DATE.test((day as PublishedDay).date),
     )
-    .map(({ date, coverage, symbols, publishedAt }) => ({ date, coverage, symbols, publishedAt }))
+    .map(({ date, coverage, symbols, publishedAt, manifestSha256 }) => ({
+      date,
+      coverage,
+      symbols,
+      publishedAt,
+      ...(typeof manifestSha256 === "string" ? { manifestSha256 } : {}),
+    }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
