@@ -1,7 +1,8 @@
 // The lessons the practice API serves: the daily Fubon lessons read at run time from MARKET_DATA_DIR (③ §3, §7, §8;
 // 當沖 list design E, F, H, L). Which lesson a request is about, the lesson list, a day's picker and a run's data
 // with the desk wording of the day's default 自選. The old Yahoo lessons (10/05, 10/06) are retired: nothing of
-// theirs is read or bundled any more, and their runs only show in the records.
+// theirs is read or bundled any more. Their runs stay readable as text (`retiredCatalog`) and can be finished or
+// abandoned from what was saved (spec §9, decision R); nothing else can be done with them.
 // Import only from server handlers. Never include this module in a page loader, shared store or public directory.
 import { MorningError, type MorningStoredState } from "./morning-engine.ts";
 import type { MorningCatalog, MorningLessonSummary } from "./morning.ts";
@@ -28,6 +29,14 @@ export const RETIRED_LESSONS: Record<string, string> = {
 export const NO_DAILY_LESSONS = "此教室沒有每日教材";
 export const NO_LESSON_YET = "目前還沒有每日教材";
 export const RETIRED_LESSON = "這堂舊課已停用";
+/** What an advance, order or cancel on a retired lesson's run is told: the run can only be ended. */
+export const RETIRED_RUN_ACTION = "這堂舊課已停用，只能完成或放棄";
+const RETIRED_TITLE = "舊課（已停用）";
+/** Both retired lessons offered the same five stocks, and a run of theirs held all five (it chose none). */
+const RETIRED_STOCKS: readonly (readonly [code: string, name: string])[] = [
+  ["2330", "台積電"], ["2317", "鴻海"], ["2454", "聯發科"], ["2382", "廣達"], ["2308", "台達電"],
+];
+export const RETIRED_RUN_STOCKS = RETIRED_STOCKS.length;
 export const NOT_OPEN = "請選擇已提供真實行情的練習日期";
 const BAD_QUERY = "請由課程頁面選擇練習日期";
 
@@ -39,15 +48,15 @@ export function lessonDate(id: string): string | null {
 }
 
 /**
- * The one query the API takes: none, or exactly one `lesson` naming a daily lesson (`fubon-YYYYMMDD-am`). A retired
- * lesson is 404 whether or not the classroom has daily lessons; anything else is 400.
+ * The one query the API takes: none, or exactly one `lesson` naming a daily lesson (`fubon-YYYYMMDD-am`) or a retired
+ * one (`retired: true`, whether or not the classroom has daily lessons); anything else is 400.
  */
-export function requestedLesson(params: URLSearchParams): { lessonId: string; date: string } | null {
+export function requestedLesson(params: URLSearchParams): { lessonId: string; date: string; retired?: true } | null {
   const entries = [...params.entries()];
   if (!entries.length) return null;
   if (entries.length !== 1 || entries[0][0] !== "lesson") throw new MorningError(400, BAD_QUERY);
   const lessonId = entries[0][1];
-  if (isRetiredLesson(lessonId)) throw new MorningError(404, RETIRED_LESSON);
+  if (isRetiredLesson(lessonId)) return { lessonId, date: RETIRED_LESSONS[lessonId], retired: true };
   const date = parseLessonId(lessonId);
   if (!date) throw new MorningError(400, NOT_OPEN);
   return { lessonId, date };
@@ -55,6 +64,8 @@ export function requestedLesson(params: URLSearchParams): { lessonId: string; da
 
 export type MorningTarget =
   | { kind: "unavailable"; unavailable: string }
+  /** A retired lesson asked for by id: it needs no market data, so it is known before the folder is looked at. */
+  | { kind: "retired"; lessonId: string; date: string }
   | {
       kind: "lesson";
       dir: string;
@@ -69,7 +80,8 @@ export type MorningTarget =
 /**
  * The lesson a request is about: the one in the query; else the day of the learner's latest unfinished run (newest
  * first, as `user.openLessonIds` gives them; a run on a day that is not open is passed over); else the newest day.
- * No MARKET_DATA_DIR (on-prem) or no open day yet is "unavailable", with the sentence the practice area shows.
+ * No MARKET_DATA_DIR (on-prem) or no open day yet is "unavailable", with the sentence the practice area shows. A
+ * retired lesson in the query is "retired" first of all, so its runs open with or without daily lessons.
  */
 export async function resolveMorningSource(
   params: URLSearchParams,
@@ -77,6 +89,7 @@ export async function resolveMorningSource(
   market: MorningMarket | string = marketDataDir(),
 ): Promise<MorningTarget> {
   const requested = requestedLesson(params);
+  if (requested?.retired) return { kind: "retired", lessonId: requested.lessonId, date: requested.date };
   const data = typeof market === "string" ? new MorningMarket(market) : market;
   const { dir } = data;
   if (!dir) return { kind: "unavailable", unavailable: NO_DAILY_LESSONS };
@@ -199,6 +212,20 @@ export function textOnlyCatalog(state: MorningStoredState, date: string): Mornin
     strategy: [],
     notices: [],
     videoUrl: null,
+  };
+}
+
+/**
+ * The catalog of a retired lesson's run: its stocks (all five when it chose none), nothing of the market. The desk
+ * shows the run as text: plan, orders, fills and P/L, with no chart.
+ */
+export function retiredCatalog(state: MorningStoredState, date: string): MorningCatalog {
+  const names = new Map(RETIRED_STOCKS);
+  const codes = state.codes?.length ? state.codes : RETIRED_STOCKS.map(([code]) => code);
+  return {
+    ...textOnlyCatalog(state, date),
+    title: RETIRED_TITLE,
+    symbols: codes.map((code) => ({ code, name: names.get(code) ?? STOCK_NAMES.get(code) ?? code, previousClose: 0, previous5CloseMean: null })),
   };
 }
 

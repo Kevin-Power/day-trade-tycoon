@@ -1,5 +1,9 @@
 #!/usr/bin/env node
-/** Read-only check: private minute bars must not enter public assets or offline ZIPs. */
+/**
+ * Read-only leak scanner: private minute bars must not enter public assets or offline ZIPs. It scans for whatever
+ * `server/data/morning-*.json` files exist (the retired Yahoo lessons' data, kept as files but no longer read or
+ * bundled by the site), so none is required: with none, the private path markers and forbidden paths still apply.
+ */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -9,7 +13,6 @@ import { fileURLToPath } from 'node:url';
 import { brotliDecompressSync, gunzipSync, inflateRawSync } from 'node:zlib';
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const datasetPath = 'server/data/morning-2026-10-06.json';
 const maxEntryBytes = 128 * 1024 * 1024;
 const maxArchiveBytes = 512 * 1024 * 1024;
 const numberSource = '-?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:e[+-]?\\d+)?';
@@ -157,7 +160,8 @@ function positiveControls(fingerprints, markers) {
     }
   }
   assert.ok(inspectContent(JSON.stringify(markers[0]), fingerprints, markers).includes('private source path'));
-  assert.deepEqual(inspectContent('route="/morning";title="真實早盤練習";lesson="morning-20261006-v1"', fingerprints, markers), []);
+  // A fixed fake string: ordinary page text, a route and a lesson-like id must never be mistaken for private data.
+  assert.deepEqual(inspectContent('route="/morning";title="真實早盤練習";lesson="fake-lesson-id-for-control"', fingerprints, markers), []);
   for (const path of ['research/raw.json', 'assets/sourcephotos/photo.jpg', 'raw', 'morningdata/private.json']) {
     assert.ok(forbiddenPath(path), `Path positive control failed: ${path}`);
   }
@@ -165,8 +169,9 @@ function positiveControls(fingerprints, markers) {
 }
 
 function privateDatasets(root) {
-  const files = readdirSync(join(root, 'server/data')).filter(name => /^morning-\d{4}-\d{2}-\d{2}\.json$/.test(name)).sort();
-  assert.ok(files.includes(basename(datasetPath)), 'The original lesson must remain available.');
+  const directory = join(root, 'server/data');
+  if (!existsSync(directory)) return [];
+  const files = readdirSync(directory).filter(name => /^morning-\d{4}-\d{2}-\d{2}\.json$/.test(name)).sort();
   return files.map(name => {
     const path = `server/data/${name}`;
     const bytes = readFileSync(join(root, path));
@@ -279,11 +284,27 @@ function fixtureZip(content) {
   return Buffer.concat([local, name, bytes, central, name, end]);
 }
 
+/** Stands in when no `server/data/morning-*.json` exists, so the negative controls never depend on those files. */
+const sampleDataset = {
+  path: 'server/data/morning-2000-01-03.json',
+  dataset: {
+    catalog: { symbols: [{ code: '1111' }, { code: '2222' }] },
+    bars: {
+      1111: [{ t: 0, o: 10.5, h: 11, l: 10, c: 10.8, v: 5 }, { t: 60, o: 10.8, h: 11.2, l: 10.6, c: 11, v: 7 }],
+      2222: [{ t: 0, o: 20.5, h: 21, l: 20, c: 20.8, v: 9 }, { t: 60, o: 20.8, h: 21.4, l: 20.6, c: 21.2, v: 4 }],
+    },
+    provenance: { sourcePaths: ['research/raw/sample-source-2000-01-03.json'] },
+  },
+};
+sampleDataset.bytes = Buffer.from(JSON.stringify(sampleDataset.dataset));
+
 /** Reproducible end-to-end negative controls; production build files are never written. */
 export function mutationSelfTest(root = workspace) {
   const fixture = mkdtempSync(join(tmpdir(), 'verify-morning-build-'));
-  const datasets = privateDatasets(root);
-  const dataset = datasets.find(item => item.path === datasetPath).dataset;
+  const found = privateDatasets(root);
+  const datasets = found.length ? found : [sampleDataset];
+  const { dataset, path: datasetPath } = datasets[0];
+  const sourcePath = dataset.provenance?.sourcePaths?.[0] ?? datasetPath;
   const fingerprints = datasets.flatMap(item => tailFingerprints(item.dataset));
   const safeUi = 'export const route = "/morning"; export const label = "真實早盤練習";';
   const baselineZip = fixtureZip(safeUi);
@@ -320,7 +341,7 @@ export function mutationSelfTest(root = workspace) {
     mutation('offline download rejects future OHLC', 'downloads/daytrade-tycoon-offline.zip',
       fixtureZip(JSON.stringify(fingerprints[0].bars)), /future-minute OHLC fingerprint/);
     mutation('copied offline ZIP rejects private source path', '.output/downloads/daytrade-tycoon-offline.zip',
-      fixtureZip(JSON.stringify(dataset.provenance.sourcePaths[0])), /private source path/);
+      fixtureZip(JSON.stringify(sourcePath)), /private source path/);
     put('public/research/raw/minutes.json', '{}');
     assert.throws(() => verifyMorningBuild(fixture), /forbidden private-data/);
     checks.push('private research/raw path rejected even without numeric fingerprints');

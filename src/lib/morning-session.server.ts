@@ -16,11 +16,14 @@ import {
   NOT_OPEN,
   RETIRED_LESSON,
   RETIRED_LESSONS,
+  RETIRED_RUN_ACTION,
+  RETIRED_RUN_STOCKS,
   isRetiredLesson,
   lessonDate,
   lessonSummaries,
   requestedLesson,
   resolveMorningSource,
+  retiredCatalog,
   textOnlyCatalog,
 } from "./morning-data.server.ts";
 
@@ -60,14 +63,23 @@ const NOT_FOUND = "找不到這份練習";
 const ONLY_RUN_STOCKS = "請選擇本課程提供的股票";
 const LISTED_CODE = /^\d{4}$/;
 const RECORDS_SHOWN = 20;
-/** Every run of a retired lesson held all of its five stocks (it chose none). */
-const RETIRED_RUN_STOCKS = 5;
 const money = (amount: number) => Math.round(amount * 100) / 100;
 
 /** A daily lesson's run always holds its stocks; one without is not a run this API can serve. */
 function runCodes(state: MorningStoredState): string[] {
   if (!state.codes?.length) throw new MorningError(409, "課程版本已變更，請聯絡講師確認這份練習");
   return state.codes;
+}
+
+/** A retired lesson's run as saved, under the id it is stored with (the oldest saves may not carry one). */
+const retiredRun = (row: SessionRow): MorningStoredState => ({ ...stored(row), id: row.id });
+
+/**
+ * A retired lesson's run as the desk gets it: text only (no bars, TAIEX, tape or books) in a catalog of its stocks.
+ * Needs no market data, so a run can always be opened, finished or abandoned, with or without daily lessons.
+ */
+function retiredReply(state: MorningStoredState, date: string): MorningResponse {
+  return { catalog: retiredCatalog(state, date), state: { ...structuredClone(state), bars: {} }, retired: true };
 }
 
 /** The learner's unfinished runs of daily lessons, the one touched last first. */
@@ -174,7 +186,8 @@ function checkStart(action: Extract<MorningAction, { action: "start" }>, picker:
 /**
  * GET /api/morning. Always use a transaction-bound SQL handle and the user ID from the verified cookie session.
  * The lesson asked for shows its latest run, finished or not; with none asked for, the latest unfinished run, else
- * the newest day's picker. A guest's picker and wording never use the 當沖 list. A run whose day's data cannot be
+ * the newest day's picker. A retired lesson asked for by id shows its latest run as text only (`retired: true`), with
+ * or without daily lessons. A guest's picker and wording never use the 當沖 list. A run whose day's data cannot be
  * read now never locks the learner out: the day's picker (the newest day's, when none was asked for) opens instead,
  * and an unfinished one is named in `blockedRun`, as it can still be finished or abandoned.
  */
@@ -183,7 +196,18 @@ export async function loadMorningSession(sql: Sql, userId: string, options: Morn
   const guest = access.kind === "guest";
   const market = marketOf(options);
   const target = await resolveMorningSource(options.params ?? new URLSearchParams(), { openLessonIds: () => openLessonIds(sql, userId) }, market);
-  if (target.kind === "unavailable") return { unavailable: target.unavailable };
+  if (target.kind === "unavailable") {
+    // The runs are the learner's own, not the classroom's: they list (and open, by their lesson) without daily lessons.
+    const records = await readRunRecords(sql, userId);
+    return { unavailable: target.unavailable, ...(records.length ? { records } : {}) };
+  }
+  if (target.kind === "retired") {
+    // The latest run of the retired lesson, finished or not, as text; no run of the learner's is a lesson that is closed.
+    const rows = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions
+      WHERE user_id = ${userId} AND lesson_id = ${target.lessonId} ORDER BY created_at DESC, id DESC LIMIT 1`;
+    if (!rows[0]) throw new MorningError(404, RETIRED_LESSON);
+    return { ...retiredReply(retiredRun(rows[0]), target.date), records: await readRunRecords(sql, userId) };
+  }
   const { date, lessonId } = target;
   let rows: SessionRow[] = [];
   if (target.from === "query")
@@ -223,7 +247,8 @@ export async function loadMorningSession(sql: Sql, userId: string, options: Morn
  * POST /api/morning: one action, exactly once (retries return this run's current, already revealed state). A start
  * goes to the lesson in the query, else the latest unfinished run's day, else the newest day; any other action
  * finds its run by id (and, with a lesson in the query, only on that lesson). Finishing and abandoning need no
- * market data, so a run whose day's data cannot be read can always be ended.
+ * market data, so a run whose day's data cannot be read can always be ended. The runs of a retired lesson can only be
+ * ended (409 for anything else) and no run starts on it (404), with or without daily lessons.
  */
 export async function mutateMorningSession(sql: Sql, userId: string, input: unknown, options: MorningRequestOptions = {}): Promise<MorningReply> {
   const action = parseMorningAction(input);
@@ -237,10 +262,12 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
   if (action.action === "start") {
     const target = await resolveMorningSource(params, { openLessonIds: () => openLessonIds(sql, userId) }, market);
     if (target.kind === "unavailable") return { unavailable: target.unavailable };
+    if (target.kind === "retired") throw new MorningError(404, RETIRED_LESSON);
     lessonId = target.lessonId;
   } else {
     lessonId = requestedLesson(params)?.lessonId ?? null;
-    if (!market.dir) return { unavailable: NO_DAILY_LESSONS };
+    // No daily lessons (on-prem): only a retired lesson's runs can still be acted on, as they need no lesson data.
+    if (!market.dir && lessonId !== null && !isRetiredLesson(lessonId)) return { unavailable: NO_DAILY_LESSONS };
   }
   const acceptsTerms = action.action === "start" && action.guestTerms === true;
   if (access.kind === "member" && acceptsTerms) throw new MorningError(400, "這個帳號不需要訪客聲明");
@@ -251,13 +278,19 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
   if (lessonId === null && action.action !== "start") {
     const owned = await sql<{ lesson_id: string }>`SELECT lesson_id FROM morning_sessions
       WHERE id = ${action.id}::uuid AND user_id = ${userId} FOR UPDATE`;
-    if (!owned[0]) throw new MorningError(404, NOT_FOUND);
-    if (isRetiredLesson(owned[0].lesson_id)) throw new MorningError(404, RETIRED_LESSON);
+    if (!owned[0]) {
+      if (!market.dir) return { unavailable: NO_DAILY_LESSONS };
+      throw new MorningError(404, NOT_FOUND);
+    }
     lessonId = owned[0].lesson_id;
+    if (!market.dir && !isRetiredLesson(lessonId)) return { unavailable: NO_DAILY_LESSONS };
   }
   if (lessonId === null) throw new MorningError(404, NOT_FOUND);
-  const date = parseLessonId(lessonId);
+  const date = lessonDate(lessonId);
   if (!date) throw new MorningError(404, NOT_FOUND);
+  const retired = isRetiredLesson(lessonId);
+  // An old lesson's run can be ended and nothing else; the answer needs neither a request id's record nor its data.
+  if (retired && action.action !== "finish" && action.action !== "abandon") throw new MorningError(409, RETIRED_RUN_ACTION);
   // Read the clock after acquiring the owner lock: queued requests cannot reuse stale elapsed time.
   const clock = options.clock ?? Date.now;
   const now = typeof clock === "function" ? clock() : clock;
@@ -269,7 +302,7 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
     const rows = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions WHERE id = ${previous[0].session_id}::uuid
       AND user_id = ${userId} AND lesson_id = ${lessonId} FOR UPDATE`;
     if (!rows[0]) throw new MorningError(404, NOT_FOUND);
-    return replyTo(action, market, date, stored(rows[0]), guest);
+    return retired ? retiredReply(retiredRun(rows[0]), date) : replyTo(action, market, date, stored(rows[0]), guest);
   }
   let state: MorningStoredState;
   let celebration: Celebration | null = null;
@@ -293,10 +326,10 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
     const rows = await sql<SessionRow>`SELECT id, state_json FROM morning_sessions
       WHERE id = ${action.id}::uuid AND user_id = ${userId} AND lesson_id = ${lessonId} FOR UPDATE`;
     if (!rows[0]) throw new MorningError(404, NOT_FOUND);
-    const before = stored(rows[0]);
-    const codes = runCodes(before);
+    const before = retired ? retiredRun(rows[0]) : stored(rows[0]);
     if (action.action === "finish" || action.action === "abandon") state = endMorningRun(before, action);
     else {
+      const codes = runCodes(before);
       if (action.action === "advance" && action.view !== undefined && !codes.includes(action.view))
         throw new MorningError(400, ONLY_RUN_STOCKS);
       state = applyMorningAction(before, action, await market.runSource(date, codes, guest), now);
@@ -311,7 +344,7 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
   if (counts[0].count >= 1_000) throw new MorningError(429, "本次練習操作次數已達上限，請聯絡講師");
   await sql`INSERT INTO morning_requests (user_id, request_id, session_id, action_hash)
     VALUES (${userId}, ${action.requestId}::uuid, ${state.id}::uuid, ${hash})`;
-  const response = await replyTo(action, market, date, state, guest);
+  const response = retired ? retiredReply(state, date) : await replyTo(action, market, date, state, guest);
   return celebration ? { ...response, celebration } : response;
 }
 

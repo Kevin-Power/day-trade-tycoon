@@ -211,7 +211,10 @@ test("GET resumes the latest unfinished run, else newest day picker", () => with
     assert.equal(byId.picker!.date, "2026-10-27");
     assert.equal(served(await get("bob", lessonOf("2026-10-27"))).state, null);
 
-    await assert.rejects(get("alice", retiredId), { status: 404, message: "這堂舊課已停用" });
+    // An old lesson opens as text (its run is there); it never starts a run, and a learner with none finds it closed.
+    const oldRun = served(await get("alice", retiredId));
+    assert.deepEqual([oldRun.retired, oldRun.state!.lessonId, oldRun.state!.bars], [true, retiredId, {}]);
+    await assert.rejects(get("bob", retiredId), { status: 404, message: "這堂舊課已停用" });
     await assert.rejects(post("alice", startOf(["2330"]), 3_000, retiredId), { status: 404, message: "這堂舊課已停用" });
     for (const lesson of [lessonOf("2026-10-20"), lessonOf("2026-10-29"), "fubon-20261027-day", "morning-20261007-v1-000000000000", "__proto__", ""])
       await assert.rejects(get("alice", lesson), { status: 400 }, lesson);

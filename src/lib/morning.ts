@@ -141,6 +141,7 @@ export type MorningResponse = {
   records?: RunRecord[];
   /** GET of a run: the 主角股's recorded books in the last revealed cell, when the day has them. */
   book?: MorningDelta["book"];
+  /** The run is one of a retired lesson: text only (`state.bars` empty), it can only be finished or abandoned. */
   retired?: boolean;
   /**
    * GET: the learner's unfinished run that cannot be opened now (its day's data changed or cannot be read). The
@@ -149,8 +150,11 @@ export type MorningResponse = {
    */
   blockedRun?: { id: string; lessonId: string; date: string; revision: number; message: string };
 };
-/** The classroom has no daily lessons: none configured (on-prem) or none published yet. Nothing else is sent. */
-export type MorningUnavailable = { unavailable: string };
+/**
+ * The classroom has no daily lessons: none configured (on-prem) or none published yet. Nothing of any lesson is sent;
+ * on a GET the learner's own `records` are (when there are any), as old runs stay openable without lessons.
+ */
+export type MorningUnavailable = { unavailable: string; records?: RunRecord[] };
 export type MorningReply = MorningResponse | MorningUnavailable;
 export type MorningAction =
   | { action: "start"; requestId: string; plan: MorningPlan; codes: string[]; guestTerms?: true }

@@ -11,15 +11,18 @@ import { SIX, SIX_ALL_MORNING, putRadar, withMarket, writeDay } from "./morning-
 
 const noOpenRun = { openLessonIds: async () => [] };
 
-test("lesson selection accepts exactly one daily lesson id; the retired lessons answer 404", () => {
+test("lesson selection accepts exactly one lesson id: a daily lesson or a retired one", () => {
   assert.deepEqual(RETIRED_LESSONS, {
     "morning-20261005-v1-bd566804b809": "2026-10-05",
     "morning-20261006-v1-ce4a95ce69f1": "2026-10-06",
   });
   assert.equal(requestedLesson(new URLSearchParams()), null);
   assert.deepEqual(requestedLesson(new URLSearchParams({ lesson: "fubon-20261028-am" })), { lessonId: "fubon-20261028-am", date: "2026-10-28" });
-  for (const id of Object.keys(RETIRED_LESSONS))
-    assert.throws(() => requestedLesson(new URLSearchParams({ lesson: id })), { status: 404, message: "這堂舊課已停用" });
+  // A retired lesson is named (its runs open as text, see morning-retired.test.ts); it is never a daily lesson.
+  assert.deepEqual(requestedLesson(new URLSearchParams({ lesson: "morning-20261005-v1-bd566804b809" })),
+    { lessonId: "morning-20261005-v1-bd566804b809", date: "2026-10-05", retired: true });
+  assert.deepEqual(requestedLesson(new URLSearchParams({ lesson: "morning-20261006-v1-ce4a95ce69f1" })),
+    { lessonId: "morning-20261006-v1-ce4a95ce69f1", date: "2026-10-06", retired: true });
   for (const value of ["", "2026-10-28", "fubon-20261028", "fubon-20261028-day", "fubon-20261332-am", "morning-20261007-v1-000000000000",
     "__proto__", "constructor", "hasOwnProperty", "../../server/data/morning-2026-10-06.json", " fubon-20261028-am"])
     assert.throws(() => requestedLesson(new URLSearchParams({ lesson: value })), { status: 400 }, value);
@@ -30,8 +33,10 @@ test("lesson selection accepts exactly one daily lesson id; the retired lessons 
 
 test("the lesson served: the one asked for, else the latest open run's day, else the newest day", () => withMarket(async (dir) => {
   assert.deepEqual(await resolveMorningSource(new URLSearchParams(), noOpenRun, ""), { kind: "unavailable", unavailable: "此教室沒有每日教材" });
-  await assert.rejects(resolveMorningSource(new URLSearchParams({ lesson: "morning-20261006-v1-ce4a95ce69f1" }), noOpenRun, ""), { status: 404 },
-    "a retired lesson is retired whether or not the classroom has daily lessons");
+  for (const folder of ["", dir])
+    assert.deepEqual(await resolveMorningSource(new URLSearchParams({ lesson: "morning-20261006-v1-ce4a95ce69f1" }), noOpenRun, folder),
+      { kind: "retired", lessonId: "morning-20261006-v1-ce4a95ce69f1", date: "2026-10-06" },
+      "a retired lesson is known whether or not the classroom has daily lessons or days");
   assert.deepEqual(await resolveMorningSource(new URLSearchParams(), noOpenRun, dir), { kind: "unavailable", unavailable: "目前還沒有每日教材" });
   await writeDay(dir, "2026-10-20", SIX); // before the first lesson day
   await writeDay(dir, "2026-10-27", SIX);
