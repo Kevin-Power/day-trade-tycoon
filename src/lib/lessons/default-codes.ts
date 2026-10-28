@@ -7,6 +7,13 @@ import type { RadarList } from "./types.ts";
 /** A run holds 1 to 80 stocks. */
 export const MAX_RUN_CODES = 80;
 
+/** The same stocks, in any order (a run's stocks against the day's default list). */
+export function sameCodes(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return set.size === b.length && b.every((code) => set.has(code));
+}
+
 /** What the list held, after removing repeats: all, 上櫃 (not in the course), and neither 上櫃 nor practisable. */
 export type ListCounts = { listed: number; otc: number; missing: number };
 

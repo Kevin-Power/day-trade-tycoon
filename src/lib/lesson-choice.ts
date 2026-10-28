@@ -1,12 +1,12 @@
 // The desk's lesson picker and run records, browser side (③ §7, decision G; 當沖 list design E, F). Pure: what
 // the picker shows and allows (1–80 stocks, search in the browser over the day's stocks), the labels of days and
 // runs, and what the desk keeps from one reply to the next. Nothing here talks to the server.
-import { MAX_RUN_CODES } from "./lessons/default-codes.ts";
+import { MAX_RUN_CODES, sameCodes } from "./lessons/default-codes.ts";
 import type { PickerSymbol, RunRecord } from "./lessons/types.ts";
 import type { MorningCatalog, MorningLessonSummary } from "./morning.ts";
 import type { DeskResponse } from "./market/real-replay.ts";
 
-export { MAX_RUN_CODES };
+export { MAX_RUN_CODES, sameCodes };
 
 /** Shown when the run holds MAX_RUN_CODES stocks and no more can be added. */
 export const FULL_LIST_TEXT = `最多 ${MAX_RUN_CODES} 檔`;
@@ -62,13 +62,6 @@ export function addCode(codes: readonly string[], code: string): string[] {
 export function removeCode(codes: readonly string[], code: string): string[] {
   if (codes.length <= 1) return [...codes];
   return codes.filter((item) => item !== code);
-}
-
-/** The same stocks, in any order. */
-export function sameCodes(a: readonly string[], b: readonly string[]): boolean {
-  if (a.length !== b.length) return false;
-  const set = new Set(a);
-  return set.size === b.length && b.every((code) => set.has(code));
 }
 
 /**
@@ -173,44 +166,4 @@ export function previewCatalog(
   if (sameCodes(codes, picker.defaults)) preview.note = { ...picker.note };
   else delete preview.note;
   return preview;
-}
-
-// ── Runs on their own list (the 自選 title's 「預設：…」 note) ──────────────────────────────────────────────────
-
-/** The device's runs started on stocks other than the day's default, newest last. */
-export const OWN_LIST_KEY = "day-tycoon-own-list-v1";
-const OWN_LISTS_KEPT = 40;
-
-export function readOwnLists(storage: Pick<Storage, "getItem"> | undefined): string[] {
-  try {
-    const value: unknown = JSON.parse(storage?.getItem(OWN_LIST_KEY) ?? "[]");
-    return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-/** Notes (on this device) that the run holds stocks of the learner's own choosing, not the day's default list. */
-export function rememberOwnList(storage: Pick<Storage, "getItem" | "setItem"> | undefined, runId: string): void {
-  try {
-    const kept = readOwnLists(storage).filter((id) => id !== runId);
-    storage?.setItem(OWN_LIST_KEY, JSON.stringify([...kept, runId].slice(-OWN_LISTS_KEPT)));
-  } catch {
-    /* A convenience only: without it the server's note shows. */
-  }
-}
-
-/**
- * Whether the 自選 title keeps the day's 「預設：…」 note for a run: not when its stocks are not the day's defaults
- * (known from the day's picker, or from this device having started it on its own list). The server attaches the
- * day's note to every run of the day.
- */
-export function keepsDefaultNote(input: {
-  runId: string;
-  runCodes: readonly string[];
-  defaults: readonly string[] | null;
-  ownLists: readonly string[];
-}): boolean {
-  if (input.defaults) return sameCodes(input.runCodes, input.defaults);
-  return !input.ownLists.includes(input.runId);
 }

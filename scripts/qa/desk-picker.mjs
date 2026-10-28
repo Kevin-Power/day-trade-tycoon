@@ -7,9 +7,11 @@
 //   - stocks found by code can be added up to 80, and then 「最多 80 檔」 shows and nothing more can be added;
 //   - the date menu lists the open days as 「M/D 早盤」, menus and the search field are 16px or more on phones, and
 //     nothing scrolls sideways; on phones the start button is still on the plan's first screen;
+//   - tap targets: the picker's day menu, stocks button, 移除 / 加入, the 練習紀錄 rows and 放棄這局 / 確定放棄 / 取消
+//     are 44px or taller on phones (the day menu and stocks button 48px) and 56px in 大字;
 //   - a run started from the picker can be given up (asked first, with ruling R10's words) from the 教材 drawer
-//     (desktop) and from 復盤 (phone), and the picker then opens again on the day's default list, the run listed in
-//     練習紀錄 as 已放棄;
+//     (desktop) and from 復盤 (phone, 大字), and the picker then opens again on the day's default list, the run listed
+//     in 練習紀錄 as 已放棄;
 //   - a guest (a fresh visitor through the gate) sees 「預設：成交值前 5 名」 and at most five stocks;
 //   - a retired lesson's run opens from 練習紀錄 as text: 「舊課（已停用）」, no chart, and 完成並復盤 / 放棄這局 while
 //     unfinished. A classroom with no retired run gets one record and its page answered in the browser
@@ -104,6 +106,29 @@ const chosen = (page) =>
   page.$$eval(".td-picker-list:not(.td-picker-found) .td-picker-row", (rows) => rows.map((row) => row.dataset.code));
 const sameList = (a, b) => a.length === b.length && a.every((code, index) => code === b[index]);
 
+/** The heights of what `selectors` (name → CSS selector) find on the page, each one's smallest visible box. */
+const heights = (page, selectors) =>
+  page.evaluate((map) => {
+    const out = {};
+    for (const [name, selector] of Object.entries(map)) {
+      const boxes = [...document.querySelectorAll(selector)]
+        .map((node) => node.getBoundingClientRect())
+        .filter((box) => box.width > 0 && box.height > 0);
+      out[name] = boxes.length ? Math.round(Math.min(...boxes.map((box) => box.height)) * 10) / 10 : null;
+    }
+    return out;
+  }, selectors);
+/** Touch layouts: every target at least `floor` px (大字 56, phones 44; the day menu and stocks button 48 there). */
+function checkTargets(name, c, measured, where) {
+  if (c.width >= 768) return;
+  results[name][`targets-${where}`] = measured;
+  for (const [target, height] of Object.entries(measured)) {
+    const floor = c.senior ? 56 : ["dayMenu", "stocksButton"].includes(target) ? 48 : 44;
+    if (height === null) fail(name, `${where}: no ${target} to measure`);
+    else if (height < floor - 0.5) fail(name, `${where}: ${target} is ${height}px tall, under ${floor}px`);
+  }
+}
+
 async function addByCode(page, code) {
   const search = page.locator(".td-picker-search input");
   await search.fill(code);
@@ -194,6 +219,18 @@ for (const c of CASES) {
     }
     await page.screenshot({ path: `${out}${name}-picker.png`, fullPage: phone });
 
+    // Tap targets on touch layouts: the folded row, the list's buttons, a search result's 加入, the records.
+    await page.locator(".td-picker-search input").fill(picker.symbols.find((symbol) => !defaults.includes(symbol.code))?.code ?? "");
+    await page.waitForTimeout(300);
+    checkTargets(name, c, await heights(page, {
+      dayMenu: ".td-picker-date",
+      stocksButton: ".td-picker-toggle",
+      remove: ".td-picker-list:not(.td-picker-found) .td-picker-remove",
+      add: ".td-picker-found .td-picker-add",
+      record: ".td-records .td-record-open",
+    }), "picker");
+    await page.locator(".td-picker-search input").fill("");
+
     // Down to one stock: the last one stays.
     for (let guard = 0; guard < 100 && (await chosen(page)).length > 1; guard++)
       await page.locator(".td-picker-list:not(.td-picker-found) .td-picker-remove").first().click();
@@ -226,7 +263,6 @@ for (const c of CASES) {
     await session.context.close();
 
     // 放棄這局, then the picker again on the default list (desktop: from 教材; phones: from 復盤).
-    if (c.senior) continue;
     session = await open(browser, c);
     if (!(await startFromPicker(session.page, name))) continue;
     await waitForRun();
@@ -238,8 +274,12 @@ for (const c of CASES) {
       await desk.getByRole("button", { name: "教材" }).click();
       await desk.locator(".td-resources").waitFor({ timeout: 4000 });
     }
-    await desk.getByRole("button", { name: "放棄這局、重新選股" }).first().click();
+    const abandonButton = desk.getByRole("button", { name: "放棄這局、重新選股" }).first();
+    await abandonButton.scrollIntoViewIfNeeded();
+    checkTargets(name, c, { abandon: Math.round(((await abandonButton.boundingBox())?.height ?? 0) * 10) / 10 }, "review");
+    await abandonButton.click();
     const ask = desk.getByRole("alertdialog");
+    checkTargets(name, c, await heights(desk, { confirm: ".td-abandon-confirm .td-button[data-variant='danger']", cancel: ".td-abandon-confirm .td-button:not([data-variant])" }), "confirm");
     const asked = (await ask.textContent())?.includes(CONFIRM);
     if (!asked) fail(name, `放棄這局 does not ask 「${CONFIRM}」`);
     await desk.screenshot({ path: `${out}${name}-abandon-ask.png` });

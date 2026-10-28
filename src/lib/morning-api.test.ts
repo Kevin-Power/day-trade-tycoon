@@ -144,6 +144,35 @@ test("guest responses never contain radar data", () => withMarket(async (dir) =>
   });
 }));
 
+test("a run's replies carry the day's 「預設」 note only when it holds the day's default stocks (R11)", () => withMarket(async (dir) => {
+  await writeDay(dir, "2026-10-20", SIX);
+  await writeDay(dir, "2026-10-21", SIX_ALL_MORNING, { taiex: true });
+  await putRadar(dir, "2026-10-20", ["2454", "6488", "2330", "9999"]);
+  await withClassroom(async (classroom) => {
+    const { get, post } = api(classroom, dir);
+    const picker = served(await get("alice")).picker!;
+    assert.deepEqual(picker.defaults, ["2330", "2454"]);
+    const note = { title: "預設：前一交易日熱門當沖股（10/20 盤後）", detail: "名單 4 檔：上櫃 1 檔不在教材範圍，另 1 檔這天沒有可練習的資料" };
+    assert.deepEqual(picker.note, note);
+
+    // The learner's own list: no reply of the run says it is the day's default, on this device or any other.
+    const own = served(await post("alice", startOf(["2317", "2330"], "2330"), 0));
+    assert.equal(own.catalog.note, undefined, "start");
+    const advanced = served(await post("alice", advanceOf(own.state!), 1_000));
+    assert.equal(advanced.catalog.note, undefined, "advance");
+    const resumed = served(await get("alice"));
+    assert.equal(resumed.state!.id, own.state!.id);
+    assert.equal(resumed.catalog.note, undefined, "GET of the run");
+    await post("alice", abandonOf(advanced.state!), 2_000);
+
+    // The day's default stocks, in any order: the note goes with every reply of the run.
+    const defaults = served(await post("alice", startOf(["2454", "2330"], "2330"), 3_000));
+    assert.deepEqual(defaults.catalog.note, note, "start");
+    assert.deepEqual(served(await post("alice", advanceOf(defaults.state!), 4_000)).catalog.note, note, "advance");
+    assert.deepEqual(served(await get("alice")).catalog.note, note, "GET of the run");
+  });
+}));
+
 test("GET resumes the latest unfinished run, else newest day picker", () => withMarket(async (dir) => {
   await writeDay(dir, "2026-10-27", SIX_ALL_MORNING);
   await writeDay(dir, "2026-10-28", SIX_ALL_MORNING);

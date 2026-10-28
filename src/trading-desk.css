@@ -898,6 +898,11 @@
 .trading-desk:is([data-layout="phone"], [data-layout="tablet"]) :is(.td-picker-row .td-button, .td-records .td-button) {
   min-height: 44px;
 }
+/* Large text: the picker's controls are as tall as every other large-text target (56px). These rules outrank the
+   reading mode's own 56px, so it is set here again. */
+.trading-desk[data-layout="senior"] :is(.td-picker .td-button, .td-picker-date) {
+  min-height: 56px;
+}
 .trading-desk[data-layout="senior"] .td-picker-id {
   font-size: 17px;
 }
@@ -977,6 +982,9 @@
 .trading-desk:is([data-layout="phone"], [data-layout="tablet"]) .td-record-row:not(.td-record-head) {
   min-height: 48px;
 }
+.trading-desk[data-layout="senior"] .td-record-row:not(.td-record-head) {
+  min-height: 56px;
+}
 .trading-desk[data-layout="senior"] .td-record-row {
   font-size: 16px;
 }
@@ -1015,6 +1023,9 @@
 }
 .trading-desk:is([data-layout="phone"], [data-layout="tablet"]) :is(.td-abandon, .td-abandon-confirm .td-button) {
   min-height: 44px;
+}
+.trading-desk[data-layout="senior"] :is(.td-abandon, .td-abandon-confirm .td-button) {
+  min-height: 56px;
 }
 .trading-desk .td-review-abandon {
   margin-top: 16px;

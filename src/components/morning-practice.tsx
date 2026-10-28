@@ -78,12 +78,8 @@ import {
   RETIRED_TEXT,
   carryHeld,
   dateOptions,
-  keepsDefaultNote,
   lessonDayLabel,
   previewCatalog,
-  readOwnLists,
-  rememberOwnList,
-  sameCodes,
   shortDate,
 } from "@/lib/lesson-choice";
 import { cn, formatTime } from "@/lib/utils";
@@ -531,27 +527,14 @@ function MorningLesson({
     () => (picker ? (choice?.lessonId === picker.lessonId ? choice.codes : picker.defaults) : []),
     [picker, choice],
   );
-  const runLesson = session?.lessonId;
-  const runCodes = session?.codes?.join(",") ?? "";
   // What the desk shows: before a run, the picked stocks (the 「預設」 note only while they are the day's
-  // defaults); during one, its stocks, without the day's note when they are not the default list (the server
-  // attaches the day's note to every run of the day).
+  // defaults); during one, the run's catalog as the server sends it (with the day's note only on a run of the
+  // day's default stocks, ruling R11).
   const catalog = useMemo(() => {
     const raw = data?.catalog;
-    if (!raw) return raw;
-    if (showPlan) return picker && picker.lessonId === raw.lessonId ? previewCatalog(raw, picker, pickedCodes) : raw;
-    if (!raw.note || !sessionId) return raw;
-    const keeps = keepsDefaultNote({
-      runId: sessionId,
-      runCodes: runCodes ? runCodes.split(",") : [],
-      defaults: picker && picker.lessonId === runLesson ? picker.defaults : null,
-      ownLists: readOwnLists(browserStorage()),
-    });
-    if (keeps) return raw;
-    const own = { ...raw };
-    delete own.note;
-    return own;
-  }, [data?.catalog, showPlan, picker, pickedCodes, sessionId, runLesson, runCodes]);
+    if (!raw || !showPlan) return raw;
+    return picker && picker.lessonId === raw.lessonId ? previewCatalog(raw, picker, pickedCodes) : raw;
+  }, [data?.catalog, showPlan, picker, pickedCodes]);
   const lessons = data?.lessons ?? knownLessons;
   useEffect(() => {
     if (data?.lessons) onLessons(data.lessons);
@@ -790,9 +773,6 @@ function MorningLesson({
     );
     const receivedAt = Date.now();
     if (next?.state) {
-      // The 自選 title keeps the day's 「預設」 note only on the default list, after a reload too (this device).
-      if (!sameCodes(next.state.codes ?? codes, picker.defaults))
-        rememberOwnList(browserStorage(), next.state.id);
       // The next run starts from the day's default list again (list decision F).
       setChoice(null);
       setNewPlan(false);

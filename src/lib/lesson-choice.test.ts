@@ -4,19 +4,15 @@ import {
   ABANDON_CONFIRM_TEXT,
   FULL_LIST_TEXT,
   MAX_RUN_CODES,
-  OWN_LIST_KEY,
   addCode,
   carryHeld,
   dateOptions,
   formatPnl,
   formatPreviousValue,
-  keepsDefaultNote,
   lessonDayLabel,
   openableRecords,
   previewCatalog,
-  readOwnLists,
   recordStatus,
-  rememberOwnList,
   removeCode,
   sameCodes,
   searchSymbols,
@@ -237,40 +233,4 @@ test("the desk before a run shows the picked stocks, and the 「預設」 note o
   assert.equal(edited.note, undefined);
   assert.equal(defaults.note.title, "預設：成交值前 5 名", "the held catalog is not changed");
   assert.deepEqual(previewCatalog(defaults, picker, ["9999"]).symbols, [], "a code the day does not offer is left out");
-});
-
-test("the 「預設」 note stays only on a run of the day's default stocks", () => {
-  const base = { runId: "r1", runCodes: ["2330", "2317"], ownLists: [] as string[] };
-  assert.ok(keepsDefaultNote({ ...base, defaults: ["2317", "2330"] }));
-  assert.ok(!keepsDefaultNote({ ...base, defaults: ["2317", "2330", "2454"] }));
-  assert.ok(keepsDefaultNote({ ...base, defaults: null }), "unknown defaults: the server's note shows");
-  assert.ok(!keepsDefaultNote({ ...base, defaults: null, ownLists: ["r1"] }), "this device started it on its own list");
-});
-
-test("own-list runs are kept on the device, newest last, and bad storage reads as none", () => {
-  const values = new Map<string, string>();
-  const storage = {
-    getItem: (key: string) => values.get(key) ?? null,
-    setItem: (key: string, value: string) => void values.set(key, value),
-  };
-  rememberOwnList(storage, "a");
-  rememberOwnList(storage, "b");
-  rememberOwnList(storage, "a");
-  assert.deepEqual(readOwnLists(storage), ["b", "a"]);
-  for (let index = 0; index < 50; index += 1) rememberOwnList(storage, `r${index}`);
-  assert.equal(readOwnLists(storage).length, 40);
-  values.set(OWN_LIST_KEY, "{not json");
-  assert.deepEqual(readOwnLists(storage), []);
-  assert.deepEqual(readOwnLists(undefined), []);
-  rememberOwnList(
-    {
-      getItem: () => {
-        throw new Error("blocked");
-      },
-      setItem: () => {
-        throw new Error("blocked");
-      },
-    },
-    "x",
-  );
 });

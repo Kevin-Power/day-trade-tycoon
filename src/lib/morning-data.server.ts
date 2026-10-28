@@ -20,6 +20,7 @@ import { STOCK_CATALOGUE } from "./market/universe.ts";
 import { MORNING_CELLS } from "./lessons/trades.ts";
 import { marketDataDir } from "./lessons/market-files.server.ts";
 import type { LessonPicker } from "./lessons/types.ts";
+import { sameCodes } from "./lessons/default-codes.ts";
 
 /** The retired lessons, id → date. Their runs stay readable in the records; the lessons themselves never open. */
 export const RETIRED_LESSONS: Record<string, string> = {
@@ -148,12 +149,16 @@ export function clearMorningDataCaches(): void {
 // ── Catalogs ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /**
- * A run's data on an open day, its stocks in the order chosen, with the day's default wording (`catalog.note`) for
- * this audience. Bars, trades and TAIEX are the lesson cache's own objects: never change them.
+ * A run's data on an open day, its stocks in the order chosen. The day's default wording for this audience
+ * (`catalog.note`) goes with it only when the run holds the day's default stocks: a list of the learner's own, or
+ * one a list that arrived later no longer matches, has no note (ruling R11). Bars, trades and TAIEX are the lesson
+ * cache's own objects: never change them.
  */
 export async function runSourceFor(dir: string, date: string, codes: readonly string[], guest: boolean): Promise<RunSource> {
   const [source, picker] = await Promise.all([buildRunSource(dir, date, codes), dayPicker(dir, date, guest)]);
-  return picker ? { ...source, catalog: { ...source.catalog, note: { ...picker.note } } } : source;
+  return picker && sameCodes(codes, picker.defaults)
+    ? { ...source, catalog: { ...source.catalog, note: { ...picker.note } } }
+    : source;
 }
 
 /**
