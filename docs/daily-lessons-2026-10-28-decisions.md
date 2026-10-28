@@ -1,0 +1,123 @@
+# 每日真實教材＋熱門當沖自選：建置時的決定與延後項目（2026-10-28／29）
+
+這份是建置流程帳本的永久副本：每一條是當時代替使用者做的決定（Ruling）或審查員提出、決定延後的次要問題。原始帳本在建置結束後刪除。驗收紀錄見 `docs/daily-lessons-2026-10-28.md`。
+
+## 決定（Rulings，依時間順序）
+
+- Ruling R1: T8 also rewrites/deletes the three old-lesson unit tests (morning-lessons.test.ts, morning-source-contract.test.ts, morning-expansion-source.test.ts) because removing the static JSON imports breaks them; T9 keeps build gates, check-symbols, verify-morning-build and the retired-run behaviour — keeps every task's suite green — cost if wrong: test churn lands one task earlier.
+- Ruling R2: TAIEX folder is market-data/taiex/<d>/ not index/<d>/ (root index.json name clash) — plan-recorded — cost if wrong: one rename in fetcher + reader.
+- Ruling R3: desk-watch80 (T12) and desk-picker (T13) QA scripts are written in their tasks but first run in T16/T18 once the fixture exists — cost if wrong: layout bugs found later.
+- Task 1: Ruling R4: carry to Task 3 — extras must stage the raw TWSE bytes (new Store.stage_taiex_raw(day, raw) into staging-taiex/<d>/) BEFORE decode/parse, so every rejected answer is kept as evidence until the next successful publish — why: spec "先存原始回應，再檢查"; Task 1's publish interface takes parsed points — cost if wrong: small extra store method.
+- Task 1: Ruling R5: status.json key is "taiex" (spec said "index") — same reason as R2 — cost if wrong: one key rename in fetcher + teacher card.
+- Task 4: Ruling R6: books size visibility follows books/<d>/manifest.json sizeUnit === "lot" (not the per-file header, which is always "unverified") — carry to T6 runBookCell — cost if wrong: sizes hidden/shown wrongly.
+- Task 4: Ruling R7: bookCell's extra `gaps` field (gaps clipped to the cell) is kept and passed through runBookCell (T6) and MorningDelta.book (T7) so the desk shows 「這段時間沒有五檔資料」 inside a mid-cell gap — cost if wrong: one extra field.
+- Task 11: Ruling R8: on a books day, before the newly selected stock's book arrives (next advance) or when that stock has no book file, show 「下一分鐘起顯示這檔的五檔」 instead of the gap note — carry to T14 copy — why: the gap note is false there — cost if wrong: one string.
+- Task 12: Ruling R9: phone/tablet/senior 自選 cap = max(50dvh, sticky block + 5 rows) so a list of ≤5 stocks never scrolls (plan said 50vh) — why: default top-5 / short lists must be fully visible — cost if wrong: taller watch area on phones.
+- Task 13: Ruling R10: abandon confirm copy 「確定放棄這局？放棄後不計紀律分數，可以重新選股。」 (not in spec) — cost if wrong: one string.
+- Task 13: Ruling R11: runSourceFor attaches catalog.note only when the run's codes equal the day's picker.defaults (server change approved inside T13); a run whose codes differ shows no note — why: client-only hiding failed across devices and late lists — cost if wrong: a top-5 run started before a late list loses its top-5 wording.
+- Task 13: Ruling R12 (parked): records open only each lesson's newest run; older same-day runs listed but not openable — needs GET-by-run-id; deferred — cost if wrong: learners can't reopen older same-day runs.
+- Task 15: Ruling R13: the lobby's 「今天完成了」 means a finished, non-abandoned run of the newest lesson day (lasts until the next lesson is published) — why: daily lessons are per trading day and RunRecord has no start time — cost if wrong: the done state lasts past midnight until ~17:10 next trading day.
+- Final: Ruling R14: Important 1 (books cache scale) deferred with a hard gate — books publishing (② turning off --no-publish) must not be enabled until the books reader is reworked (async gunzip, keyframes+deltas, byte-weighted cache) and measured on real recorded books — why: books are record-only today so learners never hit this path; a fix without real data can't be validated — cost if wrong: if publishing is enabled first, advances on books days slow down under load.
+- Final: Ruling R15: the fix wave also takes these cheap reviewer minors because they affect real users: day-level negative caching (retry after 60 s), radar all-rows-skipped → failed, dvh @supports fallback, TAIEX-only-when-present data notes, NFKC picker search, retired id without a run → newest day picker, rollback caveat in the record, and a real-data check of the TAIEX previous-close rule on two public TWSE days — cost if wrong: a slightly larger final diff.
+- Final: Ruling R16: the stale integration assertion is fixed by the same fix implementer now (not a new wave) — why: load-bearing for the release's integration step, one-line change verified by running the hosting integration tests — cost if wrong: none.
+
+## 延後的次要問題（minor, deferred）
+
+- Task 1: minor (deferred): publish_taiex reuses stale staging dir without rmtree (store.py:141-142)
+- Task 1: minor (deferred): taiex_close None for unreadable previous points silently disables continuity check, unlogged (store.py:105-131)
+- Task 1: minor (deferred): publish_taiex trusts points; empty list → bare IndexError after raw staged (taiex.py:293)
+- Task 1: minor (deferred): POINT_COUNT dead; USER_AGENT test tautological (taiex.py:22, test_taiex.py:443)
+- Task 1: minor (deferred): _value accepts "1_000"/"3,3,000"; no magnitude sanity (taiex.py:253)
+- Task 2: minor (deferred): write_radar is check-then-replace, safe only under the run lock (store.py:462) — T3 must call it only inside run()'s lock
+- Task 2: minor (deferred): timeout tests pass without a timeout (slow handler ends in ConnectionError) (test_radar.py:536-560)
+- Task 2: minor (deferred): all RequestException → 連線逾時; token 5xx → Google 授權失敗 (radar.py:129-132, closed reason list)
+- Task 2: minor (deferred): write_radar has no D < fetched_at guard; dates_to_store is the sole gate (T3 must use it)
+- Task 2: minor (deferred): missing requests reported as 沒有安裝 google-auth (radar.py:110-116)
+- Task 3: minor (deferred): oldest-5 TAIEX cap can starve newest days if old days fail permanently (extras.py:65-66, plan-mandated) — mitigation pending[:4]+[pending[-1]]; status.taiex.date then points at 5th-oldest
+- Task 3: minor (deferred): finishedAt is extras start time (extras.py:150)
+- Task 3: minor (deferred): status.taiex outcome=failed if ANY handled day failed, reason prefixed "<day>："; T14 teacher card must read it that way (carry)
+- Task 3: minor (deferred): no overall download deadline, only per-read 60 s (cli.py:64-65)
+- Task 3: minor (deferred): OSError reading radar config → 設定檔格式不正確 (radar.py:50-51)
+- Task 3: minor (deferred): 16:30 gate duplicated (pipeline.py:149, 284); HTTP plumbing in cli.py; README hard-codes C:\Users\kevin once
+- Task 4: minor (deferred): first row after a books gap may be dropped (arrival-time gap end vs frame time) (books.ts:100-101) — check on first real day
+- Task 4: minor (deferred): trial (試撮) flag dropped in BookTimeline (books.ts:81-106)
+- Task 4: minor (deferred): readTaiexPoints stricter than series builder (market-files.server.ts:94-97)
+- Task 4: minor (deferred): readers have no dir==="" guard; callers must check marketDataDir()
+- Task 4: minor (deferred): isNumber duplicated in books.ts and market-files.server.ts
+- Task 5: minor (deferred): code in both otc and practisable counted as OTC and kept (default-codes.ts:316-317) — T6 builds practisable from listed non-OTC only (carry)
+- Task 5: minor (deferred): empty list detail 「名單 0 檔」 is an unlisted desk string (default-codes.ts:335)
+- Task 5: minor (deferred): only-missing detail reads 「名單 4 檔：另 2 檔…」 with leading 另 (literal spec reading; ask user at the end)
+- Task 5: minor (deferred): monthDay returns raw string on malformed date (default-codes.ts:325-328)
+- Task 6: minor (deferred): picker symbols shrink as strict failures are discovered — order/cache dependent (daily-lessons.server.ts:466,481)
+- Task 6: minor (deferred): trade-cache weight ignores bars/overhead (:374)
+- Task 6: minor (deferred): 3M TradeRow tuples ≈10–15M heap objects; typed arrays would cut 3× (plan-mandated, advisory)
+- Task 6: minor (deferred): transient read failures cached as false until restart (:373, 243, 309)
+- Task 6: minor (deferred): top5 may hold <5 codes while note says 前 5 名 (:432-442)
+- Task 6: minor (deferred): duplicate small reads; readJson/isRecord/compareCodes duplicated; unverified book sizes sent when sizes false; no concurrency de-dup test
+- Task 7: minor (deferred): cellBar null hides post-first-trade data gaps (engine:174) — safe while morningBars guarantees no gaps
+- Task 7: minor (deferred): abandoned runs counted in discipline until T8 adds the filter (records.server.ts:53)
+- Task 7: minor (deferred): start.codes accepts 4–6 digits (engine:96); real runs limited to 4 by buildRunSource
+- Task 7: minor (deferred): double copy of cell trades (engine:382); lower-bound search duplicated 3×
+- Task 8: minor (deferred): rate test never exceeds concurrency 1 (morning-api.test.ts:290-295) → T17 overlapping load test
+- Task 8: minor (deferred): step() validates all revealed bars on every non-advance action (morning-session.server.ts:120-124)
+- Task 8: minor (deferred): pnl documented as cents but rounded to 0.01; morning-session.test.ts:109 weaker; morning-fixtures.ts test helper in src/lib
+- Task 8: minor (deferred): loadMorningSession/mutateMorningSession still exported with JSDoc "use a transaction-bound handle" — unsealed market reads inside txn if a new caller uses them (morning-session.server.ts:174-181, 222-228)
+- Task 8: minor (deferred): test doesn't pin one transaction per POST; prepare failure costs up to 4 txns then 503 (morning-api.test.ts:467-514)
+- Task 8: minor (deferred): healthy unfinished run hidden behind a blocked one on bare GET (morning-session.server.ts:214)
+- Task 8: minor (deferred): textOnlyCatalog previousClose 0, no volumeUnit/note (morning-data.server.ts:189)
+- Task 8: minor (deferred): unfinished run on a no-longer-open day never surfaces as blockedRun (out of scope)
+- Task 9: minor (deferred): celebration assertion weak for decision R (morning-retired.test.ts:606)
+- Task 9: minor (deferred): on-prem guards spread over 3 places; unconsented guest on-prem now gets 403 for non-start (morning-session.server.ts:270-286)
+- Task 9: minor (deferred): retired direct-call tests use unsealed market; only one sealed test; RED run showed 3 of 6 failing
+- Task 10: minor (deferred): formingBar volumeBefore default 0 is a footgun (real-replay.ts:69,91-92)
+- Task 10: minor (deferred): silent snapshot reload on mismatched delta, no notice, auto-play continues (morning-practice.tsx:231-249)
+- Task 10: minor (deferred): dead _catalog params (morning-live.ts:58,118,131); data.delta lingers
+- Task 11: minor (deferred): watch-table selected row uses the recorded book's bid/ask, others the trade quote (watch-table.tsx:152-154) — accepted: matches hero/ladder
+- Task 11: minor (deferred): gap fixture has a frame inside a gap (morning-book.test.ts gapped); no component test for sizes/top ladder; desk-premium heroSim fails until T16
+- Task 12: minor (deferred): desk-watch80 MIN_STOCKS 40 vs FAR 55 (desk-watch80.mjs:31-32)
+- Task 12: minor (deferred): inactive MiniCanvas still builds observers ×80 (use-device-canvas.ts:56-87)
+- Task 12: minor (deferred): desktop ≤5 list with detail line scrolls ~21px at ≤900px; minis flash blank on first bar; TAIEX row outside role=group; 大字 at 320px price overlap unverified (T16)
+- Task 12: minor (deferred): dvh fallback comment wrong — without dvh support max-height becomes none (trading-desk.css:3558)
+- Task 12: minor (deferred): --td-watch-fixed measured in useEffect → first frame uses 0px (watch-table.tsx:95)
+- Task 12: minor (deferred): desk-watch80 leaves a 5-stock run open → second run errors; wrapped names in 大字 at 320px could exceed the cap
+- Task 13: minor (deferred): retry of start/abandon skips follow-ups (newPlan stays true) (morning-practice.tsx:394)
+- Task 13: minor (deferred): blockedRun abandon 409 path adopts GET of the blocked lesson (two-tab edge); abandon no-op without feedback while auto-advance in flight (:931); refresh not serialized with send
+- Task 13: minor (deferred): on-prem unavailable page record links reload the same sentence; search lacks NFKC for full-width digits (lesson-choice.ts:83-86); tablet 70-stock list may push start below first screen (unverified); records header aria-hidden
+- Task 13: minor (deferred): dayPicker 60 s cache → a run's note can flip mid-run when defaults change; no guest run-reply note test; retired 完成並復盤 PRIMARY not checked at 大字; desk-picker record target depends on case order
+- Task 14: minor (deferred): PDF says unfilled-at-10:30 reason is only 「之後沒有成交」; engine also uses 「教材結束，委託未成交」 (docs/pdf-source.json:86) — needs PDF rebuild
+- Task 14: minor (deferred): DATA_NOTES/aria always mention TWSE index even on no-index lessons (morning-practice.tsx:1786-1787, 2006, ~1953)
+- Task 14: minor (deferred): broker-integration.md:29 claims the manual carries the 2026-10-22 date; it doesn't
+- Task 14: minor (deferred): teacher card ticks reason can include up to 5 stock codes (market-data-status.ts:63-64) — not the list
+- Task 14: minor (deferred): license block aria-label without role; stale aria 「真實 K 線模擬交易盤」 (morning-practice.tsx:1287); desk-premium/desk-ticks query removed labels (T16)
+- Task 15: minor (deferred): card shows 開始今天的練習 until the read arrives / on failed read (today-card.tsx:24,34-36); stale state on owner change
+- Task 15: minor (deferred): blockedRun ignored by the lobby card; records window 20 can drop today's done state; no card component test; duplicated "again" literal
+- Task 16: minor (deferred): desk-jiangbo 跌停 band widened 0.75→0.5; phone note-cut check vacuous in chain (desk-jiangbo.mjs:193,335)
+- Task 16: minor (deferred): desk-ticks expectedNext uses catalog.symbols (can't catch order mismatch); lots check skipped without volumeUnit (:92,:169)
+- Task 16: minor (deferred): desk-lessons guest HTML check limited; failed text() dropped silently (:435,:481)
+- Task 16: minor (deferred): desk-layout long-list watchOutside clause vacuous; shadows window (:126-128); stopApp may hang if child exited (desk-server.mjs:78); ticksFile names a dir
+- Task 16: minor (deferred): desk-broker checks 6 and 9 still have silent "skipped" returns (did not fire)
+- Task 17: minor (deferred): real-day-check negative control writes in place in the scratch (safe with copies; guard nlink) (real-day-check.mjs:503-515)
+- Task 17: minor (deferred): guest leak check positional/wording-only (guest-integration.test.mjs:211-213)
+- Task 17: minor (deferred): plan-kept / cross-lesson requestId 409 only unit-tested; cancel/pending branches fixture-dependent; perf usage text says uniform
+- Task 18: minor (deferred): record says 30 commits, branch has 31 (record lines 12, 249); raw median 64.4 should be 64.1 KiB; MB vs MiB in load/memory paragraphs
+- Final: minor (deferred): pickerBase/verdicts/taiexDays/booksDays still cache negative results per version without retry; closed listed day re-checked once a minute
+
+## 轉交事項（carry）
+
+- Carry to T7: never mutate cached bars/trades/index returned by buildRunSource (by reference, :589-616); MorningDelta.book includes gaps (R7).
+- Carry to T8: validate start codes against picker symbols BEFORE buildRunSource (400 for not-in-picker, 409 「資料對不起來」 only for strict failures, codes joined with 「、」); call runBookCell only with a run's own code and the just-revealed cell.
+- Carry to T10: retried advance returns the current cell's delta — if delta.cell ≠ expected cell, reload a snapshot.
+- Carry to T9: on-prem finish/abandon of an old run returns {unavailable} before the retired check; GET on-prem returns no records — old runs must stay finishable on-prem.
+- Carry to T13: put ?lesson= in the URL so a retried start after a new day doesn't 409.
+- Carry to T15: TodayCard GET builds the full picker each lobby view just for maxCursor; finished run → bare GET state:null so 「今天完成了」 needs another source.
+- Carry to T9/T13: new server callers must use serveMorningRequest, not load/mutateMorningSession directly.
+- Carry to T13: UI button for blockedRun (放棄這局) and ?lesson= on start; textOnlyCatalog previousClose 0 must not divide.
+- Carry to T13: morning-practice.tsx:90-91 throws on {unavailable} — render message + on-prem records.
+- Carry to T16/T17: morning-integration.test.mjs + desk-broker.mjs still reference old JSONs; README/docs build steps (T14).
+- Carry to T11: PaperOrder 參考金額/default limit use serverSession bars' close → shows the playing minute's close ~1.8 s early (morning-trading.tsx:204-205,261,274-281) — use the played lastTrade (or settled close) instead.
+- Carry to T13: start reply lacks lessons → selector collapses (carry previous.lessons on snapshot); textOnlyCatalog previousClose 0 while held bars stay (avoid Infinity/NaN); reload records after finish/abandon.
+- Carry to T12: NO_BOOKS_NOTE rendered transparent as a spacer under a full book (morning-order-book.tsx:245-247, trading-desk.css:1782-1785) — reserve height without the false sentence (forced-colors shows it).
+- Carry to T14: recorded book levels bypass validMorningLimit (morning-book.ts:54) — filter/disable out-of-band or non-tick levels for lightning clicks, with a test; approve new chips 真實五檔/買一賣一 and empty-ladder texts.
+- Carry to T13: hide the 「預設：…」 note once the learner's codes differ from the day's defaults.
+- Carry to T16: desk-layout "every 自選 row inside the pane" can't hold for long lists; desk-jiangbo titleBar() throws when catalog has no note.
+- Carry to T18: headline load figure = burst p95 140–156 ms (≈60 synchronized practisers reach 300 ms); 10/27 fetcher rejected 34 stocks (13 of top 30) → real default 17, guest "前 5 名" = top 5 usable — owner decision.
