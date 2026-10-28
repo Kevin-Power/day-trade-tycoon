@@ -4,7 +4,8 @@
 // 70-stock fixture), and an owner session (the server's own proxy has one). It starts a run on that default list,
 // plays a few minutes so the rows have bars, then checks at every size:
 //   - the table scrolls (its content is taller than the table) and is no taller than the layout allows (desktops:
-//     the top row stays near a quarter of the screen; others: at most half of it);
+//     the top row stays near a quarter of the screen; tablets, phones and 大字: the larger of half the screen and
+//     the sticky block plus five rows, ruling R9, and exactly that tall when the list is long);
 //   - scrolled to the bottom, the bars and the TAIEX row are still in view, and the last row sits below them;
 //   - a mini is painted (`data-painted`) for every row within a row of the visible part and for no other row: not
 //     at the top of the list, not at the bottom, and none in between;
@@ -14,6 +15,9 @@
 //     again (phones), after the lesson moves a minute (no scroll jump), and when it is chosen elsewhere (the chart's
 //     stock menu);
 //   - desktops: the ticket, its send button and the ledger are inside the first screen, and the page does not scroll.
+// Then it gives the run up and starts one on five stocks: on tablets, phones and 大字 (820x900, 375x812, 320x700, both
+// 大字) a list of five stocks or fewer does not scroll at all (R9), every row is whole in view, and nothing scrolls
+// sideways.
 // Usage: node scripts/qa/desk-watch80.mjs [label] [proxyPort]   (proxyPort defaults to 18811, as desk-server's)
 import { chromium } from "playwright";
 import { randomUUID } from "node:crypto";
@@ -179,9 +183,15 @@ for (const c of CASES) {
       fail(c.name, `the table does not scroll (content ${top.scrollHeight}px in ${top.clientHeight}px, overflow-y ${top.overflowY})`);
     if (top.pageOverflowX > 0) fail(c.name, `the page scrolls sideways by ${top.pageOverflowX}px`);
     if (top.tableOverflowX > 1) fail(c.name, `the table scrolls sideways by ${top.tableOverflowX}px`);
-    // Layout limits: a table on any layout but a desktop is at most half the screen; the desktop's pane (the grid's
-    // top row) stays near a quarter of it however many stocks there are.
-    if (!desktop && top.box.height > c.height * 0.5 + 1) fail(c.name, `the table is ${Math.round(top.box.height)}px tall, over half of ${c.height}px`);
+    // Layout limits (R9): a table on any layout but a desktop is as tall as the larger of half the screen and the
+    // sticky block plus five rows (a long list fills it); the desktop's pane (the grid's top row) stays near a
+    // quarter of the screen however many stocks there are.
+    if (!desktop) {
+      const cap = Math.max(c.height * 0.5, top.fixedBottom + 5 * rowH);
+      report.cap = Math.round(cap);
+      if (top.box.height > cap + 1) fail(c.name, `the table is ${Math.round(top.box.height)}px tall, over its cap of ${Math.round(cap)}px (half of ${c.height}px, or the bars ${Math.round(top.fixedBottom)}px + 5 rows of ${rowH}px)`);
+      if (top.box.height < cap - 2) fail(c.name, `a ${top.rows.length}-stock list fills ${Math.round(top.box.height)}px, short of its cap of ${Math.round(cap)}px`);
+    }
     if (desktop && top.box.height > c.height * 0.4) fail(c.name, `the top row is ${Math.round(top.box.height)}px of ${c.height}px: the table's content set it`);
     await page.screenshot({ path: `${out}${c.name}-top.png` });
 
@@ -313,6 +323,65 @@ for (const c of CASES) {
   results[c.name] = report;
   await context.close();
 }
+// ── Five stocks or fewer: the touch layouts show the whole list without scrolling (R9) ──────────────────────────────
+{
+  const current = await call();
+  if (current.state && !current.state.completed)
+    await call({ action: "abandon", id: current.state.id, expectedRevision: current.state.revision });
+  const picked = (await call()).picker?.defaults?.slice(0, 5);
+  if (!picked || picked.length < 5) throw new Error("the newest day's picker has no five default stocks for the short-list check");
+  let few = await call({
+    action: "start",
+    codes: picked,
+    plan: {
+      exerciseId: "first-order",
+      focusCode: picked[0],
+      bias: "observe",
+      reason: "驗收五檔以內的自選表不捲動。",
+      entry: "只看自選表，不下單。",
+      stop: "完成檢查後停止。",
+    },
+  });
+  for (let minute = few.state.cursor; minute < 6; minute++) {
+    await new Promise((done) => setTimeout(done, Math.max(0, few.state.nextAdvanceAt - Date.now()) + 30));
+    few = await call({ action: "advance", id: few.state.id, expectedRevision: few.state.revision });
+  }
+  for (const c of CASES.filter((item) => item.width < 1200)) {
+    const name = `few-${c.name}`;
+    const context = await browser.newContext({ viewport: { width: c.width, height: c.height }, deviceScaleFactor: 1 });
+    if (c.senior) await context.addInitScript(() => localStorage.setItem("day-tycoon-display-v1", "senior"));
+    const page = await context.newPage();
+    const report = {};
+    try {
+      await page.goto(`${base}/morning`, { waitUntil: "domcontentloaded" });
+      await page.waitForSelector("main", { timeout: 20000 });
+      await page.waitForTimeout(1500);
+      await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 2000 }).catch(() => {});
+      await openWatch(page);
+      await page.waitForTimeout(900);
+      const view = await look(page);
+      const rowH = rowHeightOf(view);
+      report.layout = view.layout;
+      report.rows = view.rows.length;
+      report.tableHeight = Math.round(view.box.height);
+      report.content = view.scrollHeight;
+      report.bars = Math.round(view.fixedBottom);
+      if (view.rows.length !== 5) fail(name, `${view.rows.length} 自選 rows, expected 5`);
+      if (view.scrollHeight > view.clientHeight + 1) fail(name, `a 5-stock list scrolls: ${view.scrollHeight}px of content in ${view.clientHeight}px`);
+      const last = view.rows.at(-1);
+      if (!visible(last, view)) fail(name, `the 5th row is not whole in view (bottom ${Math.round(last.bottom)}px, table ${view.clientHeight}px)`);
+      if (view.box.height > Math.max(c.height * 0.5, view.fixedBottom + 5 * rowH) + 1) fail(name, `the table is ${Math.round(view.box.height)}px tall, over its cap`);
+      if (view.pageOverflowX > 0) fail(name, `the page scrolls sideways by ${view.pageOverflowX}px`);
+      if (view.tableOverflowX > 1) fail(name, `the table scrolls sideways by ${view.tableOverflowX}px`);
+      await page.screenshot({ path: `${out}${name}.png` });
+    } catch (error) {
+      fail(name, error.message.split("\n")[0]);
+      await page.screenshot({ path: `${out}${name}-stopped.png` }).catch(() => {});
+    }
+    results[name] = report;
+    await context.close();
+  }
+}
 await browser.close();
 
 writeFileSync(`${out}watch80.json`, JSON.stringify({ results, failures }, null, 2));
@@ -320,4 +389,4 @@ console.log(JSON.stringify(results, null, 1));
 if (failures.length) {
   console.log(`FAILURES:\n${failures.join("\n")}`);
   process.exitCode = 1;
-} else console.log("自選 with a long list: all checks pass.");
+} else console.log("自選 with a long list, and with five stocks: all checks pass.");

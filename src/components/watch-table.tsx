@@ -92,7 +92,7 @@ export function WatchTable({
     const table = tableRef.current;
     const fixed = fixedRef.current;
     if (!table || !fixed) return;
-    const sync = () => table.style.setProperty("--td-watch-fixed", `${fixed.offsetHeight}px`);
+    const sync = () => table.style.setProperty("--td-watch-fixed", `${fixed.getBoundingClientRect().height}px`);
     sync();
     const observer = new ResizeObserver(sync);
     observer.observe(fixed);

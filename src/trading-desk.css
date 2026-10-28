@@ -3530,7 +3530,8 @@
 /* 自選 holds up to 80 stocks and scrolls in place: the title bar, column names and TAIEX row stay on top (one
    sticky block), and a row brought into view stops below them (scroll-padding, set to the block's height by
    WatchTable). Desktops give the table the pane's whole height (the grid sets it); every other layout gives it
-   at most half the screen. */
+   at most half the screen, or the sticky block and five rows when that is more (ruling R9): a list of five stocks
+   or fewer never scrolls. */
 .trading-desk .td-watch-table {
   display: flex;
   flex-direction: column;
@@ -3542,9 +3543,22 @@
 .trading-desk .td-watch > .td-watch-table {
   flex: 1 1 auto;
 }
+/* The row heights of the touch layouts (the rows below take theirs from here too). */
+.trading-desk[data-layout="tablet"] .td-watch-table {
+  --td-watch-row: 44px;
+}
+.trading-desk[data-layout="phone"] .td-watch-table {
+  --td-watch-row: 52px;
+}
+/* Large text: the reading mode's own rule makes every button at least 56px, and that wins (the 60px this row
+   once asked for never applied), so 56px is the row's real height. */
+.trading-desk[data-layout="senior"] .td-watch-table {
+  --td-watch-row: 56px;
+}
+/* The second max-height wins where dvh exists (the first is its fallback). The 1px is for fractions. */
 .trading-desk:is([data-layout="tablet"], [data-layout="phone"], [data-layout="senior"]) .td-watch-table {
-  max-height: 50vh;
-  max-height: 50dvh;
+  max-height: max(50vh, calc(var(--td-watch-fixed, 0px) + 5 * var(--td-watch-row) + 1px));
+  max-height: max(50dvh, calc(var(--td-watch-fixed, 0px) + 5 * var(--td-watch-row) + 1px));
 }
 .trading-desk .td-watch-fixed {
   position: sticky;
@@ -3684,15 +3698,13 @@
   font-size: 11px;
   text-align: center;
 }
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-watch-row {
-  min-height: 52px;
+/* Touch layouts: 52px rows on phones, 44px on tablets, 56px in large text (--td-watch-row, set on the table). */
+.trading-desk:is([data-layout="tablet"], [data-layout="phone"], [data-layout="senior"]) .td-watch-row {
+  min-height: var(--td-watch-row);
 }
-/* Tablets are touch screens: 44px rows and plan chip. */
-.trading-desk[data-layout="tablet"] :is(.td-watch-row, .td-plan-chip) {
+/* Tablets are touch screens: 44px plan chip too. */
+.trading-desk[data-layout="tablet"] .td-plan-chip {
   min-height: 44px;
-}
-.trading-desk[data-layout="senior"] .td-watch-row {
-  min-height: 60px;
 }
 .trading-desk[data-layout="senior"] .td-watch-row :is(.td-watch-price, .td-watch-cell, .td-watch-name span) {
   font-size: 17px;
