@@ -221,7 +221,11 @@ test('real HTTP daily lessons: real trades revealed one minute at a time, nothin
       assert.equal((await request('/api/morning?' + query, { jar: alice })).status, 400, query);
       assert.equal((await request('/api/morning?' + query, { method: 'POST', jar: alice, data: startOf(HOT) })).status, 400, query);
     }
-    assert.equal((await get(alice, '?lesson=' + RETIRED)).status, 404, 'a retired lesson with no run of the learner\'s');
+    // A retired lesson with no run of the learner's (an old link) opens what a plain read opens: the newest day's picker.
+    const oldLink = await get(alice, '?lesson=' + RETIRED);
+    assert.equal(oldLink.status, 200, 'a retired lesson with no run of the learner\'s');
+    assert.equal(oldLink.body.state, null); assert.equal(oldLink.body.retired, undefined);
+    assert.equal(oldLink.body.picker.date, '2026-10-27'); assert.equal(oldLink.body.picker.lessonId, NEWEST);
     t.diagnostic('HTTP lessons: three days newest first, wording per day, nothing of the day before a run, only the exact lesson query');
 
     stage = 'starting a run';
