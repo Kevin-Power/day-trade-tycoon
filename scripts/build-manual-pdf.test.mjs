@@ -96,6 +96,15 @@ test("both manuals describe the 自選江波圖's 放大 and ±10% scales and it
     assert.doesNotMatch(row, /虛線/, `${name}: the 昨收 line is solid since 2026-10-26`);
   }
 });
+test("both manuals give the engine's two reasons for an order cancelled at 10:30", () => {
+  // morning-engine.ts: 「之後沒有成交」 when no trade came after the order, 「教材結束，委託未成交」 when trades came
+  // but none touched it.
+  const pdfRow = JSON.stringify(source).match(/\["待成交委託","([^"]+)"\]/)?.[1] ?? "";
+  const webPage = readFileSync(join(root, "src", "components", "manual-page.tsx"), "utf8");
+  const webRow = webPage.match(/k="委託"\s*v="([^"]+)"/)?.[1] ?? "";
+  for (const [name, row] of [["PDF", pdfRow], ["web", webRow]])
+    for (const reason of ["之後沒有成交", "教材結束，委託未成交"]) assert.ok(row.includes(`「${reason}」`), `${name}: ${reason}`);
+});
 test("every 手冊版本 the manual names is its own version", () => {
   const named = [...JSON.stringify(source).matchAll(/手冊版本：([0-9A-Za-z-]+)/g)].map((match) => match[1]);
   assert.ok(named.length >= 1, "the manual names its version");
