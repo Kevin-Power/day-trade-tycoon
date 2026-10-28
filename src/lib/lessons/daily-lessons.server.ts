@@ -4,7 +4,8 @@
 //
 // Published files are write-once, so what is read is cached. A day's cached data is tagged with a version made of
 // the day's manifest hash (root index.json), the ticks manifest's size and time and the five previous days' hashes:
-// a day published again is read again. Callers check marketDataDir() first; an empty dir is "no lessons" here.
+// a day published again is read again. A day found closed (a list that could not be read, fewer than five stocks)
+// is looked at again after NEGATIVE_RETRY_MS. Callers check marketDataDir() first; an empty dir is "no lessons" here.
 import { readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -47,6 +48,9 @@ const VERDICTS_KEPT = 50_000;
 const MIN_STOCKS = 5;
 const TOP = 5;
 const READ_CONCURRENCY = 16;
+/** A day found closed (its lists could not be read, or fewer than five stocks) is looked at again after this long. */
+export const NEGATIVE_RETRY_MS = 60_000;
+let now: () => number = Date.now;
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const LISTED_CODE = /^\d{4}$/;
@@ -129,6 +133,33 @@ class Lru<V> {
 }
 
 type Versioned<T> = { version: string; value: T };
+
+/** A day-level result kept for its version; a failure (null or false) only until `retryAt`. */
+type Retried<T> = Versioned<Promise<T>> & { retryAt?: number };
+
+/**
+ * The cached result for `version`, else a new one from `load`. A good result is kept for the version (published
+ * files are write-once), but a failed one (null, false or a rejection) only for NEGATIVE_RETRY_MS: one read that
+ * failed must not hide a day until the server restarts. Callers meanwhile share the pending read.
+ */
+function retried<T>(
+  cache: { get(key: string): Retried<T> | undefined; set(key: string, value: Retried<T>): void },
+  key: string,
+  version: string,
+  load: () => Promise<T>,
+): Promise<T> {
+  const cached = cache.get(key);
+  if (cached?.version === version && (cached.retryAt === undefined || now() < cached.retryAt)) return cached.value;
+  const entry: Retried<T> = { version, value: load() };
+  const failed = () => {
+    entry.retryAt = now() + NEGATIVE_RETRY_MS;
+  };
+  entry.value.then((value) => {
+    if (!value) failed();
+  }, failed);
+  cache.set(key, entry);
+  return entry.value;
+}
 
 async function mapLimited<T, R>(items: readonly T[], limit: number, run: (item: T) => Promise<R>): Promise<R[]> {
   const results = new Array<R>(items.length);
@@ -221,8 +252,8 @@ type DayCore = {
   symbols: Map<string, DaySymbol>;
   /** Stocks the ticks manifest marks complete. */
   complete: Set<string>;
-  /** Read only for a picker or a run, not to tell whether the day is open. */
-  details?: Promise<DayDetails | null>;
+  /** Read only for a picker or a run, not to tell whether the day is open: one entry, under the day's version. */
+  details: Map<string, Retried<DayDetails | null>>;
 };
 
 type DayDetails = {
@@ -233,14 +264,10 @@ type DayDetails = {
   previous5CloseMean: Map<string, number>;
 };
 
-const cores = new Lru<Versioned<Promise<DayCore | null>>>(DAYS_KEPT);
+const cores = new Lru<Retried<DayCore | null>>(DAYS_KEPT);
 
 function dayCore(dir: string, ref: DayRef): Promise<DayCore | null> {
-  const cached = cores.get(ref.date);
-  if (cached?.version === ref.version) return cached.value;
-  const value = loadCore(dir, ref);
-  cores.set(ref.date, { version: ref.version, value });
-  return value;
+  return retried(cores, ref.date, ref.version, () => loadCore(dir, ref));
 }
 
 async function loadCore(dir: string, ref: DayRef): Promise<DayCore | null> {
@@ -249,12 +276,12 @@ async function loadCore(dir: string, ref: DayRef): Promise<DayCore | null> {
   return {
     symbols: new Map(symbols.map((symbol) => [symbol.code, symbol])),
     complete: new Set(manifest.symbols.filter((entry) => entry.complete).map((entry) => entry.code)),
+    details: new Map(),
   };
 }
 
 function dayDetails(dir: string, ref: DayRef, core: DayCore): Promise<DayDetails | null> {
-  core.details ??= loadDetails(dir, ref, core);
-  return core.details;
+  return retried(core.details, ref.date, ref.version, () => loadDetails(dir, ref, core));
 }
 
 async function loadDetails(dir: string, ref: DayRef, core: DayCore): Promise<DayDetails | null> {
@@ -301,13 +328,11 @@ async function hasMorningVolume(dir: string, date: string, code: string): Promis
   return !!bars && tradedInMorning(bars);
 }
 
-const openDays = new Map<string, Versioned<Promise<boolean>>>();
+const openDays = new Map<string, Retried<boolean>>();
 
-/** ③ §1: at least five practisable stocks (by the quick check). */
+/** ③ §1: at least five practisable stocks (by the quick check). A closed day is looked at again after a while. */
 function isOpen(dir: string, ref: DayRef): Promise<boolean> {
-  const cached = openDays.get(ref.date);
-  if (cached?.version === ref.version) return cached.value;
-  const value = (async () => {
+  return retried(openDays, ref.date, ref.version, async () => {
     const core = await dayCore(dir, ref);
     if (!core) return false;
     // The most traded first: an open day shows its five in the first few files.
@@ -318,9 +343,7 @@ function isOpen(dir: string, ref: DayRef): Promise<boolean> {
       if (found >= MIN_STOCKS) return true;
     }
     return false;
-  })();
-  openDays.set(ref.date, { version: ref.version, value });
-  return value;
+  });
 }
 
 async function openDay(dir: string, date: string): Promise<{ ref: DayRef; core: DayCore; details: DayDetails } | null> {
@@ -636,6 +659,12 @@ export function clearLessonCaches(): void {
   openDays.clear();
   reading.clear();
   readingBooks.clear();
+  now = Date.now;
+}
+
+/** For tests: the clock of the retry window (Date.now when none is given; clearLessonCaches puts it back). */
+export function setLessonClock(clock?: () => number): void {
+  now = clock ?? Date.now;
 }
 
 /** For tests: a smaller trade cache. */

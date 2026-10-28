@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { gzipSync } from "node:zlib";
@@ -9,6 +9,7 @@ import type { MarketBarRow } from "../market-days.server.ts";
 import { MorningError } from "../morning-engine.ts";
 import {
   FIRST_LESSON_DAY,
+  NEGATIVE_RETRY_MS,
   TRADE_CACHE_LIMIT,
   buildRunSource,
   cachedTradeCount,
@@ -18,6 +19,7 @@ import {
   listLessonDays,
   parseLessonId,
   runBookCell,
+  setLessonClock,
   setTradeCacheLimit,
 } from "./daily-lessons.server.ts";
 import type { TradeRow } from "./trades.ts";
@@ -388,6 +390,40 @@ test("sourceHash changes when the ticks manifest changes", () => fixture(async (
   const after = await buildRunSource(dir, "2026-10-28", ["2330"]);
   assert.notEqual(after.sourceHash, before.sourceHash);
   assert.equal(after.sourceHash, sha256(`${daySha}\n${sha256(await readFile(manifestPath))}`));
+}));
+
+test("a day that failed to read is tried again after the retry window; an open day stays open", () => fixture(async (dir) => {
+  assert.equal(NEGATIVE_RETRY_MS, 60_000);
+  let now = 1_000_000;
+  setLessonClock(() => now);
+  await writeDay(dir, "2026-10-28", SIX);
+  const list = join(dir, "days/2026-10-28/index.json");
+  const bars = join(dir, "days/2026-10-28/symbols");
+  // The day's stock list cannot be read for a moment (the same bytes come back, so the day's version is the same).
+  await rename(list, list + ".away");
+  assert.deepEqual(await listLessonDays(dir), []);
+  await rename(list + ".away", list);
+  now += NEGATIVE_RETRY_MS - 1;
+  assert.deepEqual(await listLessonDays(dir), [], "a failure is kept for the retry window");
+  assert.equal(await lessonPicker(dir, "2026-10-28", { guest: false }), null);
+  now += 1;
+  assert.deepEqual(await listLessonDays(dir), ["2026-10-28"], "read again after the retry window");
+  assert.notEqual(await lessonPicker(dir, "2026-10-28", { guest: false }), null);
+  // An open day is kept for its version: the list going away later does not close it, however long after.
+  await rename(list, list + ".away");
+  now += 10 * NEGATIVE_RETRY_MS;
+  assert.deepEqual(await listLessonDays(dir), ["2026-10-28"]);
+  await rename(list + ".away", list);
+
+  // The list is there but the stocks' 1-minute bars are not (the day reads as fewer than five stocks): the same.
+  clearLessonCaches();
+  setLessonClock(() => now);
+  await rename(bars, bars + ".away");
+  assert.deepEqual(await listLessonDays(dir), []);
+  await rename(bars + ".away", bars);
+  assert.deepEqual(await listLessonDays(dir), []);
+  now += NEGATIVE_RETRY_MS;
+  assert.deepEqual(await listLessonDays(dir), ["2026-10-28"]);
 }));
 
 test("trade cache stays under limit", () => fixture(async (dir) => {
