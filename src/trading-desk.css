@@ -1164,8 +1164,10 @@
   width: 15px;
   height: 15px;
 }
+/* A long 自選 (up to 80 stocks) sizes the menu by its longest name: kept to "2330 台積電" so the chart bar stays one
+   row on 1280px desks; a longer name is cut in the closed menu (the hero shows it whole). */
 .trading-desk .td-stepper select {
-  max-width: 150px;
+  max-width: 120px;
   height: 28px;
   padding: 0 22px 0 8px;
   color: var(--td-fg);
@@ -1197,11 +1199,17 @@
   background: #1c2b3b;
   box-shadow: inset 0 0 0 1px rgb(75 165 241 / 0.55);
 }
+/* The data label takes the rest of the bar's row and wraps inside it (the source chip, then the date under it), so a
+   label that does not fit (the real-data chip 「富邦逐筆／證交所大盤」 is longer than the old one) adds a line to the
+   label instead of moving it, and the whole bar, onto a second row. Only a chip wider than the rest of the row moves. */
 .trading-desk .td-chartbar-source {
   display: inline-flex;
+  flex: 1 1 0;
   flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 4px 10px;
+  min-width: min-content;
   margin: 0 0 0 auto;
   color: var(--td-muted);
   font-size: 11px;
@@ -2494,11 +2502,16 @@
   padding: 8px 12px;
 }
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-chartbar-source {
+  flex-basis: 100%;
+  justify-content: flex-start;
   width: 100%;
   margin-left: 0;
 }
-/* Phones step from the quote block, so the toolbar is 江波／K線 and the data label on one row when it fits. */
+/* Phones step from the quote block, so the toolbar is 江波／K線 and the data label on one row when it fits (the label
+   wrapping inside the rest of the row, as on desks). */
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-chartbar[data-stepper="false"] .td-chartbar-source {
+  flex-basis: 0;
+  justify-content: flex-end;
   width: auto;
   margin-left: auto;
 }
