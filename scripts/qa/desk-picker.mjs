@@ -16,11 +16,16 @@
 //   - a retired lesson's run opens from 練習紀錄 as text: 「舊課（已停用）」, no chart, and 完成並復盤 / 放棄這局 while
 //     unfinished. A classroom with no retired run gets one record and its page answered in the browser
 //     (`retired: "mocked"` in the results); the server side of retired runs is covered by morning-retired.test.ts.
+//     Start the classroom with QA_RETIRED_RUN=1 (desk-server.mjs) for a real one (`retired: "real"`);
+//   - a run whose day's data stopped agreeing (the fixture's 10/21 trades of one stock changed for a moment): the page
+//     opens on the picker with the banner 「M/D 早盤未完成的那一局暫時打不開：…」 and its 放棄這局 (asked first) ends
+//     the run. Skipped on real market data, which is never changed.
 // Usage: node scripts/qa/desk-picker.mjs [label] [proxyPort]   (proxyPort defaults to 18811, as desk-server's)
 import { chromium } from "playwright";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { gunzipSync, gzipSync } from "node:zlib";
 
 const [label = "picker", proxyPort = "18811"] = process.argv.slice(2);
 const statePath = fileURLToPath(new URL(`../../artifacts/trading-desk-qa/server-${proxyPort}.json`, import.meta.url));
@@ -420,6 +425,84 @@ for (const c of [CASES[0], CASES[1]]) {
     await page.screenshot({ path: `${out}${name}-stopped.png` }).catch(() => {});
   }
   await context.close();
+}
+
+// ── A run whose day's data stopped agreeing: the blocked banner, and 放棄這局 from it ────────────────────────────────
+// Only on the fixture (desk-server's own market-data folder): one stock's 10/21 trades are changed for a moment so
+// they no longer agree with its bars (the strict check refuses the run's data, as after a re-publish that went
+// wrong), then put back byte for byte. The ticks manifest's time is moved each way, so the lessons read it again.
+if (!state.fixture || !state.marketData) results.blocked = "skipped: real market data is never changed";
+else {
+  const name = "blocked-1366";
+  results[name] = {};
+  const day = "2026-10-21";
+  const lesson = "fubon-20261021-am";
+  const ticksFile = `${state.marketData}/ticks/${day}/symbols`;
+  const manifest = `${state.marketData}/ticks/${day}/manifest.json`;
+  const touch = (offset) => utimesSync(manifest, new Date(), new Date(Date.now() + offset));
+  let original = null;
+  let path = null;
+  let session;
+  try {
+    const opened = await call(undefined, lesson);
+    if (opened.state && !opened.state.completed)
+      await call({ action: "abandon", id: opened.state.id, expectedRevision: opened.state.revision }, lesson);
+    const offered = ((await call(undefined, lesson)).picker?.symbols ?? []).map((symbol) => symbol.code);
+    const code = ["1101", "1102", "1216"].find((candidate) => offered.includes(candidate));
+    if (!code || !offered.includes("2330")) throw new Error(`10/21 does not offer 1101/1102/1216 and 2330 (${offered.length} stocks)`);
+    let run = await call({
+      action: "start",
+      codes: [code, "2330"],
+      plan: { exerciseId: "first-order", focusCode: "2330", bias: "observe", reason: "驗收資料對不起來的局。", entry: "不下單。", stop: "放棄這局。" },
+    }, lesson);
+    for (let minute = 0; minute < 2; minute++) {
+      await new Promise((done) => setTimeout(done, Math.max(0, run.state.nextAdvanceAt - Date.now()) + 30));
+      run = await call({ action: "advance", id: run.state.id, expectedRevision: run.state.revision }, lesson);
+    }
+    path = `${ticksFile}/${code}.json.gz`;
+    original = readFileSync(path);
+    const file = JSON.parse(gunzipSync(original).toString("utf8"));
+    file.trades.find((trade) => trade[0] >= 180_000)[2] += 1;
+    writeFileSync(path, gzipSync(JSON.stringify(file)));
+    touch(2_000);
+    const blocked = (await call()).blockedRun;
+    results[name].blockedRun = blocked;
+    if (!blocked || blocked.id !== run.state.id || !blocked.message.includes(code))
+      throw new Error(`no blockedRun naming ${code} for the run whose data stopped agreeing (${JSON.stringify(blocked)})`);
+    session = await open(browser, CASES[0], "/morning");
+    const banner = session.page.locator(".td-blocked");
+    await banner.waitFor({ timeout: 15000 });
+    const text = ((await banner.textContent()) ?? "").replace(/\s+/g, "");
+    results[name].banner = text;
+    const expected = `${label16(day)}未完成的那一局暫時打不開：${blocked.message}`.replace(/\s+/g, "");
+    if (!text.includes(expected)) fail(name, `the banner says 「${text}」, not 「${expected}」`);
+    await session.page.screenshot({ path: `${out}${name}.png` });
+    await banner.getByRole("button", { name: "放棄這局" }).click();
+    const ask = session.page.getByRole("alertdialog");
+    if (!((await ask.textContent()) ?? "").includes(CONFIRM)) fail(name, `放棄這局 in the banner does not ask 「${CONFIRM}」`);
+    if ((await call(undefined, lesson)).state?.completed) fail(name, "the blocked run ended before the learner confirmed");
+    await ask.getByRole("button", { name: "確定放棄" }).click();
+    await banner.waitFor({ state: "detached", timeout: 15000 });
+    await session.page.locator(".td-picker").waitFor({ timeout: 15000 });
+    // Its data still does not agree, so the run itself does not open: 練習紀錄 tells whether it was given up.
+    const after = await call();
+    const record = after.records?.find((item) => item.id === run.state.id);
+    results[name].record = record;
+    if (!record?.abandoned || !record.completed) fail(name, `the blocked run was not given up (${JSON.stringify(record)})`);
+    if (after.blockedRun) fail(name, "the page still reports a blocked run after giving it up");
+    await session.page.screenshot({ path: `${out}${name}-after.png` });
+    if (session.errors.length) fail(name, `page errors: ${session.errors.join("; ")}`);
+  } catch (error) {
+    fail(name, error.message.split("\n")[0]);
+    await session?.page.screenshot({ path: `${out}${name}-stopped.png` }).catch(() => {});
+  } finally {
+    if (original && path) {
+      writeFileSync(path, original);
+      touch(4_000);
+    }
+    await session?.context.close().catch(() => {});
+  }
+  if (original && path && !readFileSync(path).equals(original)) fail(name, `${path} was not put back`);
 }
 await browser.close();
 

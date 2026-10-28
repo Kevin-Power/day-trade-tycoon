@@ -15,9 +15,11 @@
 //     again (phones), after the lesson moves a minute (no scroll jump), and when it is chosen elsewhere (the chart's
 //     stock menu);
 //   - desktops: the ticket, its send button and the ledger are inside the first screen, and the page does not scroll.
+//   - no row's columns run into each other (name, price, change, mini: the text as drawn, an ellipsis counted where it
+//     cuts), at the top and the bottom of the list; 大字 at 320px is the tightest (a screenshot of the table each size).
 // Then it gives the run up and starts one on five stocks: on tablets, phones and 大字 (820x900, 375x812, 320x700, both
-// 大字) a list of five stocks or fewer does not scroll at all (R9), every row is whole in view, and nothing scrolls
-// sideways.
+// 大字) a list of five stocks or fewer does not scroll at all (R9), every row is whole in view, nothing scrolls
+// sideways and no columns run into each other. That run is given up at the end, so no run is left open.
 // Usage: node scripts/qa/desk-watch80.mjs [label] [proxyPort]   (proxyPort defaults to 18811, as desk-server's)
 import { chromium } from "playwright";
 import { randomUUID } from "node:crypto";
@@ -112,7 +114,46 @@ const look = (page) =>
       };
     });
     const style = getComputedStyle(table);
+    // Columns of a row that run into each other (name, price, change, mini, left to right): the text as drawn, cut
+    // where an ancestor clips it (an ellipsis), and the mini's box. Checked on every row, the TAIEX's too.
+    const shown = (cell) => {
+      if (cell.tagName === "CANVAS") {
+        const box = cell.getBoundingClientRect();
+        return { left: box.left, right: box.right };
+      }
+      let left = Infinity;
+      let right = -Infinity;
+      const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent.trim()) continue;
+        let clip = { left: -Infinity, right: Infinity };
+        for (let up = node.parentElement; up && up !== cell.parentElement; up = up.parentElement) {
+          if (getComputedStyle(up).overflowX === "visible") continue;
+          const box = up.getBoundingClientRect();
+          clip = { left: Math.max(clip.left, box.left), right: Math.min(clip.right, box.right) };
+        }
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const rect of range.getClientRects()) {
+          if (!rect.width) continue;
+          left = Math.min(left, Math.max(rect.left, clip.left));
+          right = Math.max(right, Math.min(rect.right, clip.right));
+        }
+      }
+      return right === -Infinity ? null : { left, right };
+    };
+    const overlaps = [];
+    for (const row of table.querySelectorAll(".td-watch-row")) {
+      const cells = [...row.children]
+        .filter((cell) => !cell.classList.contains("sr-only") && cell.getBoundingClientRect().width > 0)
+        .map((cell) => ({ name: cell.className.split(" ").at(-1) || cell.tagName, box: shown(cell) }))
+        .filter((cell) => cell.box);
+      for (let i = 1; i < cells.length; i++)
+        if (cells[i - 1].box.right > cells[i].box.left + 0.5)
+          overlaps.push(`${row.dataset.code} ${cells[i - 1].name}→${cells[i].name} by ${(cells[i - 1].box.right - cells[i].box.left).toFixed(1)}px`);
+    }
     return {
+      overlaps,
       layout: document.querySelector(".trading-desk")?.dataset.layout,
       box: { height: box.height, top: box.top },
       scrollTop: table.scrollTop,
@@ -193,7 +234,11 @@ for (const c of CASES) {
       if (top.box.height < cap - 2) fail(c.name, `a ${top.rows.length}-stock list fills ${Math.round(top.box.height)}px, short of its cap of ${Math.round(cap)}px`);
     }
     if (desktop && top.box.height > c.height * 0.4) fail(c.name, `the top row is ${Math.round(top.box.height)}px of ${c.height}px: the table's content set it`);
+    // The columns stay apart (大字 at 320px was the tightest unverified case: prices against names and changes).
+    report.overlaps = top.overlaps.length;
+    if (top.overlaps.length) fail(c.name, `自選 columns run into each other: ${top.overlaps.slice(0, 4).join("; ")}`);
     await page.screenshot({ path: `${out}${c.name}-top.png` });
+    await page.locator(".td-watch-table").screenshot({ path: `${out}${c.name}-table.png` });
 
     // The title bar says where the list came from, and nothing about 模擬.
     const head = await page.evaluate(() => {
@@ -236,6 +281,7 @@ for (const c of CASES) {
     // (never near the visible part in either position) were never painted.
     await scrollTable(page, "bottom");
     const bottom = await look(page);
+    if (bottom.overlaps.length) fail(c.name, `bottom: 自選 columns run into each other: ${bottom.overlaps.slice(0, 4).join("; ")}`);
     const last = bottom.rows.at(-1);
     report.bottom = { fixedTop: Math.round(bottom.fixedTop), lastBottom: Math.round(last.bottom), clientHeight: bottom.clientHeight };
     if (Math.abs(bottom.fixedTop) > 1) fail(c.name, `scrolled to the bottom, the bars are ${Math.round(bottom.fixedTop)}px from the table's top`);
@@ -373,6 +419,7 @@ for (const c of CASES) {
       if (view.box.height > Math.max(c.height * 0.5, view.fixedBottom + 5 * rowH) + 1) fail(name, `the table is ${Math.round(view.box.height)}px tall, over its cap`);
       if (view.pageOverflowX > 0) fail(name, `the page scrolls sideways by ${view.pageOverflowX}px`);
       if (view.tableOverflowX > 1) fail(name, `the table scrolls sideways by ${view.tableOverflowX}px`);
+      if (view.overlaps.length) fail(name, `自選 columns run into each other: ${view.overlaps.slice(0, 4).join("; ")}`);
       await page.screenshot({ path: `${out}${name}.png` });
     } catch (error) {
       fail(name, error.message.split("\n")[0]);
@@ -381,6 +428,10 @@ for (const c of CASES) {
     results[name] = report;
     await context.close();
   }
+  // Leave no run open: the scripts after this one start their own.
+  const open = await call();
+  if (open.state && !open.state.completed)
+    await call({ action: "abandon", id: open.state.id, expectedRevision: open.state.revision });
 }
 await browser.close();
 

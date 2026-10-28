@@ -128,7 +128,10 @@ const scan = (senior) => {
     heroAsk: text('.td-hero-book [data-side="ask"] dd'),
     labels: {
       real: shown('.td-chip[data-kind="real"]'),
-      heroSim: shown(".td-hero-book .td-sim-tag"),
+      // Market data is real (富邦逐筆, 2026-10-28): nothing of the quote is labelled 模擬 any more; the paper-trading
+      // labels (模擬帳戶, 模擬下單) stay. The chart bar names the real source.
+      heroSim: [...document.querySelectorAll(".td-hero .td-sim-tag, .td-hero [data-kind='sim']")].some(visible),
+      source: document.querySelector(".td-chartbar-source .td-chip")?.textContent?.trim() ?? null,
       bookSim: shown(".td-book-head .td-chip"),
       paper: shown(".sim-paper-tag"),
       noBroker: [...document.querySelectorAll(".sim-ticket-footnote")].some((el) => /不連接券商/.test(el.textContent)),
@@ -147,6 +150,8 @@ const scan = (senior) => {
   };
 };
 
+// The seeded run (desk-seed: a daily lesson, 台積電 held): whether it has the TAIEX decides the source chip's words.
+const run = (await (await fetch(`${base}/api/morning`)).json()).state;
 const browser = await chromium.launch().catch(() => chromium.launch({ channel: "chrome" }));
 const failures = [];
 const rows = [];
@@ -203,7 +208,11 @@ for (const item of cases) {
     if (first.signedZero.length) fail(`signed zero shown (${first.signedZero.join(" | ")})`);
     if (first.numbers.length) fail(`prices not in the monospaced face (${first.numbers.slice(0, 3).join(" | ")})`);
     if (!first.labels.real) fail("real-history data label not visible");
-    if (!first.labels.heroSim) fail("買進／賣出 not labelled 模擬");
+    // The real-data equivalent of the old 「模擬」 tag on 買進／賣出: the quote carries no 模擬 tag, and the chart bar
+    // names the real source, with 證交所大盤 only when the run has the TAIEX.
+    if (first.labels.heroSim) fail("the quote's 買進／賣出 still carry a 模擬 tag");
+    const expectedSource = run?.index ? "富邦逐筆／證交所大盤" : "富邦逐筆";
+    if (first.labels.source !== expectedSource) fail(`the chart bar names 「${first.labels.source}」 as the source, not 「${expectedSource}」`);
     if (!/^台積電/.test(first.hero ?? "")) fail(`hero shows ${first.hero}`);
     if (item.width >= 1200 && !item.senior) {
       if (first.pageScroll > 1) fail(`desktop page scrolls by ${first.pageScroll}px`);

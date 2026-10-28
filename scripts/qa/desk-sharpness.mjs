@@ -123,7 +123,8 @@ for (const ratio of [1, 1.25, 1.5, 2]) {
     },
     { b64: png.toString("base64"), ratio, palette },
   );
-  const spark = page.locator('.td-watch-row[aria-pressed="false"] canvas.td-mini').first();
+  // A painted mini: a long 自選 list paints only the rows near its visible part (2026-10-28).
+  const spark = page.locator('.td-watch-row[aria-pressed="false"] canvas.td-mini[data-painted="true"]').first();
   let sparkDash = null;
   if (await spark.count()) {
     const sparkPng = await spark.screenshot();

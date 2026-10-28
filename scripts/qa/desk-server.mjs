@@ -1,5 +1,6 @@
 // Disposable QA server for trading-desk checks: temporary PGlite data, loopback ports only.
 // Never touches the production service or its data. Stop it with scripts/qa/desk-stop.mjs.
+// Usage: PORT_APP=<app> PORT_PROXY=<proxy> [QA_RETIRED_RUN=1] [MARKET_DATA_DIR=<real data, read only>] node scripts/qa/desk-server.mjs
 import { fork } from "node:child_process";
 import { createServer, request as forward } from "node:http";
 import { cp, mkdir, mkdtemp, writeFile } from "node:fs/promises";
@@ -7,7 +8,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { writeMarketFixture } from "./make-market-fixture.mjs";
 
 const project = fileURLToPath(new URL("../..", import.meta.url));
@@ -27,35 +28,58 @@ const config = await initialize(root, {
   port: appPort,
 });
 const base = `http://127.0.0.1:${appPort}`;
-// Daily question: a disposable market-data fixture unless MARKET_DATA_DIR points at real data
-// (read only), and a pinned clock so the question is the same on any day of the week.
+// The daily question and the daily lessons: a disposable market-data fixture (make-market-fixture.mjs: 10/14 for the
+// question, 10/21, 10/22 and 10/27 for the lessons) unless MARKET_DATA_DIR points at real data (read only), and a
+// pinned clock so the question is the same on any day of the week.
+const fixture = !process.env.MARKET_DATA_DIR;
 const marketData = process.env.MARKET_DATA_DIR ?? join(root, "market-data");
-if (!process.env.MARKET_DATA_DIR) await writeMarketFixture(marketData);
-const app = fork(join(project, "scripts/hosting/app-runner.mjs"), [appEntry], {
-  cwd: root,
-  windowsHide: true,
-  stdio: ["ignore", "pipe", "pipe", "ipc"],
-  env: {
-    ...applicationEnvironment(root, config),
-    CLASSROOM_DOWNLOADS_DIR: downloads,
-    MARKET_DATA_DIR: marketData,
-    DAILY_NOW_ISO: process.env.DAILY_NOW_ISO ?? "2026-10-19T07:00:00+08:00",
-  },
-});
+if (fixture) await writeMarketFixture(marketData);
 let logs = "";
-app.stdout.on("data", (chunk) => (logs += chunk));
-app.stderr.on("data", (chunk) => (logs += chunk));
-let ready = false;
-for (let i = 0; i < 160 && !ready; i++) {
-  try {
-    ready = (await fetch(base + "/api/health")).ok;
-  } catch {
-    // The server is still starting.
+async function startApp() {
+  const child = fork(join(project, "scripts/hosting/app-runner.mjs"), [appEntry], {
+    cwd: root,
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe", "ipc"],
+    env: {
+      ...applicationEnvironment(root, config),
+      CLASSROOM_DOWNLOADS_DIR: downloads,
+      MARKET_DATA_DIR: marketData,
+      DAILY_NOW_ISO: process.env.DAILY_NOW_ISO ?? "2026-10-19T07:00:00+08:00",
+    },
+  });
+  child.stdout.on("data", (chunk) => (logs += chunk));
+  child.stderr.on("data", (chunk) => (logs += chunk));
+  let ready = false;
+  for (let i = 0; i < 160 && !ready; i++) {
+    try {
+      ready = (await fetch(base + "/api/health")).ok;
+    } catch {
+      // The server is still starting.
+    }
+    if (child.exitCode !== null) throw new Error("QA server exited:\n" + logs);
+    if (!ready) await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  if (app.exitCode !== null) throw new Error("QA server exited:\n" + logs);
-  if (!ready) await new Promise((resolve) => setTimeout(resolve, 250));
+  if (!ready) throw new Error("QA server not ready:\n" + logs);
+  return child;
 }
-if (!ready) throw new Error("QA server not ready:\n" + logs);
+/** Asks the app to close its database, and waits until it has. */
+async function stopApp(child) {
+  const acknowledged = new Promise((done, fail) => {
+    const timer = setTimeout(() => fail(new Error("Shutdown acknowledgement missing")), 25000);
+    child.on("message", (message) => {
+      if (message?.type === "shutdown-complete") {
+        clearTimeout(timer);
+        done();
+      }
+    });
+  });
+  child.send({ type: "shutdown" });
+  await acknowledged;
+  const exited = new Promise((done) => child.once("exit", done));
+  child.kill();
+  await exited;
+}
+let app = await startApp();
 
 const jar = new Map();
 const cookie = () => [...jar].map(([key, value]) => `${key}=${value}`).join("; ");
@@ -83,6 +107,46 @@ await post("/api/admin/setup", {
 });
 await post("/api/auth/sign-in/email", { email: config.ownerEmail, password });
 
+// QA_RETIRED_RUN=1: the owner also gets an unfinished run of a retired lesson (10/05), saved the way the Yahoo lessons
+// saved them (no stocks chosen, no source hash), so desk-picker can open a real one from 練習紀錄. Nothing but the
+// app may write PGlite while it runs, so the app is stopped for it and started again; the sign-in stays valid.
+if (process.env.QA_RETIRED_RUN === "1") {
+  await stopApp(app);
+  const { PGlite } = await import("@electric-sql/pglite");
+  const db = new PGlite({ dataDir: join(root, "data", "pglite") });
+  try {
+    const owner = (await db.query(`SELECT id FROM "user" WHERE email = $1`, [config.ownerEmail])).rows[0];
+    if (!owner) throw new Error("the owner's account is missing");
+    const id = randomUUID();
+    const order = randomUUID();
+    const state = {
+      id,
+      lessonId: "morning-20261005-v1-bd566804b809",
+      cursor: 30,
+      revision: 12,
+      plan: { exerciseId: "first-order", bias: "bullish", focusCode: "2330", reason: "開盤量能放大，先小量試單。", entry: "突破前高再進場。", stop: "跌破開盤價離場。" },
+      startingCash: 10_000_000,
+      cash: 7_065_825,
+      equity: 9_995_825,
+      positions: [{ code: "2330", shares: 2_000, averageCost: 1_465 }],
+      orders: [{ id: order, code: "2330", side: "buy", shares: 2_000, status: "filled", submittedCursor: 5, price: 1_465 }],
+      fills: [{ id: order, code: "2330", side: "buy", shares: 2_000, price: 1_465, fee: 4_175, tax: 0, t: 360 }],
+      completed: false,
+      reflection: "",
+      nextAdvanceAt: 0,
+      startedAt: Date.parse("2026-10-06T09:05:00+08:00"),
+    };
+    await db.query(
+      `INSERT INTO morning_sessions (id, user_id, lesson_id, state_json, completed, created_at, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, FALSE, NOW() - INTERVAL '22 days', NOW() - INTERVAL '22 days')`,
+      [id, owner.id, state.lessonId, JSON.stringify(state)],
+    );
+  } finally {
+    await db.close();
+  }
+  app = await startApp();
+}
+
 const proxy = createServer((req, res) => {
   const headers = { ...req.headers, host: `127.0.0.1:${appPort}`, origin: base, cookie: cookie() };
   const outgoing = forward(base + req.url, { method: req.method, headers }, (response) => {
@@ -103,10 +167,11 @@ await new Promise((done, fail) => {
 });
 const stateDir = join(project, "artifacts/trading-desk-qa");
 await mkdir(stateDir, { recursive: true });
-// The entry code of this throwaway runtime lets desk-guest.mjs walk the real gate as a new visitor.
+// The entry code of this throwaway runtime lets desk-guest.mjs walk the real gate as a new visitor; `marketData` and
+// `fixture` tell the daily-lesson checks whether they are looking at the fixture (whose stocks they know) or real data.
 await writeFile(
   join(stateDir, `server-${proxyPort}.json`),
-  JSON.stringify({ runtime: root, appBase: base, gateCode: config.gateCode }),
+  JSON.stringify({ runtime: root, appBase: base, gateCode: config.gateCode, marketData, fixture }),
 );
 console.log(`QA ready: http://127.0.0.1:${proxyPort} (runtime ${root})`);
 
@@ -120,18 +185,7 @@ async function stop() {
   clearInterval(poll);
   proxy.closeAllConnections();
   proxy.close();
-  const acknowledged = new Promise((done, fail) => {
-    const timer = setTimeout(() => fail(new Error("Shutdown acknowledgement missing")), 25000);
-    app.on("message", (message) => {
-      if (message?.type === "shutdown-complete") {
-        clearTimeout(timer);
-        done();
-      }
-    });
-  });
-  app.send({ type: "shutdown" });
-  await acknowledged;
-  app.kill();
+  await stopApp(app);
   console.log("QA database closed cleanly");
   process.exit(0);
 }

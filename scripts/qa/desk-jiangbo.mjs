@@ -188,7 +188,9 @@ await check("3-ema-lines", async () => {
 await check("4-limit-lines", async () => {
   const png = await chart(desktop).screenshot();
   const up = await bestRow(desktop, png, blend(colours.up, colours.bg, 0.7), 0, 0.15);
-  const down = await bestRow(desktop, png, blend(colours.down, colours.bg, 0.7), 0.75, 1);
+  // The lesson's volume is in lots (Fubon), so a volume pane sits under the plot and the 跌停 line is above it,
+  // about three quarters down: looked for anywhere in the lower half.
+  const down = await bestRow(desktop, png, blend(colours.down, colours.bg, 0.7), 0.5, 1);
   if (up < 0.4 || down < 0.4) throw new Error(`漲停 row ${up}, 跌停 row ${down} of the plot width`);
   return { up, down };
 });
@@ -322,14 +324,15 @@ async function miniScale(page, mode, tag) {
   if (problems.length) throw new Error(problems.join("; "));
   return report;
 }
-// The 自選報價 title bar, read in the page: how many lines the title's text takes, and whether the 模擬 note is cut.
+// The 自選報價 title bar, read in the page: how many lines the title's text takes, and whether the list's note (the
+// 「預設：…」 wording of a run on the day's default list) is cut. A run on the learner's own stocks has no note.
 function titleBar(head) {
   const text = [...head.querySelector("span").childNodes].find((node) => node.nodeType === 3 && node.textContent.trim());
   const range = document.createRange();
   range.selectNodeContents(text);
   const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
   const note = head.querySelector(".td-watch-note");
-  return { titleLines: tops.size, noteCut: note.scrollWidth > note.clientWidth + 1, note: note.textContent };
+  return { titleLines: tops.size, noteCut: note ? note.scrollWidth > note.clientWidth + 1 : false, note: note?.textContent ?? null };
 }
 const scaleGroup = (page) => page.getByRole("group", { name: "江波圖刻度" });
 const pressedScale = async (page) =>
@@ -771,9 +774,9 @@ await check("8-phone", async () => {
   await phone.screenshot({ path: `${out}phone-watch.png` });
   const problems = [];
   if (scale !== "放大") problems.push(`自選's 江波圖 scale opens on 「${scale}」, not 放大`);
-  // The 放大／±10% buttons must not squeeze the title onto two lines or cut the 模擬 note.
+  // The 放大／±10% buttons must not squeeze the title onto two lines or cut the list's note (when the run has one).
   if (head.titleLines !== 1) problems.push(`「自選報價」 takes ${head.titleLines} lines`);
-  if (head.noteCut) problems.push(`the 模擬 note is cut off (${head.note})`);
+  if (head.noteCut) problems.push(`the list's note is cut off (${head.note})`);
   if (mode !== "江波") problems.push(`行情 opens on 「${mode}」`);
   if (header !== "江波") problems.push(`自選's last column is 「${header}」`);
   if (!bar || bar.height > 70) problems.push(`the chart bar takes ${bar?.height}px (wraps onto a second row)`);

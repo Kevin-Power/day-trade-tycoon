@@ -109,16 +109,31 @@ const scan = () => {
       return [Math.round(rect.width), Math.round(rect.height)];
     })(),
     ledgerHeight: Math.round(document.querySelector(".td-ledger")?.getBoundingClientRect().height ?? 0),
-    // 自選 rows cut off by the watch pane (the pane scrolls, and headless Chrome hides its scrollbar).
+    // 自選 rows cut off by the watch pane (headless Chrome hides scrollbars). A short list (its table does not scroll)
+    // shows every row inside the pane. A long list scrolls inside its own table (2026-10-28, up to 80 stocks): then
+    // the table itself must sit inside the pane, so that every row can be scrolled to, and the rows in its visible
+    // window (below the sticky bars) must not reach past the pane.
     watchOutside: (() => {
       const pane = document.querySelector(".td-watch");
       if (!pane) return null;
       const box = pane.getBoundingClientRect();
-      return [...document.querySelectorAll(".td-watch .td-watch-row")].filter((row) => {
-        const rect = row.getBoundingClientRect();
-        return rect.top < box.top - 1 || rect.bottom > box.bottom + 1;
-      }).length;
+      const outside = (rect) => rect.top < box.top - 1 || rect.bottom > box.bottom + 1;
+      const table = pane.querySelector(".td-watch-table");
+      const rows = [...pane.querySelectorAll(".td-watch-row")];
+      if (!table || table.scrollHeight <= table.clientHeight + 1)
+        return rows.filter((row) => outside(row.getBoundingClientRect())).length;
+      const view = table.getBoundingClientRect();
+      const window = { top: view.top, bottom: view.top + table.clientHeight };
+      return (
+        (outside(view) ? 1 : 0) +
+        rows.filter((row) => {
+          const rect = row.getBoundingClientRect();
+          const shown = { top: Math.max(rect.top, window.top), bottom: Math.min(rect.bottom, window.bottom) };
+          return shown.bottom > shown.top && outside(shown);
+        }).length
+      );
     })(),
+    watchRows: document.querySelectorAll(".td-watch .td-watch-row").length,
   };
 };
 

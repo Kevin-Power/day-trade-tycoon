@@ -1,11 +1,13 @@
-// Trade-by-trade replay on a disposable desk-server runtime (after desk-seed). Plays the desk and samples it
-// every 100 ms: the price moves several times inside each minute, stays inside that minute's real high and
-// low and rests on its real close; the hero's best bid/ask always match the ladder; the clock runs through
-// the seconds; the tape's newest trade is the price on screen; replayed prices are labelled 模擬; unverified
-// volume shows no lot sizes; the main thread has no long stalls; and with 即送 armed the ladder holds still
-// under the pointer (refreshing at most once, at a new minute). On entry the desk shows the lesson's approved
-// notice about the simulated replay until it is dismissed, and it stays dismissed after a reload. On desktops the
-// 大盤 index moves through its real 5-second values while a minute replays and rests on the minute's real close.
+// Real trade-by-trade replay (富邦逐筆) on a disposable desk-server runtime (after desk-seed). Plays the desk and
+// samples it every 100 ms: the price moves several times inside each minute, stays inside that minute's real high
+// and low and rests on its real close; the hero's best bid/ask always match the ladder; the clock runs through the
+// seconds; the tape's newest trade is the price on screen; replayed prices say 「成交 · 歷史重播」 and nothing of the
+// quote says 模擬 (the market data is real since 2026-10-28; only the paper trading is 模擬); the tape is labelled
+// 富邦逐筆 and shows each trade's lots, as the lesson's volume is in lots; the main thread has no long stalls; and
+// with 即送 armed the ladder holds still under the pointer (refreshing at most once, at a new minute). No entry
+// notice about a simulated replay is shown any more. 「下一檔股票」 goes to the next stock in the run's own order. On
+// desktops the 大盤 index moves through its real 5-second values while a minute replays and rests on the minute's
+// real close.
 // Usage: node scripts/qa/desk-ticks.mjs <baseUrl> <label>
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -45,9 +47,12 @@ const sample = () => {
     tapeRows: document.querySelectorAll(".td-tape-rows li").length,
     tapeLots: document.querySelectorAll(".td-tape-lots").length,
     stamp: text(".td-hero-stamp"),
-    // 報價明細 (desks): its 成交 row carries a 模擬 tag while the minute's trades are simulated.
+    // 報價明細 (desks): real trades, so no 模擬 anywhere in it (it used to tag replayed simulated trades).
     grid: Boolean(document.querySelector(".td-quote-grid")),
-    gridSim: Boolean(document.querySelector(".td-quote-grid .td-sim-tag")),
+    gridSim: /模擬/.test(document.querySelector(".td-quote-grid")?.textContent ?? "") ||
+      Boolean(document.querySelector(".td-quote-grid .td-sim-tag")),
+    heroSim: /模擬/.test(document.querySelector(".td-hero")?.textContent ?? ""),
+    tapeChip: text(".td-tape-head .td-chip"),
     flashing: document.querySelectorAll('[data-flash="up"], [data-flash="down"]').length,
   };
 };
@@ -76,22 +81,15 @@ for (const viewport of [
     await page.goto(`${base}/morning`, { waitUntil: "domcontentloaded" });
     await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 });
     await page.waitForTimeout(800);
-    const notice = page.locator(".td-notice");
-    const approved = await page.evaluate(async () =>
-      (await (await fetch("/api/morning")).json()).catalog.notices.find((text) => text.includes("模擬逐筆")),
-    );
-    if (!(await notice.isVisible())) fail(`${viewport.name}: the simulated-replay notice is not shown on entry`);
-    else {
-      if (!approved || !(await notice.textContent()).includes(approved))
-        fail(`${viewport.name}: the entry notice is not the lesson's approved notice`);
-      await notice.getByRole("button", { name: "知道了" }).click();
-      if (await notice.isVisible()) fail(`${viewport.name}: 知道了 did not dismiss the notice`);
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 });
-      await page.waitForTimeout(500);
-      if (await page.locator(".td-notice").isVisible()) fail(`${viewport.name}: the dismissed notice came back after a reload`);
-    }
-    // 鴻海 moves inside the fixture's next minutes; 台積電 is flat there, which is real and shows no trades moving.
+    // The trades are real now: the lesson carries no notice about a simulated replay, and none is shown on entry.
+    const lesson = await page.evaluate(async () => (await (await fetch("/api/morning")).json()));
+    const simulatedNotice = lesson.catalog.notices.find((text) => text.includes("模擬逐筆"));
+    if (simulatedNotice) fail(`${viewport.name}: the lesson still carries the simulated-replay notice 「${simulatedNotice}」`);
+    if (await page.locator(".td-notice").filter({ hasText: "模擬" }).isVisible()) fail(`${viewport.name}: an entry notice about simulated trades is shown`);
+    // 「下一檔股票」 follows the run's own order (the picker keeps stocks in code order): the stock after the one shown.
+    const order = lesson.catalog.symbols.map((symbol) => symbol.code);
+    const shown = (await page.evaluate(sample)).code;
+    const expectedNext = order[(order.indexOf(shown) + 1) % order.length];
     await page.getByRole("button", { name: "下一檔股票" }).click();
     await page.waitForTimeout(300);
     const startCursor = (await state(page)).cursor;
@@ -129,7 +127,7 @@ for (const viewport of [
     const distinct = new Set(samples.map((s) => s.price)).size;
     const moves = samples.filter((s, i) => i > 0 && s.price !== samples[i - 1].price).length;
     const moving = played.filter((bar) => bar.h > bar.l).length;
-    if (code !== "2317") fail(`${viewport.name}: expected 鴻海 selected, got ${code}`);
+    if (code !== expectedNext) fail(`${viewport.name}: 下一檔股票 after ${shown} chose ${code}, not ${expectedNext} (the run's order ${order.join(",")})`);
     if (moves < moving * 2) fail(`${viewport.name}: the price moved only ${moves} times over ${moving} moving minutes`);
     if (number(rest.price) !== bars.at(-1).c) fail(`${viewport.name}: rests on ${rest.price}, real close ${bars.at(-1).c}`);
     if (rest.clock !== `${String(9 + Math.floor(after.cursor / 60)).padStart(2, "0")}:${String(after.cursor % 60).padStart(2, "0")}:00`)
@@ -154,17 +152,22 @@ for (const viewport of [
         fail(`${viewport.name}: the index rests on ${rest.index}, real close ${realClose}`);
     }
     if (!samples.some((s) => s.flashing)) fail(`${viewport.name}: no price flash seen while playing`);
-    // While a minute replays the hero says the price is simulated; at rest it is the minute's real close.
-    if (!samples.some((s) => s.stamp.includes("模擬成交"))) fail(`${viewport.name}: replayed prices are not labelled 模擬`);
+    // While a minute replays the hero shows the real trade's time and 「成交 · 歷史重播」; at rest the minute's real
+    // close (「收價 · 歷史重播」). Nothing of the quote says 模擬: the trades are Fubon's real ones.
+    const REPLAYING = "成交 · 歷史重播";
+    if (!samples.some((s) => s.stamp.includes(REPLAYING))) fail(`${viewport.name}: replayed trades are not labelled 「${REPLAYING}」`);
     if (!rest.stamp.includes("收價")) fail(`${viewport.name}: at rest the hero stamp reads "${rest.stamp}"`);
+    if ([...samples, rest].some((s) => s.heroSim)) fail(`${viewport.name}: the quote says 模擬 about real trades`);
     if (!phone) {
-      const replaying = samples.filter((s) => s.grid && s.stamp.includes("模擬成交"));
+      const replaying = samples.filter((s) => s.grid && s.stamp.includes(REPLAYING));
       if (!replaying.length) fail(`${viewport.name}: no sample of 報價明細 while a minute replayed`);
-      if (replaying.some((s) => !s.gridSim)) fail(`${viewport.name}: 報價明細 shows simulated trades without 模擬`);
-      if (rest.gridSim) fail(`${viewport.name}: 報價明細 still says 模擬 at rest on the real close`);
+      if ([...samples, rest].some((s) => s.gridSim)) fail(`${viewport.name}: 報價明細 says 模擬 about real trades`);
     }
-    // The lesson's volume is unverified: the tape shows ticks, not lot sizes.
-    if (samples.some((s) => s.tapeLots)) fail(`${viewport.name}: the tape shows lot sizes from unverified volume`);
+    // The tape is Fubon's real trades, and the lesson's volume is in lots: each trade shows its lots.
+    const taped = [...samples, rest].filter((s) => s.tapeRows);
+    if (taped.some((s) => s.tapeChip !== "富邦逐筆")) fail(`${viewport.name}: the tape is labelled 「${taped.find((s) => s.tapeChip !== "富邦逐筆")?.tapeChip}」, not 富邦逐筆`);
+    if (lesson.catalog.volumeUnit === "lot" && taped.some((s) => s.tapeLots !== s.tapeRows))
+      fail(`${viewport.name}: the tape shows lots on ${taped.find((s) => s.tapeLots !== s.tapeRows)?.tapeLots} of its rows`);
     if (!rest.tapeRows) fail(`${viewport.name}: the trade tape is empty`);
     const stalled = longTasks.filter((ms) => ms >= 100);
     const busy = Math.round(longTasks.reduce((sum, ms) => sum + ms, 0));
@@ -178,7 +181,7 @@ for (const viewport of [
       await page.getByRole("switch", { name: "閃電即送" }).click();
       await page.getByRole("button", { name: "自動重播", exact: true }).click();
       // Auto-play advances after its first interval; hover once a minute is replaying.
-      await page.locator(".td-hero-stamp", { hasText: "模擬成交" }).waitFor({ timeout: 8000 });
+      await page.locator(".td-hero-stamp", { hasText: "成交 · 歷史重播" }).waitFor({ timeout: 8000 });
       await page.locator(".td-book-head").hover();
       // Prices and quantities: in a bid/ask bounce the quotes stay put while the quantities still shift.
       const ladder = () => page.evaluate(() => [...document.querySelectorAll(".td-book-cell")].map((el) => el.textContent).join("|"));

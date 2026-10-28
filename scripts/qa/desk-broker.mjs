@@ -11,7 +11,8 @@ const [base = "http://127.0.0.1:18811", label = "broker", ...flags] = process.ar
 const strict = flags.includes("--strict");
 const out = fileURLToPath(new URL(`../../artifacts/trading-desk-qa/${label}/`, import.meta.url));
 mkdirSync(out, { recursive: true });
-const OTHER_LESSON = "morning-20261005-v1-bd566804b809";
+// Another open lesson day the seeded owner has no run on: its plan screen (10/22, a day without the TAIEX).
+const OTHER_LESSON = "fubon-20261022-am";
 const api = async (query = "") => (await (await fetch(`${base}/api/morning${query}`)).json()).state;
 const formatIndex = (n) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const clean = (text) => (text ?? "").replace(/\s+/g, " ").trim();
@@ -144,8 +145,11 @@ await check("3-no-leak", async () => {
 });
 
 await check("4-watch-table", async () => {
+  // The TAIEX first, then the run's stocks in their order (no longer always five).
   const codes = await desktop.locator(".td-watch-row").evaluateAll((rows) => rows.map((row) => row.dataset.code));
-  if (codes.length !== 6 || codes[0] !== "TAIEX") throw new Error(`rows ${JSON.stringify(codes)}`);
+  const run = (await api()).codes ?? [];
+  if (codes[0] !== "TAIEX" || codes.slice(1).join() !== run.join())
+    throw new Error(`rows ${JSON.stringify(codes)}, the run's stocks ${JSON.stringify(run)}`);
   const indexText = clean(await desktop.locator('.td-watch-row[data-code="TAIEX"]').textContent());
   const indexValue = clean(await desktop.locator(".td-index-value").first().textContent());
   if (!indexText.includes(indexValue)) throw new Error(`TAIEX row "${indexText}" lacks ${indexValue}`);
@@ -206,7 +210,8 @@ await check("6-right-column-needs-holdings", async () => {
   await selectStock(desktop, "2454");
   const state = await api();
   if (state.positions.some((position) => position.code === "2454")) return "skipped: 2454 is held";
-  const asks = desktop.locator('.td-book-cell[data-side="ask"]');
+  // The price buttons only: a level the book does not have is an empty placeholder (a 買一賣一 book has one a side).
+  const asks = desktop.locator('button.td-book-cell[data-side="ask"]');
   const count = await asks.count();
   if (!count) throw new Error("no ask cells");
   const enabled = await asks.evaluateAll((cells) => cells.filter((cell) => !cell.disabled).length);
@@ -380,7 +385,7 @@ await check("9-plan-screen", async () => {
   const state = await api(`?lesson=${OTHER_LESSON}`);
   if (state) {
     await page.close();
-    return "skipped: the seeded student already has a 10/05 run";
+    return "skipped: the seeded owner already has a 10/22 run";
   }
   const text = clean(await pane(page, "index").textContent({ timeout: 4000 }));
   const body = await page.evaluate(() => document.body.innerText);
