@@ -9,6 +9,7 @@ import { basename, dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fromCrossJSON, toJSONAsync } from 'seroval';
 import { defaultSerovalPlugins } from '@tanstack/router-core';
+import { FIXTURE, writeMarketFixture } from '../qa/make-market-fixture.mjs';
 
 const entrySetting = process.env.CLASSROOM_TEST_RELEASE;
 const here = dirname(fileURLToPath(import.meta.url));
@@ -26,6 +27,8 @@ test('real HTTP guest flow: gate-only guest accounts, start-to-consent, practice
   await new Promise((done, fail) => { vacant.once('error', fail); vacant.listen(port, '127.0.0.1', done); });
   await new Promise(done => vacant.close(done));
   const runtime = await mkdtemp(join(tmpdir(), 'guest-http-test-'));
+  const marketData = join(runtime, 'market-data');
+  await writeMarketFixture(marketData);
   const base = 'http://127.0.0.1:' + port;
   const password = randomBytes(20).toString('base64url');
   const gateCode = randomBytes(18).toString('hex');
@@ -36,7 +39,7 @@ test('real HTTP guest flow: gate-only guest accounts, start-to-consent, practice
     ...process.env, NODE_ENV: 'production', HOST: '127.0.0.1', NITRO_HOST: '127.0.0.1', PORT: String(port), NITRO_PORT: String(port),
     BETTER_AUTH_URL: origin, BETTER_AUTH_SECRET: secret, DATABASE_URL: '', PGLITE_DATA_DIR: join(runtime, 'pglite'),
     VITE_AUTH_ENABLED: 'true', CLASSROOM_AUTH_ENABLED: 'true', CLASSROOM_TRUST_PROXY: 'true', CLASSROOM_GATE_PASSWORD_HASH: gateHash,
-    CLASSROOM_CODE: 'GUESTTEST', CLASSROOM_TEACHER_IDS: '', TEACHER_EMAILS: '', ADMIN_SETUP_EMAIL: '', ADMIN_SETUP_TOKEN: '',
+    CLASSROOM_CODE: 'GUESTTEST', MARKET_DATA_DIR: marketData, CLASSROOM_TEACHER_IDS: '', TEACHER_EMAILS: '', ADMIN_SETUP_EMAIL: '', ADMIN_SETUP_TOKEN: '',
     GROK_PROJECT_ID: '', GROK_AUTH_CLIENT_ID: '', GROK_AUTH_CLIENT_SECRET: '',
   };
   let profileId;
@@ -52,6 +55,7 @@ test('real HTTP guest flow: gate-only guest accounts, start-to-consent, practice
   let logs = '';
   let stage = 'startup';
   const jars = [];
+  const morningTexts = [];
   const newJar = initial => { const jar = new Map(initial); jars.push(jar); return jar; };
   function absorb(jar, response) {
     for (const cookie of response.headers.getSetCookie()) {
@@ -69,7 +73,8 @@ test('real HTTP guest flow: gate-only guest accounts, start-to-consent, practice
     const text = await result.text();
     let body = null;
     try { body = JSON.parse(text); } catch { /* assertions report status, never credentials */ }
-    return { status: result.status, body, headers: result.headers };
+    if (path.startsWith('/api/morning')) morningTexts.push(text);
+    return { status: result.status, body, text, headers: result.headers };
   }
   async function profileRpc(jar) {
     const headers = { origin, 'sec-fetch-site': 'same-origin', 'x-tsr-serverFn': 'true', accept: 'application/json', 'content-type': 'application/json',
@@ -135,20 +140,37 @@ test('real HTTP guest flow: gate-only guest accounts, start-to-consent, practice
     assert.equal(initial.status, 200); assert.equal(initial.body.state, null);
     t.diagnostic('guest accounts: refused without the gate, named 訪客, one per browser, can read the lesson');
 
+    stage = 'a guest\'s picker never uses the list';
+    const picker = initial.body.picker;
+    assert.equal(picker.lessonId, 'fubon-20261027-am');
+    assert.equal(picker.note.title, '預設：成交值前 5 名'); assert.equal(picker.note.detail, null);
+    assert.deepEqual(picker.defaults, [...FIXTURE.hot].sort(), 'a guest starts with the day\'s five most traded stocks');
+    assert.deepEqual(initial.body.catalog.symbols.map(symbol => symbol.code), picker.defaults);
+    assert.deepEqual(initial.body.catalog.note, picker.note);
+    for (const lesson of ['fubon-20261022-am', 'fubon-20261021-am']) {
+      const other = await request('/api/morning?lesson=' + lesson, { jar: guest });
+      assert.equal(other.status, 200);
+      assert.equal(other.body.picker.note.title, '預設：成交值前 5 名', lesson + ': the same wording on every day');
+      assert.deepEqual([...other.body.picker.defaults].sort(), [...FIXTURE.hot].sort());
+    }
+
     stage = 'guest practice after accepting the statement on start';
-    const code = initial.body.catalog.symbols[0].code;
-    const start = { action: 'start', requestId: randomUUID(), codes: initial.body.catalog.symbols.map(symbol => symbol.code), plan: { exerciseId: 'first-order', bias: 'bullish', focusCode: code,
+    const code = picker.defaults[0];
+    const start = { action: 'start', requestId: randomUUID(), codes: picker.defaults, plan: { exerciseId: 'first-order', bias: 'bullish', focusCode: code,
       reason: '開盤後走強，想等它站上前高', entry: '價格站上前高（圖上標「前高」的虛線）再買', stop: '跌回前高下方就賣出' } };
     assert.equal((await post(guest, start)).status, 403);
     const began = await post(guest, { ...start, requestId: randomUUID(), guestTerms: true });
     assert.equal(began.status, 200);
+    assert.deepEqual(began.body.state.codes, picker.defaults);
     let state = began.body.state;
     await ready(state);
-    state = (await post(guest, nextAction(state, 'advance'))).body.state;
+    state = (await post(guest, nextAction(state, 'advance', { view: code }))).body.state;
     state = (await post(guest, nextAction(state, 'order', { code, side: 'buy', lots: 1 }))).body.state;
     await ready(state);
-    state = (await post(guest, nextAction(state, 'advance'))).body.state;
+    const second = await post(guest, nextAction(state, 'advance', { view: code }));
+    state = second.body.state;
     assert.equal(state.cursor, 2); assert.equal(state.fills.length, 1);
+    assert.deepEqual(Object.keys(second.body.delta.trades).sort(), picker.defaults);
     assert.equal((await profileRpc(guest)).ok, false, 'A guest must not create a classroom profile');
     t.diagnostic('guest practice: start refused until the statement is accepted, then orders fill normally; no classroom profile');
 
@@ -159,7 +181,8 @@ test('real HTTP guest flow: gate-only guest accounts, start-to-consent, practice
     assert.equal(signedUp.status, 200);
     assert.equal((await request('/api/morning', { jar: guest })).status, 403);
     assert.equal((await profileRpc(guest)).ok, true);
-    assert.deepEqual((await request('/api/morning', { jar: guest })).body.state, state);
+    const moved = (await request('/api/morning', { jar: guest })).body.state;
+    assert.deepEqual({ ...moved, bars: {}, index: undefined }, { ...state, bars: {}, index: undefined }, 'the run moved with all its orders and fills');
     assert.equal((await session(guest)).user.isAnonymous, false);
     assert.equal(await session(oldGuest), null, 'The guest and its sessions are deleted after linking');
     t.diagnostic('linking: practice moved, profile step still required, guest deleted');
@@ -169,6 +192,9 @@ test('real HTTP guest flow: gate-only guest accounts, start-to-consent, practice
     assert.equal((await request('/api/auth/sign-up/email', { method: 'POST', jar: carol,
       data: { name: 'Carol fixture', email: 'carol@example.invalid', password } })).status, 200);
     assert.equal((await profileRpc(carol)).ok, true);
+    const memberPicker = (await request('/api/morning', { jar: carol })).body.picker;
+    assert.equal(memberPicker.note.title, '預設：前一交易日熱門當沖股（10/22 盤後）', 'a member\'s picker does use the list');
+    assert.equal(memberPicker.defaults.length, 63);
     const carolRun = (await post(carol, { ...start, requestId: randomUUID() })).body.state;
     const visitor = await admitted();
     assert.equal((await request('/api/auth/sign-in/anonymous', { method: 'POST', data: {}, jar: visitor })).status, 200);
@@ -179,6 +205,17 @@ test('real HTTP guest flow: gate-only guest accounts, start-to-consent, practice
     assert.ok(signedIn.headers.getSetCookie().some(cookie => cookie.startsWith('day-tycoon-link-notice=skipped')));
     assert.equal((await request('/api/morning', { jar: carol })).body.state.id, carolRun.id);
     t.diagnostic('conflict: the account run is kept and the learner is told once');
+
+    // Everything the guest was sent on /api/morning (the GETs of three days, the start, both advances), before the
+    // account was made: no list, no list date, no list size. The member's picker is the positive control.
+    const LIST_WORDS = /radar|名單|熱門當沖|盤後）/;
+    const guestTexts = morningTexts.slice(0, 8);
+    assert.ok(guestTexts.length >= 6 && guestTexts.every(text => text.length > 0));
+    for (const [index, text] of guestTexts.entries()) {
+      const at = text.search(LIST_WORDS);
+      assert.equal(at, -1, `reply ${index}: a guest's reply must not carry the list: …${text.slice(Math.max(0, at - 60), at + 40)}…`);
+    }
+    assert.equal(LIST_WORDS.test(JSON.stringify(memberPicker.note)), true, 'the same words are in a member\'s picker');
 
     for (const value of [password, gateCode, secret, ...jars.flatMap(jar => [...jar.values()])])
       assert.equal(logs.includes(value), false, 'Generated credentials must not appear in app logs');

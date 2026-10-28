@@ -46,16 +46,18 @@ assert.equal(inquiryValidation.status, 400);
 assert.equal(inquiryValidation.headers.getSetCookie().length, 0);
 assert.match(inquiryValidation.headers.get('cache-control'), /no-store/);
 const cookie = issueGateCookie().split(';')[0];
-for (const date of ['2026-10-05', '2026-10-06']) {
-  const source = JSON.parse(readFileSync(new URL(`../../server/data/morning-${date}.json`, import.meta.url), 'utf8'));
-  const path = '/api/morning?lesson=' + encodeURIComponent(source.catalog.lessonId);
-  const anonymous = await request(path);
-  assert.equal(anonymous.status, 403, 'Real lessons require classroom admission');
-  const admittedOnly = await request(path, { headers: { cookie } });
-  assert.equal(admittedOnly.status, 401, 'Admission alone must not reveal lesson state');
+// Daily lessons are made at run time from the server's market data and are never public files. Without the classroom
+// gate the practice API is closed (403); with the gate alone, and no signed-in learner, it is still closed (401). A
+// lesson named in the query makes no difference, and nothing is cached.
+for (const query of ['', '?lesson=fubon-20261027-am', '?lesson=morning-20261005-v1-bd566804b809']) {
+  const anonymous = await request('/api/morning' + query);
+  assert.equal(anonymous.status, 403, 'The practice API requires classroom admission');
+  const admittedOnly = await request('/api/morning' + query, { headers: { cookie } });
+  assert.equal(admittedOnly.status, 401, 'Admission alone must not reveal any lesson or run');
   assert.match(admittedOnly.headers.get('cache-control'), /no-store/);
-  const privateFile = await request(`/server/data/morning-${date}.json`, { headers: { cookie } });
-  assert.equal(privateFile.status, 404, 'Private unrevealed candles must not be public files');
+}
+for (const path of ['/server/data/morning-2026-10-05.json', '/server/data/morning-2026-10-06.json', '/market-data/index.json']) {
+  assert.equal((await request(path, { headers: { cookie } })).status, 404, 'Lesson data must not be public files: ' + path);
 }
 const retiredTape = await request('/api/tape?fresh=1', { headers: { cookie } });
 assert.equal(retiredTape.status, 410, 'Legacy projection data must remain retired');

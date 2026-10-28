@@ -13,9 +13,8 @@ import { initialize, verifyPackage } from './launcher.mjs';
 const exec = promisify(execFile);
 const packagePath = process.env.ONPREM_TEST_PACKAGE;
 const here = dirname(fileURLToPath(import.meta.url));
-const pause = ms => new Promise(done => setTimeout(done, ms));
 
-test('extracted standalone package: Chrome admission, owner setup, cookies, paper fill, restart and consistent backup', {
+test('extracted standalone package: Chrome admission, owner setup, cookies, no daily lessons, restart and consistent backup', {
   skip: !packagePath ? 'Set ONPREM_TEST_PACKAGE to an extracted immutable package directory' : false,
   timeout: 150000,
 }, async t => {
@@ -106,24 +105,22 @@ test('extracted standalone package: Chrome admission, owner setup, cookies, pape
     const cookieNames = (await context.cookies()).map(cookie => cookie.name);
     assert.ok(cookieNames.includes('classroom_gate')); assert.ok(cookieNames.includes('classroom.session_token'));
     assert.ok(!(await context.cookies()).some(cookie => cookie.name.startsWith('__Host-')));
+    // An on-premises classroom has no daily lessons (they come from market data it does not carry): the practice API
+    // says so in one sentence, for a read and for a start, and nothing of any lesson is sent. The learner's own runs
+    // would still be listed (`records`); a fresh classroom has none.
+    const NO_LESSONS = '此教室沒有每日教材';
     const info = await (await get('/api/morning')).json();
-    assert.equal(info.lessons.length, 2); assert.equal(info.state, null);
+    assert.deepEqual(info, { unavailable: NO_LESSONS });
     assert.equal((await request.post(base + '/api/morning', { headers: { origin: 'https://wrong.invalid' }, data: {} })).status(), 403);
-    const began = await post({ action: 'start', requestId: randomUUID(), codes: info.catalog.symbols.map(symbol => symbol.code), plan: { exerciseId: 'first-order', bias: 'observe',
-      focusCode: info.catalog.symbols[0].code, reason: '地端保存驗收', entry: '先觀察再決定', stop: '條件失效時離場' } });
+    const began = await post({ action: 'start', requestId: randomUUID(), codes: ['2330'], plan: { exerciseId: 'first-order', bias: 'observe',
+      focusCode: '2330', reason: '地端沒有教材驗收', entry: '先觀察再決定', stop: '條件失效時離場' } });
     assert.equal(began.status(), 200);
-    let state = (await began.json()).state;
-    const action = (name, extra = {}) => ({ action: name, id: state.id, expectedRevision: state.revision, requestId: randomUUID(), ...extra });
-    await pause(Math.max(0, state.nextAdvanceAt - Date.now()) + 30);
-    state = (await (await post(action('advance'))).json()).state;
-    assert.equal(state.cursor, 1);
-    state = (await (await post(action('order', { code: info.catalog.symbols[0].code, side: 'buy', lots: 1 }))).json()).state;
-    assert.equal(state.orders[0].status, 'pending');
-    await pause(Math.max(0, state.nextAdvanceAt - Date.now()) + 30);
-    state = (await (await post(action('advance'))).json()).state;
-    assert.equal(state.cursor, 2); assert.equal(state.fills.length, 1);
+    assert.deepEqual(await began.json(), { unavailable: NO_LESSONS });
+    const named = await get('/api/morning?lesson=fubon-20261027-am');
+    assert.equal(named.status(), 200);
+    assert.deepEqual(await named.json(), { unavailable: NO_LESSONS });
     await page.goto(base + '/morning');
-    await page.getByText('地端保存驗收', { exact: true }).waitFor({ state: 'attached' });
+    await page.getByText(NO_LESSONS, { exact: true }).waitFor({ state: 'attached' });
     await page.screenshot({ path: join(evidence, 'desktop.png'), fullPage: true });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await page.setViewportSize({ width: 375, height: 812 });
@@ -132,19 +129,16 @@ test('extracted standalone package: Chrome admission, owner setup, cookies, pape
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth && document.body.scrollWidth <= window.innerWidth), true);
     await page.screenshot({ path: join(evidence, 'mobile.png'), fullPage: true });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
-    const finished = await post(action('finish', { reflection: '保存紙上成交與判斷，重啟後核對。' }));
-    assert.equal(finished.status(), 200); state = (await finished.json()).state;
-    assert.equal(state.completed, true);
     const privateDownload = await get('/api/download/offline'); assert.equal(privateDownload.status(), 200);
     const stableSettings = await readFile(join(root, 'data/config.json'), 'utf8');
     await stop();
     await start();
     assert.equal(await readFile(join(root, 'data/config.json'), 'utf8'), stableSettings);
     assert.equal((await (await get('/api/auth/get-session')).json()).user.id, session.user.id);
-    assert.deepEqual((await (await get('/api/morning')).json()).state, state);
+    assert.deepEqual(await (await get('/api/morning')).json(), { unavailable: NO_LESSONS });
     assert.equal((await (await get('/api/admin/setup')).json()).available, false);
     await page.reload();
-    await page.getByText('保存紙上成交與判斷，重啟後核對。', { exact: true }).waitFor({ state: 'attached' });
+    await page.getByText(NO_LESSONS, { exact: true }).waitFor({ state: 'attached' });
     await page.screenshot({ path: join(evidence, 'restarted.png'), fullPage: true });
     assert.deepEqual(pageErrors, []);
     await stop();
@@ -154,7 +148,7 @@ test('extracted standalone package: Chrome admission, owner setup, cookies, pape
     const result = { passed: true, browser: browserName, browserMode: 'headless installed browser', productionChanged: false,
       packageRoot: resolve(packagePath), testedOutsideRepository: true, networkRestrictedToLoopback: true,
       attemptedExternalOrigins: [...new Set(blockedExternal)], desktop: '1366x900', mobile: '375x812',
-      cookiesSurviveRestart: true, paperFillAndReviewSurviveRestart: true, databaseShutdownAcknowledged: true, backupPassed: true, pageErrors };
+      cookiesSurviveRestart: true, noDailyLessonsSentenceSurvivesRestart: true, databaseShutdownAcknowledged: true, backupPassed: true, pageErrors };
     await writeFile(join(evidence, 'result.json'), JSON.stringify(result, null, 2) + '\n');
     t.diagnostic(JSON.stringify(result));
   } finally {
