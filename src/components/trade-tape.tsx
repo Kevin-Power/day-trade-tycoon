@@ -52,10 +52,16 @@ export function TradeTape({
               {sized ? (
                 <span
                   className="td-num td-tape-lots"
-                  data-side={trade.side}
-                  title={trade.side === "ask" ? "外盤：買方主動成交" : "內盤：賣方主動成交"}
+                  data-side={trade.side ?? undefined}
+                  title={
+                    trade.side === "ask"
+                      ? "外盤：買方主動成交"
+                      : trade.side === "bid"
+                        ? "內盤：賣方主動成交"
+                        : undefined
+                  }
                 >
-                  {trade.lots || "—"}
+                  {trade.size || "—"}
                 </span>
               ) : (
                 <span className="td-tape-move" data-move={trade.move} aria-hidden="true">

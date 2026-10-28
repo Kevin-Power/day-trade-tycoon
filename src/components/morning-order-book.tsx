@@ -40,8 +40,8 @@ export function MorningOrderBook({
   cursor: number;
   last?: number;
   previousClose: number;
-  /** The latest replayed trade: which side the last price sits on, and the trade's place in the minute. */
-  trade?: { index: number; side: "ask" | "bid" };
+  /** The latest replayed trade: which side the last price sits on (null: neither), and its place among the trades. */
+  trade?: { index: number; side: "ask" | "bid" | null };
   /** The session's revision: an order or fill refreshes a held book. */
   revision: number;
   /** A minute is replaying, so the last price is a simulated trade. */

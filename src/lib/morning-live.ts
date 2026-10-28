@@ -1,94 +1,110 @@
 // The desk while a newly revealed minute plays out trade by trade (display only; client-side).
 //
-// The server reveals a whole minute at a time. When the run moves forward one minute, the desk replays that
-// minute's generated trades (market/tick-replay.ts) over the next couple of seconds: every stock's newest bar
-// grows from its open to its real close, holdings are valued at the latest trade, and the clock runs through
-// the minute's seconds. Orders, fills, order defaults, alerts and minute tables come from the server's session
-// (serverSession / settledSession), so nothing generated reaches the server and nothing is announced early.
+// The server reveals a whole minute at a time, with every real Fubon trade in it. When the run moves forward one
+// minute, the desk replays that minute's trades on their real seconds over the next couple of seconds (the minute's
+// 60 s in REPLAY_DELAY × 0.9; trades that land in the same screen update show together): every stock's newest bar is
+// rebuilt from the trades played so far, holdings are valued at the latest trade, and the clock runs through the
+// minute's seconds. Orders, fills, order defaults, alerts and minute tables come from the server's session
+// (serverSession / settledSession), so nothing played here reaches the server and nothing is announced early.
 import type { Bar } from "./game/types.ts";
+import { CELL_MS, type TradeRow } from "./lessons/trades.ts";
 import type { MorningCatalog, MorningState } from "./morning.ts";
-import { formingBar, minuteTicks, tickSeed, type Tick } from "./market/tick-replay.ts";
+import { formingBar, liveTrade, tradesUpTo, type LiveTrade, type ReplayState } from "./market/real-replay.ts";
 import { formingIndexBar } from "./morning-index.ts";
 
-export type LiveMorningState = MorningState & {
-  /** Present only while a minute is playing: how far through it, and the server's session. */
-  replay?: { fraction: number; source: MorningState };
+export type LiveMorningState = ReplayState & {
+  /**
+   * Present only while a minute is playing: how far through it, the moment of the day it has reached (ms after
+   * 09:00; every trade at or before it has played), and the server's session.
+   */
+  replay?: { fraction: number; playedMs: number; source: ReplayState };
 };
 
-/** What the replay needs from the lesson: each stock's previous close, and whether volume is in lots. */
+/** The lesson as the desk's callers pass it; real trades need nothing from it. */
 export type ReplayCatalog = Pick<MorningCatalog, "volumeUnit"> & {
   symbols: readonly Pick<MorningCatalog["symbols"][number], "code" | "previousClose">[];
 };
 
-export type LastTrade = Tick & { index: number; second: number };
-/** `id` names the trade (minute start and its place in the minute), stable while the tape scrolls. */
-export type RecentTrade = Pick<Tick, "price" | "lots" | "side"> & { id: string; second: number; move: "up" | "down" | "same" };
+/** The newest trade of a stock; `index` is its place among the stock's trades the desk holds. */
+export type LastTrade = LiveTrade & { index: number; second: number };
+/** `id` names the trade (its ms and how many later trades share it), stable while the tape scrolls. */
+export type RecentTrade = LiveTrade & { id: string; second: number; move: "up" | "down" | "same" };
 
-const cache = new Map<string, Tick[]>();
-
-function ticksAt(lessonId: string, catalog: ReplayCatalog, code: string, bars: readonly Bar[], index: number): Tick[] {
-  const bar = bars[index];
-  const previous = index > 0 ? bars[index - 1].c : (catalog.symbols.find((s) => s.code === code)?.previousClose ?? bar.o);
-  // Lot sizes only where the lesson's volume is verified and in lots; otherwise the tape shows none.
-  const lots = catalog.volumeUnit === "lot" ? bar.v : null;
-  const seed = tickSeed(lessonId, code, Math.round(bar.t / 60));
-  const key = `${seed}:${bar.o}:${bar.h}:${bar.l}:${bar.c}:${bar.v}:${previous}:${lots}`;
-  let ticks = cache.get(key);
-  if (!ticks) {
-    ticks = minuteTicks(bar, seed, { previous, lots });
-    if (cache.size > 4000) cache.clear();
-    cache.set(key, ticks);
-  }
-  return ticks;
+/** The newest cell's trades when the desk can replay them: they came with the advance that revealed the cell. */
+function playingCell(session: ReplayState): ReplayState["latest"] {
+  const latest = session.latest;
+  return latest && latest.cell === session.cursor - 1 ? latest : undefined;
 }
 
 /** The server's session behind what the desk shows. */
-export function serverSession(session: LiveMorningState): MorningState {
+export function serverSession(session: LiveMorningState): ReplayState {
   return session.replay?.source ?? session;
 }
 
-const fractionOf = (session: LiveMorningState) => session.replay?.fraction ?? 1;
+/** A stock's trades on the desk: the tape before the newest cell, that cell's, and how many of those have played. */
+function shownTrades(session: LiveMorningState, code: string): { tape: readonly TradeRow[]; cell: readonly TradeRow[]; count: number } {
+  const source = serverSession(session);
+  const tape = source.tape?.[code] ?? [];
+  const cell = playingCell(source)?.trades[code] ?? [];
+  const count = session.replay ? tradesUpTo(cell, session.replay.playedMs) : cell.length;
+  return { tape, cell, count };
+}
 
-/** The session as the desk shows it `fraction` of the way through its newest minute; the session itself at 1. */
-export function liveSession(session: MorningState, fraction: number, catalog: ReplayCatalog): LiveMorningState {
-  if (fraction >= 1) return session;
+/**
+ * The session as the desk shows it `fraction` of the way through its newest minute: each stock's newest bar made of
+ * the trades up to that moment of the minute (none before a stock's first trade; the minute's own bar once all have
+ * played). The session itself at 1, or when the newest minute's trades did not come with it (a loaded run).
+ */
+export function liveSession(session: ReplayState, fraction: number, _catalog?: ReplayCatalog): LiveMorningState {
+  const latest = playingCell(session);
+  if (fraction >= 1 || !latest) return session;
+  const cellStart = latest.cell * CELL_MS;
+  const t = latest.cell * 60;
+  const playedMs = cellStart + Math.max(0, fraction) * CELL_MS;
   const bars = Object.fromEntries(
-    Object.entries(session.bars).map(([code, list]) => {
+    Object.entries(session.bars).map(([code, list]): [string, Bar[]] => {
       const last = list.at(-1);
-      if (!last) return [code, list];
-      const ticks = ticksAt(session.lessonId, catalog, code, list, list.length - 1);
-      return [code, [...list.slice(0, -1), formingBar(last, ticks, fraction, list.at(-2)?.a)]];
+      if (!last || last.t !== t) return [code, list];
+      const rows = latest.trades[code] ?? [];
+      const count = tradesUpTo(rows, playedMs);
+      if (count >= rows.length) return [code, list];
+      const earlier = list.slice(0, -1);
+      const volumeBefore = earlier.reduce((sum, bar) => sum + bar.v, 0);
+      const forming = formingBar(cellStart, rows, count, earlier.at(-1), volumeBefore);
+      return [code, forming ? [...earlier, forming] : earlier];
     }),
   );
   const revaluation = session.positions.reduce((sum, position) => {
     const settled = session.bars[position.code]?.at(-1)?.c;
-    const latest = bars[position.code]?.at(-1)?.c;
-    return settled === undefined || latest === undefined ? sum : sum + position.shares * (latest - settled);
+    const latestPrice = bars[position.code]?.at(-1)?.c;
+    return settled === undefined || latestPrice === undefined ? sum : sum + position.shares * (latestPrice - settled);
   }, 0);
-  // The TAIEX minute replays with its real 5-second values, in step with the stocks; only when the index has
-  // the playing minute (an index that stops earlier keeps its completed minutes as they are).
+  // The TAIEX minute replays with its real 5-second values, in step with the stocks; only when the index has the
+  // playing minute (an index that stops earlier keeps its completed minutes as they are).
   const indexBars = session.index?.bars;
   const index =
-    session.index && indexBars?.length && indexBars.length === session.cursor
-      ? { ...session.index, bars: [...indexBars.slice(0, -1), formingIndexBar(indexBars.at(-1)!, fraction)] }
+    session.index && indexBars?.length && indexBars[indexBars.length - 1].t === t
+      ? { ...session.index, bars: [...indexBars.slice(0, -1), formingIndexBar(indexBars[indexBars.length - 1], fraction)] }
       : session.index;
   return {
     ...session,
     bars,
     ...(index ? { index } : {}),
     equity: session.equity + revaluation,
-    replay: { fraction, source: session },
+    replay: { fraction, playedMs, source: session },
   };
 }
 
 /** The session one minute earlier: without its newest minute. */
 export function withoutNewestMinute(session: MorningState): MorningState {
+  const end = (session.cursor - 1) * 60;
+  const before = <T extends { t: number }>(list: T[]) => (list.length && list[list.length - 1].t >= end ? list.slice(0, -1) : list);
   return {
     ...session,
     cursor: session.cursor - 1,
-    bars: Object.fromEntries(Object.entries(session.bars).map(([code, list]) => [code, list.slice(0, -1)])),
+    bars: Object.fromEntries(Object.entries(session.bars).map(([code, list]) => [code, before(list)])),
     // At most the minutes before the newest one; an index that stops earlier keeps all of its minutes.
-    ...(session.index ? { index: { ...session.index, bars: session.index.bars.slice(0, Math.max(0, session.cursor - 1)) } } : {}),
+    ...(session.index ? { index: { ...session.index, bars: session.index.bars.filter((bar) => bar.t < end) } } : {}),
   };
 }
 
@@ -98,62 +114,58 @@ export function settledSession(session: LiveMorningState): MorningState {
   return source ? withoutNewestMinute(source) : session;
 }
 
-/** The newest trade of a stock: the one the replay has reached, or the minute's last one at rest. */
-export function lastTrade(session: LiveMorningState, code: string, catalog: ReplayCatalog): LastTrade | null {
-  const source = serverSession(session);
-  const bars = source.bars[code] ?? [];
-  if (!bars.length) return null;
-  const ticks = ticksAt(source.lessonId, catalog, code, bars, bars.length - 1);
-  if (!ticks.length) return null;
-  const fraction = fractionOf(session);
-  let index = 0;
-  for (let i = 1; i < ticks.length; i++) if (ticks[i].at <= fraction) index = i;
-  return { ...ticks[index], index, second: bars[bars.length - 1].t + Math.floor(ticks[index].at * 60) };
+/** The newest trade of a stock: the last one the replay has played, or the newest revealed one at rest. */
+export function lastTrade(session: LiveMorningState, code: string, _catalog?: ReplayCatalog): LastTrade | null {
+  const { tape, cell, count } = shownTrades(session, code);
+  const row = count > 0 ? cell[count - 1] : tape[tape.length - 1];
+  if (!row) return null;
+  return { ...liveTrade(row), index: tape.length + count - 1, second: Math.floor(row[0] / 1000) };
 }
 
 /** Seconds after 09:00 on the replay clock: inside the playing minute, or the end of the newest minute. */
 export function replayClock(session: LiveMorningState): number {
-  const fraction = fractionOf(session);
-  const bar = Object.values(serverSession(session).bars).find((list) => list.length)?.at(-1);
-  return fraction < 1 && bar ? bar.t + Math.floor(fraction * 60) : session.cursor * 60;
+  return session.replay ? Math.floor(session.replay.playedMs / 1000) : session.cursor * 60;
 }
 
 /** Trades of one stock, newest first, up to the point the replay has reached. */
-export function recentTrades(session: LiveMorningState, code: string, limit: number, catalog: ReplayCatalog): RecentTrade[] {
-  const source = serverSession(session);
-  const fraction = fractionOf(session);
-  const bars = source.bars[code] ?? [];
-  const minutes: Omit<RecentTrade, "move">[][] = [];
-  let count = 0;
+export function recentTrades(session: LiveMorningState, code: string, limit: number, _catalog?: ReplayCatalog): RecentTrade[] {
+  if (!(limit >= 1)) return [];
+  const { tape, cell, count } = shownTrades(session, code);
   // One trade more than shown, so the oldest shown trade still compares with the one before it.
-  for (let i = bars.length - 1; i >= 0 && count <= limit; i--) {
-    const ticks = ticksAt(source.lessonId, catalog, code, bars, i);
-    const shown = i === bars.length - 1 ? ticks.filter((tick, k) => k === 0 || tick.at <= fraction) : ticks;
-    minutes.unshift(
-      shown.map((tick, k) => ({
-        id: `${bars[i].t}:${k}`,
-        second: bars[i].t + Math.floor(tick.at * 60),
-        price: tick.price,
-        lots: tick.lots,
-        side: tick.side,
-      })),
-    );
-    count += shown.length;
+  const wanted = Math.floor(limit) + 1;
+  const fromCell = cell.slice(Math.max(0, count - wanted), count);
+  const rows = [...tape.slice(Math.max(0, tape.length - (wanted - fromCell.length))), ...fromCell];
+  // Trades of the same moment are told apart by how many of them come later: those never change as the tape scrolls.
+  const later = new Map<number, number>();
+  const ids = rows.map(() => "");
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const ms = rows[i][0];
+    const after = later.get(ms) ?? 0;
+    ids[i] = `${ms}:${after}`;
+    later.set(ms, after + 1);
   }
-  const trades = minutes.flat().map((trade, i, all): RecentTrade => {
-    const before = all[i - 1]?.price ?? trade.price;
-    return { ...trade, move: trade.price > before ? "up" : trade.price < before ? "down" : "same" };
+  const trades = rows.map((row, i): RecentTrade => {
+    const before = i > 0 ? rows[i - 1][1] : row[1];
+    return {
+      ...liveTrade(row),
+      id: ids[i],
+      second: Math.floor(row[0] / 1000),
+      move: row[1] > before ? "up" : row[1] < before ? "down" : "same",
+    };
   });
-  return trades.slice(-limit).reverse();
+  return trades.slice(-Math.floor(limit)).reverse();
 }
 
-/** Whether a new session should play its newest minute: only when the same run moved forward one minute. */
+/**
+ * Whether a new session should play its newest minute: only when the same run moved forward one minute and that
+ * minute's trades came with it.
+ */
 export function replayStep(
   previous: { id: string; cursor: number } | null,
-  session: MorningState | null,
+  session: ReplayState | null,
 ): "play" | "keep" | "rest" {
   if (!previous || !session || previous.id !== session.id) return "rest";
-  if (session.cursor === previous.cursor + 1) return "play";
+  if (session.cursor === previous.cursor + 1) return playingCell(session) ? "play" : "rest";
   return session.cursor === previous.cursor ? "keep" : "rest";
 }
 
@@ -161,7 +173,7 @@ export function replayStep(
 export type ReplayProgress = { id?: string; cursor?: number; fraction: number; at: number };
 
 /** The progress for a new session: play its newest minute from the start, keep going, or rest on it. */
-export function startReplay(previous: ReplayProgress, session: MorningState | null, now: number): ReplayProgress {
+export function startReplay(previous: ReplayProgress, session: ReplayState | null, now: number): ReplayProgress {
   const step = replayStep(
     previous.id === undefined || previous.cursor === undefined ? null : { id: previous.id, cursor: previous.cursor },
     session,

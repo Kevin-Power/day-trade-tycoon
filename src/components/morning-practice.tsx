@@ -59,6 +59,7 @@ import {
   withoutNewestMinute,
   type LiveMorningState,
 } from "@/lib/morning-live";
+import { adoptReply, type DeskResponse } from "@/lib/market/real-replay";
 import type {
   MorningAction,
   MorningCatalog,
@@ -123,7 +124,13 @@ async function readAccessProblem(
 }
 
 function useMorningData(lessonId: string) {
-  const [data, setData] = useState<MorningResponse | null>(null);
+  const [data, setData] = useState<DeskResponse | null>(null);
+  // The desk's data as last set: a step's reply carries no bars or trades, so they are kept from here.
+  const held = useRef<DeskResponse | null>(null);
+  const keep = useCallback((value: DeskResponse | null) => {
+    held.current = value;
+    setData(value);
+  }, []);
   const [busy, setBusy] = useState<MorningAction["action"] | "load" | null>("load");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -138,7 +145,7 @@ function useMorningData(lessonId: string) {
 
   // Every send reports its own outcome, so an order's 送出失敗 text never comes from another request.
   const send = useCallback(
-    async (action?: MorningAction): Promise<{ response: MorningResponse | null; outcome: SendOutcome }> => {
+    async (action?: MorningAction): Promise<{ response: DeskResponse | null; outcome: SendOutcome }> => {
       const quiet = (outcome: SendOutcome) => ({ response: null, outcome });
       if (locked.current) return quiet({ kind: "busy" });
       locked.current = true;
@@ -173,7 +180,7 @@ function useMorningData(lessonId: string) {
         status = response.status;
         if (response.status === 401 || response.status === 403) {
           setAccess(await readAccessProblem(response));
-          setData(null);
+          keep(null);
           retryAction.current = undefined;
           return quiet({ kind: "access" });
         }
@@ -194,13 +201,13 @@ function useMorningData(lessonId: string) {
           if (!current()) return quiet({ kind: "stale" });
           if (latest.status === 401 || latest.status === 403) {
             setAccess(await readAccessProblem(latest));
-            setData(null);
+            keep(null);
             return quiet({ kind: "access" });
           }
           if (!latest.ok) throw new Error("進度已在另一個分頁更新，請重新載入最新進度。");
           const fresh = readResponse(await readJsonResponse(latest));
           if (!current()) return quiet({ kind: "stale" });
-          setData(fresh);
+          keep(adoptReply(null, fresh) ?? fresh);
           // The server's own reason when it gave one (e.g. 本次練習已達委託筆數上限), as in 委託回報.
           setNotice(
             `${reason || "進度已更新，可能有另一個分頁正在操作"}。已同步最新紀錄並停止自動播放；請核對後再繼續。`,
@@ -219,11 +226,33 @@ function useMorningData(lessonId: string) {
               : "這次操作尚未完成，請重試或重新載入進度。";
           throw new Error(message);
         }
-        const next = readResponse(payload);
-        setData(next);
+        const reply = readResponse(payload);
+        let next = adoptReply(held.current, reply);
+        if (!next && reply.state) {
+          // The advance revealed a cell the desk cannot add after its own (a retried advance answered with a later
+          // cell, or another tab moved the run on): load the run as it is now, by its lesson.
+          const snapshot = await fetch(`/api/morning?lesson=${encodeURIComponent(reply.state.lessonId)}`, {
+            credentials: "same-origin",
+            cache: "no-store",
+            signal: abort.signal,
+          });
+          if (!current()) return quiet({ kind: "stale" });
+          if (snapshot.status === 401 || snapshot.status === 403) {
+            setAccess(await readAccessProblem(snapshot));
+            keep(null);
+            retryAction.current = undefined;
+            return quiet({ kind: "access" });
+          }
+          if (!snapshot.ok) throw new Error("進度已在另一個分頁更新，請重新載入最新進度。");
+          const fresh = readResponse(await readJsonResponse(snapshot));
+          if (!current()) return quiet({ kind: "stale" });
+          next = adoptReply(null, fresh) ?? fresh;
+        }
+        const desk = next ?? reply;
+        keep(desk);
         setAccess(null);
         retryAction.current = undefined;
-        return { response: next, outcome: { kind: "sent" } };
+        return { response: desk, outcome: { kind: "sent" } };
       } catch (failure) {
         if (current()) {
           const facts = { timedOut, networkError: failure instanceof TypeError, status, conflictReason };
@@ -243,10 +272,10 @@ function useMorningData(lessonId: string) {
         }
       }
     },
-    [endpoint],
+    [endpoint, keep],
   );
   const request = useCallback(
-    async (action?: MorningAction): Promise<MorningResponse | null> => (await send(action)).response,
+    async (action?: MorningAction): Promise<DeskResponse | null> => (await send(action)).response,
     [send],
   );
 

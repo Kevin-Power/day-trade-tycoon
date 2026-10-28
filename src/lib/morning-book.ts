@@ -22,7 +22,7 @@ export function createMorningBook(
   cursor: number,
   last: number,
   previousClose: number,
-  trade?: { index: number; side: "ask" | "bid" },
+  trade?: { index: number; side: "ask" | "bid" | null },
 ): {
   bids: MorningBookLevel[];
   asks: MorningBookLevel[];
