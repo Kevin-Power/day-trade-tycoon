@@ -137,7 +137,7 @@ test('real HTTP guest flow: gate-only guest accounts, start-to-consent, practice
 
     stage = 'guest practice after accepting the statement on start';
     const code = initial.body.catalog.symbols[0].code;
-    const start = { action: 'start', requestId: randomUUID(), plan: { exerciseId: 'first-order', bias: 'bullish', focusCode: code,
+    const start = { action: 'start', requestId: randomUUID(), codes: initial.body.catalog.symbols.map(symbol => symbol.code), plan: { exerciseId: 'first-order', bias: 'bullish', focusCode: code,
       reason: '開盤後走強，想等它站上前高', entry: '價格站上前高（圖上標「前高」的虛線）再買', stop: '跌回前高下方就賣出' } };
     assert.equal((await post(guest, start)).status, 403);
     const began = await post(guest, { ...start, requestId: randomUUID(), guestTerms: true });

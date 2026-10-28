@@ -21,6 +21,7 @@ let data = await call();
 const code = data.catalog.symbols[0].code;
 data = await call({
   action: "start",
+  codes: data.catalog.symbols.map((symbol) => symbol.code),
   plan: {
     exerciseId: "first-order",
     focusCode: code,

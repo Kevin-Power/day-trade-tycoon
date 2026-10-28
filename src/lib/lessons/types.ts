@@ -16,3 +16,19 @@ export type LessonPicker = {
   booksAvailable: boolean;
   taiexAvailable: boolean;
 };
+
+/**
+ * One run in the learner's records: `codes` is how many stocks it held, `pnl` its result from the saved equity,
+ * `reflected` whether it has a reflection, `retired` whether its lesson is an old one that no longer opens.
+ */
+export type RunRecord = {
+  id: string;
+  lessonId: string;
+  date: string;
+  codes: number;
+  pnl: number;
+  reflected: boolean;
+  abandoned: boolean;
+  retired: boolean;
+  completed: boolean;
+};

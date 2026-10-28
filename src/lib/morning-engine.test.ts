@@ -2,15 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import {
+  advanceDelta,
   applyMorningAction,
   createMorningState,
   parseMorningAction,
   visibleMorningState,
+  visibleTape,
   MORNING_STARTING_CASH,
   type MorningSource,
   type MorningStoredState,
 } from "./morning-engine.ts";
-import type { MorningAction, MorningPlan } from "./morning.ts";
+import type { MorningAction, MorningIndexSeries, MorningPlan } from "./morning.ts";
+import type { Bar } from "./game/types.ts";
+import type { TradeRow } from "./lessons/trades.ts";
 import { commission, DAYTRADE_TAX } from "./market/ticks.ts";
 
 const plan: MorningPlan = {
@@ -210,7 +214,7 @@ test("unfilled limits can be cancelled, expire at the last minute, and do not ch
 
 test("exercise selection is optional for legacy plans and restricted to the six reviewed lessons", () => {
   const source = fixture();
-  const start = { action: "start", requestId: randomUUID(), plan };
+  const start = { action: "start", requestId: randomUUID(), plan, codes: ["2330"] };
   assert.deepEqual(parseMorningAction(start), start);
   for (const exerciseId of [
     "first-order",
@@ -488,4 +492,406 @@ test("the stored state never contains index bars", () => {
   state = applyMorningAction(state, action(state, { action: "advance" }), source, 1000);
   assert.equal("index" in state, false);
   assert.equal(JSON.stringify(state).includes("TAIEX"), false);
+});
+
+// ── A run made of real trades (a Fubon lesson): matching against the trades, abandon, per-step deltas ──────────────
+
+const CELL = 60_000;
+const money = (amount: number) => Math.round(amount * 100) / 100;
+/** Trades in every cell from `from` on, at +1 s, +20 s and +45 s, the k-th priced `prices[k]`. */
+function everyCell(from: number, prices: readonly number[]): TradeRow[] {
+  const rows: TradeRow[] = [];
+  for (let cell = from; cell < 90; cell++)
+    [1_000, 20_000, 45_000].forEach((offset, k) =>
+      rows.push([cell * CELL + offset, prices[k], k + 1, prices[k] - 0.5, prices[k]]),
+    );
+  return rows;
+}
+/** The bars a run source carries: from the first traded cell on, quiet cells flat at the previous close. */
+function barsFrom(rows: readonly TradeRow[]): Bar[] {
+  const bars: Bar[] = [];
+  let value = 0;
+  let volume = 0;
+  for (let cell = 0; cell < 90; cell++) {
+    const slice = rows.filter(([ms]) => ms >= cell * CELL && ms < (cell + 1) * CELL);
+    const previous = bars.at(-1);
+    if (!slice.length) {
+      if (previous)
+        bars.push({ t: cell * 60, o: previous.c, h: previous.c, l: previous.c, c: previous.c, v: 0, a: previous.a });
+      continue;
+    }
+    for (const [, price, size] of slice) {
+      value += price * size;
+      volume += size;
+    }
+    const prices = slice.map((row) => row[1]);
+    bars.push({
+      t: cell * 60,
+      o: prices[0],
+      h: Math.max(...prices),
+      l: Math.min(...prices),
+      c: prices.at(-1)!,
+      v: slice.reduce((total, row) => total + row[2], 0),
+      a: value / volume,
+    });
+  }
+  return bars;
+}
+const previousCloses: Record<string, number> = { "2330": 100, "1101": 50, "2603": 30, "2317": 200 };
+function runFixture(trades: Record<string, TradeRow[]>, sourceHash = "source-a"): MorningSource {
+  const codes = Object.keys(trades);
+  return {
+    catalog: {
+      lessonId: "fubon-20261027-am",
+      title: "10/27 早盤",
+      date: "2026-10-27",
+      start: "09:00",
+      end: "10:30",
+      maxCursor: 90,
+      symbols: codes.map((code) => ({
+        code,
+        name: code,
+        previousClose: previousCloses[code],
+        previous5CloseMean: null,
+      })),
+      context: [],
+      strategy: [],
+      notices: [],
+      videoUrl: null,
+      volumeUnit: "lot",
+    },
+    bars: Object.fromEntries(codes.map((code) => [code, barsFrom(trades[code])])),
+    trades,
+    sourceHash,
+  };
+}
+/** 2330 trades in every cell; 1101 only once at 09:00:05 (quiet after); 2603 first trades at 09:45:01 (late). */
+function dayTrades(): Record<string, TradeRow[]> {
+  return {
+    "2330": everyCell(0, [100, 101, 100.5]),
+    "1101": [[5_000, 50, 2, 49.95, 50]],
+    "2603": everyCell(45, [30, 30.5, 30.25]),
+  };
+}
+function taiex(): MorningIndexSeries {
+  return {
+    code: "TAIEX",
+    name: "加權指數",
+    previousClose: 23_000,
+    source: "fixture",
+    bars: Array.from({ length: 90 }, (_, minute) => ({
+      t: minute * 60,
+      o: 23_000 + minute,
+      h: 23_001 + minute,
+      l: 22_999 + minute,
+      c: 23_000.5 + minute,
+      p: Array.from({ length: 12 }, (_, point) => 23_000 + minute + point / 100),
+    })),
+  };
+}
+const begin = (source: MorningSource, codes = Object.keys(source.trades!)) =>
+  createMorningState(randomUUID(), plan, source, 0, codes);
+const advance = (state: MorningStoredState, source: MorningSource) =>
+  applyMorningAction(state, action(state, { action: "advance" }), source, state.nextAdvanceAt);
+const order = (state: MorningStoredState, source: MorningSource, value: object) =>
+  applyMorningAction(state, action(state, { action: "order", ...value }), source, state.nextAdvanceAt);
+const advanceTo = (state: MorningStoredState, source: MorningSource, cursor: number) => {
+  while (state.cursor < cursor) state = advance(state, source);
+  return state;
+};
+/** Record keys, sorted: keys like "2330" are ordered numerically by JS, so the run's order lives in `state.codes`. */
+const keys = (record: object) => Object.keys(record).sort();
+const cellRows = (rows: readonly TradeRow[], cell: number) =>
+  rows.filter(([ms]) => ms >= cell * CELL && ms < (cell + 1) * CELL);
+
+test("advance never returns trades or bars at or after the cursor", () => {
+  const source = { ...runFixture(dayTrades()), index: taiex() };
+  const untouched = JSON.stringify(source);
+  const codes = ["2330", "1101", "2603"];
+  const check = (state: MorningStoredState) => {
+    const end = state.cursor * CELL;
+    const visible = visibleMorningState(state, source);
+    assert.deepEqual(keys(visible.bars), [...codes].sort());
+    for (const code of codes) {
+      for (const bar of visible.bars[code]) assert.ok(bar.t < state.cursor * 60, `${code} bar ${bar.t}`);
+      assert.deepEqual(
+        visible.bars[code],
+        source.bars[code].filter((bar) => bar.t < state.cursor * 60),
+      );
+    }
+    assert.equal(visible.index!.bars.length, state.cursor);
+    for (const bar of visible.index!.bars) assert.ok(bar.t < state.cursor * 60);
+    for (const fill of visible.fills) assert.ok(fill.ms! < end);
+    const tape = visibleTape(state, source);
+    assert.deepEqual(keys(tape), [...codes].sort());
+    for (const code of codes) {
+      for (const [ms] of tape[code]) assert.ok(ms < end, `${code} trade ${ms}`);
+      assert.deepEqual(tape[code], source.trades![code].filter(([ms]) => ms < end).slice(-40));
+    }
+  };
+  let state = begin(source, codes);
+  check(state);
+  assert.deepEqual(visibleMorningState(state, source).bars, { "2330": [], "1101": [], "2603": [] });
+  assert.deepEqual(visibleTape(state, source), { "2330": [], "1101": [], "2603": [] });
+  assert.throws(
+    () => applyMorningAction(state, action(state, { action: "advance" }), source, state.nextAdvanceAt - 1),
+    { status: 429 },
+  );
+  for (let cursor = 1; cursor <= 90; cursor++) {
+    state = advance(state, source);
+    assert.equal(state.cursor, cursor, "one cell per advance");
+    if (cursor === 10) state = order(state, source, { code: "2330", side: "buy", lots: 1 });
+    const cell = cursor - 1;
+    const delta = advanceDelta(state, source);
+    assert.equal(delta.cell, cell);
+    assert.deepEqual(keys(delta.bars), [...codes].sort());
+    assert.deepEqual(keys(delta.trades), [...codes].sort());
+    for (const code of codes) {
+      for (const [ms] of delta.trades[code]) assert.ok(ms >= cell * CELL && ms < cursor * CELL);
+      assert.deepEqual(delta.trades[code], cellRows(source.trades![code], cell));
+      assert.deepEqual(delta.bars[code], source.bars[code].find((bar) => bar.t === cell * 60) ?? null);
+    }
+    // A stock with no trade yet has no bar: nothing is revealed for it, and that is not an error.
+    if (cell < 45) assert.equal(delta.bars["2603"], null);
+    else assert.equal(delta.bars["2603"]!.t, cell * 60);
+    assert.deepEqual(delta.index, source.index.bars[cell]);
+    assert.equal(delta.book, undefined);
+    check(state);
+  }
+  assert.equal(state.fills.length, 1);
+  assert.equal(state.fills[0].ms, 10 * CELL + 1_000);
+  assert.equal(JSON.stringify(source), untouched, "the run's cached data is never changed");
+});
+
+test("market order waits for a quiet stock and cancels at 10:30 with 之後沒有成交", () => {
+  const source = runFixture(dayTrades());
+  let state = advance(begin(source), source);
+  state = order(state, source, { code: "1101", side: "buy", lots: 1 });
+  state = advanceTo(state, source, 89);
+  assert.equal(state.orders[0].status, "pending");
+  assert.notEqual(state.orders[0].seen, true);
+  state = advance(state, source);
+  assert.equal(state.cursor, 90);
+  assert.equal(state.orders[0].status, "cancelled");
+  assert.equal(state.orders[0].reason, "之後沒有成交");
+  assert.deepEqual(state.fills, []);
+  assert.equal(state.cash, MORNING_STARTING_CASH);
+  assert.equal(state.equity, MORNING_STARTING_CASH);
+});
+
+test("a market order on a stock that has not traded yet waits for its first trade", () => {
+  const source = runFixture(dayTrades());
+  let state = advance(begin(source), source);
+  state = order(state, source, { code: "2603", side: "buy", lots: 3 });
+  state = advanceTo(state, source, 45);
+  assert.equal(state.orders[0].status, "pending");
+  state = advance(state, source);
+  assert.equal(state.orders[0].status, "filled");
+  assert.equal(state.fills[0].price, 30);
+  assert.equal(state.fills[0].ms, 45 * CELL + 1_000);
+  assert.deepEqual(state.positions, [{ code: "2603", shares: 3000, averageCost: 30 }]);
+});
+
+test("a resting limit that real trades never reach cancels at 10:30 with 教材結束，委託未成交", () => {
+  const source = runFixture(dayTrades());
+  let state = advance(begin(source), source);
+  state = order(state, source, { code: "2330", side: "buy", lots: 1, limitPrice: 99 });
+  state = advance(state, source);
+  assert.equal(state.orders[0].seen, true);
+  state = advanceTo(state, source, 90);
+  assert.equal(state.orders[0].status, "cancelled");
+  assert.equal(state.orders[0].reason, "教材結束，委託未成交");
+  assert.equal(state.cash, MORNING_STARTING_CASH);
+});
+
+test("fill records the real ms", () => {
+  const trades = dayTrades();
+  // 09:05:20 trades at 99, under the resting limit below.
+  trades["2330"] = trades["2330"].map((row) =>
+    row[0] === 5 * CELL + 20_000 ? ([row[0], 99, 3, 98.5, 99] as const) : row,
+  );
+  const source = runFixture(trades);
+  let state = advance(begin(source), source);
+  // Market: the first trade after the order, 09:01:01 at 100.
+  state = order(state, source, { code: "2330", side: "buy", lots: 2 });
+  state = advance(state, source);
+  assert.deepEqual(state.fills[0], {
+    id: state.orders[0].id,
+    code: "2330",
+    side: "buy",
+    shares: 2000,
+    price: 100,
+    fee: commission(200_000),
+    tax: 0,
+    t: 61,
+    ms: 61_000,
+  });
+  assert.equal(state.orders[0].price, 100);
+  assert.equal(state.cash, MORNING_STARTING_CASH - 200_000 - commission(200_000));
+  // Holdings are valued at the last revealed trade (09:01:45 at 100.5), never at a later one.
+  assert.equal(state.equity, money(state.cash + 2000 * 100.5));
+  // A limit the first trade after it already beats fills at that trade's price.
+  state = order(state, source, { code: "2330", side: "sell", lots: 1, limitPrice: 99.5 });
+  state = advance(state, source);
+  assert.equal(state.fills[1].price, 100);
+  assert.equal(state.fills[1].ms, 2 * CELL + 1_000);
+  assert.equal(state.fills[1].t, 121);
+  assert.equal(state.fills[1].tax, Math.round(100_000 * DAYTRADE_TAX));
+  // A resting limit fills at the limit when a later trade touches it.
+  state = order(state, source, { code: "2330", side: "buy", lots: 1, limitPrice: 99.5 });
+  state = advance(state, source);
+  assert.equal(state.orders[2].status, "pending");
+  assert.equal(state.orders[2].seen, true);
+  state = advanceTo(state, source, 6);
+  assert.equal(state.orders[2].status, "filled");
+  assert.equal(state.fills[2].price, 99.5);
+  assert.equal(state.fills[2].ms, 5 * CELL + 20_000);
+  assert.equal(state.fills[2].t, 320);
+  assert.deepEqual(state.positions, [{ code: "2330", shares: 2000, averageCost: 99.75 }]);
+  assert.equal(state.equity, money(state.cash + 2000 * 100.5));
+});
+
+test("funds and holdings are checked again at the real fill price", () => {
+  const trades = dayTrades();
+  // 09:02:01 jumps to 105.
+  trades["2330"] = trades["2330"].map((row) =>
+    row[0] === 2 * CELL + 1_000 ? ([row[0], 105, 1, 104.5, 105] as const) : row,
+  );
+  const source = runFixture(trades);
+  let state = advanceTo(begin(source), source, 2);
+  // Enough for 3 lots at the last revealed 100.5, not at 105.
+  state.cash = 302_000;
+  state = order(state, source, { code: "2330", side: "buy", lots: 3 });
+  state = advance(state, source);
+  assert.equal(state.orders[0].status, "rejected");
+  assert.equal(state.orders[0].reason, "成交價變動後，模擬資金不足，未成交");
+  assert.equal(state.cash, 302_000);
+  assert.deepEqual(state.fills, []);
+  assert.throws(() => order(state, source, { code: "2330", side: "sell", lots: 1 }), { status: 400 });
+});
+
+test("abandon completes without reflection and refuses a second abandon", () => {
+  const source = runFixture(dayTrades());
+  let state = advanceTo(begin(source), source, 3);
+  state = order(state, source, { code: "2330", side: "buy", lots: 1, limitPrice: 95 });
+  const before = structuredClone(state);
+  const abandon = action(state, { action: "abandon" });
+  assert.equal(abandon.action, "abandon");
+  state = applyMorningAction(state, abandon, source, state.nextAdvanceAt);
+  assert.equal(state.completed, true);
+  assert.equal(state.abandoned, true);
+  assert.equal(state.reflection, "");
+  assert.equal(state.revision, before.revision + 1);
+  assert.equal(state.cursor, 3);
+  assert.equal(state.orders[0].status, "cancelled");
+  assert.ok(state.orders[0].reason);
+  assert.equal(state.cash, before.cash);
+  assert.deepEqual(state.fills, before.fills);
+  const done = { status: 409, message: "這局已經結束" };
+  assert.throws(() => applyMorningAction(state, action(state, { action: "abandon" }), source, 9e9), done);
+  // Sent again with the revision it was first sent with: still the same answer.
+  assert.throws(
+    () =>
+      applyMorningAction(
+        state,
+        action(state, { action: "abandon", expectedRevision: before.revision }),
+        source,
+        9e9,
+      ),
+    done,
+  );
+  assert.throws(() => advance(state, source), { status: 409 });
+  assert.throws(
+    () => applyMorningAction(state, action(state, { action: "finish", reflection: "想補寫復盤" }), source, 9e9),
+    { status: 409 },
+  );
+  // A run finished with a reflection cannot be abandoned afterwards either.
+  let finished = advance(begin(source), source);
+  finished = applyMorningAction(
+    finished,
+    action(finished, { action: "finish", reflection: "照計畫觀察。" }),
+    source,
+    finished.nextAdvanceAt,
+  );
+  assert.equal(finished.abandoned, undefined);
+  assert.throws(() => applyMorningAction(finished, action(finished, { action: "abandon" }), source, 9e9), done);
+});
+
+test("sourceHash mismatch → 409", () => {
+  const source = runFixture(dayTrades(), "source-a");
+  const state = advance(begin(source), source);
+  assert.equal(state.sourceHash, "source-a");
+  const republished = { ...source, sourceHash: "source-b" };
+  const changed = { status: 409, message: "課程版本已變更，請聯絡講師確認這份練習" };
+  assert.throws(() => visibleMorningState(state, republished), changed);
+  assert.throws(() => advance(state, republished), changed);
+  assert.throws(() => advanceDelta(state, republished), changed);
+  assert.throws(() => visibleTape(state, republished), changed);
+  const unhashed: MorningSource = { ...source };
+  delete unhashed.sourceHash;
+  assert.throws(() => visibleMorningState(state, unhashed), changed);
+  // A run whose stocks the source does not carry is another version too.
+  const fewer = runFixture({ "2330": dayTrades()["2330"] }, "source-a");
+  assert.throws(() => visibleMorningState(state, fewer), changed);
+});
+
+test("visible bars only for chosen codes", () => {
+  const source = runFixture({ ...dayTrades(), "2317": everyCell(0, [200, 201, 200.5]) });
+  let state = begin(source, ["2603", "2330"]);
+  assert.deepEqual(state.codes, ["2603", "2330"]);
+  state = advanceTo(state, source, 50);
+  const visible = visibleMorningState(state, source);
+  assert.deepEqual(keys(visible.bars), ["2330", "2603"]);
+  assert.equal(visible.bars["2330"].length, 50);
+  assert.equal(visible.bars["2603"].length, 5);
+  assert.equal(visible.bars["2603"][0].t, 45 * 60);
+  // The source's session average is kept.
+  assert.equal(visible.bars["2330"][0].a, source.bars["2330"][0].a);
+  assert.ok(Number.isFinite(visible.bars["2330"][0].a));
+  assert.deepEqual(keys(advanceDelta(state, source).bars), ["2330", "2603"]);
+  assert.deepEqual(keys(advanceDelta(state, source).trades), ["2330", "2603"]);
+  assert.deepEqual(keys(visibleTape(state, source)), ["2330", "2603"]);
+  assert.throws(() => order(state, source, { code: "2317", side: "buy", lots: 1 }), { status: 400 });
+  // Revealed bars are copies: changing them leaves the run's data alone.
+  visible.bars["2330"][0].c = 1;
+  advanceDelta(state, source).bars["2330"]!.c = 1;
+  visibleTape(state, source)["2330"].length = 0;
+  assert.equal(source.bars["2330"][0].c, 100.5);
+  assert.equal(source.bars["2330"][49].c, 100.5);
+  assert.equal(source.trades!["2330"].length, 270);
+});
+
+test("start carries 1–80 codes, advance may name a view, and abandon is an action of its own", () => {
+  const start = { action: "start", requestId: randomUUID(), plan, codes: ["2330", "2603"] };
+  assert.deepEqual(parseMorningAction(start), start);
+  const withoutCodes: Record<string, unknown> = { ...start };
+  delete withoutCodes.codes;
+  for (const bad of [
+    withoutCodes,
+    { ...start, codes: [] },
+    { ...start, codes: Array.from({ length: 81 }, (_, index) => String(1000 + index)) },
+    { ...start, codes: ["23"] },
+    { ...start, codes: "2330" },
+  ])
+    assert.throws(() => parseMorningAction(bad), { status: 400 });
+  assert.equal(
+    parseMorningAction({ ...start, codes: Array.from({ length: 80 }, (_, index) => String(1000 + index)) }).action,
+    "start",
+  );
+  const existing = { requestId: randomUUID(), id: randomUUID(), expectedRevision: 3 };
+  assert.deepEqual(parseMorningAction({ action: "advance", ...existing, view: "2330" }), {
+    action: "advance",
+    ...existing,
+    view: "2330",
+  });
+  for (const view of ["", "x", 2330]) assert.throws(() => parseMorningAction({ action: "advance", ...existing, view }));
+  assert.deepEqual(parseMorningAction({ action: "abandon", ...existing }), { action: "abandon", ...existing });
+  assert.throws(() => parseMorningAction({ action: "abandon", ...existing, reflection: "不需要" }), { status: 400 });
+  // Codes go into the run; a code the lesson does not have, or a repeat, is refused.
+  const source = runFixture(dayTrades());
+  assert.throws(() => createMorningState(randomUUID(), plan, source, 0, ["2330", "9999"]), { status: 400 });
+  assert.throws(() => createMorningState(randomUUID(), plan, source, 0, ["2330", "2330"]), { status: 400 });
+  assert.deepEqual(createMorningState(randomUUID(), plan, source, 0, ["1101", "2330"]).codes, ["1101", "2330"]);
+  // A source without trades (an old lesson) keeps runs without a hash.
+  assert.equal("sourceHash" in createMorningState(randomUUID(), plan, fixture(), 0, ["2330"]), false);
 });

@@ -139,7 +139,7 @@ test('real HTTP morning replay: private completed bars, durable cursor and exact
       for (const lesson of initial.body.lessons) assert.deepEqual(Object.keys(lesson).sort(), ['date', 'lessonId', 'title']);
     }
     const code = source.catalog.symbols[0].code;
-    const start = { action: 'start', requestId: randomUUID(), plan: { exerciseId: 'first-order', bias: 'observe', focusCode: code,
+    const start = { action: 'start', requestId: randomUUID(), codes: source.catalog.symbols.map(symbol => symbol.code), plan: { exerciseId: 'first-order', bias: 'observe', focusCode: code,
       reason: '先觀察背景與價格', entry: '確認自己的條件後再進場', stop: '理由不成立時離場' } };
     for (const badOrigin of ['', 'https://attacker.invalid']) assert.equal((await post(alice, start, { origin: badOrigin })).status, 403);
     assert.equal((await post(alice, { ...start, plan: { ...start.plan, exerciseId: 'unapproved' } })).status, 400);

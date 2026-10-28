@@ -109,7 +109,7 @@ test('extracted standalone package: Chrome admission, owner setup, cookies, pape
     const info = await (await get('/api/morning')).json();
     assert.equal(info.lessons.length, 2); assert.equal(info.state, null);
     assert.equal((await request.post(base + '/api/morning', { headers: { origin: 'https://wrong.invalid' }, data: {} })).status(), 403);
-    const began = await post({ action: 'start', requestId: randomUUID(), plan: { exerciseId: 'first-order', bias: 'observe',
+    const began = await post({ action: 'start', requestId: randomUUID(), codes: info.catalog.symbols.map(symbol => symbol.code), plan: { exerciseId: 'first-order', bias: 'observe',
       focusCode: info.catalog.symbols[0].code, reason: '地端保存驗收', entry: '先觀察再決定', stop: '條件失效時離場' } });
     assert.equal(began.status(), 200);
     let state = (await began.json()).state;

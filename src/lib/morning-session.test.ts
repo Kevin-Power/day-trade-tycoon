@@ -38,14 +38,14 @@ test("real SQL replay: owner, consent, atomic revisions, request idempotence, pe
     const read = (user = "alice", selectedSource = source) => db.transaction(tx => loadMorningSession(sqlFor(tx), user, selectedSource, lessons));
     const act = (input: unknown, now = 0, user = "alice", selectedSource = source) =>
       db.transaction(tx => mutateMorningSession(sqlFor(tx), user, input, selectedSource, now, lessons));
-    const start = { action: "start", requestId: randomUUID(), plan: { exerciseId: "first-order", bias: "observe", focusCode: "2330", reason: "先觀察", entry: "條件成立再進場", stop: "理由消失時離場" } };
+    const start = { action: "start", requestId: randomUUID(), codes: ["2330"], plan: { exerciseId: "first-order", bias: "observe", focusCode: "2330", reason: "先觀察", entry: "條件成立再進場", stop: "理由消失時離場" } };
     await assert.rejects(read("unconsented"), { status: 403 });
     await assert.rejects(act(start, 0, "unconsented"), { status: 403 });
     assert.equal((await read()).state, null);
     assert.deepEqual((await read()).lessons, lessons);
     await assert.rejects(act({ ...start, plan: { ...start.plan, exerciseId: "unapproved" } }), { status: 400 });
     const first = (await act(start)).state!;
-    assert.equal(first.cursor, 0); assert.deepEqual(first.bars["2330"], []);
+    assert.equal(first.cursor, 0); assert.deepEqual(first.bars["2330"], []); assert.deepEqual(first.codes, ["2330"]);
     const duplicates = await Promise.all([act(start), act(start)]);
     assert.ok(duplicates.every(value => value.state!.id === first.id));
     assert.deepEqual((await act({ ...start, requestId: randomUUID(), plan: { ...start.plan, exerciseId: "review", reason: "不可以覆寫原判斷" } })).state!.plan, start.plan);
@@ -141,7 +141,7 @@ async function guestFixture(run: (tools: {
     await rm(directory, { recursive: true, force: true });
   }
 }
-const guestStart = () => ({ action: "start", requestId: randomUUID(), plan: { exerciseId: "first-order", bias: "bullish", focusCode: "2330",
+const guestStart = () => ({ action: "start", requestId: randomUUID(), codes: ["2330"], plan: { exerciseId: "first-order", bias: "bullish", focusCode: "2330",
   reason: "開盤後走強，想等它站上前高", entry: "價格站上前高（圖上標「前高」的虛線）再買", stop: "跌回前高下方就賣出" } });
 
 test("guests can read freely but start only with the teaching statement", () => guestFixture(async ({ read, act, count }) => {

@@ -574,6 +574,8 @@ function MorningLesson({
       action: "start",
       requestId: crypto.randomUUID(),
       plan,
+      // Until the stock picker is on the desk, a run holds every stock of the lesson shown.
+      codes: (catalog?.symbols ?? []).map((symbol) => symbol.code),
       ...(guest ? { guestTerms: true as const } : {}),
     });
     const receivedAt = Date.now();

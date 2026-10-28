@@ -66,7 +66,7 @@ export async function mutateMorningSession(sql: Sql, userId: string, input: unkn
       WHERE user_id = ${userId} AND lesson_id = ${source.catalog.lessonId} AND completed = FALSE FOR UPDATE`;
     if (active[0]) state = stored(active[0]);
     else {
-      state = createMorningState(randomUUID(), action.plan, source, now);
+      state = createMorningState(randomUUID(), action.plan, source, now, action.codes);
       await sql`INSERT INTO morning_sessions (id, user_id, lesson_id, state_json)
         VALUES (${state.id}::uuid, ${userId}, ${state.lessonId}, ${JSON.stringify(state)}::jsonb)`;
     }

@@ -1,5 +1,8 @@
 import type { Bar } from "./game/types";
 import type { Celebration } from "./discipline/score";
+import type { BookLevels } from "./lessons/books.ts";
+import type { TradeRow } from "./lessons/trades.ts";
+import type { LessonPicker, RunRecord } from "./lessons/types.ts";
 
 export type MorningPlan = {
   exerciseId?: string;
@@ -56,6 +59,8 @@ export type MorningOrder = {
   reason?: string;
   limitPrice?: number;
   entryMode?: "lightning";
+  /** A real trade after it has been looked at without filling it: a limit then fills at its own price (③ §5). */
+  seen?: boolean;
 };
 export type MorningFill = {
   id: string;
@@ -65,7 +70,10 @@ export type MorningFill = {
   price: number;
   fee: number;
   tax: number;
+  /** Seconds after 09:00. */
   t: number;
+  /** The real trade's time, ms after 09:00, on a run made of real trades. */
+  ms?: number;
 };
 export type MorningState = {
   id: string;
@@ -73,6 +81,10 @@ export type MorningState = {
   cursor: number;
   revision: number;
   plan: MorningPlan;
+  /** The stocks of this run, in the order chosen; runs of the old lessons have none (all the lesson's stocks). */
+  codes?: string[];
+  /** The published files the run started on; a run is refused against any other. */
+  sourceHash?: string;
   bars: Record<string, Bar[]>;
   /** The lesson's real TAIEX up to the cursor, when the lesson has one; never stored. */
   index?: MorningIndexSeries;
@@ -83,21 +95,50 @@ export type MorningState = {
   orders: MorningOrder[];
   fills: MorningFill[];
   completed: boolean;
+  /** Given up without a reflection: completed, but never counted for discipline. */
+  abandoned?: boolean;
   reflection: string;
   nextAdvanceAt: number;
   /** When this run was created (ms); runs saved before 2026-10-17 have none. */
   startedAt?: number;
 };
+/** The recorded books of one stock in one revealed cell; `gaps` are its stretches with no known book (R7). */
+export type MorningBookCell = {
+  code: string;
+  start: BookLevels | null;
+  frames: [number, BookLevels][];
+  gaps: [number, number][];
+  sizes: boolean;
+};
+/** What one advance reveals: cell `cell` (the cursor minus one) of every stock of the run, and nothing after it. */
+export type MorningDelta = {
+  cell: number;
+  /** null: the stock has not traded yet, so the cell has no bar. */
+  bars: Record<string, Bar | null>;
+  index: MorningIndexBar | null;
+  /** Every real trade of the cell, by stock. */
+  trades: Record<string, TradeRow[]>;
+  book?: MorningBookCell;
+};
+/** The latest revealed trades of every stock of the run, for the trade list when a run is opened. */
+export type MorningTape = Record<string, TradeRow[]>;
 export type MorningResponse = {
   catalog: MorningCatalog;
   state: MorningState | null;
   lessons?: MorningLessonSummary[];
   /** Only on the request that finished the round; retries and other actions have none. */
   celebration?: Celebration | null;
+  delta?: MorningDelta;
+  tape?: MorningTape;
+  picker?: LessonPicker;
+  records?: RunRecord[];
+  book?: MorningDelta["book"];
+  retired?: boolean;
 };
 export type MorningAction =
-  | { action: "start"; requestId: string; plan: MorningPlan; guestTerms?: true }
-  | { action: "advance"; requestId: string; id: string; expectedRevision: number }
+  | { action: "start"; requestId: string; plan: MorningPlan; codes: string[]; guestTerms?: true }
+  | { action: "advance"; requestId: string; id: string; expectedRevision: number; view?: string }
+  | { action: "abandon"; requestId: string; id: string; expectedRevision: number }
   | {
       action: "order";
       requestId: string;
