@@ -15,6 +15,8 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Callable
 
+from .taiex import LAST_SECOND, SOURCE as TAIEX_SOURCE, check_previous_close
+
 DAY_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 HISTORY_LIMIT = 30
 # Longer than the scheduled task's two-hour limit: an older lock belongs to a run that is gone.
@@ -103,6 +105,14 @@ def _write_atomic(path: Path, data: bytes) -> None:
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     temporary.write_bytes(data)
     _replace(temporary, path)
+
+
+def _day_name(day: str | date) -> str:
+    """A day as the folder name YYYY-MM-DD (a date works as well as its name); anything else is no path to build."""
+    name = day.isoformat() if isinstance(day, date) else day
+    if not (isinstance(name, str) and DAY_NAME.match(name)):
+        raise ValueError(f"not a day: {day!r}")
+    return name
 
 
 class MarketStore:
@@ -336,11 +346,81 @@ class MarketStore:
         shutil.rmtree(staging, ignore_errors=True)
         return manifest
 
-    def write_ticks_status(self, entry: dict) -> None:
+    def write_status_key(self, key: str, entry: dict) -> None:
+        """Sets one key of status.json (read, change, write atomically): write_run and the other keys keep theirs."""
         status = self.read_status()
-        status["ticks"] = entry
+        status[key] = entry
         text = self.redact(json.dumps(status, ensure_ascii=False, indent=1))
         _write_atomic(self.root / "status.json", text.encode("utf-8"))
+
+    def write_ticks_status(self, entry: dict) -> None:
+        self.write_status_key("ticks", entry)
+
+    # TWSE's 5-second index, one folder per day (taiex/<day>, not index/: the root already has index.json), kept
+    # for good like the trades. Published write-once: raw.json (as received), points.json (checked), manifest.json.
+    def has_taiex(self, day: str | date) -> bool:
+        return (self.root / "taiex" / _day_name(day) / "manifest.json").is_file()
+
+    def taiex_days(self) -> list[str]:
+        folder = self.root / "taiex"
+        if not folder.is_dir():
+            return []
+        return sorted(entry.name for entry in folder.iterdir()
+                      if DAY_NAME.match(entry.name) and (entry / "manifest.json").is_file())
+
+    def taiex_close(self, day: str | date) -> float | None:
+        """The 13:30:00 value of a stored day, or None when the day is not stored or its points cannot be read."""
+        name = _day_name(day)
+        if not self.has_taiex(name):
+            return None
+        try:
+            stored = json.loads((self.root / "taiex" / name / "points.json").read_text(encoding="utf-8"))
+            last = stored["points"][-1]
+            return float(last[1]) if last[0] == LAST_SECOND and not isinstance(last[1], bool) else None
+        except (OSError, ValueError, KeyError, IndexError, TypeError):
+            return None
+
+    def _published_day_names(self) -> set[str]:
+        try:
+            days = json.loads((self.root / "index.json").read_text(encoding="utf-8-sig"))["days"]
+            return {entry["date"] for entry in days if isinstance(entry.get("date"), str)}
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            return set()
+
+    def _previous_taiex_close(self, day: str) -> float | None:
+        """The previous trading day's close, when that day's file is stored. The newest stored day before `day` is
+        taken for it unless a published trading day lies between them: that day's own file is missing (its fetch
+        failed), so there is nothing to compare with, and one missing day must not hold back every day after it."""
+        earlier = [name for name in self.taiex_days() if name < day]
+        if not earlier or any(earlier[-1] < name < day for name in self._published_day_names()):
+            return None
+        return self.taiex_close(earlier[-1])
+
+    def publish_taiex(self, day: str | date, raw: bytes, points: list[list], version: str, now: datetime) -> None:
+        """Stores a checked day write-once: the answer as received goes to staging-taiex/<day> first, then the
+        comparison with the previous day's close (TaiexError when they differ, the answer stays in staging as
+        evidence), then the points and the manifest, and the folder moves to taiex/<day> in one step."""
+        name = _day_name(day)
+        target = self.root / "taiex" / name
+        if target.exists():
+            raise FileExistsError(name)
+        staging = self.root / "staging-taiex" / name
+        staging.mkdir(parents=True, exist_ok=True)
+        files = []
+
+        def put(relative: str, data: bytes) -> None:
+            (staging / relative).write_bytes(data)
+            files.append({"path": relative, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()})
+
+        put("raw.json", raw)
+        check_previous_close(points, self._previous_taiex_close(name))
+        put("points.json", _json_bytes({"schema": 1, "date": name, "source": TAIEX_SOURCE,
+                                        "previousClose": points[0][1], "points": points}))
+        manifest = {"schema": 1, "date": name, "createdAt": now.isoformat(timespec="seconds"), "version": version,
+                    "files": files}
+        (staging / "manifest.json").write_bytes(_json_bytes(manifest, indent=1))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _replace(staging, target)
 
     def reconcile(self) -> None:
         """Repairs a publish interrupted after its day folder moved: index entry and raw evidence."""

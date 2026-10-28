@@ -97,3 +97,16 @@ def books_message(data=None, channel="books", event="data"):
     import json
 
     return json.dumps({"event": event, "channel": channel, "id": "sub-1", "data": BOOK if data is None else data})
+
+
+def taiex_5s(date="20261027", previous_close=33000.0, close=33100.0):
+    """TWSE's MI_5MINS_INDEX answer for one day: 3,241 rows from 09:00:00 to 13:30:00, values with thousands commas.
+    The 09:00:00 row repeats the previous session's close; the index then moves in a straight line to `close`."""
+    rows = []
+    for index in range(3241):
+        seconds = 9 * 3600 + index * 5
+        value = previous_close if index == 0 else round(previous_close + (close - previous_close) * index / 3240, 2)
+        rows.append([f"{seconds // 3600:02d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}", f"{value:,.2f}",
+                     f"{value * 0.9:,.2f}"])
+    return {"stat": "OK", "date": date, "title": "每5秒指數統計", "fields": ["時間", "發行量加權股價指數", "未含金融保險股指數"],
+            "data": rows, "notes": []}
