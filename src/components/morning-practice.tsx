@@ -9,7 +9,9 @@ import {
   Wallet,
 } from "@/lib/icons";
 import { TapeChart } from "@/components/charts";
-import { DeskBar, HintBar, StatusBar } from "@/components/morning-desk-bar";
+import { DeskBar, HintBar, LessonSelect, StatusBar } from "@/components/morning-desk-bar";
+import { LessonPicker } from "@/components/lesson-picker";
+import { AbandonRun, RunRecords } from "@/components/run-records";
 import { REPLAY_DELAY, type ReplaySpeed } from "@/lib/replay-speed";
 import { ReplayNotice } from "@/components/replay-notice";
 import { TradeTape } from "@/components/trade-tape";
@@ -64,10 +66,26 @@ import { adoptReply, type DeskResponse } from "@/lib/market/real-replay";
 import type {
   MorningAction,
   MorningCatalog,
+  MorningLessonSummary,
   MorningPlan,
+  MorningReply,
   MorningResponse,
   MorningState,
+  MorningUnavailable,
 } from "@/lib/morning";
+import type { RunRecord } from "@/lib/lessons/types";
+import {
+  RETIRED_TEXT,
+  carryHeld,
+  dateOptions,
+  keepsDefaultNote,
+  lessonDayLabel,
+  previewCatalog,
+  readOwnLists,
+  rememberOwnList,
+  sameCodes,
+  shortDate,
+} from "@/lib/lesson-choice";
 import { cn, formatTime } from "@/lib/utils";
 import { formatPrice } from "@/lib/market/ticks";
 import {
@@ -87,10 +105,12 @@ import {
 type MorningPane = "market" | "watch" | "trade" | "positions";
 type ChartMode = "quote" | "chart";
 
-function readResponse(value: unknown): MorningResponse {
-  // No daily lessons in this classroom (yet): show the server's sentence until the picker has a place for it.
+/** The classroom has no daily lessons (none here, or none yet): the sentence to show, and the learner's records. */
+const isUnavailable = (reply: MorningReply): reply is MorningUnavailable => "unavailable" in reply;
+
+function readResponse(value: unknown): MorningReply {
   if (value && typeof value === "object" && "unavailable" in value && typeof value.unavailable === "string")
-    throw new Error(value.unavailable);
+    return value as MorningUnavailable;
   if (!value || typeof value !== "object" || !("catalog" in value) || !("state" in value)) {
     throw new Error("教室回傳的資料不完整，請重試。");
   }
@@ -124,13 +144,25 @@ async function readAccessProblem(
   return { status: response.status === 401 ? 401 : 403, message };
 }
 
+/**
+ * How one request goes: `lesson` names the lesson in the URL (a start on the picked day, any action on its run's
+ * lesson), so a retried start after a new day opened still goes to the day picked; without it, the page's own.
+ * `adopt: false` leaves the desk as it is (the reply is only returned).
+ */
+type SendOptions = { lesson?: string; adopt?: boolean };
+
 function useMorningData(lessonId: string) {
   const [data, setData] = useState<DeskResponse | null>(null);
-  // The desk's data as last set: a step's reply carries no bars or trades, so they are kept from here.
+  // No daily lessons in this classroom: the server's sentence (and the learner's records) instead of a desk.
+  const [unavailable, setUnavailable] = useState<MorningUnavailable | null>(null);
+  // The desk's data as last set: a step's reply carries no bars or trades, so they are kept from here, and a reply
+  // without the date list, records or the day's picker keeps the ones held (carryHeld).
   const held = useRef<DeskResponse | null>(null);
   const keep = useCallback((value: DeskResponse | null) => {
-    held.current = value;
-    setData(value);
+    const next = value ? carryHeld(held.current, value) : null;
+    held.current = next;
+    setData(next);
+    if (next) setUnavailable(null);
   }, []);
   const [busy, setBusy] = useState<MorningAction["action"] | "load" | null>("load");
   const [error, setError] = useState("");
@@ -140,16 +172,33 @@ function useMorningData(lessonId: string) {
   const serial = useRef(0);
   const controller = useRef<AbortController | null>(null);
   const retryAction = useRef<MorningAction | undefined>(undefined);
-  const endpoint = lessonId
-    ? `/api/morning?lesson=${encodeURIComponent(lessonId)}`
-    : "/api/morning";
+  const retryOptions = useRef<SendOptions>({});
+  const urlFor = useCallback(
+    (lesson?: string) => {
+      const target = lesson ?? lessonId;
+      return target ? `/api/morning?lesson=${encodeURIComponent(target)}` : "/api/morning";
+    },
+    [lessonId],
+  );
+  /** A reply that says there are no daily lessons: the desk gives way to the sentence. */
+  const showUnavailable = useCallback(
+    (reply: MorningUnavailable) => {
+      keep(null);
+      setUnavailable(reply);
+    },
+    [keep],
+  );
 
   // Every send reports its own outcome, so an order's 送出失敗 text never comes from another request.
   const send = useCallback(
-    async (action?: MorningAction): Promise<{ response: DeskResponse | null; outcome: SendOutcome }> => {
+    async (
+      action?: MorningAction,
+      options: SendOptions = {},
+    ): Promise<{ response: DeskResponse | null; outcome: SendOutcome }> => {
       const quiet = (outcome: SendOutcome) => ({ response: null, outcome });
       if (locked.current) return quiet({ kind: "busy" });
       locked.current = true;
+      const endpoint = urlFor(options.lesson);
       const requestSerial = ++serial.current;
       const abort = new AbortController();
       controller.current = abort;
@@ -163,6 +212,7 @@ function useMorningData(lessonId: string) {
       setError("");
       setNotice("");
       retryAction.current = action;
+      retryOptions.current = options;
       // Why a 409 refused the action, kept for 委託回報 even if the reload after it fails.
       let conflictReason: string | undefined;
       // The status of the action's own reply, once one arrived.
@@ -208,10 +258,14 @@ function useMorningData(lessonId: string) {
           if (!latest.ok) throw new Error("進度已在另一個分頁更新，請重新載入最新進度。");
           const fresh = readResponse(await readJsonResponse(latest));
           if (!current()) return quiet({ kind: "stale" });
-          keep(adoptReply(null, fresh) ?? fresh);
-          // The server's own reason when it gave one (e.g. 本次練習已達委託筆數上限), as in 委託回報.
+          if (isUnavailable(fresh)) showUnavailable(fresh);
+          else keep(adoptReply(null, fresh) ?? fresh);
+          // The server's own reason when it gave one (e.g. 本次練習已達委託筆數上限), as in 委託回報. A start
+          // refused for its stocks' data says which ones to pick again; nothing was playing then.
           setNotice(
-            `${reason || "進度已更新，可能有另一個分頁正在操作"}。已同步最新紀錄並停止自動播放；請核對後再繼續。`,
+            action?.action === "start" && reason
+              ? `${reason}。`
+              : `${reason || "進度已更新，可能有另一個分頁正在操作"}。已同步最新紀錄並停止自動播放；請核對後再繼續。`,
           );
           return quiet({ kind: "conflict", reason });
         }
@@ -228,11 +282,22 @@ function useMorningData(lessonId: string) {
           throw new Error(message);
         }
         const reply = readResponse(payload);
+        if (isUnavailable(reply)) {
+          showUnavailable(reply);
+          setAccess(null);
+          retryAction.current = undefined;
+          return quiet({ kind: "access" });
+        }
+        if (options.adopt === false) {
+          setAccess(null);
+          retryAction.current = undefined;
+          return { response: reply, outcome: { kind: "sent" } };
+        }
         let next = adoptReply(held.current, reply);
         if (!next && reply.state) {
           // The advance revealed a cell the desk cannot add after its own (a retried advance answered with a later
           // cell, or another tab moved the run on): load the run as it is now, by its lesson.
-          const snapshot = await fetch(`/api/morning?lesson=${encodeURIComponent(reply.state.lessonId)}`, {
+          const snapshot = await fetch(urlFor(reply.state.lessonId), {
             credentials: "same-origin",
             cache: "no-store",
             signal: abort.signal,
@@ -247,13 +312,17 @@ function useMorningData(lessonId: string) {
           if (!snapshot.ok) throw new Error("進度已在另一個分頁更新，請重新載入最新進度。");
           const fresh = readResponse(await readJsonResponse(snapshot));
           if (!current()) return quiet({ kind: "stale" });
+          if (isUnavailable(fresh)) {
+            showUnavailable(fresh);
+            retryAction.current = undefined;
+            return quiet({ kind: "access" });
+          }
           next = adoptReply(null, fresh) ?? fresh;
         }
-        const desk = next ?? reply;
-        keep(desk);
+        keep(next ?? reply);
         setAccess(null);
         retryAction.current = undefined;
-        return { response: desk, outcome: { kind: "sent" } };
+        return { response: held.current, outcome: { kind: "sent" } };
       } catch (failure) {
         if (current()) {
           const facts = { timedOut, networkError: failure instanceof TypeError, status, conflictReason };
@@ -273,11 +342,36 @@ function useMorningData(lessonId: string) {
         }
       }
     },
-    [endpoint, keep],
+    [urlFor, keep, showUnavailable],
   );
   const request = useCallback(
-    async (action?: MorningAction): Promise<DeskResponse | null> => (await send(action)).response,
+    async (action?: MorningAction, options?: SendOptions): Promise<DeskResponse | null> =>
+      (await send(action, options)).response,
     [send],
+  );
+  /**
+   * After a run ends: the learner's records (a step's reply has none), the day's picker for a new round and the date
+   * list, read in the background by the run's lesson and added to what the desk holds. A failure leaves it as it is.
+   */
+  const refresh = useCallback(
+    async (lesson: string) => {
+      try {
+        const response = await fetch(urlFor(lesson), { credentials: "same-origin", cache: "no-store" });
+        if (!response.ok) return;
+        const reply = readResponse(await response.json());
+        const desk = held.current;
+        if (!desk || isUnavailable(reply)) return;
+        const next: DeskResponse = { ...desk };
+        if (reply.records) next.records = reply.records;
+        if (reply.lessons) next.lessons = reply.lessons;
+        if (reply.picker && reply.picker.lessonId === (desk.state?.lessonId ?? desk.catalog.lessonId))
+          next.picker = reply.picker;
+        keep(next);
+      } catch {
+        /* The records wait for the next load. */
+      }
+    },
+    [urlFor, keep],
   );
 
   useEffect(() => {
@@ -291,13 +385,15 @@ function useMorningData(lessonId: string) {
 
   return {
     data,
+    unavailable,
     busy,
     error,
     notice,
     access,
     request,
-    retry: () => request(retryAction.current),
+    retry: () => request(retryAction.current, retryOptions.current),
     send,
+    refresh,
   };
 }
 
@@ -320,6 +416,11 @@ export function MorningPractice({
   const [selectedExercise, setSelectedExercise] = useState(
     () => getMorningExercise(exerciseId)?.id ?? MORNING_EXERCISES[0].id,
   );
+  // The open days as last listed: a start's reply and a retired run's page carry none, and the desk is mounted
+  // again for each lesson, so the date menus keep them here.
+  const [knownLessons, setKnownLessons] = useState<MorningLessonSummary[]>();
+  // A day picked in the picker opens a new round on it, even when its latest run is finished.
+  const [freshLesson, setFreshLesson] = useState<string | null>(null);
   if (status === "pending")
     return (
       <PageFrame>
@@ -339,11 +440,16 @@ export function MorningPractice({
       key={`${user?.id ?? guest?.id ?? "none"}:${lessonId}`}
       guest={Boolean(guest)}
       coach={coach}
-      fresh={fresh}
+      fresh={fresh || (lessonId !== "" && freshLesson === lessonId)}
       lessonId={lessonId}
       initialPane={initialPane}
       exerciseId={selectedExercise}
-      onLessonChange={onLessonChange}
+      knownLessons={knownLessons}
+      onLessons={setKnownLessons}
+      onLessonChange={(next, options) => {
+        setFreshLesson(options?.fresh ? next : null);
+        onLessonChange(next);
+      }}
       onExerciseChange={setSelectedExercise}
     />
   );
@@ -356,6 +462,8 @@ function MorningLesson({
   lessonId,
   exerciseId,
   initialPane,
+  knownLessons,
+  onLessons,
   onLessonChange,
   onExerciseChange,
 }: {
@@ -365,10 +473,14 @@ function MorningLesson({
   lessonId: string;
   exerciseId: string;
   initialPane?: "trade";
-  onLessonChange: (lessonId: string) => void;
+  knownLessons?: MorningLessonSummary[];
+  onLessons: (lessons: MorningLessonSummary[]) => void;
+  /** `fresh`: open a new round on that day (picked in the picker), not its last finished run. */
+  onLessonChange: (lessonId: string, options?: { fresh?: boolean }) => void;
   onExerciseChange: (exerciseId: string) => void;
 }) {
-  const { data, busy, error, notice, access, request, retry, send } = useMorningData(lessonId);
+  const { data, unavailable, busy, error, notice, access, request, retry, send, refresh } =
+    useMorningData(lessonId);
   const [linkNotice, setLinkNotice] = useState<LinkNotice | null>(null);
   useEffect(() => {
     const value = readLinkNotice(document.cookie);
@@ -405,9 +517,47 @@ function MorningLesson({
   const [clock, setClock] = useState(() => Date.now());
   const reviewHeading = useRef<HTMLHeadingElement>(null);
   const practiceHeading = useRef<HTMLHeadingElement>(null);
-  const catalog = data?.catalog;
   const session = data?.state;
   const sessionId = session?.id;
+  const showPlan = !session || newPlan;
+  // A retired lesson's run: text only (no chart, no advancing or orders), it can only be finished or abandoned.
+  const retired = Boolean(data?.retired && session);
+  // The day's stocks and default list, for a new run (a GET's, kept while a run of that day is on screen).
+  const picker = data?.picker;
+  // The stocks picked for the next run: the day's default list until the learner changes it, and again for each
+  // new run (list decision F).
+  const [choice, setChoice] = useState<{ lessonId: string; codes: string[] } | null>(null);
+  const pickedCodes = useMemo(
+    () => (picker ? (choice?.lessonId === picker.lessonId ? choice.codes : picker.defaults) : []),
+    [picker, choice],
+  );
+  const runLesson = session?.lessonId;
+  const runCodes = session?.codes?.join(",") ?? "";
+  // What the desk shows: before a run, the picked stocks (the 「預設」 note only while they are the day's
+  // defaults); during one, its stocks, without the day's note when they are not the default list (the server
+  // attaches the day's note to every run of the day).
+  const catalog = useMemo(() => {
+    const raw = data?.catalog;
+    if (!raw) return raw;
+    if (showPlan) return picker && picker.lessonId === raw.lessonId ? previewCatalog(raw, picker, pickedCodes) : raw;
+    if (!raw.note || !sessionId) return raw;
+    const keeps = keepsDefaultNote({
+      runId: sessionId,
+      runCodes: runCodes ? runCodes.split(",") : [],
+      defaults: picker && picker.lessonId === runLesson ? picker.defaults : null,
+      ownLists: readOwnLists(browserStorage()),
+    });
+    if (keeps) return raw;
+    const own = { ...raw };
+    delete own.note;
+    return own;
+  }, [data?.catalog, showPlan, picker, pickedCodes, sessionId, runLesson, runCodes]);
+  const lessons = data?.lessons ?? knownLessons;
+  useEffect(() => {
+    if (data?.lessons) onLessons(data.lessons);
+  }, [data?.lessons, onLessons]);
+  const lessonOnScreen = catalog ? { lessonId: catalog.lessonId, date: catalog.date, retired } : undefined;
+  const dates = dateOptions(lessons ?? [], lessonOnScreen);
   const cursor = session?.cursor ?? 0;
   const completed = session?.completed ?? false;
   const exercise = getMorningExercise(
@@ -419,9 +569,15 @@ function MorningLesson({
   const canAdvance = Boolean(
     session && !completed && !atCheckpoint && !atEnd && !busy && clock >= nextAdvanceAt,
   );
-  const code = catalog?.symbols.some((symbol) => symbol.code === selected)
+  const onDesk = (value: string | undefined) =>
+    Boolean(value && catalog?.symbols.some((symbol) => symbol.code === value));
+  // The stock shown: the one picked, else the run's 主角股, else the first (a stock left out of the picked list in
+  // a new plan's preview is never shown).
+  const code = onDesk(selected)
     ? selected
-    : (session?.plan.focusCode ?? catalog?.symbols[0]?.code ?? "");
+    : onDesk(session?.plan.focusCode)
+      ? session!.plan.focusCode
+      : (catalog?.symbols[0]?.code ?? "");
   const singlePane = layout === "phone" || layout === "senior";
   // The stock whose recorded books the next advance asks for, read when the auto-advance timer fires (so picking
   // another stock never restarts the wait). Its books come with the advance after the pick; until then the desk
@@ -496,13 +652,16 @@ function MorningLesson({
           setAuto(false);
           return;
         }
-        void request({
-          action: "advance",
-          requestId: crypto.randomUUID(),
-          id: session.id,
-          expectedRevision: session.revision,
-          ...bookView(session, viewing.current),
-        }).then((result) => {
+        void request(
+          {
+            action: "advance",
+            requestId: crypto.randomUUID(),
+            id: session.id,
+            expectedRevision: session.revision,
+            ...bookView(session, viewing.current),
+          },
+          { lesson: session.lessonId },
+        ).then((result) => {
           if (
             !result?.state ||
             result.state.cursor === 60 ||
@@ -568,7 +727,7 @@ function MorningLesson({
     if (!data || autoPlanned.current) return;
     autoPlanned.current = true;
     if (data.state === null) setPlanOpen(true);
-    else if (fresh && data.state.completed) {
+    else if (fresh && data.state.completed && !data.retired) {
       setNewPlan(true);
       setPlanOpen(true);
     }
@@ -590,13 +749,16 @@ function MorningLesson({
   async function advance() {
     if (!session || !canAdvance) return;
     setAuto(false);
-    const next = await request({
-      action: "advance",
-      requestId: crypto.randomUUID(),
-      id: session.id,
-      expectedRevision: session.revision,
-      ...bookView(session, code),
-    });
+    const next = await request(
+      {
+        action: "advance",
+        requestId: crypto.randomUUID(),
+        id: session.id,
+        expectedRevision: session.revision,
+        ...bookView(session, code),
+      },
+      { lesson: session.lessonId },
+    );
     if (next?.state)
       setFeedback(
         `已前進至 ${formatTime(next.state.cursor * 60).slice(0, 5)}。${next.state.fills.length > session.fills.length ? "本分鐘有新的紙上成交，請核對下方紀錄。" : ""}`,
@@ -609,19 +771,30 @@ function MorningLesson({
   }
 
   async function start(plan: MorningPlan) {
+    // The picked day's stocks; without its picker there is nothing to start on (the plan waits for it).
+    if (!picker) return;
+    const codes = pickedCodes;
     setAuto(false);
     // Said inside the tap: iPhone only allows speech that starts from one.
     say(SPEECH_TEXT.start);
-    const next = await request({
-      action: "start",
-      requestId: crypto.randomUUID(),
-      plan,
-      // Until the stock picker is on the desk, a run holds every stock of the lesson shown.
-      codes: (catalog?.symbols ?? []).map((symbol) => symbol.code),
-      ...(guest ? { guestTerms: true as const } : {}),
-    });
+    const next = await request(
+      {
+        action: "start",
+        requestId: crypto.randomUUID(),
+        plan,
+        codes,
+        ...(guest ? { guestTerms: true as const } : {}),
+      },
+      // The day picked, in the URL: a retried start after a newer day opened still starts on it.
+      { lesson: picker.lessonId },
+    );
     const receivedAt = Date.now();
     if (next?.state) {
+      // The 自選 title keeps the day's 「預設」 note only on the default list, after a reload too (this device).
+      if (!sameCodes(next.state.codes ?? codes, picker.defaults))
+        rememberOwnList(browserStorage(), next.state.id);
+      // The next run starts from the day's default list again (list decision F).
+      setChoice(null);
       setNewPlan(false);
       setSelected(plan.focusCode);
       setPlanOpen(false);
@@ -639,14 +812,17 @@ function MorningLesson({
           window.setTimeout(resolve, openingRevealDelay(receivedAt, Date.now())),
         );
         if (!mounted.current) return;
-        await request({
-          action: "advance",
-          requestId: crypto.randomUUID(),
-          id: opening.id,
-          expectedRevision: opening.revision,
-          // The run opens on its 主角股, whose books the first minute brings.
-          view: plan.focusCode,
-        });
+        await request(
+          {
+            action: "advance",
+            requestId: crypto.randomUUID(),
+            id: opening.id,
+            expectedRevision: opening.revision,
+            // The run opens on its 主角股, whose books the first minute brings.
+            view: plan.focusCode,
+          },
+          { lesson: opening.lessonId },
+        );
       }
     }
   }
@@ -660,16 +836,19 @@ function MorningLesson({
     if (!session || session.revision !== revision) return false;
     setAuto(false);
     const requestId = crypto.randomUUID();
-    const sent = await send({
-      action: "order",
-      requestId,
-      id: session.id,
-      expectedRevision: session.revision,
-      code,
-      side,
-      lots,
-      ...options,
-    });
+    const sent = await send(
+      {
+        action: "order",
+        requestId,
+        id: session.id,
+        expectedRevision: session.revision,
+        code,
+        side,
+        lots,
+        ...options,
+      },
+      { lesson: session.lessonId },
+    );
     const next = sent.response;
     if (next?.state)
       setFeedback("紙上委託已記錄，尚未代表成交。前進一分鐘後，請核對委託與成交紀錄。");
@@ -699,13 +878,16 @@ function MorningLesson({
   async function cancel(orderId: string) {
     if (!session) return;
     setAuto(false);
-    const next = await request({
-      action: "cancel",
-      requestId: crypto.randomUUID(),
-      id: session.id,
-      expectedRevision: session.revision,
-      orderId,
-    });
+    const next = await request(
+      {
+        action: "cancel",
+        requestId: crypto.randomUUID(),
+        id: session.id,
+        expectedRevision: session.revision,
+        orderId,
+      },
+      { lesson: session.lessonId },
+    );
     if (next?.state) setFeedback("已更新撤單結果，請核對委託狀態。");
   }
 
@@ -714,22 +896,84 @@ function MorningLesson({
     setAuto(false);
     // Browsers start audio only inside a tap; the chime itself plays when the points come back.
     if (useDisplayPreferences.getState().sound) unlockChime();
-    const next = await request({
-      action: "finish",
-      requestId: crypto.randomUUID(),
-      id: session.id,
-      expectedRevision: session.revision,
-      reflection,
-    });
+    const next = await request(
+      {
+        action: "finish",
+        requestId: crypto.randomUUID(),
+        id: session.id,
+        expectedRevision: session.revision,
+        reflection,
+      },
+      { lesson: session.lessonId },
+    );
     if (next?.state?.completed) {
       say(SPEECH_TEXT.finish);
       setReviewOpen(false);
       setFeedback("這一輪的計畫、操作與復盤已保存。");
       window.requestAnimationFrame(() => practiceHeading.current?.focus({ preventScroll: true }));
+      // The finish reply has no records: the list (and the day's picker for another round) comes from a GET.
+      void refresh(next.state.lessonId);
     }
   }
 
-  const showPlan = !session || newPlan;
+  /**
+   * 放棄這局 (asked first): the run ends without a reflection and never counts. A daily lesson's day opens its
+   * picker again on the default list; a retired run stays on its page, now given up.
+   */
+  async function abandon() {
+    if (!session || session.completed) return;
+    setAuto(false);
+    const lesson = session.lessonId;
+    const next = await request(
+      { action: "abandon", requestId: crypto.randomUUID(), id: session.id, expectedRevision: session.revision },
+      { lesson },
+    );
+    if (!next?.state?.completed) return;
+    setReviewOpen(false);
+    setResourcesOpen(false);
+    await refresh(lesson);
+    if (!mounted.current || retired) return;
+    setChoice(null);
+    setNewPlan(true);
+    setPlanOpen(true);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+
+  /** The unfinished run that cannot be opened now: given up by its id, then the page loads without it. */
+  async function abandonBlocked(blocked: NonNullable<DeskResponse["blockedRun"]>) {
+    setAuto(false);
+    const done = await request(
+      { action: "abandon", requestId: crypto.randomUUID(), id: blocked.id, expectedRevision: blocked.revision },
+      { lesson: blocked.lessonId, adopt: false },
+    );
+    if (!done || !mounted.current) return;
+    const fresh = await request();
+    // The page's lesson may now open on the run just given up: a new round on that day instead.
+    if (fresh?.state?.completed && !fresh.retired) {
+      setChoice(null);
+      setNewPlan(true);
+      setPlanOpen(true);
+    } else if (fresh && !fresh.state) setPlanOpen(true);
+  }
+
+  /** A run in the records: its lesson opens (on its latest run); the run on screen just comes back into view. */
+  function openRecord(record: RunRecord) {
+    setAuto(false);
+    if (session && record.id === session.id) {
+      setNewPlan(false);
+      setPlanOpen(false);
+      window.scrollTo({ top: 0, behavior: "auto" });
+      return;
+    }
+    if (record.lessonId === lessonId) {
+      setNewPlan(false);
+      setPlanOpen(false);
+      void request();
+      return;
+    }
+    onLessonChange(record.lessonId);
+  }
+
   const marketSession = newPlan ? null : session;
   // The recorded book of the newest minute (one stock's); a new plan's preview has none.
   const deskBook = newPlan ? undefined : data?.book;
@@ -793,6 +1037,147 @@ function MorningLesson({
   );
   const latestAlert = alerts.at(-1);
   const latestFill = [...alerts].reverse().find((alert) => alert.kind === "fill");
+  const accessCard = access ? (
+    <AccessCard
+      problem={describeAccessProblem(access.status, access.message)}
+      busy={Boolean(busy)}
+      onRetry={() => void request()}
+    />
+  ) : null;
+  const banners = (
+    <>
+      {error && (
+        <div role="alert" className="td-banner">
+          <p>{error}</p>
+          <p className="mt-1 text-sm text-muted">
+            操作不會自動重送。請重試同一筆，或重新載入後核對紀錄。
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={Boolean(busy)}
+              onClick={() => {
+                setAuto(false);
+                void retry();
+              }}
+              className={SECONDARY}
+            >
+              重試這次操作
+            </button>
+            <button
+              type="button"
+              disabled={Boolean(busy)}
+              onClick={() => {
+                setAuto(false);
+                void request();
+              }}
+              className={SECONDARY}
+            >
+              重新載入進度
+            </button>
+          </div>
+        </div>
+      )}
+      {notice && (
+        <div role="status" className="td-banner">
+          <p>{notice}</p>
+          <button
+            type="button"
+            disabled={Boolean(busy)}
+            onClick={() => void request()}
+            className={cn(SECONDARY, "mt-3")}
+          >
+            已核對，載入目前進度
+          </button>
+        </div>
+      )}
+    </>
+  );
+
+  // Before a run: the day and its stocks (beside the plan on desktops and tablets, inside its card elsewhere).
+  const setup =
+    picker && catalog ? (
+      <LessonPicker
+        picker={picker}
+        dates={dateOptions(lessons ?? [], picker)}
+        codes={pickedCodes}
+        busy={Boolean(busy)}
+        folded={singlePane}
+        onDate={(next) => {
+          setAuto(false);
+          onLessonChange(next, { fresh: true });
+        }}
+        onCodes={(codes) => setChoice({ lessonId: picker.lessonId, codes })}
+      />
+    ) : catalog ? (
+      <div className={cn(CARD, "td-picker")} role="status">
+        <p>正在讀取這天可練習的股票…</p>
+        <button
+          type="button"
+          className="td-button"
+          disabled={Boolean(busy)}
+          onClick={() => void refresh(catalog.lessonId)}
+        >
+          重新讀取
+        </button>
+      </div>
+    ) : null;
+
+  // No daily lessons in this classroom (none here, or none yet): the practice area says so and nothing else; the
+  // learner's own runs still list (a retired lesson's open without daily lessons).
+  if (unavailable && !data)
+    return (
+      <PageFrame layout={layout}>
+        {accessCard ?? (
+          <>
+            {banners}
+            <section className="td-unavailable" aria-label="真實行情練習">
+              <p role="status">{unavailable.unavailable}</p>
+            </section>
+            {unavailable.records && (
+              <RunRecords records={unavailable.records} busy={Boolean(busy)} onOpen={openRecord} />
+            )}
+          </>
+        )}
+      </PageFrame>
+    );
+
+  // A retired lesson's run (spec §9, decision R): plan, orders, fills, P/L and the review as text, no chart; it can
+  // only be finished with a review or given up.
+  if (retired && session && catalog)
+    return (
+      <PageFrame
+        layout={layout}
+        bar={
+          <DeskBar>
+            <LessonSelect
+              options={dates}
+              lessonId={catalog.lessonId}
+              disabled={Boolean(busy)}
+              onChange={(next) => onLessonChange(next, { fresh: true })}
+            />
+          </DeskBar>
+        }
+      >
+        {accessCard ?? (
+          <>
+            {banners}
+            <RetiredRun
+              catalog={catalog}
+              session={session}
+              celebration={data?.celebration ?? null}
+              records={data?.records ?? []}
+              busy={Boolean(busy)}
+              saving={busy === "finish"}
+              cards={singlePane}
+              onFinish={finish}
+              onAbandon={() => void abandon()}
+              onOpenRecord={openRecord}
+            />
+          </>
+        )}
+      </PageFrame>
+    );
 
   return (
     <PageFrame
@@ -800,7 +1185,7 @@ function MorningLesson({
       bar={
         data && catalog ? (
           <StatusBar
-            lessons={data.lessons ?? [catalog]}
+            lessons={dates}
             lessonId={catalog.lessonId}
             exercise={exercise}
             session={liveMarket}
@@ -818,7 +1203,8 @@ function MorningLesson({
             resourcesOpen={resourcesOpen}
             onLessonChange={(next) => {
               setAuto(false);
-              onLessonChange(next);
+              // From the plan, another day opens its own plan; from a run, the day as it was left.
+              onLessonChange(next, { fresh: showPlan });
             }}
             onStartPlan={() => setPlanOpen(true)}
             onTogglePlay={() => {
@@ -861,6 +1247,21 @@ function MorningLesson({
               <LinkNoticeBanner notice={linkNotice} onDismiss={() => setLinkNotice(null)} />
             )}
             {guest && <GuestBanner compact={layout === "desktop"} />}
+            {data.blockedRun && (
+              <div role="status" className="td-banner td-blocked">
+                <p>
+                  {lessonDayLabel(data.blockedRun.date)}未完成的那一局暫時打不開：
+                  {data.blockedRun.message}
+                </p>
+                <AbandonRun
+                  label="放棄這局"
+                  busy={Boolean(busy)}
+                  onConfirm={() => {
+                    if (data.blockedRun) void abandonBlocked(data.blockedRun);
+                  }}
+                />
+              </div>
+            )}
             {atCheckpoint && !showPlan && (
               <div role="status" className="td-banner">
                 <h2>10:00，回看自己的計畫</h2>
@@ -890,59 +1291,9 @@ function MorningLesson({
         ) : undefined
       }
     >
-      {access ? (
-        <AccessCard
-          problem={describeAccessProblem(access.status, access.message)}
-          busy={Boolean(busy)}
-          onRetry={() => void request()}
-        />
-      ) : (
+      {accessCard ?? (
         <>
-          {error && (
-            <div role="alert" className="td-banner">
-              <p>{error}</p>
-              <p className="mt-1 text-sm text-muted">
-                操作不會自動重送。請重試同一筆，或重新載入後核對紀錄。
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={Boolean(busy)}
-                  onClick={() => {
-                    setAuto(false);
-                    void retry();
-                  }}
-                  className={SECONDARY}
-                >
-                  重試這次操作
-                </button>
-                <button
-                  type="button"
-                  disabled={Boolean(busy)}
-                  onClick={() => {
-                    setAuto(false);
-                    void request();
-                  }}
-                  className={SECONDARY}
-                >
-                  重新載入進度
-                </button>
-              </div>
-            </div>
-          )}
-          {notice && (
-            <div role="status" className="td-banner">
-              <p>{notice}</p>
-              <button
-                type="button"
-                disabled={Boolean(busy)}
-                onClick={() => void request()}
-                className={cn(SECONDARY, "mt-3")}
-              >
-                已核對，載入目前進度
-              </button>
-            </div>
-          )}
+          {banners}
           {!data && busy && (
             <p role="status" className="td-loading">
               正在載入歷史行情與已保存的進度…
@@ -1147,23 +1498,33 @@ function MorningLesson({
                     >
                       收起計畫
                     </button>
-                    <PlanForm
-                      key={
-                        catalog.lessonId + ":" + (session?.id ?? "first") + ":" + selectedExercise
-                      }
-                      catalog={catalog}
-                      exerciseId={selectedExercise}
+                    <div className="td-setup">
+                      {!singlePane && setup}
+                      <PlanForm
+                        key={
+                          catalog.lessonId + ":" + (session?.id ?? "first") + ":" + selectedExercise
+                        }
+                        symbols={picker ? catalog.symbols : []}
+                        exerciseId={selectedExercise}
+                        busy={Boolean(busy)}
+                        guest={guest}
+                        onStart={start}
+                        onCancel={
+                          session
+                            ? () => {
+                                setNewPlan(false);
+                                setPlanOpen(false);
+                              }
+                            : undefined
+                        }
+                        setup={singlePane ? setup : undefined}
+                      />
+                    </div>
+                    <RunRecords
+                      records={data.records ?? []}
+                      currentId={session?.id}
                       busy={Boolean(busy)}
-                      guest={guest}
-                      onStart={start}
-                      onCancel={
-                        session
-                          ? () => {
-                              setNewPlan(false);
-                              setPlanOpen(false);
-                            }
-                          : undefined
-                      }
+                      onOpen={openRecord}
                     />
                   </div>
                 )}
@@ -1228,6 +1589,13 @@ function MorningLesson({
                     onFinish={finish}
                     onBack={() => setReviewOpen(false)}
                   />
+                  <div className="td-review-abandon">
+                    <AbandonRun
+                      label="放棄這局、重新選股"
+                      busy={Boolean(busy)}
+                      onConfirm={() => void abandon()}
+                    />
+                  </div>
                 </section>
               )}
               <aside
@@ -1255,12 +1623,12 @@ function MorningLesson({
                       disabled={Boolean(busy)}
                       onChange={(event) => {
                         setAuto(false);
-                        onLessonChange(event.target.value);
+                        onLessonChange(event.target.value, { fresh: showPlan });
                       }}
                     >
-                      {(data.lessons ?? [catalog]).map((lesson) => (
+                      {dates.map((lesson) => (
                         <option key={lesson.lessonId} value={lesson.lessonId}>
-                          {lesson.date}
+                          {lesson.label}
                         </option>
                       ))}
                     </select>
@@ -1322,6 +1690,15 @@ function MorningLesson({
                     <summary>本輪作戰計畫</summary>
                     <SavedPlan plan={session.plan} catalog={catalog} />
                   </details>
+                )}
+                {session && !completed && !newPlan && (
+                  <div className="td-section td-drawer-abandon">
+                    <AbandonRun
+                      label="放棄這局、重新選股"
+                      busy={Boolean(busy)}
+                      onConfirm={() => void abandon()}
+                    />
+                  </div>
                 )}
                 <MorningDataDetails catalog={catalog} session={settled} code={code} />
                 <details className="td-section">
@@ -1783,6 +2160,19 @@ function Completion({
   onRestart: () => void;
 }) {
   const exercise = getMorningExercise(session.plan.exerciseId);
+  if (session.abandoned)
+    return (
+      <section className="mb-6 rounded-2xl border border-border p-5 sm:p-6">
+        <p className="text-base font-semibold">已放棄這局 · 不計紀律分數</p>
+        <p className="mt-2 text-sm text-muted">
+          記錄至 {formatTime(session.cursor * 60).slice(0, 5)}，委託與成交保留在紀錄中。
+        </p>
+        <button type="button" disabled={busy} onClick={onRestart} className={cn(SECONDARY, "mt-5")}>
+          <RotateCcw className="shrink-0" aria-hidden />
+          寫新計畫，再練一輪
+        </button>
+      </section>
+    );
   // The same two checks as the practice points (no orders counts for both).
   const onPlan = session.orders.every((item) => item.code === session.plan.focusCode);
   const flat = session.positions.every((item) => !item.shares);
@@ -1827,5 +2217,98 @@ function Completion({
         寫新計畫，再練一輪
       </button>
     </section>
+  );
+}
+
+/**
+ * A retired lesson's run (spec §9, decision R): no chart and no market, only what was saved: the plan, P/L, orders
+ * and fills, and the review. An unfinished one can be finished with a review (P/L from the last saved equity) or
+ * given up; nothing else.
+ */
+function RetiredRun({
+  catalog,
+  session,
+  celebration,
+  records,
+  busy,
+  saving,
+  cards,
+  onFinish,
+  onAbandon,
+  onOpenRecord,
+}: {
+  catalog: MorningCatalog;
+  session: MorningState;
+  celebration: Celebration | null;
+  records: RunRecord[];
+  busy: boolean;
+  saving: boolean;
+  cards: boolean;
+  onFinish: (reflection: string) => Promise<void>;
+  onAbandon: () => void;
+  onOpenRecord: (record: RunRecord) => void;
+}) {
+  const [reviewing, setReviewing] = useState(false);
+  const reviewHeading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (reviewing) reviewHeading.current?.focus();
+  }, [reviewing]);
+  // Shown as ended: a retired run's orders cannot be withdrawn (the classroom refuses anything but ending it).
+  const ledger = { ...session, completed: true };
+  return (
+    <div className="td-retired">
+      <section className={cn(CARD, "td-retired-head")} aria-labelledby="td-retired-title">
+        <h1 id="td-retired-title" tabIndex={-1}>
+          {shortDate(catalog.date)} {RETIRED_TEXT}
+        </h1>
+        <p>這堂舊課已停用，只顯示計畫、委託、成交、損益與復盤，不顯示走勢圖。</p>
+      </section>
+      <AccountSummary session={session} />
+      <Ledger catalog={catalog} session={ledger} busy={busy} onCancel={async () => {}} cards={cards} />
+      <SavedPlan plan={session.plan} catalog={catalog} />
+      {session.completed ? (
+        <section className={CARD} aria-label="復盤">
+          {session.abandoned ? (
+            <p className="text-base font-semibold">已放棄這局 · 不計紀律分數</p>
+          ) : (
+            <>
+              <h2 className="text-lg font-semibold">你留下的復盤</h2>
+              <p className="mt-2 whitespace-pre-wrap text-base leading-relaxed">{session.reflection}</p>
+            </>
+          )}
+          {celebration && (
+            <div className="mt-4">
+              <DisciplineCelebration celebration={celebration} />
+            </div>
+          )}
+        </section>
+      ) : reviewing ? (
+        <section className={CARD} aria-labelledby="td-retired-review">
+          <h2
+            id="td-retired-review"
+            ref={reviewHeading}
+            tabIndex={-1}
+            className="text-xl font-semibold outline-none"
+          >
+            完成並復盤
+          </h2>
+          <ReflectionForm
+            session={session}
+            busy={busy}
+            saving={saving}
+            onFinish={onFinish}
+            onBack={() => setReviewing(false)}
+          />
+        </section>
+      ) : (
+        <div className="td-retired-actions">
+          <button type="button" className={PRIMARY} disabled={busy} onClick={() => setReviewing(true)}>
+            完成並復盤
+          </button>
+          <AbandonRun label="放棄這局" busy={busy} onConfirm={onAbandon} />
+        </div>
+      )}
+      <RunRecords records={records} currentId={session.id} busy={busy} onOpen={onOpenRecord} />
+    </div>
   );
 }

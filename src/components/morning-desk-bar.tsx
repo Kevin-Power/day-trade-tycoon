@@ -4,7 +4,7 @@ import { ArrowLeft, BookOpen, CandlestickChart, CirclePause, Play } from "@/lib/
 import { DisplayControls } from "@/components/display-controls";
 import { FubonEntry } from "@/components/fubon-entry";
 import type { MorningAlert } from "@/lib/morning-alerts";
-import type { MorningLessonSummary, MorningState } from "@/lib/morning";
+import type { MorningState } from "@/lib/morning";
 import { replayClock } from "@/lib/morning-live";
 import type { MorningExercise } from "@/lib/morning-exercises";
 import { formatMoney, formatTime } from "@/lib/utils";
@@ -25,6 +25,37 @@ export function DeskBar({ children }: { children?: ReactNode }) {
       <FubonEntry />
       <DisplayControls compact className="td-size" />
     </header>
+  );
+}
+
+/** The desk's day menu: the open lesson days as 「M/D 早盤」 (and a retired lesson on screen, as itself). */
+export function LessonSelect({
+  options,
+  lessonId,
+  disabled,
+  onChange,
+}: {
+  options: { lessonId: string; label: string }[];
+  lessonId: string;
+  disabled: boolean;
+  onChange: (lessonId: string) => void;
+}) {
+  return (
+    <label className="td-lesson">
+      <span className="sr-only">教材交易日</span>
+      <select
+        aria-label="教材交易日"
+        value={lessonId}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {options.map((option) => (
+          <option key={option.lessonId} value={option.lessonId}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -51,7 +82,8 @@ export function StatusBar({
   onReview,
   onResources,
 }: {
-  lessons: MorningLessonSummary[];
+  /** The day menu's choices (see LessonSelect). */
+  lessons: { lessonId: string; label: string }[];
   lessonId: string;
   exercise?: MorningExercise;
   session: MorningState | null;
@@ -77,21 +109,7 @@ export function StatusBar({
   const state = showPlan ? "idle" : completed ? "done" : auto ? "running" : "paused";
   return (
     <DeskBar>
-      <label className="td-lesson">
-        <span className="sr-only">教材交易日</span>
-        <select
-          aria-label="教材交易日"
-          value={lessonId}
-          disabled={busy}
-          onChange={(event) => onLessonChange(event.target.value)}
-        >
-          {lessons.map((lesson) => (
-            <option key={lesson.lessonId} value={lesson.lessonId}>
-              {lesson.date}
-            </option>
-          ))}
-        </select>
-      </label>
+      <LessonSelect options={lessons} lessonId={lessonId} disabled={busy} onChange={onLessonChange} />
       <span className="td-subject">
         <span>{exercise?.no ?? "自由練習"}</span>
         <strong>{exercise?.title ?? "真實歷史行情練習"}</strong>

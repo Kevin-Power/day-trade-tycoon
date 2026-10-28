@@ -1,6 +1,6 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowRight } from "@/lib/icons";
-import type { MorningCatalog, MorningPlan } from "@/lib/morning";
+import type { MorningPlan } from "@/lib/morning";
 import { GUEST_TERMS_TEXT } from "@/lib/morning-access";
 import {
   applyPlanTemplate,
@@ -18,19 +18,23 @@ const CHOICES: { id: Choice; title: string; summary: string }[] = [
 ];
 
 export function PlanForm({
-  catalog,
+  symbols,
   exerciseId,
   busy,
   guest,
   onStart,
   onCancel,
+  setup,
 }: {
-  catalog: MorningCatalog;
+  /** The run's stocks as picked: the 主角股 is one of them. */
+  symbols: readonly { code: string; name: string }[];
   exerciseId: string;
   busy: boolean;
   guest: boolean;
   onStart: (plan: MorningPlan) => Promise<void>;
   onCancel?: () => void;
+  /** The day and stocks, folded into the card before the plan (phones and large text). */
+  setup?: ReactNode;
 }) {
   // A new plan is always blank, so it opens with the default template filled in: one tap to start.
   const [choice, setChoice] = useState<Choice>(DEFAULT_PLAN_TEMPLATE);
@@ -38,7 +42,7 @@ export function PlanForm({
     applyPlanTemplate(PLAN_TEMPLATES.find((template) => template.id === DEFAULT_PLAN_TEMPLATE)!, {
       exerciseId,
       bias: "observe",
-      focusCode: catalog.symbols[0]?.code ?? "",
+      focusCode: symbols[0]?.code ?? "",
       reason: "",
       entry: "",
       stop: "",
@@ -49,6 +53,10 @@ export function PlanForm({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const showDetails = detailsOpen || choice === "custom";
   const options = useRef<(HTMLButtonElement | null)[]>([]);
+  // The 主角股 follows the picked stocks: when it is removed from them, the first one takes its place.
+  const focusCode = symbols.some((symbol) => symbol.code === plan.focusCode)
+    ? plan.focusCode
+    : (symbols[0]?.code ?? "");
 
   function choose(next: Choice) {
     setChoice(next);
@@ -71,6 +79,7 @@ export function PlanForm({
     event.preventDefault();
     const next = {
       ...plan,
+      focusCode,
       reason: plan.reason.trim(),
       entry: plan.entry.trim(),
       stop: plan.stop.trim(),
@@ -82,10 +91,15 @@ export function PlanForm({
     setInvalid("");
     void onStart(next);
   }
+  const intro = (
+    <p className="mt-1 text-xs leading-relaxed text-muted">
+      不需要先猜對漲跌。計畫會隨新的一輪保存，重播期間保留原文供復盤核對。
+    </p>
+  );
   const startBlock = (
     <>
       {guest && <p className="td-guest-terms text-base leading-relaxed">{GUEST_TERMS_TEXT}</p>}
-      <button type="submit" disabled={busy} className={cn(PRIMARY, "w-full")}>
+      <button type="submit" disabled={busy || !focusCode} className={cn(PRIMARY, "w-full")}>
         {busy ? "正在保存…" : choice === "custom" ? "保存計畫，進入 09:00 練習" : "用這個計畫開始"}
         <ArrowRight className="shrink-0" aria-hidden />
       </button>
@@ -97,9 +111,9 @@ export function PlanForm({
       <h2 id="morning-plan-title" className="mt-1 text-lg font-semibold">
         寫下今天的作戰藍圖
       </h2>
-      <p className="mt-1 text-xs leading-relaxed text-muted">
-        不需要先猜對漲跌。計畫會隨新的一輪保存，重播期間保留原文供復盤核對。
-      </p>
+      {/* Phones and large text: the day and stocks take this line, and it moves into the plan's details, so the
+          start button stays on the first screen. */}
+      {setup ? <div className="mt-3">{setup}</div> : intro}
       <form className="mt-3 space-y-3" onSubmit={submit}>
         <fieldset disabled={busy} className="min-w-0 space-y-3 disabled:opacity-60">
           <legend className="sr-only">本輪觀察計畫</legend>
@@ -133,14 +147,15 @@ export function PlanForm({
               看／改計畫內容（股票、方向、條件）
             </summary>
             <div className="mt-2 space-y-3">
+              {setup && intro}
               <label className="block text-base font-medium">
                 先關注哪一檔
                 <select
-                  value={plan.focusCode}
+                  value={focusCode}
                   onChange={(event) => setPlan({ ...plan, focusCode: event.target.value })}
                   className={cn(INPUT, "mt-1")}
                 >
-                  {catalog.symbols.map((symbol) => (
+                  {symbols.map((symbol) => (
                     <option key={symbol.code} value={symbol.code}>
                       {symbol.code} {symbol.name}
                     </option>

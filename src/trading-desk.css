@@ -719,6 +719,351 @@
 .trading-desk .td-plan-close {
   margin-bottom: 12px;
 }
+
+/* Lesson picker (③ §7): the day, then its stocks, beside the plan on desktops and above it elsewhere. Phones and
+   large text fold the stocks behind one button, so the start button stays on the plan's first screen. Text fields
+   and menus are 16px on every layout (iOS Safari zooms the page for smaller ones). */
+.trading-desk .td-setup {
+  display: grid;
+  gap: 12px;
+  align-items: start;
+}
+.trading-desk[data-layout="desktop"] .td-setup {
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 1fr);
+}
+.trading-desk .td-picker {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.trading-desk .td-picker p {
+  margin: 0;
+}
+.trading-desk .td-picker-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.trading-desk .td-picker-field {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.trading-desk .td-picker :is(select, input) {
+  font-size: 16px;
+}
+.trading-desk .td-picker-date {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 10px;
+  color: var(--td-fg);
+  background: var(--td-bg);
+  border: 1px solid var(--td-line-strong);
+  border-radius: var(--td-radius);
+  font-weight: 600;
+}
+.trading-desk .td-picker-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+}
+.trading-desk .td-picker-bar .td-picker-date {
+  width: auto;
+  max-width: 100%;
+}
+.trading-desk .td-picker-toggle {
+  flex-wrap: wrap;
+  gap: 0 4px;
+  min-height: 48px;
+  padding: 0 10px;
+  font-size: 15px;
+  white-space: normal;
+}
+.trading-desk .td-picker-toggle span {
+  white-space: nowrap;
+}
+.trading-desk .td-picker-head {
+  display: grid;
+  gap: 4px;
+}
+.trading-desk .td-picker-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.trading-desk .td-picker-note-title {
+  color: var(--td-fg);
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.trading-desk .td-picker-note-detail,
+.trading-desk .td-picker-empty,
+.trading-desk .td-picker-count {
+  color: var(--td-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.trading-desk :is(.td-picker-editor, .td-picker-more:not([hidden])) {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.trading-desk .td-picker-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--td-line);
+  border-radius: var(--td-radius);
+}
+/* The chosen list scrolls in place: a default list holds up to 70 stocks. */
+.trading-desk .td-picker-list:not(.td-picker-found) {
+  max-height: min(48vh, 440px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.trading-desk .td-picker-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "id action"
+    "facts action";
+  align-items: center;
+  gap: 2px 10px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--td-line);
+}
+.trading-desk .td-picker-row:first-child {
+  border-top: 0;
+}
+.trading-desk .td-picker-id {
+  grid-area: id;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+  font-size: 15px;
+}
+.trading-desk .td-picker-id b {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.trading-desk .td-picker-flag {
+  padding: 0 6px;
+  color: var(--td-warn);
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.trading-desk .td-picker-facts {
+  grid-area: facts;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk .td-picker-facts b {
+  color: var(--td-fg);
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+.trading-desk .td-picker-row .td-button {
+  grid-area: action;
+  min-width: 64px;
+  min-height: 36px;
+}
+.trading-desk .td-picker-row .td-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.trading-desk .td-picker-full {
+  color: var(--td-warn);
+  font-size: 14px;
+  font-weight: 700;
+}
+/* Desktops: one line per stock, the facts after the name. */
+.trading-desk[data-layout="desktop"] .td-picker-row {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: "id facts action";
+}
+.trading-desk:is([data-layout="phone"], [data-layout="tablet"]) :is(.td-picker-row .td-button, .td-records .td-button) {
+  min-height: 44px;
+}
+.trading-desk[data-layout="senior"] .td-picker-id {
+  font-size: 17px;
+}
+.trading-desk[data-layout="senior"] .td-picker-note-title {
+  font-size: 16px;
+}
+.trading-desk[data-layout="senior"] :is(.td-picker-facts, .td-picker-note-detail, .td-picker-empty, .td-picker-count) {
+  font-size: 15px;
+}
+.trading-desk[data-layout="senior"] .td-picker-toggle {
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+/* 練習紀錄 under the plan: day, stocks, result and review state; a day's latest run opens. */
+.trading-desk .td-records {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+.trading-desk .td-records-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.trading-desk .td-record-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trading-desk .td-record-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(3.5em, 0.6fr) minmax(5em, 1fr) minmax(4em, 0.7fr);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 8px;
+  color: var(--td-fg);
+  font-size: 14px;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--td-line);
+}
+.trading-desk .td-record-head {
+  min-height: 0;
+  color: var(--td-muted);
+  font-size: 12px;
+  border-top: 0;
+}
+.trading-desk .td-record-open {
+  cursor: pointer;
+}
+.trading-desk .td-record-open[aria-current="true"] {
+  background: var(--td-select-bg);
+  box-shadow: inset 3px 0 0 var(--td-accent);
+}
+.trading-desk .td-record-pnl {
+  font-family: var(--font-mono);
+}
+.trading-desk .td-record-pnl[data-tone="up"] {
+  color: var(--td-up);
+}
+.trading-desk .td-record-pnl[data-tone="down"] {
+  color: var(--td-down);
+}
+.trading-desk .td-record-retired {
+  color: var(--td-warn);
+  font-style: normal;
+  font-weight: 600;
+}
+.trading-desk .td-record-status {
+  color: var(--td-muted);
+}
+.trading-desk:is([data-layout="phone"], [data-layout="tablet"]) .td-record-row:not(.td-record-head) {
+  min-height: 48px;
+}
+.trading-desk[data-layout="senior"] .td-record-row {
+  font-size: 16px;
+}
+@media (hover: hover) {
+  .trading-desk .td-record-open:hover:not(:disabled) {
+    background: var(--td-raised);
+  }
+}
+
+/* 放棄這局: asked once more, in place. */
+.trading-desk .td-button[data-variant="danger"] {
+  color: #ffffff;
+  background: var(--td-up-fill);
+  border-color: var(--td-up-fill);
+}
+.trading-desk .td-abandon-confirm {
+  display: grid;
+  gap: 8px;
+  scroll-margin: 96px 0;
+  padding: 10px 12px;
+  background: var(--td-alert-bg);
+  border: 1px solid var(--td-up-fill);
+  border-radius: var(--td-radius);
+}
+.trading-desk .td-abandon-confirm p {
+  margin: 0;
+  color: var(--td-alert-fg);
+  font-weight: 600;
+}
+.trading-desk .td-abandon-confirm .td-banner-actions {
+  flex-wrap: wrap;
+  margin-left: 0;
+}
+.trading-desk :is(.td-abandon, .td-abandon-confirm .td-button) {
+  min-height: 40px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="tablet"]) :is(.td-abandon, .td-abandon-confirm .td-button) {
+  min-height: 44px;
+}
+.trading-desk .td-review-abandon {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--td-line);
+}
+.trading-desk .td-drawer-abandon {
+  padding: 12px;
+}
+.trading-desk .td-blocked .td-abandon-confirm {
+  flex-basis: 100%;
+}
+
+/* A retired lesson's run: text only. */
+.trading-desk .td-retired {
+  display: grid;
+  gap: 12px;
+  max-width: 960px;
+  margin: 12px auto;
+  padding: 0 12px 24px;
+}
+.trading-desk .td-retired-head h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  outline: none;
+}
+.trading-desk .td-retired-head p {
+  margin: 6px 0 0;
+  color: var(--td-muted);
+}
+.trading-desk .td-retired-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.trading-desk .td-unavailable {
+  padding: 24px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  background: var(--td-panel);
+  border: 1px solid var(--td-line);
+  border-radius: var(--td-radius);
+}
+.trading-desk .td-unavailable p {
+  margin: 0;
+}
 .trading-desk .td-empty {
   margin: 0;
   padding: 24px 16px;
