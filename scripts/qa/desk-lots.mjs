@@ -177,6 +177,42 @@ const fieldValue = (page, id) => page.locator(`#${id}`).inputValue();
 const activeId = (page) =>
   page.evaluate(() => document.activeElement?.getAttribute("data-lots") || document.activeElement?.id || "");
 
+/**
+ * Opens the desk. All QA traffic comes from one address, so a classroom that has just served a long run of page loads
+ * (desk-sharpness runs right before this in the chain) can answer the session check with its per-minute auth limit:
+ * the page then says 「暫時無法開始練習」. That is the environment, not the desk: wait for the minute to pass and
+ * open it again (at most twice, each wait recorded in results.authWaits); anything else fails the size.
+ */
+const authWaits = [];
+async function openDesk(page, where) {
+  const refused = [];
+  const listen = (response) => {
+    if (response.status() >= 400 && new URL(response.url()).pathname.startsWith("/api/"))
+      refused.push(`${response.status()} ${new URL(response.url()).pathname}`);
+  };
+  page.on("response", listen);
+  try {
+    for (let attempt = 0; ; attempt++) {
+      refused.length = 0;
+      await page.goto(`${base}/morning`, { waitUntil: "domcontentloaded" });
+      const seen = await Promise.race([
+        page.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 }).then(() => "desk"),
+        page.getByText("暫時無法開始練習").waitFor({ timeout: 20000 }).then(() => "limited"),
+      ]).catch(() => "nothing");
+      if (seen === "desk") return;
+      if (seen === "limited" && attempt < 2) {
+        authWaits.push({ where, refused: [...new Set(refused)], at: new Date().toISOString() });
+        console.log(`${where}: 「暫時無法開始練習」 (${[...new Set(refused)].join(", ") || "no API refusal seen"}): waiting 65 s`);
+        await pause(65_000);
+        continue;
+      }
+      throw new Error(`the desk did not open (${seen}; API refusals: ${[...new Set(refused)].join(", ") || "none"})`);
+    }
+  } finally {
+    page.off("response", listen);
+  }
+}
+
 const browser = await chromium.launch().catch(() => chromium.launch({ channel: "chrome" }));
 for (const c of CASES) {
   const context = await browser.newContext({ viewport: { width: c.width, height: c.height }, deviceScaleFactor: 1 });
@@ -187,8 +223,7 @@ for (const c of CASES) {
   const where = c.name;
   const report = {};
   try {
-    await page.goto(`${base}/morning`, { waitUntil: "domcontentloaded" });
-    await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 });
+    await openDesk(page, where);
     await page.waitForTimeout(800);
     await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 2000 }).catch(() => {});
     const layout = await page.locator(".trading-desk").getAttribute("data-layout");
@@ -299,8 +334,7 @@ for (const c of CASES) {
   const page = await context.newPage();
   const reportsText = async () => clean(await page.locator(".sim-reports").textContent({ timeout: 4000 }).catch(() => ""));
   try {
-    await page.goto(`${base}/morning`, { waitUntil: "domcontentloaded" });
-    await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 });
+    await openDesk(page, where);
     await page.waitForTimeout(800);
     await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 2000 }).catch(() => {});
     const box = page.locator("#sim-lots-value");
@@ -411,6 +445,7 @@ for (const c of CASES) {
   await context.close();
 }
 await browser.close();
+results.authWaits = authWaits;
 writeFileSync(`${out}/summary.json`, JSON.stringify({ results, failures }, null, 2));
 console.log(JSON.stringify(results, null, 1));
 if (failures.length) {
