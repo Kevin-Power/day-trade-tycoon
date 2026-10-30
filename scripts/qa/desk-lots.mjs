@@ -4,21 +4,23 @@
 //      (大字: four, the order kept), every pick inside the window, as large as the layout needs (phones 44px, 大字
 //      56px), on top where it is (nothing covers it), and the page never scrolls sideways; a pick closes the grid
 //      and puts the focus back in the box; Enter or Space on 快選 opens it on the current pick, Tab and Shift+Tab move
-//      through the picks, Esc closes it; typing 999 gives 400; ticket and book share one count;
+//      through the picks, Esc closes it; a press that first takes the focus away to nothing (Safari on a Mac does
+//      not focus a button it presses) still picks; typing 999 gives 400; ticket and book share one count;
 //   2. (1366x900) 400 lots of 台積電: the review shows the large-order block and cannot be sent unticked; ticked, the
 //      server refuses it for the cash (送出失敗 … 目前模擬資金不足) and stores nothing; lightning with 400 lots opens
 //      the confirm card instead of sending;
 //   3. (1366x900) a large market order on a thin stock waits with 「已累計 n／N 張」 (0 < n < N, the server's count) in
 //      the ticket and the 委託 tab, then fills at the average, reported as the desk writes it.
 // Starts its own run (the hot five and the thinnest cheap stock of the newest day), so run it where the seed does
-// not matter afterwards. Usage: node scripts/qa/desk-lots.mjs <baseUrl> <label>
-import { chromium } from "playwright";
+// not matter afterwards. Runs in chromium (the default) or webkit (Safari's engine).
+// Usage: node scripts/qa/desk-lots.mjs <baseUrl> <label> [chromium|webkit]
+import { chromium, webkit } from "playwright";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { fillPriceText } from "../../src/lib/morning-ledger.ts";
 
-const [base = "http://127.0.0.1:18811", label = "lots"] = process.argv.slice(2);
+const [base = "http://127.0.0.1:18811", label = "lots", engineName = "chromium"] = process.argv.slice(2);
 const out = fileURLToPath(new URL(`../../artifacts/trading-desk-qa/${label}/`, import.meta.url));
 mkdirSync(out, { recursive: true });
 const HOT = ["2308", "2317", "2330", "2382", "2454"];
@@ -213,7 +215,11 @@ async function openDesk(page, where) {
   }
 }
 
-const browser = await chromium.launch().catch(() => chromium.launch({ channel: "chrome" }));
+const browser =
+  engineName === "webkit"
+    ? await webkit.launch()
+    : await chromium.launch().catch(() => chromium.launch({ channel: "chrome" }));
+results.engine = engineName;
 for (const c of CASES) {
   const context = await browser.newContext({ viewport: { width: c.width, height: c.height }, deviceScaleFactor: 1 });
   if (c.senior) await context.addInitScript(() => localStorage.setItem("day-tycoon-display-v1", "senior"));
@@ -273,6 +279,23 @@ for (const c of CASES) {
     if ((await fieldValue(page, "sim-lots-value")) !== "250") fail(where, `the keyboard pick gave ${await fieldValue(page, "sim-lots-value")}, not 250`);
     if ((await activeId(page)) !== "sim-lots-value") fail(where, `after the keyboard pick the focus is on ${await activeId(page)}`);
 
+    // Safari on a Mac does not focus a button it presses: the pick that has the focus (opening put it there) loses it
+    // to nothing (relatedTarget null) on mousedown, before the click. The grid must still be there for the click.
+    await ticketToggle.click();
+    await page.locator(".td-lotpick-grid").waitFor({ timeout: 3000 });
+    await page.evaluate(() => {
+      const grid = document.querySelector(".td-lotpick-grid");
+      grid?.addEventListener("mousedown", () => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : null), {
+        capture: true,
+        once: true,
+      });
+    });
+    await page.locator('.td-lotpick-grid button[data-lots="35"]').click({ timeout: 3000 });
+    await page.locator(".td-lotpick-grid").waitFor({ state: "detached", timeout: 3000 }).catch(() => fail(where, "the grid stayed open after a Safari-style press"));
+    if ((await fieldValue(page, "sim-lots-value")) !== "35")
+      fail(where, `a Safari-style press on 35 (the focus lost to nothing first) left ${await fieldValue(page, "sim-lots-value")}`);
+    if ((await activeId(page)) !== "sim-lots-value") fail(where, `after a Safari-style press the focus is on ${await activeId(page)}`);
+
     // Typing: past 400 is 400; the arrow key steps by one.
     await box.fill("999");
     await until(async () => (await box.inputValue()) === "400", `typing 999 left ${await box.inputValue()}`, 3000).catch((error) => fail(where, error.message));
@@ -312,11 +335,23 @@ for (const c of CASES) {
       if ((await activeId(page)) !== "td-lots-value") fail(where, `after a book pick the focus is on ${await activeId(page)}`);
       report.book = true;
     } else fail(where, "no 每筆張數 field in the lightning book");
-    // A press outside closes the grid.
+    // A press on the grid's own empty space (its title) leaves it open; a press outside it (left edge, just above
+    // the grid, or under it when it sits at the top) closes it.
     await ticketToggle.click();
     await page.locator(".td-lotpick-grid").waitFor({ timeout: 3000 });
-    await page.mouse.click(2, Math.round(c.height / 3));
-    await page.locator(".td-lotpick-grid").waitFor({ state: "detached", timeout: 3000 }).catch(() => fail(where, "a press outside left the grid open"));
+    const head = await page.locator(".td-lotpick-head").boundingBox();
+    await page.mouse.click(Math.round(head.x + head.width / 2), Math.round(head.y + head.height / 2));
+    await page.waitForTimeout(300);
+    if (!(await page.locator(".td-lotpick-grid").count())) fail(where, "a press on the grid's title closed it");
+    const spot = await page.evaluate(() => {
+      const box = document.querySelector(".td-lotpick-grid").getBoundingClientRect();
+      const y = box.top > 12 ? Math.floor(box.top - 6) : Math.ceil(box.bottom + 6);
+      const hit = document.elementFromPoint(2, y);
+      return { x: 2, y, inside: Boolean(hit?.closest(".td-lotpick")) };
+    });
+    if (spot.inside) fail(where, `no point outside the picker at (2, ${spot.y})`);
+    await page.mouse.click(spot.x, spot.y);
+    await page.locator(".td-lotpick-grid").waitFor({ state: "detached", timeout: 3000 }).catch(() => fail(where, `a press outside (2, ${spot.y}) left the grid open`));
     await box.fill("1");
   } catch (error) {
     fail(where, error.message.split("\n")[0]);
@@ -434,6 +469,17 @@ for (const c of CASES) {
         const text = `成交 · 買進 ${thin.name} ${lots} 張 @ ${fillPriceText(fill.price)}`;
         await until(async () => (await reportsText()).includes(text), `委託回報 does not read "${text}"`).catch((error) => fail(where, error.message));
         results.outcome.report = text;
+        // The desk bar's 快訊 and the screen-reader announcement give the same price as 委託回報.
+        const flash = `你的委託成交：${thin.name} 買進 ${lots} 張 @ ${fillPriceText(fill.price)}`;
+        await until(async () => clean(await page.locator(".td-alert").textContent().catch(() => "")).includes(flash), `快訊 does not read "${flash}"`).catch((error) =>
+          fail(where, error.message),
+        );
+        const spoken = await page.evaluate(() =>
+          [...document.querySelectorAll('[aria-live="polite"]')].map((node) => node.textContent?.replace(/\s+/g, " ").trim() ?? "").find((text) => text.includes("你的委託成交")) ?? "",
+        );
+        if (!spoken.includes(flash)) fail(where, `the screen-reader announcement reads "${spoken}", not "${flash}"`);
+        results.outcome.flash = clean(await page.locator(".td-alert").textContent());
+        results.outcome.announcement = spoken;
         results.outcome.fillMs = fill.ms;
       } else if (order.reason !== "成交量不足") fail(where, `the order ended ${order.status} (${order.reason})`);
       await page.screenshot({ path: `${out}/1366x900-outcome.png` });

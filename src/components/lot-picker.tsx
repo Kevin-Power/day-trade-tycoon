@@ -183,7 +183,12 @@ export function LotPicker({
           role="group"
           aria-label={`快選${name}`}
           onBlur={(event) => {
-            if (!root.current?.contains(event.relatedTarget as Node | null)) setOpen(false);
+            // Only the focus moving to something outside closes it (Tab past the last pick). Focus lost to nothing
+            // is a press: Safari on a Mac does not focus the button it presses, so the pick that had the focus loses
+            // it before the click lands, and closing here would take the grid away from under it. Presses outside
+            // are closed by the pointerdown listener.
+            const next = event.relatedTarget as Node | null;
+            if (next && !root.current?.contains(next)) setOpen(false);
           }}
         >
           <div className="td-lotpick-head">
