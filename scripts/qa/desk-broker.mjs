@@ -60,14 +60,14 @@ async function selectStock(page, code) {
   await page.locator(`.td-watch-row[data-code="${code}"]`).click({ timeout: 4000 });
   await page.waitForTimeout(250);
 }
+/** Types the lots into the ticket's 張數 box (1–400), and checks the box and the lightning book's both show them. */
 async function setLots(page, target) {
-  const output = page.locator("#sim-lots-value");
-  for (let guard = 0; guard < 4; guard++) {
-    const now = Number((await output.textContent({ timeout: 4000 }))?.replace(/\D/g, ""));
-    if (now === target) return;
-    await page.getByRole("button", { name: now < target ? "增加一張" : "減少一張" }).click();
-  }
-  throw new Error(`could not set ${target} lots`);
+  const box = page.locator("#sim-lots-value");
+  await box.fill(String(target), { timeout: 4000 });
+  await until(async () => (await box.inputValue()) === String(target), `could not set ${target} lots`);
+  const book = page.locator("#td-lots-value");
+  if ((await book.count()) && (await book.inputValue()) !== String(target))
+    throw new Error(`the ticket has ${target} lots but the lightning book ${await book.inputValue()}`);
 }
 const lightning = (page) => page.getByRole("switch", { name: "閃電即送" });
 async function arm(page, on) {
@@ -223,8 +223,9 @@ await check("7-large-order", async () => {
   await clearPending(desktop);
   const state = await api();
   const tsmc = state.bars["2330"].at(-1).c * 1000;
-  const lotsLarge = [1, 2, 3].find((lots) => tsmc * lots >= 0.5 * state.cash);
-  if (!lotsLarge) throw new Error("no 台積電 size reaches half the cash");
+  // The fewest lots of 台積電 (1–400) that reach half the cash.
+  const lotsLarge = Math.max(1, Math.ceil((0.5 * state.cash) / tsmc));
+  if (lotsLarge > 400) throw new Error("no 台積電 size reaches half the cash");
   await selectStock(desktop, "2330");
   await desktop.getByRole("button", { name: "市價" }).first().click();
   await setLots(desktop, lotsLarge);
@@ -259,8 +260,10 @@ await check("7-large-order", async () => {
     let sizes = null;
     for (const symbol of ["2308", "2382", "2317", "2454", "2330"]) {
       const lot = now.bars[symbol].at(-1).c * 1000;
-      for (const [small, large] of [[1, 2], [1, 3], [2, 3]])
-        if (!sizes && lot * small < 0.5 * now.cash && lot * large >= 0.5 * now.cash) sizes = { symbol, small, large };
+      // The largest size under half the cash and the next one up, which reaches it.
+      const large = Math.max(2, Math.ceil((0.5 * now.cash) / lot));
+      const small = large - 1;
+      if (!sizes && large <= 400 && lot * small < 0.5 * now.cash && lot * large >= 0.5 * now.cash) sizes = { symbol, small, large };
     }
     if (!sizes) throw new Error("no stock has both a small and a large size for the seeded cash");
     await selectStock(desktop, sizes.symbol);
@@ -336,40 +339,14 @@ await check("8-order-reports", async () => {
     await reload.click();
     await desktop.waitForTimeout(600);
   }
-  // A send the server refuses: more 台積電 than the cash allows. An order is 1 to 3 lots, so when the cash left after
-  // the seed still covers 3 lots (the fixture's 台積電 is about 1,480 a share against ~7 M), lots of 台積電 are bought
-  // and filled through the API first until it does not; the desk is then reloaded on that state. Never skipped: if 3
-  // lots still fit the cash, the check fails.
+  // A send the server refuses: more 台積電 than the cash allows. An order is 1 to 400 lots; 400 lots of the fixture's
+  // 台積電 (about 1,480 a share) is about 590 M against the ~7 M left after the seed. Never skipped: if 400 lots still
+  // fit the cash, the check fails.
   await clearPending(desktop);
-  let state = await api();
-  const lotOf = (run) => run.bars["2330"].at(-1).c * 1000;
-  const spent = [];
-  for (let guard = 0; guard < 4 && lotOf(state) * 3 <= state.cash; guard++) {
-    const lots = Math.min(3, Math.floor((state.cash - 3 * lotOf(state)) / lotOf(state)) + 1);
-    const send = async (action) => {
-      const response = await fetch(`${base}/api/morning`, {
-        method: "POST",
-        headers: { origin: base, "content-type": "application/json" },
-        body: JSON.stringify({ ...action, id: state.id, expectedRevision: state.revision, requestId: crypto.randomUUID() }),
-      });
-      if (response.status !== 200) throw new Error(`spending the cash: ${action.action} answered ${response.status}`);
-      state = (await response.json()).state;
-    };
-    await send({ action: "order", code: "2330", side: "buy", lots });
-    await new Promise((resolve) => setTimeout(resolve, Math.max(0, state.nextAdvanceAt - Date.now()) + 60));
-    await send({ action: "advance" });
-    state = await api();
-    if (state.orders.at(-1)?.status !== "filled") throw new Error(`the ${lots}-lot 台積電 buy that spends the cash was not filled (${state.orders.at(-1)?.status})`);
-    spent.push(lots);
-  }
-  const lot = lotOf(state);
-  const lots = Math.min(3, Math.floor(state.cash / lot) + 1);
-  if (lot * lots <= state.cash) throw new Error(`no 台積電 order of 1 to 3 lots exceeds the cash (${state.cash} for ${lot} a lot)`);
-  if (spent.length) {
-    await desktop.reload({ waitUntil: "domcontentloaded" });
-    await desktop.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 });
-    await rest(desktop);
-  }
+  const state = await api();
+  const lot = state.bars["2330"].at(-1).c * 1000;
+  const lots = 400;
+  if (lot * lots <= state.cash) throw new Error(`400 lots of 台積電 fit the cash (${state.cash} for ${lot} a lot)`);
   await selectStock(desktop, "2330");
   await desktop.getByRole("button", { name: "市價" }).first().click();
   await setLots(desktop, lots);
@@ -381,7 +358,7 @@ await check("8-order-reports", async () => {
   const failed = clean(await desktop.locator('.sim-reports li[data-tone="failed"]').first().textContent());
   if ((await api()).orders.length !== ordersBefore) throw new Error("the refused order was stored anyway");
   await desktop.getByRole("button", { name: /重新載入進度/ }).first().click({ timeout: 4000 }).catch(() => {});
-  return { refused: { lots, lot, cash: state.cash, report: failed }, spentLots: spent };
+  return { refused: { lots, lot, cash: state.cash, report: failed } };
 });
 
 await check("11-plan-chip", async () => {

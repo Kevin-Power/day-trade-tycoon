@@ -140,15 +140,29 @@ test('real HTTP daily lessons: real trades revealed one minute at a time, nothin
   };
   const cellRows = (rows, cell) => rows.filter(row => row[0] >= cell * CELL && row[0] < (cell + 1) * CELL);
   const lastBefore = (rows, cursor, reference) => rows.filter(row => row[0] < cursor * CELL).at(-1)?.[1] ?? reference;
-  /** The fill the rules give an order sent at `cursor`: the first trade after it for a market order; for a limit the
-   *  first trade's price when it already touches, else the limit at the first later trade that touches. */
-  function fillAfter(rows, cursor, side, limit) {
+  /** The fill the rules give an order of `lots` sent at `cursor` (量夠才成交, 2026-10-30): the trades after it that
+   *  touch its price (every trade for a market order) count until their lots reach the order's, and it fills at the
+   *  trade that completes them — at their average (a limit no worse than itself), or at the limit when the first trade
+   *  after it did not touch. One lot is the first touching trade. */
+  function fillAfter(rows, cursor, side, limit, lots = 1) {
     let seen = false;
-    for (const [ms, price] of rows) {
+    let resting = false;
+    let counted = 0;
+    let value = 0;
+    for (const [ms, price, size] of rows) {
       if (ms < cursor * CELL) continue;
-      if (limit === undefined) return { price, ms };
-      if (side === 'buy' ? price <= limit : price >= limit) return { price: seen ? limit : price, ms };
+      const touches = limit === undefined || (side === 'buy' ? price <= limit : price >= limit);
+      if (!seen && !touches) resting = true;
       seen = true;
+      if (!touches) continue;
+      const take = Math.min(size, lots - counted);
+      counted += take;
+      value += price * take;
+      if (counted === lots) {
+        const average = value / lots;
+        if (limit === undefined) return { price: average, ms };
+        return { price: resting ? limit : side === 'buy' ? Math.min(average, limit) : Math.max(average, limit), ms };
+      }
     }
     return null;
   }
@@ -286,7 +300,12 @@ test('real HTTP daily lessons: real trades revealed one minute at a time, nothin
     const rows = tradesOf('2026-10-27', '2330');
     const previousClose = began.body.catalog.symbols[0].previousClose;
     assert.equal((await post(alice, nextAction(state, 'order', { code: '2330', side: 'sell', lots: 1 }))).status, 400, 'no short selling');
-    assert.equal((await post(alice, nextAction(state, 'order', { code: '2330', side: 'buy', lots: 4 }))).status, 400);
+    const tooMany = await post(alice, nextAction(state, 'order', { code: '2330', side: 'buy', lots: 401 }));
+    assert.equal(tooMany.status, 400, 'an order is at most 400 lots');
+    assert.equal(tooMany.body.message, '請確認練習資料、操作編號與目前進度');
+    const most = await post(alice, nextAction(state, 'order', { code: '2330', side: 'buy', lots: 400 }));
+    assert.equal(most.status, 400, '400 lots of 2330 is more than the cash');
+    assert.equal(most.body.message, '目前模擬資金不足，無法委託', '400 lots is a size the server takes; the cash refuses it');
     assert.equal((await post(alice, nextAction(state, 'order', { code: '2603', side: 'buy', lots: 1 }))).status, 400, 'only the run\'s stocks');
     assert.equal((await post(alice, nextAction(state, 'order', { code: '2330', side: 'buy', lots: 1, limitPrice: previousClose + 0.003 }))).status, 400, 'a limit on the tick grid');
     assert.equal((await post(alice, nextAction(state, 'order', { code: '2330', side: 'buy', lots: 1, limitPrice: previousClose * 1.2 }))).status, 400, 'a limit within 10% of the reference');

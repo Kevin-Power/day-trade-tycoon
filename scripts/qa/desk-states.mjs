@@ -75,14 +75,18 @@ for (const [width, height] of [
     await page.locator('.td-chart canvas[role="img"]').waitFor({ timeout: 20000 });
     await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 3000 }).catch(() => {});
     const state = await page.evaluate(async () => (await (await fetch("/api/morning")).json()).state);
+    // The fewest lots (1–400) of the first of these stocks that reach half the cash.
     let choice = null;
-    for (const code of ["2454", "2330", "2308", "2382", "2317"])
-      for (const lots of [1, 2, 3])
-        if (!choice && state.bars[code].at(-1).c * 1000 * lots >= 0.5 * state.cash) choice = { code, lots };
+    for (const code of ["2454", "2330", "2308", "2382", "2317"]) {
+      const lots = Math.max(1, Math.ceil((0.5 * state.cash) / (state.bars[code].at(-1).c * 1000)));
+      if (!choice && lots <= 400) choice = { code, lots };
+    }
     if (!choice) throw new Error("no order reaches half the cash");
     await page.locator(`.td-watch-row[data-code="${choice.code}"]`).click();
     await page.getByRole("button", { name: "市價", exact: true }).click();
-    for (let lots = 1; lots < choice.lots; lots++) await page.getByRole("button", { name: "增加一張" }).click();
+    await page.locator("#sim-lots-value").fill(String(choice.lots));
+    if ((await page.locator("#sim-lots-value").inputValue()) !== String(choice.lots))
+      throw new Error(`the 張數 field did not take ${choice.lots}`);
     await page.getByRole("button", { name: /^核對模擬買進/ }).click();
     const tick = page.locator("#sim-large-ack");
     await tick.waitFor({ timeout: 4000 });

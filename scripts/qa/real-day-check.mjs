@@ -10,10 +10,13 @@
 //   3. the picker (member and guest), the default wording and the top 5 by turnover.
 //   4. a whole morning of five hot stocks with no order: every cell's bar, trades and TAIEX minute, and nothing at or
 //      after the cursor anywhere (state, tape).
-//   5. matching: many scripted orders (market and limit, buy and sell, all through the morning, on the hot five and on
-//      the stocks whose first trade comes latest) are simulated here from the trades alone (market = the first trade
-//      after the order; a limit buy fills at the first trade's price when that already touches, else at the limit when
-//      a later trade touches; sells mirrored) and compared with the engine's orders, fills, cash and equity.
+//   5. matching: many scripted orders (market and limit, buy and sell, 1 lot and as many as the cash or the holdings
+//      allow up to 400, all through the morning, on the hot five and on the stocks whose first trade comes latest) are
+//      simulated here from the trades alone by the 2026-10-30 rule 量夠才成交 (the trades after the order that touch
+//      its price, every trade for a market order, are counted until their lots reach the order's; it fills whole at
+//      the trade that completes them: a market order, or a limit the first trade after it touched, at the average of
+//      the lots taken, a limit never worse than its price; a resting limit at its limit; 10:30 cancels with 「之後沒有
+//      成交」, 「教材結束，委託未成交」 or 「成交量不足」) and compared with the engine's orders, fills, cash and equity.
 //   6. with --release, the same scripts through a built release over HTTP, one member per stock, in parallel.
 // Usage: node scripts/qa/real-day-check.mjs --source <real market-data> --scratch <new folder> [--taiex-raw <TWSE answer>]
 //          [--date 2026-10-27] [--release <abs .output/server/index.mjs> --port 18901] [--out <folder>] [--prepare-only]
@@ -241,16 +244,37 @@ function agrees(published, trades) {
 
 // ── Independent matching ─────────────────────────────────────────────────────────────────────────────────────────
 
-/** The first trade at or after `fromMs` that fills the order, and whether any trade came after it at all. */
+/**
+ * The fill of an order of `order.lots` sent at `fromMs`, by 量夠才成交 (design 2026-10-30), from the trades alone: the
+ * trades from then on that touch its price (all of them for a market order) are taken in time order until their lots
+ * reach the order's, the last one only for the lots still needed. It fills at the trade that completes them: a market
+ * order at the average of the lots taken; a limit whose first trade after it touched at that average, never worse
+ * than the limit; a limit whose first trade did not touch at its limit. `seen`: any trade came after it; `counted`:
+ * the lots reached when it never fills; `trades`: how many trades the fill took.
+ */
 function findFill(trades, fromMs, order) {
   let seen = false;
-  for (const [ms, price] of trades) {
+  let resting = false;
+  let counted = 0;
+  let value = 0;
+  let used = 0;
+  for (const [ms, price, size] of trades) {
     if (ms < fromMs) continue;
-    if (order.limit === undefined) return { price, ms, seen };
-    if (order.side === 'buy' ? price <= order.limit : price >= order.limit) return { price: seen ? order.limit : price, ms, seen };
+    const touches = order.limit === undefined || (order.side === 'buy' ? price <= order.limit : price >= order.limit);
+    if (!seen && !touches) resting = true;
     seen = true;
+    if (!touches) continue;
+    const take = Math.min(size, order.lots - counted);
+    counted += take;
+    value += price * take;
+    used += 1;
+    if (counted === order.lots) {
+      const average = value / order.lots;
+      const fill = order.limit === undefined ? average : resting ? order.limit : order.side === 'buy' ? Math.min(average, order.limit) : Math.max(average, order.limit);
+      return { price: fill, ms, seen, counted, trades: used };
+    }
   }
-  return { price: null, ms: null, seen };
+  return { price: null, ms: null, seen, counted, trades: used };
 }
 
 const lastPrice = (stock, cursor) => {
@@ -303,7 +327,7 @@ function simulate(stock, script) {
       if (action.side === 'buy' && known + commission(known) > cash) continue;
       if (action.side === 'sell' && shares < amount) continue;
       const order = { side: action.side, shares: amount, status: 'pending', ...(action.limit !== undefined ? { limitPrice: action.limit } : {}) };
-      const found = findFill(stock.trades, cursor * CELL_MS, { side: action.side, limit: action.limit });
+      const found = findFill(stock.trades, cursor * CELL_MS, { side: action.side, limit: action.limit, lots: action.lots });
       pending = { order, found, cursor };
       orders.push(order);
       actions.push({ cursor, ...action });
@@ -325,12 +349,14 @@ function simulate(stock, script) {
         else { cash = money(cash + notional - fee - tax); shares -= order.shares; }
         order.status = 'filled';
         order.price = found.price;
+        order.trades = found.trades;
         fills.push({ side: order.side, shares: order.shares, price: found.price, fee, tax, t: Math.floor(found.ms / 1000), ms: found.ms });
       }
       pending = null;
     } else if (cursor === CELLS - 1) {
       order.status = 'cancelled';
-      order.reason = found.seen ? '教材結束，委託未成交' : '之後沒有成交';
+      order.reason = !found.seen ? '之後沒有成交' : found.counted > 0 ? '成交量不足' : '教材結束，委託未成交';
+      order.counted = found.counted;
       pending = null;
     }
   }
@@ -338,10 +364,17 @@ function simulate(stock, script) {
   return { actions, expected: { orders, fills, cash, shares, equity } };
 }
 
-/** The scripts: every kind of order placed at each cursor of `cells`. A sell script buys one lot at cursor 1 first. */
+/**
+ * The scripts: every kind of order placed at each cursor of `cells`, of one lot and of as many lots as the cash (a
+ * buy, at most 400) or the holdings (a sell) allow. A sell script buys at cursor 1 first.
+ */
 function scriptsFor(cells) {
   const out = [];
-  const order = (side, limit) => ({ type: 'order', side, lots: 1, ...(limit !== undefined ? { limit } : {}) });
+  const order = (side, limit, lots = 1) => ({ type: 'order', side, lots, ...(limit !== undefined ? { limit } : {}) });
+  // As many lots as 90% of the cash buys at `price` (the last price for a market order), 1 to 400.
+  const most = (v, price) => Math.max(1, Math.min(400, Math.floor((0.9 * v.cash) / ((price ?? v.last) * LOT_SHARES))));
+  const held = v => Math.max(1, Math.min(400, Math.floor(v.shares / LOT_SHARES)));
+  const big = (side, v, limit) => order(side, limit, side === 'buy' ? most(v, limit) : held(v));
   for (const c of cells) {
     out.push({ name: `market buy @${c}`, script: v => (v.cursor === c ? [order('buy')] : []) });
     out.push({ name: `limit buy at the last price @${c}`, script: v => (v.cursor === c ? [order('buy', v.last)] : []) });
@@ -354,6 +387,18 @@ function scriptsFor(cells) {
     out.push({ name: `buy @1, limit sell at the last price @${c}`, script: v => [...buyFirst(v), ...(v.cursor === c ? [order('sell', v.last)] : [])] });
     out.push({ name: `buy @1, limit sell 3 ticks over @${c}`, script: v => [...buyFirst(v), ...(v.cursor === c ? [order('sell', ticksFrom(v.last, 3))] : [])] });
     out.push({ name: `buy @1, limit sell 3 ticks under @${c}`, script: v => [...buyFirst(v), ...(v.cursor === c ? [order('sell', ticksFrom(v.last, -3))] : [])] });
+  }
+  // The same with as many lots as the cash or the holdings allow (量夠才成交: these need many trades).
+  for (const c of cells) {
+    out.push({ name: `big market buy @${c}`, script: v => (v.cursor === c ? [big('buy', v)] : []) });
+    out.push({ name: `big limit buy at the last price @${c}`, script: v => (v.cursor === c ? [big('buy', v, v.last)] : []) });
+    out.push({ name: `big limit buy 3 ticks under @${c}`, script: v => (v.cursor === c ? [big('buy', v, ticksFrom(v.last, -3))] : []) });
+    out.push({ name: `big limit buy 2 ticks over @${c}`, script: v => (v.cursor === c ? [big('buy', v, ticksFrom(v.last, 2))] : []) });
+    if (c < 2) continue;
+    const buyFirst = v => (v.cursor === 1 ? [big('buy', v)] : []);
+    out.push({ name: `big buy @1, big market sell @${c}`, script: v => [...buyFirst(v), ...(v.cursor === c ? [big('sell', v)] : [])] });
+    out.push({ name: `big buy @1, big limit sell at the last price @${c}`, script: v => [...buyFirst(v), ...(v.cursor === c ? [big('sell', v, v.last)] : [])] });
+    out.push({ name: `big buy @1, big limit sell 3 ticks over @${c}`, script: v => [...buyFirst(v), ...(v.cursor === c ? [big('sell', v, ticksFrom(v.last, 3))] : [])] });
   }
   // One long mixed morning: every kind of order in turn, whatever the earlier ones did.
   out.push({
@@ -373,6 +418,25 @@ function scriptsFor(cells) {
       return [];
     },
   });
+  // The same morning with large orders: every buy as many lots as the cash allows, every sell all the holdings.
+  out.push({
+    name: 'mixed big morning',
+    script: v => {
+      const at = v.cursor;
+      const holding = v.shares >= LOT_SHARES;
+      if (at === 1) return [big('buy', v)];
+      if (at === 6) return [big('sell', v, ticksFrom(v.last, 2))];
+      if (at === 18 && v.pending) return [{ type: 'cancel' }];
+      if (at === 20) return [holding ? big('sell', v, v.last) : big('buy', v, v.last)];
+      if (at === 36) return [holding ? big('sell', v, ticksFrom(v.last, 1)) : big('buy', v, ticksFrom(v.last, -2))];
+      if (at === 50 && v.pending) return [{ type: 'cancel' }];
+      if (at === 52) return [holding ? big('sell', v) : big('buy', v)];
+      if (at === 66) return [holding ? big('sell', v, v.last) : big('buy', v, v.last)];
+      if (at === 80) return [holding ? big('sell', v, ticksFrom(v.last, 4)) : big('buy', v, ticksFrom(v.last, -4))];
+      if (at === 88) return [holding ? big('sell', v, ticksFrom(v.last, 8)) : big('buy', v, ticksFrom(v.last, -8))];
+      return [];
+    },
+  });
   return out;
 }
 
@@ -388,6 +452,8 @@ function compareRun(expected, state) {
     same(`order ${index} side/shares/limit/status/price/reason`,
       [got.side, got.shares, got.limitPrice ?? null, got.status, got.price ?? null, got.reason ?? null],
       [order.side, order.shares, order.limitPrice ?? null, order.status, order.price ?? null, order.reason ?? null]);
+    // An order 10:30 cancelled for want of lots keeps the lots it reached.
+    if (order.reason === '成交量不足') same(`order ${index} lots counted by 10:30`, got.filledLots ?? 0, order.counted);
   });
   same('number of fills', state.fills.length, expected.fills.length);
   expected.fills.forEach((fill, index) => {
@@ -547,7 +613,13 @@ async function main() {
   };
   const hotStocks = top5.map(stockOf);
   const extraStocks = [...thin, middle].map(stockOf);
-  report.stocks = { hot: top5, thin: thin.map(code => ({ code, firstTradeMs: firstTrade(code) })), middle };
+  // Cheap and busy: the three most traded stocks at 22 or less, where the cash buys the full 400 lots (量夠才成交 with
+  // orders of hundreds of lots against real volume).
+  const cheap = loaded.filter(item => verdict.get(item.symbol.code) === true && !item.symbol.disposition && item.symbol.referencePrice <= 22
+    && !top5.includes(item.symbol.code) && !thin.includes(item.symbol.code) && item.symbol.code !== middle)
+    .sort((a, b) => b.symbol.tradeValue - a.symbol.tradeValue || (a.symbol.code < b.symbol.code ? -1 : 1)).slice(0, 3).map(item => item.symbol.code);
+  const cheapStocks = cheap.map(stockOf);
+  report.stocks = { hot: top5, thin: thin.map(code => ({ code, firstTradeMs: firstTrade(code) })), middle, cheap: cheapStocks.map(stock => ({ code: stock.code, reference: stock.reference })) };
 
   const taiex = made.taiex ? await readJsonFile(join(scratch, 'taiex', date, 'points.json')) : null;
 
@@ -590,8 +662,9 @@ async function main() {
   const runs = [];
   for (const stock of hotStocks) runs.push({ stock, codes: top5, scripts: scriptsFor(cells) });
   for (const stock of extraStocks) runs.push({ stock, codes: [stock.code], scripts: scriptsFor([1, 2, 3, 8, 21, 55, 89]) });
+  for (const stock of cheapStocks) runs.push({ stock, codes: [stock.code], scripts: scriptsFor([1, 2, 3, 8, 21, 55, 89]) });
   const engineProblems = [];
-  const tally = { scenarios: 0, orders: 0, filled: 0, cancelledByLearner: 0, cancelledAtEnd: 0, quietEnd: 0, rejected: 0, firstTradeFills: 0, limitFills: 0, fillsAtLimit: 0, marketFills: 0 };
+  const tally = { scenarios: 0, orders: 0, filled: 0, cancelledByLearner: 0, cancelledAtEnd: 0, quietEnd: 0, shortOfLots: 0, rejected: 0, firstTradeFills: 0, limitFills: 0, fillsAtLimit: 0, marketFills: 0, multiTradeFills: 0, largestFill: 0, lotsCountedWhenShort: 0 };
   const sources = new Map();
   const sourceFor = async codes => {
     const key = codes.join();
@@ -627,21 +700,39 @@ async function main() {
       for (const order of expected.orders) {
         if (order.status === 'filled') {
           tally.filled += 1;
+          if (order.trades > 1) tally.multiTradeFills += 1;
+          tally.largestFill = Math.max(tally.largestFill, order.shares / LOT_SHARES);
           if (order.limitPrice === undefined) tally.marketFills += 1; else { tally.limitFills += 1; if (order.price === order.limitPrice) tally.fillsAtLimit += 1; else tally.firstTradeFills += 1; }
         } else if (order.reason === '由學員取消') tally.cancelledByLearner += 1;
         else if (order.reason === '教材結束，委託未成交') tally.cancelledAtEnd += 1;
         else if (order.reason === '之後沒有成交') tally.quietEnd += 1;
+        else if (order.reason === '成交量不足') { tally.shortOfLots += 1; tally.lotsCountedWhenShort += order.counted; }
         else tally.rejected += 1;
       }
       if (diff.length) engineProblems.push(`${run.stock.code} · ${name}: ${diff.slice(0, 3).join('; ')}`);
     }
   }
   check('matching: the engine\'s orders, fills, cash and equity are what the trades alone give', engineProblems.length === 0, { ...tally, problems: engineProblems.slice(0, 8) });
+  check('the scripted orders include fills of 400 lots, fills of several trades and 10:30 cancels for want of lots',
+    tally.largestFill === 400 && tally.multiTradeFills > 0 && tally.shortOfLots > 0, { largestFill: tally.largestFill, multiTradeFills: tally.multiTradeFills, shortOfLots: tally.shortOfLots });
   const sample = scenarios.find(item => item.expected.fills.length > 0);
   const wrong = structuredClone(sample.expected);
   wrong.fills[0].price += 0.5;
   check('negative control: a fill half a point off is noticed by the comparison',
     compareRun(wrong, { ...sample.expected, positions: [{ shares: sample.expected.shares }] }).length > 0);
+  // And an average of many trades that is off by a hundredth of a cent, and a progress-only difference in the reason.
+  const many = scenarios.find(item => item.expected.orders.some(order => order.status === 'filled' && order.trades > 1));
+  const nudged = structuredClone(many.expected);
+  nudged.fills[nudged.orders.filter(order => order.status === 'filled').findIndex(order => order.trades > 1)].price += 0.0001;
+  check('negative control: an average fill price a ten-thousandth off is noticed by the comparison',
+    compareRun(nudged, { ...many.expected, positions: [{ shares: many.expected.shares }] }).length > 0, { scenario: many.name });
+  const short = scenarios.find(item => item.expected.orders.some(order => order.reason === '成交量不足'));
+  if (short) {
+    const renamed = structuredClone(short.expected);
+    renamed.orders.find(order => order.reason === '成交量不足').reason = '教材結束，委託未成交';
+    check('negative control: 成交量不足 told as 教材結束 is noticed by the comparison',
+      compareRun(renamed, { ...short.expected, positions: [{ shares: short.expected.shares }] }).length > 0, { scenario: short.name });
+  } else check('some scripted order ends 10:30 with 成交量不足', false, 'none did');
 
   // 8. The same scripts through a built release over HTTP.
   if (args.release) await runHttp({ scratch, hotStocks, top5, taiex, scenarios });
@@ -649,12 +740,13 @@ async function main() {
   report.walk = { stateJsonBytes: sizes };
 }
 
-/** The mixed morning of each hot stock through a built release, one member per stock, in parallel (about 95 s). */
+/** The two mixed mornings of each hot stock through a built release, one member per morning, in parallel (about 95 s). */
 async function runHttp({ scratch, hotStocks, top5, taiex, scenarios }) {
   const port = Number(args.port ?? 18901);
   const classroom = await startClassroom({ entry: args.release, marketData: scratch, port, label: 'real-day-qa' });
   try {
-    const mixed = hotStocks.map(stock => scenarios.find(item => item.run.stock.code === stock.code && item.name === 'mixed morning'));
+    const mixed = ['mixed morning', 'mixed big morning'].flatMap(name =>
+      hotStocks.map(stock => scenarios.find(item => item.run.stock.code === stock.code && item.name === name)));
     const results = await Promise.all(mixed.map(async (scenario, index) => {
       const jar = await classroom.member(index);
       const post = data => classroom.request('/api/morning', { method: 'POST', jar, data });
@@ -689,7 +781,7 @@ async function runHttp({ scratch, hotStocks, top5, taiex, scenarios }) {
       problems.push(...compareSnapshot(snapshot.body.state, snapshot.body.tape, CELLS, hotStocks));
       return problems;
     }));
-    check('over HTTP on a built release: five mixed mornings, replies against the trades and the recomputed fills',
+    check('over HTTP on a built release: ten mixed mornings (one lot, and as many as the cash allows), replies against the trades and the recomputed fills',
       results.every(list => list.length === 0), { problems: results.flat().slice(0, 8), orders: mixed.map(item => item.expected.orders.length) });
   } finally {
     await classroom.stop();
