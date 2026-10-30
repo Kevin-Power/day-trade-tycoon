@@ -49,7 +49,12 @@ test("manual source explains the daily real lessons and their current limits", (
 test("manual source tells the matching rule, the real books and the default 自選", () => {
   const text = JSON.stringify(source);
   for (const term of [
-    "委託後第一筆",
+    "1–400 張",
+    "快選",
+    "量夠才成交",
+    "累計到委託張數",
+    "平均價",
+    "不做部分成交",
     "不考慮排隊",
     "對學員稍微有利",
     "真實五檔",
@@ -59,6 +64,8 @@ test("manual source tells the matching rule, the real books and the default 自�
     "從 2026/10/21 起",
   ])
     assert.ok(text.includes(term), term);
+  // The rule before 2026-10-30: one touching trade filled the whole order, 1–3 lots.
+  assert.doesNotMatch(text, /1-3 張|1–3 張|委託後第一筆|第一筆真實成交|碰到就成交|那筆成交的張數|排隊與張數/);
 });
 test("static PDF exists for the learner manual download", () => {
   assert.equal(existsSync(pdf), true);
@@ -96,14 +103,15 @@ test("both manuals describe the 自選江波圖's 放大 and ±10% scales and it
     assert.doesNotMatch(row, /虛線/, `${name}: the 昨收 line is solid since 2026-10-26`);
   }
 });
-test("both manuals give the engine's two reasons for an order cancelled at 10:30", () => {
-  // morning-engine.ts: 「之後沒有成交」 when no trade came after the order, 「教材結束，委託未成交」 when trades came
-  // but none touched it.
+test("both manuals give the engine's three reasons for an order cancelled at 10:30", () => {
+  // lessons/matching.ts endReason: 「之後沒有成交」 when no trade came after the order, 「教材結束，委託未成交」 when
+  // trades came but none touched it, 「成交量不足」 when some touched it without the lots.
   const pdfRow = JSON.stringify(source).match(/\["待成交委託","([^"]+)"\]/)?.[1] ?? "";
   const webPage = readFileSync(join(root, "src", "components", "manual-page.tsx"), "utf8");
   const webRow = webPage.match(/k="委託"\s*v="([^"]+)"/)?.[1] ?? "";
   for (const [name, row] of [["PDF", pdfRow], ["web", webRow]])
-    for (const reason of ["之後沒有成交", "教材結束，委託未成交"]) assert.ok(row.includes(`「${reason}」`), `${name}: ${reason}`);
+    for (const reason of ["之後沒有成交", "教材結束，委託未成交", "成交量不足"])
+      assert.ok(row.includes(`「${reason}」`), `${name}: ${reason}`);
 });
 test("every 手冊版本 the manual names is its own version", () => {
   const named = [...JSON.stringify(source).matchAll(/手冊版本：([0-9A-Za-z-]+)/g)].map((match) => match[1]);
