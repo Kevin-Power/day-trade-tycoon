@@ -1,6 +1,7 @@
 import { deriveSwingHighs } from "./market/swing-highs.ts";
 import { formatPrice } from "./market/ticks.ts";
 import type { MorningCatalog, MorningState } from "./morning.ts";
+import { fillPriceText } from "./morning-ledger.ts";
 
 export type MorningAlertKind = "fill" | "swing-high" | "cross-up" | "cross-down";
 export type MorningAlert = { t: number; kind: MorningAlertKind; code: string; text: string };
@@ -52,7 +53,7 @@ export function deriveMorningAlerts(catalog: MorningCatalog, state: MorningState
       t: fill.t,
       kind: "fill",
       code: fill.code,
-      text: `你的委託成交：${name} ${fill.side === "buy" ? "買進" : "賣出"} ${fill.shares / 1000} 張 @ ${formatPrice(fill.price)}`,
+      text: `你的委託成交：${name} ${fill.side === "buy" ? "買進" : "賣出"} ${fill.shares / 1000} 張 @ ${fillPriceText(fill.price)}`,
     });
   }
   // Order by when each event became visible: a fill happens at a minute's open but is revealed

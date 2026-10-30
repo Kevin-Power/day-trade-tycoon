@@ -1,4 +1,5 @@
 import type { MorningFill } from "./morning.ts";
+import { fillPriceText } from "./morning-ledger.ts";
 
 /** Optional read-aloud with the device's built-in voices. Market moves are never read out. */
 export type SpeechLike = Pick<SpeechSynthesis, "getVoices" | "cancel" | "speak">;
@@ -44,6 +45,11 @@ export function speak(
   synth.speak(utterance);
 }
 
+/**
+ * The price is the one the desk shows (fillPriceText: an average off the tick grid to two decimals, never the raw
+ * floating number), read without trailing zeros: 「20.58 元」, 「1462.5 元」, 「30 元」.
+ */
 export function fillAnnouncement(fill: Pick<MorningFill, "side" | "shares" | "price">, name: string): string {
-  return `你的委託成交：${name}，${fill.side === "buy" ? "買進" : "賣出"} ${fill.shares / 1000} 張，${fill.price} 元`;
+  const price = Number.isFinite(fill.price) ? String(Number(fillPriceText(fill.price))) : "--";
+  return `你的委託成交：${name}，${fill.side === "buy" ? "買進" : "賣出"} ${fill.shares / 1000} 張，${price} 元`;
 }

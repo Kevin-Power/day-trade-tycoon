@@ -84,6 +84,17 @@ test("the learner's fills are alerts and sort last within the same minute", () =
   });
 });
 
+test("a fill made of several trades shows its average as 成交紀錄 does: two decimals off the tick grid", () => {
+  const bars = [bar(0, 1000, 995), bar(1, 1010, 1005)];
+  const fill = (price: number) => ({ id: "f", code: "2330", side: "buy" as const, shares: 400_000, price, fee: 20, tax: 0, t: 90 });
+  const text = (price: number) => deriveMorningAlerts(catalog, state(2, bars, [fill(price)])).at(-1)?.text;
+  // 1462.5 is not on a 1,000+ stock's 5-point grid: not rounded to 1463.
+  assert.equal(text(1462.5), "你的委託成交：台積電 買進 400 張 @ 1462.50");
+  assert.equal(text(20.577125000000006), "你的委託成交：台積電 買進 400 張 @ 20.58");
+  // One trade's price is written as the grid writes it.
+  assert.equal(text(1005), "你的委託成交：台積電 買進 400 張 @ 1005");
+});
+
 test("an empty or not-yet-started session has no alerts", () => {
   assert.deepEqual(deriveMorningAlerts(catalog, state(0, [])), []);
 });

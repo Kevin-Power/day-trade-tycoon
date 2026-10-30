@@ -7,6 +7,18 @@ test("a fill is read with name, side, lots and plain price", () => {
   assert.equal(fillAnnouncement({ side: "sell", shares: 2000, price: 98.5 }, "鴻海"), "你的委託成交：鴻海，賣出 2 張，98.5 元");
 });
 
+test("a fill made of several trades is read at its average to two decimals, never the raw number", () => {
+  assert.equal(
+    fillAnnouncement({ side: "buy", shares: 400_000, price: 20.577125000000006 }, "東元"),
+    "你的委託成交：東元，買進 400 張，20.58 元",
+  );
+  assert.equal(fillAnnouncement({ side: "buy", shares: 4000, price: 302 / 3 }, "鴻海"), "你的委託成交：鴻海，買進 4 張，100.67 元");
+  // An average off a 1,000+ stock's grid keeps its half, and is not read as 1463.
+  assert.equal(fillAnnouncement({ side: "sell", shares: 2000, price: 1462.5 }, "台積電"), "你的委託成交：台積電，賣出 2 張，1462.5 元");
+  // Trailing zeros are not read out: 30 is 「30 元」, not 「30.00 元」.
+  assert.equal(fillAnnouncement({ side: "buy", shares: 1000, price: 30 }, "長榮航"), "你的委託成交：長榮航，買進 1 張，30 元");
+});
+
 test("Taiwan Mandarin is preferred, any Chinese voice is accepted, none means unsupported", () => {
   assert.equal(pickChineseVoice([{ lang: "en-US" }, { lang: "zh-CN" }, { lang: "zh-TW" }])?.lang, "zh-TW");
   assert.equal(pickChineseVoice([{ lang: "zh_TW" }, { lang: "zh-CN" }])?.lang, "zh_TW");
