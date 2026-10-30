@@ -24,6 +24,10 @@ from typing import Callable, Iterator
 SCHEMA = 1
 KEY_EVERY = 60_000
 LEVELS = 5
+# Book sizes are lots (張), confirmed on 2026-10-28..30: when a trade takes part of the best ask, that level drops
+# by exactly the trade's lots (92-95% of cases, never by lots x 1000), and 0.005% of best-level sizes are
+# multiples of 1000 (shares would make that nearly all).
+SIZE_UNIT = "lot"
 FLAG_TRIAL, FLAG_REST, FLAG_FULL, FLAG_CONTINUOUS = 1, 2, 4, 8
 RAW_NAME = re.compile(r"^(conn\d+)-(\d{2})-(\d+)\.jsonl\.gz$")
 EXAMPLES = 20
@@ -104,7 +108,7 @@ class _Stock:
     """One stock's rows: encoded as they arrive, compressed on the fly, hashed for the round-trip check."""
 
     def __init__(self, code: str, day: str):
-        header = json.dumps({"schema": SCHEMA, "code": code, "date": day, "sizeUnit": "unverified",
+        header = json.dumps({"schema": SCHEMA, "code": code, "date": day, "sizeUnit": SIZE_UNIT,
                              "keyEvery": KEY_EVERY}, ensure_ascii=False, separators=(",", ":"))
         self.compressor = zlib.compressobj(9, zlib.DEFLATED, 16 + zlib.MAX_WBITS)  # a gzip stream
         self.chunks = [self.compressor.compress((header[:-1] + ',"rows":[').encode("utf-8"))]

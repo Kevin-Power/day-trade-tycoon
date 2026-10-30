@@ -58,7 +58,7 @@ class PublishTest(unittest.TestCase):
             self.assertEqual(entry["bytes"], len(blob))
             self.assertEqual(entry["messages"], 10)
             self.assertEqual(len(decode(blob)), 10)
-        self.assertEqual((manifest["sizeUnit"], manifest["source"]), ("unverified", "fubon-neo websocket books (Speed)"))
+        self.assertEqual((manifest["sizeUnit"], manifest["source"]), ("lot", "fubon-neo websocket books (Speed)"))
         self.assertEqual(manifest["counts"], {"symbols": 2, "messages": 20})
         self.assertEqual(summary["messages"], 20)
         self.assertFalse((self.root / "staging-books" / DAY).exists())
