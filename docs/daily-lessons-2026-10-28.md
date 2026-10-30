@@ -316,6 +316,14 @@ run4 各腳本秒數：A：discipline 44、guest 40、daily 16、guest-resilienc
 - 第一次跑 run4 時，`desk-lots` 在 820×900、375×812、320×700 打不開交易台（畫面是「暫時無法開始練習」）。第二次記到原因：教室的 `/api/auth/get-session` 回 429（每個位址每分鐘 100 次；所有 QA 流量同一個位址，前一步 `desk-sharpness` 剛載入很多頁）。`desk-lots` 現在遇到時記下來、等 65 秒再開（最多兩次）；第二次完整 run4 在 820×900 等了一次，其餘照常。第一次的紀錄在 `artifacts/daily-lessons-qa/run4-attempt1/`。同一個出口的一整班如果一分鐘內載入很多頁，也可能碰到這個限制（既有設定，這次沒改）。
 - 新增的文案還沒經使用者看過（清單在 `artifacts/daily-lessons-qa/lots-report.md`）。
 - 舊 10/05、10/06 課的撮合（下一分鐘開盤價、整筆）沒改；那些課已停用，不能前進或下單。
-- `desk-lots` 只在 Chromium 跑；WebKit 只跑了 phone-fields 與 controls（新的數字框在手機上是 18px，大字 22px，phone-fields 的 16px 檢查通過）。真實 iPhone 沒測。
+- run4 的 `desk-lots` 只在 Chromium 跑；WebKit 只跑了 phone-fields 與 controls（新的數字框在手機上是 18px，大字 22px，phone-fields 的 16px 檢查通過）。複審修正後 `desk-lots` 也在 WebKit 全過（見下）。真實 iPhone、Mac 上的 Safari 沒測。
+
+**複審修正（第 1 輪）**
+
+- 快訊與朗讀的成交價改用 `fillPriceText`，和成交紀錄、委託回報一致。修正前，1462.5 的平均價在快訊顯示「@ 1463」，朗讀會念出「20.577125000000006 元」；現在快訊是「@ 1462.50」，朗讀是「1462.5 元」，不念尾端的 0。
+- 快選格子在 Safari 點不到的問題。Safari 按下按鈕時不會把焦點給它，原本有焦點的格子失焦時沒有新的焦點對象，格子群就關掉了，點擊落空。改成只有焦點移到格子外的元素才關閉；點外面的情況，本來就由 pointerdown 處理。
+  - 修正前，用 WebKit 跑 `desk-lots` 會失敗（「picking 400 left 1」）；Chromium 用模擬的 Safari 按法也會失敗。修正後兩種引擎都全過。
+  - `desk-lots` 現在可以指定 `chromium`／`webkit`，也會檢查快訊和螢幕閱讀器的成交價。
+- 設計文件的反目標改寫：送出時就碰到的限價用平均價，可以比限價好，這是決策 7；反目標只針對「比限價差」，以及「掛單之後才碰到卻用比限價好的價格」。
 
 **紀錄**（git 忽略）：`artifacts/daily-lessons-qa/lots/`（紅綠測試、建置、`npm test`、真實日、整合測試的日誌）、`artifacts/daily-lessons-qa/run4/`（QA 鏈）、截圖 `artifacts/trading-desk-qa/run4-*/`，完整報告 `artifacts/daily-lessons-qa/lots-report.md`。
