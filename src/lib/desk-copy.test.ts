@@ -57,10 +57,31 @@ test("the trade list is Fubon's real trades, and the quote says it is a replay o
   assert.ok(!hero.includes("真實歷史 分鐘收價") && !hero.includes("真實歷史 1 分 K"), "the source label names Fubon, not the chart");
 });
 
-test("the matching text is the real rule: the first real trade after the order, a limit on touch, no queue", () => {
+test("the matching text is the real rule: 量夠才成交 — touching trades counted to the lots, an average, no queue", () => {
   const trading = source("src/components/morning-trading.tsx");
-  for (const phrase of ["委託後第一筆", "碰到", "不考慮排隊", "對學員稍微有利"])
+  for (const phrase of [
+    "每筆 1–400",
+    "量夠才成交",
+    "累計到委託張數",
+    "平均價",
+    "不做部分成交",
+    "成交量不足",
+    "不考慮排隊",
+    "對學員稍微有利",
+  ])
     assert.ok(trading.includes(phrase), phrase);
+  // The rule before 2026-10-30 (one touching trade filled the whole order, 1–3 lots) is told nowhere any more.
+  for (const path of [
+    ...DESK,
+    "src/components/manual-page.tsx",
+    "src/components/license-page.tsx",
+    "src/lib/license.ts",
+    "src/lib/morning-orders.ts",
+  ]) {
+    const text = source(path);
+    for (const old of ["1–3 張", "每筆 1–3", "委託後第一筆", "第一筆真實成交", "碰到就成交", "排隊與張數", "那筆成交的張數"])
+      assert.ok(!text.includes(old), `${path} still says ${old}`);
+  }
   // The old rule, a fill at the next minute's open, is not told anywhere on the desk.
   for (const path of DESK) {
     const text = source(path);
@@ -88,8 +109,24 @@ test("a fill's time is shown to the second from the real trade", () => {
 test("the manual, licence and lobby say what the lessons are now", () => {
   const manual = source("src/components/manual-page.tsx");
   assert.match(manual, /MANUAL_VERSION = "2026-10-28-lessons1"/);
-  for (const phrase of ["富邦逐筆", "證交所", "熱門當沖", "1 到 80 檔", "真實五檔", "買一賣一", "不考慮排隊"])
+  for (const phrase of [
+    "富邦逐筆",
+    "證交所",
+    "熱門當沖",
+    "1 到 80 檔",
+    "真實五檔",
+    "買一賣一",
+    "不考慮排隊",
+    "1–400 張",
+    "快選",
+    "量夠才成交",
+    "平均價",
+    "成交量不足",
+  ])
     assert.ok(manual.includes(phrase), `manual: ${phrase}`);
+  for (const path of ["src/components/morning-plan-form.tsx", "src/components/license-page.tsx"])
+    assert.ok(source(path).includes("量夠才成交"), `${path} tells 量夠才成交`);
+  assert.ok(source("src/components/morning-plan-form.tsx").includes("每筆 1–400 張"));
   for (const path of [
     "src/components/manual-page.tsx",
     "src/components/license-page.tsx",

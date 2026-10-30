@@ -10,6 +10,7 @@ import {
   type MorningBookLevel,
 } from "@/lib/morning-book";
 import { formatPrice } from "@/lib/market/ticks";
+import { LotPicker } from "@/components/lot-picker";
 
 type Tone = "up" | "down" | "flat";
 
@@ -215,18 +216,8 @@ export function MorningOrderBook({
             </button>
           </div>
           <div className="td-lots" role="group" aria-label="五檔下單張數">
-            <span>每筆張數</span>
-            {[1, 2, 3].map((value) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={lots === value}
-                disabled={disabled}
-                onClick={() => onLots?.(value)}
-              >
-                {value} 張
-              </button>
-            ))}
+            <label htmlFor="td-lots-value">每筆張數</label>
+            <LotPicker id="td-lots-value" name="每筆張數" value={lots} disabled={disabled} onChange={(value) => onLots?.(value)} />
           </div>
           <p className="td-book-hint" role="status">
             {flash

@@ -1944,25 +1944,241 @@
 }
 .trading-desk .td-lots {
   display: grid;
-  grid-template-columns: auto repeat(3, minmax(0, 1fr));
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 0 10px 8px;
   color: var(--td-muted);
   font-size: 12px;
 }
-.trading-desk .td-lots button {
-  min-height: 30px;
+
+/* 張數 field of the ticket and the lightning book (lot design 2026-10-30): number box, 張, 快選 and its grid. */
+.trading-desk .td-lotpick {
+  min-width: 0;
+}
+.trading-desk .td-lotpick-field {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto 34px auto;
+  align-items: stretch;
+  min-height: 38px;
+  background: var(--td-bg);
+  border: 1px solid var(--td-line-strong);
+  border-radius: 4px;
+}
+.trading-desk .td-lotpick-field:focus-within {
+  border-color: var(--td-accent);
+}
+.trading-desk .td-lotpick-field input {
+  min-width: 0;
+  padding: 0 4px;
+  color: var(--td-fg);
+  text-align: right;
+  background: transparent;
+  border: 0;
+  font: 600 18px/1 var(--font-mono);
+}
+.trading-desk .td-lotpick-step {
+  display: grid;
+  place-items: center;
   color: var(--td-fg);
   background: var(--td-raised);
+  border: 0;
+  border-radius: 3px 0 0 3px;
+}
+.trading-desk .td-lotpick-step + input,
+.trading-desk .td-lotpick-unit + .td-lotpick-step {
+  border-radius: 0;
+}
+.trading-desk .td-lotpick-unit + .td-lotpick-step {
+  border-left: 1px solid var(--td-line-strong);
+}
+.trading-desk .td-lotpick-step:first-child {
+  border-right: 1px solid var(--td-line-strong);
+}
+.trading-desk .td-lotpick-step svg {
+  width: 15px;
+  height: 15px;
+}
+.trading-desk .td-lotpick-unit {
+  align-self: center;
+  padding-right: 8px;
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk .td-lotpick-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 56px;
+  padding: 0 8px;
+  color: var(--td-fg);
+  background: var(--td-raised);
+  border: 0;
+  border-left: 1px solid var(--td-line-strong);
+  border-radius: 0 3px 3px 0;
+  font-size: 13px;
+}
+.trading-desk .td-lotpick-toggle[aria-expanded="true"] {
+  color: var(--td-select-fg);
+  background: var(--td-select-bg);
+}
+.trading-desk .td-lotpick-toggle svg {
+  width: 15px;
+  height: 15px;
+}
+.trading-desk :is(.td-lotpick-toggle, .td-lotpick-step, .td-lotpick-field input):disabled {
+  opacity: 0.5;
+}
+/* Desktops: the ticket's field has half the ticket, so 400 needs the room: the unit is in the field's label
+   (委託張數, 每筆張數), the steps and 快選 are narrower. */
+.trading-desk[data-layout="desktop"] .td-lotpick-field {
+  grid-template-columns: 28px minmax(0, 1fr) 28px auto;
+}
+.trading-desk[data-layout="desktop"] .td-lotpick-unit {
+  display: none;
+}
+.trading-desk[data-layout="desktop"] .td-lotpick-toggle {
+  min-width: 0;
+  padding: 0 6px;
+}
+/* On a desk the grid drops under the field (placed by the component, inside the window). */
+.trading-desk .td-lotpick-grid {
+  position: fixed;
+  z-index: 70;
+  display: grid;
+  gap: 4px;
+  width: max-content;
+  padding: 8px;
+  background: var(--td-raised);
+  border: 1px solid var(--td-line-strong);
+  border-radius: 6px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.5);
+}
+.trading-desk .td-lotpick-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px 2px;
+  color: var(--td-fg);
+  font-size: 13px;
+}
+.trading-desk .td-lotpick-head small {
+  color: var(--td-muted);
+  font-size: 11px;
+}
+.trading-desk .td-lotpick-row {
+  display: grid;
+  grid-template-columns: repeat(7, 38px);
+  gap: 4px;
+}
+.trading-desk :is(.td-lotpick-row button, .td-lotpick-close) {
+  min-height: 30px;
+  color: var(--td-fg);
+  background: var(--td-panel);
   border: 1px solid var(--td-line-strong);
   border-radius: 3px;
-  font-family: var(--font-mono);
+  font: 600 13px/1 var(--font-mono);
 }
-.trading-desk .td-lots button[aria-pressed="true"] {
+.trading-desk .td-lotpick-row button[aria-pressed="true"] {
   color: var(--td-select-fg);
   background: var(--td-select-bg);
   border-color: var(--td-select-line);
+}
+.trading-desk .td-lotpick-row button:disabled {
+  opacity: 0.35;
+}
+.trading-desk .td-lotpick-close {
+  margin-top: 2px;
+  color: var(--td-muted);
+  font-family: var(--font-sans);
+}
+@media (hover: hover) {
+  .trading-desk :is(.td-lotpick-row button:not(:disabled), .td-lotpick-close):hover {
+    border-color: var(--td-accent);
+  }
+}
+/* Phones and large text: the grid rises from the bottom of the screen, as wide as it (at most 480px). Seven picks a
+   row at least 44px wide on a 320px phone: the gap gives way first, down to 1px. Large text: four a row, 56px. */
+.trading-desk .td-lotpick-grid[data-sheet="true"] {
+  inset: auto 0 0;
+  width: auto;
+  max-width: 480px;
+  max-height: calc(100vh - 16px);
+  margin-inline: auto;
+  overflow-y: auto;
+  padding: 10px 3px calc(10px + env(safe-area-inset-bottom));
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+}
+@supports (height: 1dvh) {
+  .trading-desk .td-lotpick-grid[data-sheet="true"] {
+    max-height: calc(100dvh - 16px);
+  }
+}
+.trading-desk .td-lotpick-grid[data-sheet="true"] .td-lotpick-head {
+  padding-inline: 8px;
+}
+.trading-desk .td-lotpick-grid[data-sheet="true"] .td-lotpick-row {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  column-gap: clamp(1px, calc((100% - 308px) / 6), 6px);
+}
+.trading-desk .td-lotpick-grid[data-sheet="true"] :is(.td-lotpick-row button, .td-lotpick-close) {
+  min-height: 44px;
+  font-size: 16px;
+}
+/* 大字 wraps each of XQ's rows in two lines; a wider gap between the rows keeps the four groups apart. */
+.trading-desk[data-layout="senior"] .td-lotpick-grid[data-sheet="true"] {
+  gap: 14px;
+  padding-inline: 8px;
+}
+.trading-desk[data-layout="senior"] .td-lotpick-grid[data-sheet="true"] .td-lotpick-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.trading-desk[data-layout="senior"] .td-lotpick-grid[data-sheet="true"] :is(.td-lotpick-row button, .td-lotpick-close) {
+  min-height: 56px;
+  font-size: 20px;
+}
+.trading-desk[data-layout="senior"] .td-lotpick-head {
+  font-size: 16px;
+}
+.trading-desk[data-layout="senior"] .td-lotpick-head small {
+  font-size: 14px;
+}
+/* Tablet: the grid stays under the field, with touch-sized picks. */
+.trading-desk[data-layout="tablet"] .td-lotpick-row {
+  grid-template-columns: repeat(7, 44px);
+}
+.trading-desk[data-layout="tablet"] :is(.td-lotpick-row button, .td-lotpick-close) {
+  min-height: 44px;
+  font-size: 15px;
+}
+
+/* A waiting order's lots so far (量夠才成交): 「已累計 120／400 張」 and a thin bar. */
+.trading-desk .sim-progress {
+  display: grid;
+  gap: 4px;
+  color: var(--td-fg);
+  font: 600 13px/1.3 var(--font-mono);
+}
+.trading-desk .sim-progress i {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  background: var(--td-line-strong);
+  border-radius: 2px;
+}
+.trading-desk .sim-progress b {
+  display: block;
+  height: 100%;
+  background: var(--td-prev);
+}
+.trading-desk .sim-record-progress {
+  display: block;
+  color: var(--td-prev);
+  font-size: 11px;
 }
 .trading-desk .td-book-hint {
   margin: 0;
@@ -2119,7 +2335,7 @@
   color: var(--td-muted);
   font-size: 12px;
 }
-.trading-desk :is(.morning-limit-field > div, .sim-stepper) {
+.trading-desk .morning-limit-field > div {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) 38px;
   min-height: 38px;
@@ -2128,7 +2344,7 @@
   border: 1px solid var(--td-line-strong);
   border-radius: 4px;
 }
-.trading-desk :is(.morning-limit-field button, .sim-stepper button) {
+.trading-desk .morning-limit-field button {
   display: grid;
   place-items: center;
   color: var(--td-fg);
@@ -2136,13 +2352,9 @@
   border: 0;
   font-size: 16px;
 }
-.trading-desk :is(.morning-limit-field button, .sim-stepper button):disabled {
+.trading-desk .morning-limit-field button:disabled {
   color: var(--td-muted);
   opacity: 0.5;
-}
-.trading-desk .sim-stepper svg {
-  width: 15px;
-  height: 15px;
 }
 .trading-desk .morning-limit-field input {
   min-width: 0;
@@ -2164,17 +2376,6 @@
   justify-content: space-between;
   color: var(--td-muted);
   font-size: 12px;
-}
-.trading-desk .sim-stepper output {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 4px;
-  font: 600 18px/38px var(--font-mono);
-}
-.trading-desk .sim-stepper output span {
-  color: var(--td-muted);
-  font: 400 12px/1 var(--font-sans);
 }
 .trading-desk .sim-order-facts {
   display: grid;
@@ -2553,10 +2754,13 @@
   inset: 0;
   width: 100vw;
 }
-.trading-desk[data-layout="phone"] :is(.td-book-cell, .td-lots button, .morning-order-type button, .sim-side-switch button) {
+.trading-desk[data-layout="phone"] :is(.td-book-cell, .td-lotpick-field, .morning-order-type button, .sim-side-switch button) {
   min-height: 44px;
 }
-.trading-desk[data-layout="phone"] :is(.sim-stepper, .morning-limit-field > div) {
+.trading-desk:is([data-layout="phone"], [data-layout="tablet"]) .td-lotpick-field {
+  grid-template-columns: 44px minmax(0, 1fr) auto 44px auto;
+}
+.trading-desk[data-layout="phone"] .morning-limit-field > div {
   grid-template-columns: 44px minmax(0, 1fr) 44px;
   min-height: 44px;
 }
@@ -2667,11 +2871,28 @@
 .trading-desk[data-layout="senior"] .td-book-cols {
   font-size: 14px;
 }
-.trading-desk[data-layout="senior"] :is(.sim-submit, .sim-side-switch button, .td-lots button, .morning-order-type button) {
+.trading-desk[data-layout="senior"] :is(.sim-submit, .sim-side-switch button, .td-lotpick-toggle, .morning-order-type button) {
   min-height: 56px;
   font-size: 18px;
 }
-.trading-desk[data-layout="senior"] :is(.sim-stepper, .morning-limit-field > div) {
+.trading-desk[data-layout="senior"] .td-lotpick-field {
+  min-height: 56px;
+}
+.trading-desk[data-layout="senior"] .td-lotpick-field input {
+  font-size: 22px;
+}
+.trading-desk[data-layout="senior"] .td-lotpick-toggle {
+  min-width: 72px;
+}
+.trading-desk[data-layout="senior"] .td-lotpick-field {
+  grid-template-columns: 56px minmax(0, 1fr) auto 56px auto;
+}
+/* 大字: 每筆張數 sits above its field, so the number box keeps room for 400 on a 320px phone. */
+.trading-desk[data-layout="senior"] .td-lots {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+.trading-desk[data-layout="senior"] .morning-limit-field > div {
   grid-template-columns: 56px minmax(0, 1fr) 56px;
   min-height: 56px;
 }
@@ -2773,7 +2994,7 @@
     .td-segment button,
     .td-stock-tabs-nav button,
     .sim-ticket-header select,
-    .td-lots button,
+    .td-lotpick-field,
     .morning-order-type button,
     .sim-side-switch button,
     .td-switch
@@ -2790,13 +3011,13 @@
 .trading-desk[data-layout="tablet"] .td-book-cell {
   min-height: 44px;
 }
-.trading-desk[data-layout="tablet"] :is(.sim-stepper, .morning-limit-field > div) {
+.trading-desk[data-layout="tablet"] .morning-limit-field > div {
   grid-template-columns: 44px minmax(0, 1fr) 44px;
   min-height: 44px;
 }
 .trading-desk[data-layout="tablet"]
   :is(
-    .sim-stepper button,
+    .td-lotpick-toggle,
     .morning-limit-field button,
     .sim-ledger-header nav button,
     .sim-order-help summary,
@@ -2896,8 +3117,8 @@
   .trading-desk[data-layout="desktop"] .td-lots {
     padding-bottom: 4px;
   }
-  .trading-desk[data-layout="desktop"] .td-lots button {
-    min-height: 26px;
+  .trading-desk[data-layout="desktop"] .td-lots .td-lotpick-field {
+    min-height: 28px;
   }
   .trading-desk[data-layout="desktop"] .td-book-hint {
     display: none;
@@ -2918,11 +3139,8 @@
   .trading-desk[data-layout="desktop"] .sim-side-switch button {
     min-height: 32px;
   }
-  .trading-desk[data-layout="desktop"] :is(.sim-stepper, .morning-limit-field > div) {
+  .trading-desk[data-layout="desktop"] :is(.td-lotpick-field, .morning-limit-field > div) {
     min-height: 32px;
-  }
-  .trading-desk[data-layout="desktop"] .sim-stepper output {
-    line-height: 32px;
   }
   .trading-desk[data-layout="desktop"] .sim-submit {
     min-height: 40px;
@@ -2936,7 +3154,7 @@
   z-index: 2;
   box-shadow: 0 0 0 8px var(--td-panel);
 }
-.trading-desk[data-layout="phone"] :is(.sim-stepper button, .morning-limit-field button) {
+.trading-desk[data-layout="phone"] :is(.td-lotpick-toggle, .morning-limit-field button) {
   min-height: 44px;
 }
 
@@ -4232,7 +4450,7 @@
   grid-column: 1 / -1;
   font-size: 12px;
 }
-.trading-desk[data-layout="desktop"] .sim-order-fields > :is(.sim-quantity-heading, .sim-stepper) {
+.trading-desk[data-layout="desktop"] .sim-order-fields > :is(.sim-quantity-heading, .td-lotpick) {
   grid-column: 2;
 }
 .trading-desk[data-layout="desktop"] .sim-order-fields:not(:has(.morning-limit-field)) > .sim-execution {

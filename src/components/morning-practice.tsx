@@ -1795,7 +1795,7 @@ function ExerciseGuide({ exercise, compact }: { exercise: MorningExercise; compa
  */
 const DATA_NOTES = [
   "五檔：有錄到的日子顯示真實五檔，其他日子只有買一賣一，不補出沒有的掛單。",
-  "紙上委託：市價用委託後的第一筆真實成交；限價碰到就成交，不考慮排隊與張數，對學員稍微有利。不連接券商。",
+  "紙上委託：量夠才成交，委託後碰到價格的真實成交累計到委託張數才一次成交，市價用平均價；不考慮排隊，對學員稍微有利。不連接券商。",
 ] as const;
 
 function Background({

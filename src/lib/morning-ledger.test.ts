@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fillClock, ledgerSummary } from "./morning-ledger.ts";
+import { fillClock, fillPriceText, ledgerSummary, lotProgress } from "./morning-ledger.ts";
 
 test("ledgerSummary counts holdings, orders, pending orders and fills", () => {
   const order = (status: "pending" | "filled" | "cancelled" | "rejected") => ({
@@ -32,4 +32,22 @@ test("a fill shows the second of its real trade; a run made before the trades we
   // An ms that is not a time is not used.
   assert.equal(fillClock({ t: 180, ms: Number.NaN }), "09:03");
   assert.equal(fillClock({ t: 180, ms: -1 }), "09:03");
+});
+
+test("a fill's price: one trade's price as the tick grid writes it, an average off the grid to two decimals", () => {
+  assert.equal(fillPriceText(1465), "1465");
+  assert.equal(fillPriceText(99.5), "99.5");
+  assert.equal(fillPriceText(23.45), "23.45");
+  assert.equal(fillPriceText(1040.5 / 10), "104.05");
+  assert.equal(fillPriceText(302 / 3), "100.67");
+  // An average a 1,000+ stock's grid would round to a whole tick keeps its decimals.
+  assert.equal(fillPriceText(1462.5), "1462.50");
+  assert.equal(fillPriceText(Number.NaN), "--");
+});
+
+test("a waiting order's progress: the lots counted of the lots ordered", () => {
+  const order = { shares: 400_000 };
+  assert.equal(lotProgress({ ...order, filledLots: 120 }), "已累計 120／400 張");
+  assert.equal(lotProgress(order), "已累計 0／400 張");
+  assert.equal(lotProgress({ shares: 1000 }), "已累計 0／1 張");
 });

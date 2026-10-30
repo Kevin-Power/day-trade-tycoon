@@ -3,6 +3,7 @@
 // this visit. Reports come from the run's own records; nothing here changes an order.
 import type { MorningState } from "./morning.ts";
 import { formatPrice } from "./market/ticks.ts";
+import { fillPriceText } from "./morning-ledger.ts";
 import { formatTime } from "./utils.ts";
 
 /** A buy is large from this share of the available cash: it needs an explicit confirmation. */
@@ -146,7 +147,7 @@ export function orderReports(
         time: clock(order.submittedCursor * 60),
         tone: "sent",
         text: `委託成功 · ${order.entryMode === "lightning" ? "閃電 · " : ""}${subject} ${how(order.limitPrice)}${
-          order.limitPrice === undefined ? "（以之後第一筆成交撮合）" : ""
+          order.limitPrice === undefined ? "（量夠才成交，用平均價）" : ""
         }`,
       },
     });
@@ -159,7 +160,7 @@ export function orderReports(
           key: `${order.id}:filled`,
           time: clock(t),
           tone: "filled",
-          text: `成交 · ${subject} @ ${formatPrice(fill?.price ?? order.price ?? 0)}`,
+          text: `成交 · ${subject} @ ${fillPriceText(fill?.price ?? order.price ?? 0)}`,
         },
       });
     } else if (order.status === "cancelled" || order.status === "rejected") {

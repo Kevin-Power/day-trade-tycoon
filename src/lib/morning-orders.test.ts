@@ -69,7 +69,7 @@ test("reports read newest first: a failed send, the cancel, its send, the fill a
       { tone: "closed", time: null, text: "已撤回 · 賣出 台積電 1 張 限價 2595 · 由學員取消" },
       { tone: "sent", time: "09:36", text: "委託成功 · 賣出 台積電 1 張 限價 2595" },
       { tone: "filled", time: "09:20", text: "成交 · 買進 台積電 1 張 @ 2575" },
-      { tone: "sent", time: "09:20", text: "委託成功 · 買進 台積電 1 張 市價（以之後第一筆成交撮合）" },
+      { tone: "sent", time: "09:20", text: "委託成功 · 買進 台積電 1 張 市價（量夠才成交，用平均價）" },
     ],
   );
 });
@@ -102,7 +102,7 @@ test("an order the next open turned down reads 未成交 with its reason", () =>
     { tone: latest.tone, time: latest.time, text: latest.text },
     { tone: "closed", time: null, text: "未成交 · 買進 鴻海 2 張 市價 · 下一分鐘開盤價變動後，模擬資金不足，未成交" },
   );
-  assert.equal(sent.text, "委託成功 · 買進 鴻海 2 張 市價（以之後第一筆成交撮合）");
+  assert.equal(sent.text, "委託成功 · 買進 鴻海 2 張 市價（量夠才成交，用平均價）");
 });
 
 test("a lightning order says so", () => {
@@ -247,7 +247,7 @@ test("a 回覆不明 send the classroom turns out to have drops out of 委託回
     reports.slice(0, 2).map(({ tone, text }) => ({ tone, text })),
     [
       { tone: "unknown", text: "回覆不明 · 買進 台積電 1 張 · 暫時連不上教室，請重試同一筆操作或重新載入進度。" },
-      { tone: "sent", text: "委託成功 · 買進 台積電 1 張 市價（以之後第一筆成交撮合）" },
+      { tone: "sent", text: "委託成功 · 買進 台積電 1 張 市價（量夠才成交，用平均價）" },
     ],
   );
   assert.equal(reports.filter((report) => report.text.includes("超過 20 秒")).length, 0);
@@ -258,4 +258,32 @@ test("a 送出失敗 whose order the classroom shows drops out too (e.g. a gatew
     { ...FAILURE, id: "f-3", requestId: "C", message: "這次操作尚未完成，請重試或重新載入進度。" },
   ]);
   assert.equal(reports.filter((report) => report.key.startsWith("failed:")).length, 0);
+});
+
+test("an order filled from several trades reports their average; one still waiting at 10:30 for lots says why", () => {
+  const large = run({
+    orders: [
+      { id: "E", code: "2330", side: "buy", shares: 400_000, status: "filled", submittedCursor: 3, price: 1462.5 },
+      {
+        id: "F",
+        code: "2317",
+        side: "buy",
+        shares: 200_000,
+        status: "cancelled",
+        submittedCursor: 40,
+        limitPrice: 226,
+        reason: "成交量不足",
+      },
+    ],
+    fills: [{ id: "E", code: "2330", side: "buy", shares: 400_000, price: 1462.5, fee: 0, tax: 0, t: 250 }],
+  });
+  assert.deepEqual(
+    orderReports(large, NAMES, []).map(({ text }) => text),
+    [
+      "未成交 · 買進 鴻海 200 張 限價 226.0 · 成交量不足",
+      "委託成功 · 買進 鴻海 200 張 限價 226.0",
+      "成交 · 買進 台積電 400 張 @ 1462.50",
+      "委託成功 · 買進 台積電 400 張 市價（量夠才成交，用平均價）",
+    ],
+  );
 });

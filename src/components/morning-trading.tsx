@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
-import { ArrowDownLeft, ArrowUpRight, Check, Clock3, Minus, Plus, Wallet } from "@/lib/icons";
+import { ArrowDownLeft, ArrowUpRight, Check, Clock3, Wallet } from "@/lib/icons";
 import type { MorningBookCell, MorningCatalog, MorningState } from "@/lib/morning";
-import { fillClock, ledgerSummary } from "@/lib/morning-ledger";
+import { fillClock, fillPriceText, ledgerSummary, lotProgress } from "@/lib/morning-ledger";
 import { referencePrice, serverSession, shownBook, type LiveMorningState } from "@/lib/morning-live";
 import { formatMoney, formatTime } from "@/lib/utils";
 import { estimateRoundTripCost, formatPrice, stepTick } from "@/lib/market/ticks";
 import { validMorningLimit } from "@/lib/morning-book";
 import { positionMark } from "@/lib/morning-quote";
+import { LotPicker } from "@/components/lot-picker";
 import { MorningOrderBook } from "@/components/morning-order-book";
 import { OrderReports } from "@/components/order-reports";
 import { MinuteTable, QuoteDetailGrid, StockTabs } from "@/components/stock-detail";
@@ -99,10 +100,11 @@ export function PendingOrder({
           : ` · 限價 ${formatPrice(pending.limitPrice)}`}
         {pending.entryMode === "lightning" && " · 閃電"}
       </p>
+      <LotProgress order={pending} />
       <small>
         {pending.limitPrice === undefined
-          ? "以委託後的第一筆真實成交處理，成交時重新檢核資金／庫存。"
-          : "委託後只要有成交碰到限價就成交，不考慮排隊與張數；沒碰到繼續留單，可隨時撤回。"}
+          ? "委託後的真實成交累計到委託張數，才以平均價一次成交；成交時重新檢核資金／庫存。"
+          : "只算碰到限價的成交，累計到委託張數才一次成交；量不夠繼續留單，可隨時撤回。"}
       </small>
       <div className="sim-pending-actions">
         <button type="button" disabled={busy || !canAdvance} onClick={() => void onAdvance()}>
@@ -112,6 +114,20 @@ export function PendingOrder({
           撤回委託
         </button>
       </div>
+    </div>
+  );
+}
+
+/** How many lots of a waiting order the real trades have reached so far (量夠才成交), as a line and a bar. */
+function LotProgress({ order }: { order: MorningState["orders"][number] }) {
+  const lots = order.shares / 1000;
+  const counted = Math.min(order.filledLots ?? 0, lots);
+  return (
+    <div className="sim-progress">
+      <span>{lotProgress(order)}</span>
+      <i aria-hidden="true">
+        <b style={{ width: `${(counted / lots) * 100}%` }} />
+      </i>
     </div>
   );
 }
@@ -545,8 +561,8 @@ export function PaperOrder({
               )}
               <p className="sim-help">
                 {review.limitPrice === undefined
-                  ? "參考金額依目前最新的成交價計算，實際以委託後的第一筆真實成交撮合。"
-                  : "委託後只要有成交碰到限價就成交：買進不高於限價、賣出不低於限價，沒碰到繼續留單。"}
+                  ? "參考金額依目前最新的成交價計算；實際要等委託後的真實成交累計到委託張數，才以平均價一次成交。"
+                  : "只算碰到限價的成交：買進不高於限價、賣出不低於限價，累計到委託張數才一次成交，量不夠繼續留單。"}
                 送出當下尚未成交。
               </p>
               {staleReview && (
@@ -644,9 +660,7 @@ export function PaperOrder({
                       限價
                     </button>
                   </div>
-                  <strong>
-                    {orderType === "market" ? "委託後第一筆成交撮合" : "碰到限價就成交"}
-                  </strong>
+                  <strong>{orderType === "market" ? "量夠才成交 · 平均價" : "碰到限價、量夠才成交"}</strong>
                 </div>
                 {orderType === "limit" && (
                   <div className="morning-limit-field">
@@ -691,28 +705,13 @@ export function PaperOrder({
                   <label htmlFor="sim-lots-value">委託張數</label>
                   <span>1 張 = 1,000 股</span>
                 </div>
-                <div className="sim-stepper">
-                  <button
-                    type="button"
-                    aria-label="減少一張"
-                    disabled={lots <= 1}
-                    onClick={() => changeLots(lots - 1)}
-                  >
-                    <Minus aria-hidden />
-                  </button>
-                  <output id="sim-lots-value" aria-live="polite">
-                    {lots}
-                    <span>張</span>
-                  </output>
-                  <button
-                    type="button"
-                    aria-label="增加一張"
-                    disabled={lots >= 3 || (side === "sell" && lots >= holdingLots)}
-                    onClick={() => changeLots(lots + 1)}
-                  >
-                    <Plus aria-hidden />
-                  </button>
-                </div>
+                <LotPicker
+                  id="sim-lots-value"
+                  name="委託張數"
+                  value={lots}
+                  max={side === "sell" && holdingLots > 0 ? holdingLots : undefined}
+                  onChange={changeLots}
+                />
                 <dl className="sim-order-facts">
                   <div>
                     <dt>
@@ -785,8 +784,8 @@ export function PaperOrder({
           <details className="sim-order-help">
             <summary>撮合方式與教材費用</summary>
             <p>
-              每筆 1–3
-              張，同時一筆待撮合。撮合只看委託送出之後才揭露的真實成交：市價用委託後的第一筆成交價；限價買進在成交價不高於限價（賣出不低於限價）時，碰到就成交，第一筆已碰到就用那筆成交價，之後才碰到則用限價。不考慮排隊順序與那筆成交的張數，所以對學員稍微有利。沒碰到的限價單繼續留單，到撤回或 10:30 教材結束（結束時取消）。每次成交重新檢核資金與庫存。
+              每筆 1–400
+              張，同時一筆待撮合。量夠才成交：只算委託送出之後才揭露、而且碰到價格的真實成交（市價每一筆都算；限價買進成交價不高於限價、賣出不低於限價），累計到委託張數時整筆一次成交，不做部分成交。市價用吃掉的那些成交的平均價，最後一筆只算需要的張數；限價送出時就碰到價格（委託後的第一筆成交就碰到），一樣用平均價、不會比限價差；先掛著、之後才碰到，用限價。成交時間是累計到足量的那一筆。不考慮排隊順序，所以對學員稍微有利。到撤回或 10:30 教材結束還不夠就取消，原因寫「之後沒有成交」「教材結束，委託未成交」或「成交量不足」。每次成交重新檢核資金與庫存。
             </p>
             <p>
               教材手續費買賣各 0.0855%（最低 20 元），賣出稅費
@@ -1009,7 +1008,7 @@ function ledgerRecords(
             label: "委託價",
             value: item.limitPrice === undefined ? "市價" : formatPrice(item.limitPrice),
           },
-          { label: "成交價", value: item.price === undefined ? "—" : formatPrice(item.price) },
+          { label: "成交價", value: item.price === undefined ? "—" : fillPriceText(item.price) },
           {
             label: "狀態",
             value: (
@@ -1017,6 +1016,9 @@ function ledgerRecords(
                 <span className="sim-status" data-status={item.status}>
                   {ORDER_STATUS[item.status]}
                 </span>
+                {item.status === "pending" && (
+                  <small className="sim-record-progress">{lotProgress(item)}</small>
+                )}
                 {item.status === "pending" && !session.completed && (
                   <button
                     type="button"
@@ -1046,7 +1048,7 @@ function ledgerRecords(
           value: `${fill.side === "buy" ? "買進" : "賣出"} ${fill.shares / 1000} 張`,
           className: `sim-${fill.side}`,
         },
-        { label: "成交價", value: formatPrice(fill.price) },
+        { label: "成交價", value: fillPriceText(fill.price) },
         {
           label: "手續費 / 稅費",
           value: `${formatMoney(fill.fee, 0)} / ${formatMoney(fill.tax, 0)}`,
