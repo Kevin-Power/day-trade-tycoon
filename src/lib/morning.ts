@@ -55,8 +55,16 @@ export type MorningOrder = {
   reason?: string;
   limitPrice?: number;
   entryMode?: "lightning";
-  /** A real trade after it has been looked at without filling it: a limit then fills at its own price (③ §5). */
+  /** A real trade after it has been looked at (③ §5). */
   seen?: boolean;
+  /**
+   * While it waits (量夠才成交, lot design 2026-10-30): lots of the real trades after it that touched its price, and
+   * their value (price × lots counted), carried from cell to cell. A filled order has none: its fill is the result.
+   */
+  filledLots?: number;
+  filledValue?: number;
+  /** A limit whose first trade after it did not touch: it fills at its own price once the lots are there. */
+  atLimit?: boolean;
 };
 export type MorningFill = {
   id: string;

@@ -15,7 +15,8 @@ import type {
 } from "./morning.ts";
 import { validMorningLimit } from "./morning-book.ts";
 import { MAX_RUN_CODES } from "./lessons/default-codes.ts";
-import { matchOrder, tradesBefore } from "./lessons/matching.ts";
+import { endReason, matchOrder, tradesBefore } from "./lessons/matching.ts";
+import { MAX_LOTS, MIN_LOTS } from "./morning-lots.ts";
 import { cellSlice, CELL_MS, type TradeRow } from "./lessons/trades.ts";
 
 export const MORNING_STARTING_CASH = 10_000_000;
@@ -39,8 +40,6 @@ export type MorningSource = {
   /** The published files the data was read from; a run started on other files is refused. */
   sourceHash?: string;
 };
-const QUIET_CANCEL = "之後沒有成交";
-const END_CANCEL = "教材結束，委託未成交";
 export class MorningError extends Error {
   readonly status: number;
   constructor(status: number, message: string) {
@@ -107,7 +106,7 @@ export const morningActionSchema = z.discriminatedUnion("action", [
       ...existing,
       code: stockCode,
       side: z.enum(["buy", "sell"]),
-      lots: z.number().int().min(1).max(3),
+      lots: z.number().int().min(MIN_LOTS).max(MAX_LOTS),
       limitPrice: z.number().finite().positive().max(1_000_000).optional(),
       entryMode: z.literal("lightning").optional(),
     })
@@ -291,14 +290,24 @@ function advanceOnOpens(state: MorningStoredState, source: MorningSource, pendin
     pending.reason = "教材已結束，限價未達價，取消未成交委託";
   }
 }
-/** A real run: a waiting order meets the real trades of the cell being revealed (③ §5), in their order. */
+/**
+ * A real run: a waiting order meets the real trades of the cell being revealed (③ §5 with 量夠才成交), in their
+ * order. What the cell gathers for it (lots and value of the touching trades) is saved on the order for the next.
+ */
 function advanceOnTrades(state: MorningStoredState, source: MorningSource, pending: MorningOrder | undefined): void {
   const cell = state.cursor;
   // Check the cell's bars before changing cash or revealing anything.
   for (const code of runCodes(state, source)) cellBar(source, code, cell);
   if (pending) {
-    const result = matchOrder(pending, cellSlice(stockTrades(source, pending.code), cell));
-    if (result.kind === "fill")
+    const result = matchOrder(
+      { ...pending, lots: pending.shares / LOT_SHARES },
+      cellSlice(stockTrades(source, pending.code), cell),
+    );
+    if (result.kind === "fill") {
+      delete pending.filledLots;
+      delete pending.filledValue;
+      delete pending.atLimit;
+      pending.seen = true;
       fillOrder(
         state,
         pending,
@@ -306,12 +315,19 @@ function advanceOnTrades(state: MorningStoredState, source: MorningSource, pendi
         { t: Math.floor(result.ms / 1000), ms: result.ms },
         "成交價變動後，模擬資金不足，未成交",
       );
-    else if (result.seen) pending.seen = true;
+    } else {
+      if (result.seen) pending.seen = true;
+      if (result.filledLots > 0) {
+        pending.filledLots = result.filledLots;
+        pending.filledValue = result.filledValue;
+      }
+      if (result.atLimit) pending.atLimit = true;
+    }
   }
   state.cursor++;
   if (state.cursor === source.catalog.maxCursor && pending?.status === "pending") {
     pending.status = "cancelled";
-    pending.reason = pending.seen ? END_CANCEL : QUIET_CANCEL;
+    pending.reason = endReason(pending);
   }
 }
 /** A new run; `codes` are its stocks in the order chosen (an old lesson's run may have none: all its stocks). */

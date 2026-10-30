@@ -287,7 +287,7 @@ test("long-only orders wait for the next OPEN and apply stated paper costs witho
     ),
   );
   state = applyMorningAction(state, action(state, { action: "advance" }), source, 1000);
-  for (const lots of [0, 1.5, 4, -1])
+  for (const lots of [0, 1.5, 401, -1])
     assert.throws(() => action(state, { action: "order", code: "2330", side: "buy", lots }));
   assert.throws(
     () =>
@@ -679,17 +679,20 @@ test("market order waits for a quiet stock and cancels at 10:30 with 之後沒�
   assert.equal(state.equity, MORNING_STARTING_CASH);
 });
 
-test("a market order on a stock that has not traded yet waits for its first trade", () => {
+test("a market order on a stock that has not traded yet waits for its first trades", () => {
   const source = runFixture(dayTrades());
   let state = advance(begin(source), source);
   state = order(state, source, { code: "2603", side: "buy", lots: 3 });
   state = advanceTo(state, source, 45);
   assert.equal(state.orders[0].status, "pending");
+  assert.notEqual(state.orders[0].seen, true);
   state = advance(state, source);
+  // 09:45:01 has 1 lot at 30 and 09:45:20 2 lots at 30.5: the 3 lots are complete at the second trade.
   assert.equal(state.orders[0].status, "filled");
-  assert.equal(state.fills[0].price, 30);
-  assert.equal(state.fills[0].ms, 45 * CELL + 1_000);
-  assert.deepEqual(state.positions, [{ code: "2603", shares: 3000, averageCost: 30 }]);
+  assert.equal(state.fills[0].price, (30 + 61) / 3);
+  assert.equal(state.fills[0].ms, 45 * CELL + 20_000);
+  assert.deepEqual(state.positions, [{ code: "2603", shares: 3000, averageCost: (30 + 61) / 3 }]);
+  assert.equal(state.cash, MORNING_STARTING_CASH - 91_000 - commission(91_000));
 });
 
 test("a resting limit that real trades never reach cancels at 10:30 with 教材結束，委託未成交", () => {
@@ -712,7 +715,7 @@ test("fill records the real ms", () => {
   );
   const source = runFixture(trades);
   let state = advance(begin(source), source);
-  // Market: the first trade after the order, 09:01:01 at 100.
+  // Market, 2 lots: 09:01:01 has 1 lot at 100, 09:01:20 2 lots at 101 of which 1 is needed → 100.5 at 09:01:20.
   state = order(state, source, { code: "2330", side: "buy", lots: 2 });
   state = advance(state, source);
   assert.deepEqual(state.fills[0], {
@@ -720,14 +723,14 @@ test("fill records the real ms", () => {
     code: "2330",
     side: "buy",
     shares: 2000,
-    price: 100,
-    fee: commission(200_000),
+    price: 100.5,
+    fee: commission(201_000),
     tax: 0,
-    t: 61,
-    ms: 61_000,
+    t: 80,
+    ms: 80_000,
   });
-  assert.equal(state.orders[0].price, 100);
-  assert.equal(state.cash, MORNING_STARTING_CASH - 200_000 - commission(200_000));
+  assert.equal(state.orders[0].price, 100.5);
+  assert.equal(state.cash, MORNING_STARTING_CASH - 201_000 - commission(201_000));
   // Holdings are valued at the last revealed trade (09:01:45 at 100.5), never at a later one.
   assert.equal(state.equity, money(state.cash + 2000 * 100.5));
   // A limit the first trade after it already beats fills at that trade's price.
@@ -747,7 +750,7 @@ test("fill records the real ms", () => {
   assert.equal(state.fills[2].price, 99.5);
   assert.equal(state.fills[2].ms, 5 * CELL + 20_000);
   assert.equal(state.fills[2].t, 320);
-  assert.deepEqual(state.positions, [{ code: "2330", shares: 2000, averageCost: 99.75 }]);
+  assert.deepEqual(state.positions, [{ code: "2330", shares: 2000, averageCost: 100 }]);
   assert.equal(state.equity, money(state.cash + 2000 * 100.5));
 });
 
@@ -894,4 +897,163 @@ test("start carries 1–80 codes, advance may name a view, and abandon is an act
   assert.deepEqual(createMorningState(randomUUID(), plan, source, 0, ["1101", "2330"]).codes, ["1101", "2330"]);
   // A source without trades (an old lesson) keeps runs without a hash.
   assert.equal("sourceHash" in createMorningState(randomUUID(), plan, fixture(), 0, ["2330"]), false);
+});
+
+// ── 量夠才成交 (lot design 2026-10-30): 1–400 lots, lots counted across cells, an average price, a third reason ──────
+
+test("an order is 1 to 400 lots: 400 is accepted, 401 is not", () => {
+  const source = runFixture(dayTrades());
+  let state = advance(begin(source), source);
+  for (const lots of [0, 401, 1000, 2.5])
+    assert.throws(() => order(state, source, { code: "2330", side: "buy", lots }), { status: 400 });
+  // 400 lots of 2330 at about 100 is 40 M: refused for the cash, not for the size.
+  assert.throws(() => order(state, source, { code: "2330", side: "buy", lots: 400 }), {
+    status: 400,
+    message: "目前模擬資金不足，無法委託",
+  });
+  state.cash = 50_000_000;
+  state = order(state, source, { code: "2330", side: "buy", lots: 400 });
+  assert.equal(state.orders[0].shares, 400_000);
+  assert.equal(state.orders[0].status, "pending");
+});
+
+test("a large order counts real lots cell by cell, keeps them in the saved run, and fills at the average when they are complete", () => {
+  const source = runFixture(dayTrades());
+  let state = advance(begin(source), source);
+  // 2330 trades 1 lot at 100, 2 at 101 and 3 at 100.5 a minute (6 lots, 603.5); 20 lots need cells 1–3 and 2 lots of
+  // cell 4 (1 at 100, 1 of the 2 at 101).
+  state = order(state, source, { code: "2330", side: "buy", lots: 20 });
+  for (const counted of [6, 12, 18]) {
+    state = advance(state, source);
+    // What is saved is all the next advance has: the run goes through JSON as it does in the database.
+    state = JSON.parse(JSON.stringify(state));
+    assert.equal(state.orders[0].status, "pending");
+    assert.equal(state.orders[0].filledLots, counted);
+    assert.equal(state.orders[0].filledValue, (counted / 6) * 603.5);
+    assert.equal(state.orders[0].seen, true);
+    assert.equal(state.fills.length, 0);
+    assert.equal(state.cash, MORNING_STARTING_CASH);
+  }
+  state = advance(state, source);
+  const value = 3 * 603.5 + 100 + 101;
+  assert.equal(state.orders[0].status, "filled");
+  assert.equal(state.orders[0].price, value / 20);
+  assert.equal(state.fills[0].price, value / 20);
+  assert.equal(state.fills[0].ms, 4 * CELL + 20_000);
+  assert.equal(state.fills[0].t, 4 * 60 + 20);
+  const notional = money(20_000 * (value / 20));
+  assert.equal(state.cash, money(MORNING_STARTING_CASH - notional - commission(notional)));
+  assert.deepEqual(state.positions, [{ code: "2330", shares: 20_000, averageCost: value / 20 }]);
+  // A filled order keeps no progress of its own: the fill is the result.
+  assert.equal(state.orders[0].filledLots, undefined);
+  assert.equal(state.orders[0].filledValue, undefined);
+});
+
+test("a marketable limit fills at an average no worse than its limit; a resting one counts the touching trades and fills at its limit", () => {
+  const source = runFixture(dayTrades());
+  let state = advanceTo(begin(source), source, 2);
+  // Buy 5 at 100: the first trade after it (09:02:01, 100) touches, so it takes the average of the touching trades,
+  // 1 lot a minute at 100, and fills at 100 at 09:06:01.
+  state = order(state, source, { code: "2330", side: "buy", lots: 5, limitPrice: 100 });
+  state = advanceTo(state, source, 6);
+  assert.equal(state.orders[0].status, "pending");
+  assert.equal(state.orders[0].filledLots, 4);
+  assert.equal(state.orders[0].atLimit, undefined);
+  state = advance(state, source);
+  assert.equal(state.orders[0].status, "filled");
+  assert.equal(state.fills[0].price, 100);
+  assert.equal(state.fills[0].ms, 6 * CELL + 1_000);
+  // Sell 6 at 100.5: the first trade after it (09:08:01, 100) does not touch, so it rests at its limit and counts the
+  // 101s (2 lots) and the 100.5s (3 lots), 5 a minute; the 6th lot is 09:09:20's 101, and it sells at 100.5.
+  state.cash = 50_000_000;
+  state = order(state, source, { code: "2330", side: "buy", lots: 1 });
+  state = advance(state, source);
+  assert.equal(state.orders[1].status, "filled");
+  state = order(state, source, { code: "2330", side: "sell", lots: 6, limitPrice: 100.5 });
+  state = advance(state, source);
+  assert.equal(state.orders[2].atLimit, true);
+  assert.equal(state.orders[2].filledLots, 5);
+  state = advance(state, source);
+  assert.equal(state.orders[2].status, "filled");
+  assert.equal(state.fills[2].price, 100.5);
+  assert.equal(state.fills[2].ms, 9 * CELL + 20_000);
+});
+
+test("an order that touched its price but never had the lots is cancelled at 10:30 with 成交量不足", () => {
+  const source = runFixture(dayTrades());
+  let state = advance(begin(source), source);
+  state.cash = 50_000_000;
+  // Only 1 lot a minute trades at 100 or under: 89 lots by 10:30, not 400.
+  state = order(state, source, { code: "2330", side: "buy", lots: 400, limitPrice: 100 });
+  state = advanceTo(state, source, 90);
+  assert.equal(state.orders[0].status, "cancelled");
+  assert.equal(state.orders[0].reason, "成交量不足");
+  assert.equal(state.orders[0].filledLots, 89);
+  assert.deepEqual(state.fills, []);
+  assert.equal(state.cash, 50_000_000);
+  // A market order short of lots says the same (5 cells × 6 lots = 30 of 400).
+  let market = advanceTo(begin(source), source, 85);
+  market.cash = 50_000_000;
+  market = order(market, source, { code: "2330", side: "buy", lots: 400 });
+  market = advanceTo(market, source, 90);
+  assert.equal(market.orders[0].reason, "成交量不足");
+  assert.equal(market.orders[0].filledLots, 30);
+});
+
+test("funds are checked again at the fill, at the average price actually paid", () => {
+  const trades = dayTrades();
+  // 09:02 jumps: 105 (1 lot), 106 (2), 107 (3).
+  trades["2330"] = trades["2330"].map((row) =>
+    row[0] >= 2 * CELL && row[0] < 3 * CELL ? ([row[0], 104 + row[2], row[2], 103.5, 104 + row[2]] as const) : row,
+  );
+  const source = runFixture(trades);
+  let state = advanceTo(begin(source), source, 2);
+  // 10 lots at the last revealed 100.5 is 1,005,000; the 6 lots of 09:02 and 4 of 09:03 average
+  // (105 + 212 + 321 + 100 + 202 + 100.5) / 10 = 104.05, so 1,040,500 is needed at the fill.
+  state.cash = money(1_005_000 + commission(1_005_000) + 1);
+  state = order(state, source, { code: "2330", side: "buy", lots: 10 });
+  state = advanceTo(state, source, 4);
+  assert.equal(state.orders[0].status, "rejected");
+  assert.equal(state.orders[0].reason, "成交價變動後，模擬資金不足，未成交");
+  assert.deepEqual(state.fills, []);
+  // With the cash for the average and not a cent more, the same order fills and spends exactly that.
+  const atFill = money(10_000 * (1040.5 / 10));
+  let enough = advanceTo(begin(source), source, 2);
+  enough.cash = money(atFill + commission(atFill));
+  enough = order(enough, source, { code: "2330", side: "buy", lots: 10 });
+  enough = advanceTo(enough, source, 4);
+  assert.equal(enough.orders[0].status, "filled");
+  assert.equal(enough.fills[0].price, 1040.5 / 10);
+  assert.equal(enough.cash, 0);
+});
+
+test("matching never reads a trade the advance does not reveal: a source cut after the revealed cell gives the same run", () => {
+  const trades = dayTrades();
+  const full = runFixture(trades);
+  const cut = (cursor: number): MorningSource => {
+    const kept = Object.fromEntries(
+      Object.entries(trades).map(([code, rows]) => [code, rows.filter(([ms]) => ms < cursor * CELL)]),
+    );
+    const bars = Object.fromEntries(
+      Object.entries(full.bars).map(([code, rows]) => [code, rows.filter((bar) => bar.t < cursor * 60)]),
+    );
+    return { ...full, bars, trades: kept };
+  };
+  let state = advance(begin(full), full);
+  state.cash = 50_000_000;
+  const orders: Record<number, object> = {
+    1: { code: "2330", side: "buy", lots: 400 },
+    80: { code: "2330", side: "sell", lots: 150, limitPrice: 101 },
+  };
+  for (let cursor = 1; cursor < 90; cursor++) {
+    if (orders[cursor]) state = order(state, full, orders[cursor]);
+    const next = advance(state, full);
+    // The advance from `cursor` reveals cell `cursor`: on a source that ends with that cell it is the same run.
+    const blind = applyMorningAction(state, action(state, { action: "advance" }), cut(cursor + 1), state.nextAdvanceAt);
+    assert.deepEqual(blind, next, `advance from ${cursor}`);
+    state = next;
+  }
+  assert.equal(state.orders[0].status, "filled");
+  assert.equal(state.orders[1].status, "cancelled");
+  assert.equal(state.orders[1].reason, "成交量不足");
 });
