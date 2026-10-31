@@ -24,6 +24,9 @@ export const Route = createFileRoute("/morning")({
   head: () => ({
     meta: [
       { title: "模擬下單與早盤練習 · 當沖大富翁" },
+      // The browser's bar (Android's address bar, older iPhones' top) takes the desk's title bar colour, not the
+      // platform's light grey (the root's theme-color; the router keeps the deepest route's meta of a name).
+      { name: "theme-color", content: "#0e1218" },
       {
         name: "description",
         content:

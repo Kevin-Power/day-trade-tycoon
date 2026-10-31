@@ -78,6 +78,17 @@
     --td-hairline: 0.5px;
   }
 }
+/* Around the desk the page is the desk's ink (--td-bg), not the platform's light grey: an iPhone shows it when the page
+   bounces at either end, and beside the desk held sideways; its scrollbar draws dark too. The browser's bar colour is
+   the /morning route's theme-color. */
+html:has(.trading-desk) {
+  color-scheme: dark;
+}
+html:has(.trading-desk),
+html:has(.trading-desk) body,
+html:has(.trading-desk) #app {
+  background: #0b0e13;
+}
 .trading-desk[data-layout="desktop"] {
   height: 100dvh;
 }
