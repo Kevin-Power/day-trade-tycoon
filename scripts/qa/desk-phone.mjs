@@ -1,5 +1,8 @@
 // Phone desk (2026-10-31, docs/superpowers/specs/2026-10-31-phone-desk-design.md), after desk-seed: at six phone
 // sizes and in 大字, held upright:
+//   0. Around the desk the page is the desk's ink: the browser's bar colour (theme-color, Android's address bar) and
+//      the page behind the desk (what an iPhone shows when the page bounces, and beside it held sideways); the
+//      manual, a platform page, keeps the platform's light grey for both.
 //   1. 行情: without scrolling, at least 240px of the 江波圖 above the bottom tabs (200px on screens up to 700px tall,
 //      140px up to 600px, 160px in 大字); 快訊 in at most two lines, no sideways scroll, every button at least 44px
 //      (大字 56px).
@@ -55,6 +58,21 @@ const box = (locator) => locator.first().evaluate((node) => {
   return { top: rect.top, bottom: rect.bottom, left: rect.left, width: rect.width, height: rect.height };
 });
 const dockTop = (page) => page.locator(".td-dock").evaluate((node) => node.getBoundingClientRect().top);
+const INK = "rgb(11, 14, 19)";
+const CLEAR = "rgba(0, 0, 0, 0)";
+// The browser's bar colour(s), the page's own background (the canvas an iPhone shows past the page's edges) and the
+// backgrounds of everything between the page and `inside` (or the body, when it is not given).
+const around = (page, inside) =>
+  page.evaluate((inside) => {
+    const behind = [];
+    for (let node = inside ? document.querySelector(inside)?.parentElement : document.body; node && node !== document.documentElement; node = node.parentElement)
+      behind.push(getComputedStyle(node).backgroundColor);
+    return {
+      themeColors: [...document.querySelectorAll('meta[name="theme-color"]')].map((meta) => meta.content),
+      page: getComputedStyle(document.documentElement).backgroundColor,
+      behind,
+    };
+  }, inside);
 
 for (const [width, height, senior] of sizes) {
   const name = `${width}x${height}${senior ? "-senior" : ""}`;
@@ -69,6 +87,14 @@ for (const [width, height, senior] of sizes) {
     await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 });
     await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 2000 }).catch(() => {});
     await page.waitForTimeout(500);
+
+    // 0. Around the desk
+    result.around = await around(page, ".trading-desk");
+    if (result.around.themeColors.join(" + ") !== "#0e1218")
+      fail(`the browser's bar colour is ${result.around.themeColors.join(" + ") || "unset"} (the desk's #0e1218)`);
+    if (result.around.page !== INK || result.around.behind.some((colour) => colour !== INK && colour !== CLEAR))
+      fail(`the page behind the desk is ${[result.around.page, ...result.around.behind].join(" › ")} (the desk's ink ${INK})`);
+
     const dock = page.getByRole("navigation", { name: "主要分頁" });
     await dock.getByRole("button", { name: /行情/ }).click();
     await page.evaluate(() => scrollTo(0, 0));
@@ -159,6 +185,21 @@ for (const [width, height, senior] of sizes) {
     await page.screenshot({ path: `${out}${name}-error.png` }).catch(() => {});
   }
   results[name] = result;
+  await context.close();
+}
+
+// 0, the other side: the manual, a platform page, keeps the platform's light grey.
+{
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  try {
+    await page.goto(`${base}/manual`, { waitUntil: "domcontentloaded" });
+    results.manual = await around(page);
+    if (results.manual.themeColors.join(" + ") !== "#f5f7fb" || results.manual.page !== "rgb(245, 247, 251)")
+      failures.push(`manual: the bar colour ${results.manual.themeColors.join(" + ") || "unset"} and the page ${results.manual.page} are not the platform's light grey`);
+  } catch (error) {
+    failures.push(`manual: ${String(error.message ?? error).split("\n")[0]}`);
+  }
   await context.close();
 }
 await browser.close();
