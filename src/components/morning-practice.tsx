@@ -1346,6 +1346,10 @@ function MorningLesson({
                                 setPrefill({ side, nonce: Date.now(), code });
                                 setActivePane("trade");
                                 window.scrollTo({ top: 0, behavior: "auto" });
+                                // The button that had focus is gone with 行情: keyboards start again at the page.
+                                window.requestAnimationFrame(() =>
+                                  practiceHeading.current?.focus({ preventScroll: true }),
+                                );
                               }
                             : undefined
                         }
@@ -1381,6 +1385,9 @@ function MorningLesson({
                                   setPrefill({ price, side, nonce: Date.now(), code });
                                   setActivePane("trade");
                                   window.scrollTo({ top: 0, behavior: "auto" });
+                                  window.requestAnimationFrame(() =>
+                                    practiceHeading.current?.focus({ preventScroll: true }),
+                                  );
                                 }}
                               />
                             ),

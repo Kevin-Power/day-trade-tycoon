@@ -107,6 +107,7 @@ export function StatusBar({
 }) {
   const profit = session ? session.equity - session.startingCash : 0;
   const state = showPlan ? "idle" : completed ? "done" : auto ? "running" : "paused";
+  const stateWord = showPlan ? "待開始" : completed ? "已完成" : auto ? "重播中" : "已暫停";
   return (
     <DeskBar>
       <LessonSelect options={lessons} lessonId={lessonId} disabled={busy} onChange={onLessonChange} />
@@ -117,9 +118,9 @@ export function StatusBar({
       <span className="td-clock" data-state={state}>
         <i aria-hidden />
         <strong>{showPlan ? "09:00:00" : formatTime(session ? replayClock(session) : cursor * 60)}</strong>
-        <small>
-          {showPlan ? "待開始" : completed ? "已完成" : auto ? "重播中" : "已暫停"}
-        </small>
+        {/* Narrow phones hide the word; screen readers always get it from the copy beside it. */}
+        <small aria-hidden="true">{stateWord}</small>
+        <span className="sr-only">{stateWord}</span>
       </span>
       {session && !showPlan && (
         <dl className="td-account" aria-label="模擬帳戶">

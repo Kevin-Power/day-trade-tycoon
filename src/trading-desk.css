@@ -4851,20 +4851,24 @@
 
 /* Phone desk (2026-10-31, docs/superpowers/specs/2026-10-31-phone-desk-design.md): the 江波圖 near the top, big
    江波圖 cards in 自選, the ticket first in 下單. Phones and large text only; desktops and tablets do not change. */
-/* The top: the clock and the replay controls, then one line of 快訊. The lesson's principle and the round's plan
-   are in 教材; feedback, the 10:00 checkpoint and the end still show. */
+/* The top: the clock and the replay controls, then 快訊 in at most two lines (a fill's price must not be cut). The
+   lesson's principle and the round's plan are in 教材; feedback, the 10:00 checkpoint and the end still show. */
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hints :is(.td-tip, .td-plan-chip) {
   display: none;
 }
+/* Only the block padding: 大字 on a wide screen keeps the centred column's inline padding. */
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hints {
-  padding: 4px 10px;
+  padding-block: 4px;
+}
+.trading-desk[data-layout="phone"] .td-hints {
+  padding-inline: 10px;
 }
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hints > .td-alert {
-  display: block;
+  display: -webkit-box;
   overflow: hidden;
   max-width: 100%;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-alert > :is(span:first-child, time) {
   margin-right: 6px;
@@ -4902,18 +4906,23 @@
   display: none;
 }
 
-/* 下單: 核對 stays above the bottom tabs, so it is on screen on the smallest phones too. */
-.trading-desk[data-layout="phone"] .sim-ticket .sim-submit {
+/* 下單: 核對 stays above the bottom tabs, so it is on screen on the smallest phones too. Only while it can be pressed:
+   a disabled one stays under the line that says why (no holdings, a stale review, the large-order tick). */
+.trading-desk[data-layout="phone"] .sim-ticket .sim-submit:not(:disabled) {
   position: sticky;
   bottom: calc(68px + env(safe-area-inset-bottom));
   z-index: 2;
   box-shadow: 0 0 0 8px var(--td-panel);
 }
-.trading-desk[data-layout="senior"] .sim-ticket .sim-submit {
+.trading-desk[data-layout="senior"] .sim-ticket .sim-submit:not(:disabled) {
   position: sticky;
   bottom: calc(76px + env(safe-area-inset-bottom));
   z-index: 2;
   box-shadow: 0 0 0 8px var(--td-panel);
+}
+/* The confirm card and the large-order tick, scrolled into view, stop above the tabs and the pinned button. */
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .sim-ticket :is(.sim-confirm, .sim-large) {
+  scroll-margin-bottom: calc(140px + env(safe-area-inset-bottom));
 }
 
 /* 自選 cards: one card a stock, its 江波圖 on the right half. The page scrolls, so nothing sticks, there is no
