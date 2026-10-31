@@ -4873,30 +4873,20 @@
   gap: 6px;
   padding: 6px 10px;
 }
-/* 大廳 and 教材 as icons (their names stay for screen readers), so row one holds the clock and 標準／大字. */
+/* 大廳 and 教材 as icons (their aria-labels name them), so row one holds the clock and 標準／大字. */
 .trading-desk[data-layout="phone"] :is(.td-home, .td-tool) {
   justify-content: center;
   width: 44px;
   padding: 0;
 }
 .trading-desk[data-layout="phone"] :is(.td-home, .td-tool) span {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+  display: none;
 }
 
-/* Narrow phones: the clock's state word (已暫停, 重播中) is for screen readers; the dot and 播放／暫停 show it. */
+/* Narrow phones: the clock's state word (已暫停, 重播中) goes; the dot and 播放／暫停 still show it. */
 @media (max-width: 379px) {
   .trading-desk[data-layout="phone"] .td-clock small {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
+    display: none;
   }
 }
 
@@ -4950,6 +4940,8 @@
   min-height: 108px;
   padding: 10px 12px;
   text-align: left;
+  /* The chosen card is brought into view above the bottom tabs, not under them. */
+  scroll-margin-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 .trading-desk .td-watch-table[data-cards="true"] .td-watch-row .td-watch-name {
   grid-area: name;
