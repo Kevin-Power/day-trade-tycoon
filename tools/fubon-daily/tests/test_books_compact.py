@@ -100,7 +100,7 @@ class CompactTest(unittest.TestCase):
             self.assertEqual(encoded.messages[code], 100)
         header = json.loads(gzip.decompress(encoded.files["2330"]))
         self.assertEqual((header["schema"], header["code"], header["date"], header["sizeUnit"], header["keyEvery"]),
-                         (1, "2330", DAY, "unverified", 60000))
+                         (1, "2330", DAY, "lot", 60000))
         self.assertEqual(encoded.unparsable, [])
         self.assertEqual(encoded.mismatched, [])
         self.assertEqual(encoded.gaps, {})  # connected before 09:00 and stopped after the close: nothing missing
