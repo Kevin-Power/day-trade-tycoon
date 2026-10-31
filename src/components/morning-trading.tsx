@@ -719,6 +719,14 @@ export function PaperOrder({
                   max={side === "sell" && holdingLots > 0 ? holdingLots : undefined}
                   onChange={changeLots}
                 />
+                {/* Right under the side and the lots that cause it, so the smallest phones show it without scrolling. */}
+                {invalidSell && (
+                  <p className="sim-ticket-message">
+                    {holdingLots
+                      ? "賣出張數超過庫存，請減少張數。"
+                      : "這檔目前沒有庫存，先模擬買進後才能賣出。"}
+                  </p>
+                )}
                 <dl className="sim-order-facts">
                   <div>
                     <dt>
@@ -747,13 +755,6 @@ export function PaperOrder({
                     </dd>
                   </div>
                 </dl>
-                {invalidSell && (
-                  <p className="sim-ticket-message">
-                    {holdingLots
-                      ? "賣出張數超過庫存，請減少張數。"
-                      : "這檔目前沒有庫存，先模擬買進後才能賣出。"}
-                  </p>
-                )}
                 {ready && (
                   <button
                     type="submit"
