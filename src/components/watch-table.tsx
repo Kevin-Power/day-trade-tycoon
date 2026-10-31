@@ -445,6 +445,22 @@ function paintMiniJiangbo(
     device: { scale: sy, strokePx },
   });
   const base = layout.previousY;
+  // Tall minis (the phone's 自選 cards): faint 09:30 and 10:00 lines under everything, so the part of the lesson
+  // not played yet reads as time to come. The x is sparklineLayout's (pad 2, the lesson from 09:00 to endT).
+  if (height >= 60) {
+    ctx.save();
+    ctx.strokeStyle = read("--td-line", "#1c232d");
+    ctx.lineWidth = hairline / sx;
+    for (const t of [1800, 3600]) {
+      if (t >= endT) continue;
+      const x = snapStroke(2 + (t / endT) * (width - 4), sx, hairline);
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
   if (Number.isFinite(base)) {
     // The previous close: a faint solid hairline under everything. Dashes broke up the price line hugging it.
     ctx.save();

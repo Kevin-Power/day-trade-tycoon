@@ -46,7 +46,7 @@ import { unlockChime } from "@/lib/celebration-sound";
 import { DisciplineCelebration } from "@/components/discipline-celebration";
 import type { Celebration } from "@/lib/discipline/score";
 import { useTerminalLayout, type TerminalLayout } from "@/lib/use-terminal-layout";
-import { deriveMorningAlerts } from "@/lib/morning-alerts";
+import { breakoutsOf, deriveMorningAlerts } from "@/lib/morning-alerts";
 import {
   classifySendFailure,
   sendFailureMessage,
@@ -1913,6 +1913,8 @@ function MorningChart({
     0,
     catalog.maxCursor * 60,
   ).confirmed;
+  // The 快訊's 過前高, marked where it happened (completed minutes only, as the 前高 lines).
+  const breakouts = breakoutsOf(settledBars, swingHighs);
   const fills = (session?.fills ?? [])
     .filter((fill) => fill.code === symbol.code)
     .map((fill) => ({ t: fill.t, p: fill.price, side: fill.side }));
@@ -1933,6 +1935,7 @@ function MorningChart({
             endT={view.endT}
             now={now}
             swingHighs={swingHighs}
+            breakouts={breakouts}
             fills={fills}
             variant={candles ? "candles" : "stock"}
             presentation="terminal"

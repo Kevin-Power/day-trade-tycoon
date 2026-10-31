@@ -1,4 +1,5 @@
-import { deriveSwingHighs } from "./market/swing-highs.ts";
+import type { Bar } from "./game/types.ts";
+import { deriveSwingHighs, type ConfirmedSwingHigh } from "./market/swing-highs.ts";
 import { formatPrice } from "./market/ticks.ts";
 import type { MorningCatalog, MorningState } from "./morning.ts";
 import { fillPriceText } from "./morning-ledger.ts";
@@ -16,6 +17,25 @@ const PRIORITY: Record<MorningAlertKind, number> = {
 };
 
 /**
+ * N 字攻擊's breakouts (「過前高」): for each confirmed 前高, the first completed minute after its confirmation that
+ * closes above it, with that close; a minute that goes above several (or two at one price) is one breakout, of
+ * the highest. In time order. Pass only revealed, completed minutes. The 快訊 and the chart's marks share it.
+ */
+export function breakoutsOf(
+  bars: readonly Bar[],
+  highs: readonly Pick<ConfirmedSwingHigh, "p" | "confirmedAt">[],
+): { t: number; p: number; high: number }[] {
+  const byMinute = new Map<number, { t: number; p: number; high: number }>();
+  for (const high of highs) {
+    const bar = bars.find((item) => item.t >= high.confirmedAt && item.c > high.p);
+    if (!bar) continue;
+    const seen = byMinute.get(bar.t);
+    if (!seen || high.p > seen.high) byMinute.set(bar.t, { t: bar.t, p: bar.c, high: high.p });
+  }
+  return [...byMinute.values()].sort((a, b) => a.t - b.t);
+}
+
+/**
  * Events derived only from what the server has already revealed: completed minutes up to the
  * cursor and the learner's own fills. Nothing after `state.cursor` can influence the result.
  */
@@ -27,25 +47,24 @@ export function deriveMorningAlerts(catalog: MorningCatalog, state: MorningState
       .filter((bar) => Number.isFinite(bar.t) && bar.t + 60 <= cutoff)
       .slice()
       .sort((a, b) => a.t - b.t);
-    for (const high of deriveSwingHighs(bars, cutoff, 0, catalog.maxCursor * 60).confirmed) {
-      if (high.confirmedAt > cutoff) continue;
+    const highs = deriveSwingHighs(bars, cutoff, 0, catalog.maxCursor * 60).confirmed.filter(
+      (high) => high.confirmedAt <= cutoff,
+    );
+    for (const high of highs)
       alerts.push({
         t: high.confirmedAt,
         kind: "swing-high",
         code: symbol.code,
         text: `${symbol.name} 前高確認 ${formatPrice(high.p)}`,
       });
-      // N 字攻擊's breakout: the first minute after the confirmation that closes above the 前高. Only the price
-      // is described, never a reason to trade.
-      const breakout = bars.find((bar) => bar.t >= high.confirmedAt && bar.c > high.p);
-      if (breakout)
-        alerts.push({
-          t: breakout.t + 60,
-          kind: "break-high",
-          code: symbol.code,
-          text: `${symbol.name} 過前高 ${formatPrice(high.p)}`,
-        });
-    }
+    // N 字攻擊's breakout, at the minute it completes. Only the price is described, never a reason to trade.
+    for (const breakout of breakoutsOf(bars, highs))
+      alerts.push({
+        t: breakout.t + 60,
+        kind: "break-high",
+        code: symbol.code,
+        text: `${symbol.name} 過前高 ${formatPrice(breakout.high)}`,
+      });
     for (let index = 1; index < bars.length; index++) {
       const before = bars[index - 1]!.c - symbol.previousClose;
       const after = bars[index]!.c - symbol.previousClose;

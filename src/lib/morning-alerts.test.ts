@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { deriveMorningAlerts } from "./morning-alerts.ts";
+import { breakoutsOf, deriveMorningAlerts } from "./morning-alerts.ts";
 import type { MorningCatalog, MorningState } from "./morning.ts";
 
 const catalog: MorningCatalog = {
@@ -90,6 +90,30 @@ test("過前高 never comes from a minute that is not revealed, nor from a close
   assert.deepEqual(deriveMorningAlerts(catalog, state(6, bars)), deriveMorningAlerts(catalog, state(6, bars.slice(0, 6))));
   const equal = [...peak, bar(5, 1025, 1025)];
   assert.equal(deriveMorningAlerts(catalog, state(6, equal)).some((alert) => alert.kind === "break-high"), false);
+});
+
+test("breakoutsOf: the chart's 過前高 marks are the alerts' minutes, with their closes", () => {
+  const bars = [...peak, bar(5, 1022, 1020), bar(6, 1032, 1030), bar(7, 1040, 1035), bar(8, 1030, 1010), bar(9, 1040, 1035)];
+  const highs = [{ t: 120, p: 1025, confirmedAt: 300 }];
+  assert.deepEqual(breakoutsOf(bars, highs), [{ t: 360, p: 1030, high: 1025 }]);
+  // Before its confirmation no close counts, and a high nothing has closed above has no mark.
+  assert.deepEqual(breakoutsOf(bars, [{ p: 1025, confirmedAt: 600 }]), []);
+  assert.deepEqual(breakoutsOf(bars, [{ p: 1050, confirmedAt: 300 }]), []);
+});
+
+test("breakoutsOf: one minute that goes above several 前高 (or two at one price) is one 過前高, the highest", () => {
+  const bars = [...peak, bar(5, 1022, 1020), bar(6, 1032, 1030)];
+  const highs = [
+    { p: 1015, confirmedAt: 240 },
+    { p: 1025, confirmedAt: 300 },
+    { p: 1025, confirmedAt: 300 },
+  ];
+  assert.deepEqual(breakoutsOf(bars, highs), [
+    { t: 300, p: 1020, high: 1015 },
+    { t: 360, p: 1030, high: 1025 },
+  ]);
+  const both = [{ p: 1015, confirmedAt: 330 }, { p: 1025, confirmedAt: 300 }];
+  assert.deepEqual(breakoutsOf(bars, both), [{ t: 360, p: 1030, high: 1025 }]);
 });
 
 test("in one minute 過前高 sorts after 站上昨收 and before the learner's fill", () => {

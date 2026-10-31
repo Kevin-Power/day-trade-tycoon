@@ -81,6 +81,11 @@ export type TapeChartProps = {
   interactive?: boolean;
   ariaLabel?: string;
   swingHighs?: SwingHighResult["confirmed"];
+  /**
+   * 過前高 (N 字攻擊's breakout, from breakoutsOf): the minute (its start, `t`) whose close `p` first went above a
+   * confirmed 前高; marked in amber over that close.
+   */
+  breakouts?: { t: number; p: number }[];
   /** Extra labelled dashed levels, e.g. yesterday's high (昨高). */
   levels?: { price: number; label: string }[];
   /** Outlines the candle of this minute (the daily question's moment). */
@@ -756,6 +761,32 @@ function paint(
     ctx.lineTo(x + 4, y + dir * 7);
     ctx.closePath();
     ctx.fill();
+  }
+  // 過前高: an amber point-down mark over the close of the breakout minute, and its name in an amber tag above it.
+  for (const mark of inChartWindow(opt.breakouts ?? [], window).slice(0, 8)) {
+    if (isIndex) break;
+    const x = xOf(mark.t + (isCandles ? (interval ? interval / 2 : 0) : (interval ?? 0)));
+    const y = yOf(mark.p);
+    ctx.save();
+    ctx.fillStyle = c.warn;
+    ctx.beginPath();
+    ctx.moveTo(x, y - 4);
+    ctx.lineTo(x - 4.5, y - 11);
+    ctx.lineTo(x + 4.5, y - 11);
+    ctx.closePath();
+    ctx.fill();
+    ctx.font = `600 ${c.fontSize}px ${c.font}`;
+    const text = "過前高";
+    const boxW = ctx.measureText(text).width + 8;
+    const boxH = c.fontSize + 5;
+    const left = snapEdge(Math.min(w - padR - boxW, Math.max(padL, x - boxW / 2)), sx);
+    const top = snapEdge(Math.max(padT, y - 13 - boxH), sy);
+    ctx.fillRect(left, top, snapEdge(left + boxW, sx) - left, snapEdge(top + boxH, sy) - top);
+    ctx.fillStyle = c.bg;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, left + boxW / 2, top + boxH / 2);
+    ctx.restore();
   }
   // Dashed levels (昨高 and the like, 前高) skip the 漲停／跌停 labels' boxes, so those labels stay readable.
   clearOfUnderLabels(() => {
