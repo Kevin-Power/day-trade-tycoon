@@ -201,10 +201,13 @@ const look = (page) =>
   });
 const rowHeightOf = (view) => view.rows[0].bottom - view.rows[0].top;
 // The minis are painted for the rows within one row of the table's scrollport (the bars sit over its top, and rows
-// under them count). Rows within `slack` px of that edge may go either way, so only clear cases are checked.
-const slack = 4;
-const mustPaint = (row, view) => row.bottom > -rowHeightOf(view) + slack && row.top < view.clientHeight + rowHeightOf(view) - slack;
-const mustNotPaint = (row, view) => row.bottom < -rowHeightOf(view) - slack || row.top > view.clientHeight + rowHeightOf(view) + slack;
+// under them count). Rows within `slack` px of that edge may go either way, so only clear cases are checked. Cards
+// are watched against the screen with the card's height as read when watching starts: a little more slack there.
+const slackOf = (view) => (view.cards ? 12 : 4);
+const mustPaint = (row, view) =>
+  row.bottom > -rowHeightOf(view) + slackOf(view) && row.top < view.clientHeight + rowHeightOf(view) - slackOf(view);
+const mustNotPaint = (row, view) =>
+  row.bottom < -rowHeightOf(view) - slackOf(view) || row.top > view.clientHeight + rowHeightOf(view) + slackOf(view);
 // In view: whole, below the bars and above the table's bottom (cards: on the screen, above the bottom tabs).
 const visible = (row, view) => row.top >= view.fixedBottom - 1 && row.bottom <= view.visibleBottom + 1;
 
@@ -271,7 +274,9 @@ for (const c of CASES) {
     report.overlaps = top.overlaps.length;
     if (top.overlaps.length) fail(c.name, `自選 columns run into each other: ${top.overlaps.slice(0, 4).join("; ")}`);
     await page.screenshot({ path: `${out}${c.name}-top.png` });
-    await page.locator(".td-watch-table").screenshot({ path: `${out}${c.name}-table.png` });
+    // An element screenshot of a list taller than the screen widens the viewport while it captures, which paints cards
+    // the page would not: cards (whose list is the page) keep the page screenshot only.
+    if (!top.cards) await page.locator(".td-watch-table").screenshot({ path: `${out}${c.name}-table.png` });
 
     // The title bar says where the list came from, and nothing about 模擬.
     const head = await page.evaluate(() => {

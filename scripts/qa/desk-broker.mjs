@@ -309,11 +309,12 @@ await check("8-order-reports", async () => {
   await desktop.getByRole("button", { name: /^核對模擬買進/ }).click();
   await desktop.getByRole("button", { name: "確認送出模擬買進" }).click();
   await until(async () => /委託成功/.test(await desktop.locator('.sim-reports li[data-tone="sent"]').first().textContent().catch(() => "")), "no 委託成功 report");
-  // The seed's fills are already reported: wait for this order's own 成交 (and the advance's reply), not any.
-  const filledBefore = await desktop.locator('.sim-reports li[data-tone="filled"]').count();
+  // 委託回報 keeps the newest five and the seed's fills are already in it: wait for this order's own fill (the
+  // advance's reply), then for that 成交 at the top of the list.
+  const sent = (await api()).orders.find((order) => order.status === "pending");
   await desktop.getByRole("button", { name: "前進一分鐘撮合" }).click();
-  await until(async () => (await desktop.locator('.sim-reports li[data-tone="filled"]').count()) > filledBefore, "no 成交 report");
-  await until(async () => !(await api()).orders.some((order) => order.status === "pending"), "the market order is still waiting after its minute");
+  await until(async () => (await api()).orders.find((order) => order.id === sent?.id)?.status === "filled", "the market order did not fill in its minute");
+  await until(async () => (await desktop.locator(".sim-reports li").first().getAttribute("data-tone").catch(() => null)) === "filled", "no 成交 report");
   await rest(desktop);
   // A 409 refusal (the run moved on in another tab): a 送出失敗 row and a banner, both with the server's reason.
   {
