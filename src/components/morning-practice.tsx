@@ -582,9 +582,10 @@ function MorningLesson({
   const runKey = sessionId ?? "plan";
   const [indexViewFor, setIndexViewFor] = useState<string | null>(null);
   const indexView = indexViewFor === runKey;
-  // Phones: a price tapped in the 行情 book, handed to 下單 for that stock (filled in, never sent).
+  // Phones: a price tapped in the 行情 book (or just a side, from the quote's 買進／賣出), handed to 下單 for that
+  // stock (filled in, never sent).
   const [prefill, setPrefill] = useState<{
-    price: number;
+    price?: number;
     side: "buy" | "sell";
     nonce: number;
     code: string;
@@ -1339,6 +1340,15 @@ function MorningLesson({
                         titleRef={practiceHeading}
                         onSelect={singlePane ? setSelected : undefined}
                         clock={singlePane ? replayClockText : undefined}
+                        onTrade={
+                          singlePane && !showPlan
+                            ? (side) => {
+                                setPrefill({ side, nonce: Date.now(), code });
+                                setActivePane("trade");
+                                window.scrollTo({ top: 0, behavior: "auto" });
+                              }
+                            : undefined
+                        }
                       />
                       {chartBar}
                     </>
@@ -1406,6 +1416,7 @@ function MorningLesson({
                         book={deskBook}
                         code={code}
                         compact
+                        cards
                         indexSelected={indexView}
                         onSelect={(next) => {
                           setSelected(next);

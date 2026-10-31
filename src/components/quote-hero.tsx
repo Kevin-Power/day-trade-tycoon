@@ -23,6 +23,7 @@ export function QuoteHero({
   titleRef,
   onSelect,
   clock,
+  onTrade,
 }: {
   catalog: MorningCatalog;
   session: LiveMorningState | null;
@@ -34,6 +35,8 @@ export function QuoteHero({
   onSelect?: (code: string) => void;
   /** Phones: the replay clock (HH:MM:SS) for the code-and-time line under the quote. */
   clock?: string;
+  /** Phones: 買進／賣出 are buttons that open 下單 on that side (like a broker app's quote block). */
+  onTrade?: (side: "buy" | "sell") => void;
 }) {
   const symbol = catalog.symbols.find((item) => item.code === code) ?? catalog.symbols[0];
   const tick = useTickFlash(
@@ -107,16 +110,39 @@ export function QuoteHero({
           </span>
         )}
       </p>
-      <dl className="td-hero-book" aria-label="最佳買價與賣價">
-        <div data-side="bid" data-tone={toneOf(best.bid)}>
-          <dt>買進</dt>
-          <dd>{price(best.bid)}</dd>
+      {onTrade ? (
+        <div className="td-hero-book" role="group" aria-label="最佳買價與賣價，點一下到下單">
+          {(
+            [
+              ["bid", "buy", "買進", best.bid],
+              ["ask", "sell", "賣出", best.ask],
+            ] as const
+          ).map(([side, order, label, value]) => (
+            <button
+              key={side}
+              type="button"
+              data-side={side}
+              data-tone={toneOf(value)}
+              aria-label={`${label}，${side === "bid" ? "最佳買價" : "最佳賣價"} ${price(value)}，到下單`}
+              onClick={() => onTrade(order)}
+            >
+              <span className="td-hero-book-label">{label}</span>
+              <span className="td-hero-book-price">{price(value)}</span>
+            </button>
+          ))}
         </div>
-        <div data-side="ask" data-tone={toneOf(best.ask)}>
-          <dt>賣出</dt>
-          <dd>{price(best.ask)}</dd>
-        </div>
-      </dl>
+      ) : (
+        <dl className="td-hero-book" aria-label="最佳買價與賣價">
+          <div data-side="bid" data-tone={toneOf(best.bid)}>
+            <dt>買進</dt>
+            <dd>{price(best.bid)}</dd>
+          </div>
+          <div data-side="ask" data-tone={toneOf(best.ask)}>
+            <dt>賣出</dt>
+            <dd>{price(best.ask)}</dd>
+          </div>
+        </dl>
+      )}
       {clock && (
         <p className="td-hero-line">
           <span>{symbol.code}</span>

@@ -3,8 +3,9 @@ import { watchInView } from "@/lib/in-view";
 
 /**
  * Whether the element is in, or within `margin(element)` px of, the visible part of its nearest ancestor that
- * matches `scroller`. False until the browser has measured it, so a long table paints only the rows it shows.
- * Without an IntersectionObserver, or outside any such ancestor, it is always true.
+ * matches `scroller`, or of the screen when that ancestor does not scroll itself (the page does, as on the phone's
+ * 自選 cards). False until the browser has measured it, so a long table paints only the rows it shows. Without an
+ * IntersectionObserver, or outside any such ancestor, it is always true.
  */
 export function useInView(
   ref: RefObject<HTMLElement | null>,
@@ -20,7 +21,8 @@ export function useInView(
       setInView(true);
       return;
     }
-    return watchInView(element, root, Math.max(0, Math.round(margin(element))), setInView);
+    const scrolls = /auto|scroll/.test(getComputedStyle(root).overflowY);
+    return watchInView(element, scrolls ? root : null, Math.max(0, Math.round(margin(element))), setInView);
     // `margin` is read once, as watching starts: a table's rows keep their height.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ref, scroller]);
