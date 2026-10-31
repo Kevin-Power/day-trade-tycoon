@@ -2,7 +2,8 @@ import { createReadStream } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
-import { gunzipSync } from "node:zlib";
+import { promisify } from "node:util";
+import { gunzip as gunzipCallback } from "node:zlib";
 import { readBookTimeline, type BookTimeline } from "./books.ts";
 import { MORNING_END_MS, type TradeRow } from "./trades.ts";
 import type { RadarList } from "./types.ts";
@@ -34,9 +35,12 @@ async function readJson(path: string): Promise<unknown> {
   }
 }
 
+/** Unzips off the event loop (on libuv's thread pool), so a busy stock's file does not hold up other requests. */
+const gunzip = promisify(gunzipCallback);
+
 async function readGzipJson(path: string): Promise<unknown> {
   try {
-    return JSON.parse(gunzipSync(await readFile(path)).toString("utf8"));
+    return JSON.parse((await gunzip(await readFile(path))).toString("utf8"));
   } catch {
     return null;
   }

@@ -250,14 +250,14 @@ test("recorded books are read with their size unit", () => fixture(async (dir) =
     date: DAY,
     sizeUnit: "unverified",
     keyEvery: 60_000,
-    rows: [[1000, 4, [[[100, 10]], [[101, 5]]]], [500, 8, [[0, 100, 11]]]],
+    rows: [[1000, 4, [[[100, 10]], [[101, 5]]]], [1500, 8, [[0, 100, 11]]]],
     gaps: [],
   });
   const books = (await readBooks(dir, DAY, "2330"))!;
   assert.equal(books.sizeUnit, "unverified");
   assert.deepEqual(bookCell(books.timeline, 0).frames, [
     [1000, { bids: [[100, 10]], asks: [[101, 5]] }],
-    [1500, { bids: [[100, 11]], asks: [[101, 5]] }],
+    [2500, { bids: [[100, 11]], asks: [[101, 5]] }],
   ]);
   // Another stock's or another day's file, a bad row or a missing unit are no books.
   await putGz(dir, `books/${DAY}/symbols/2317.json.gz`, { schema: 1, code: "2330", date: DAY, sizeUnit: "lot", rows: [], gaps: [] });
