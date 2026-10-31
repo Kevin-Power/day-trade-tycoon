@@ -12,10 +12,13 @@ const WIDTH = 2 * SLOTS; // price and size of every slot
 const FULL = 4; // flag: the row holds the whole book, not the changed slots
 
 /**
- * One row per book message of the morning, in arrival order, with the book after it (`WIDTH` numbers per row:
- * price and size of each slot, NaN for an empty slot). A time that goes back is held at the latest time seen so
- * far, so times never decrease and a book is never shown before its time. Before 09:00 only the last row is
- * kept, since only the state at 09:00 matters; rows from 10:30 on, and rows inside a gap, are not kept.
+ * The morning's books, at most one row a second: the book after the last message of each second, at that message's
+ * time (`WIDTH` numbers per row: price and size of each slot, NaN for an empty slot). A busy stock sends thousands
+ * of messages a minute, but the desk plays a minute in about two seconds and redraws ten times a second, so one book
+ * a second is all it can show: exact at every second's end, at most a second behind inside one (R17). A time that
+ * goes back is held at the latest time seen so far, so times never decrease and a book is never shown before its
+ * time. Before 09:00 only the last row is kept, since only the state at 09:00 matters; rows from 10:30 on, and rows
+ * inside a gap, are not kept.
  */
 export type BookTimeline = {
   readonly times: readonly number[];
@@ -25,6 +28,8 @@ export type BookTimeline = {
 };
 
 const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+/** The second a row's time is in; every time before 09:00 is one "second", whose last row is the state at 09:00. */
+const secondOf = (ms: number) => (ms < 0 ? -1 : Math.floor(ms / 1000));
 
 function readGaps(gaps: unknown[]): [number, number][] | null {
   const spans: [number, number][] = [];
@@ -99,12 +104,15 @@ export function readBookTimeline(doc: unknown): BookTimeline | null {
     }
     while (gap < spans.length && spans[gap][1] <= latest) gap += 1;
     if (gap < spans.length && spans[gap][0] <= latest) continue; // the state moves on, but this time is not known
-    if (latest < 0 && times.length && times[times.length - 1] < 0) {
-      times.pop();
-      values.length -= WIDTH;
+    const last = times.length - 1;
+    if (last >= 0 && secondOf(times[last]) === secondOf(latest)) {
+      // The same second as the row kept last: this book replaces it.
+      times[last] = latest;
+      for (let index = 0; index < WIDTH; index += 1) values[last * WIDTH + index] = slots[index];
+    } else {
+      times.push(latest);
+      for (const value of slots) values.push(value);
     }
-    times.push(latest);
-    for (const value of slots) values.push(value);
   }
   return { times, values: Float64Array.from(values), gaps: spans };
 }
@@ -136,7 +144,7 @@ function levelsAt(values: Float64Array, row: number): BookLevels {
 export type BookCell = {
   /** The book when the cell starts (the last one before it); null when it is unknown or nothing had come yet. */
   start: BookLevels | null;
-  /** The whole book after each change inside the cell, with its time (ms after 09:00), in arrival order. */
+  /** The whole book after the last change of each second inside the cell, with its time (ms after 09:00), in order. */
   frames: [ms: number, book: BookLevels][];
   /** The parts of the cell whose book is unknown (recording gaps), clipped to the cell: no frame lies in them. */
   gaps: [from: number, to: number][];

@@ -1103,17 +1103,17 @@
   gap: 6px;
   margin: 0;
 }
-.trading-desk .td-hero-book > div {
+.trading-desk .td-hero-book > :is(div, button) {
   padding: 2px 10px 3px;
   background: var(--td-bg);
   border: 1px solid var(--td-line-strong);
   border-top: 2px solid var(--td-up);
   border-radius: var(--td-radius);
 }
-.trading-desk .td-hero-book > div[data-side="ask"] {
+.trading-desk .td-hero-book > :is(div, button)[data-side="ask"] {
   border-top-color: var(--td-down);
 }
-.trading-desk .td-hero-book dt {
+.trading-desk .td-hero-book :is(dt, .td-hero-book-label) {
   display: flex;
   align-items: center;
   color: var(--td-muted);
@@ -1121,11 +1121,23 @@
   line-height: 1.3;
   white-space: nowrap;
 }
-.trading-desk .td-hero-book dd {
+.trading-desk .td-hero-book :is(dd, .td-hero-book-price) {
   margin: 0;
   color: var(--td-tone);
   font: 600 24px/1 var(--font-mono);
   text-align: right;
+}
+/* Phones: the two boxes are buttons that open 下單 on their side. */
+.trading-desk .td-hero-book > button {
+  display: block;
+  min-height: 44px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.trading-desk .td-hero-book .td-hero-book-price {
+  display: block;
 }
 @container (max-width: 760px) {
   .trading-desk .td-hero {
@@ -2602,7 +2614,8 @@
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-replay {
   display: grid;
   order: 10;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  /* 1x and 2x are 44px wide each at least (with the group's border). */
+  grid-template-columns: minmax(0, 2fr) minmax(92px, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   width: 100%;
   margin-left: 0;
 }
@@ -2656,10 +2669,10 @@
   grid-template-columns: repeat(2, minmax(78px, auto));
   gap: 6px;
 }
-.trading-desk[data-layout="phone"] .td-hero-book > div {
+.trading-desk[data-layout="phone"] .td-hero-book > :is(div, button) {
   padding: 5px 9px 6px;
 }
-.trading-desk[data-layout="phone"] .td-hero-book dd {
+.trading-desk[data-layout="phone"] .td-hero-book :is(dd, .td-hero-book-price) {
   font-size: 22px;
 }
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-id {
@@ -2689,13 +2702,13 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-book > div {
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-book > :is(div, button) {
   padding: 6px 12px 7px;
 }
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-book dt {
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-book :is(dt, .td-hero-book-label) {
   font-size: 12px;
 }
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-book dd {
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-book :is(dd, .td-hero-book-price) {
   font-size: 26px;
   text-align: left;
 }
@@ -2905,10 +2918,10 @@
 .trading-desk[data-layout="senior"] .td-hero h1 {
   font-size: 28px;
 }
-.trading-desk[data-layout="senior"] :is(.td-hero-stamp, .td-hero-book dt, .td-hero-line) {
+.trading-desk[data-layout="senior"] :is(.td-hero-stamp, .td-hero-book :is(dt, .td-hero-book-label), .td-hero-line) {
   font-size: 15px;
 }
-.trading-desk[data-layout="senior"] .td-hero-book dd {
+.trading-desk[data-layout="senior"] .td-hero-book :is(dd, .td-hero-book-price) {
   font-size: 30px;
 }
 .trading-desk[data-layout="senior"] .td-chip {
@@ -3034,7 +3047,8 @@
   align-items: center;
 }
 
-/* Senior mode and very narrow phones: replay controls on two rows so 2x and 復盤 are not cut. */
+/* Senior mode: replay controls on two rows so 2x and 復盤 are not cut. (Narrow phones keep one row since
+   2026-10-31: 播放 narrower, 1x/2x 44px each, 復盤 without its icon.) */
 .trading-desk[data-layout="senior"] .td-replay {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -3049,11 +3063,7 @@
 }
 @media (max-width: 359px) {
   .trading-desk[data-layout="phone"] .td-replay {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-  .trading-desk[data-layout="phone"] .td-replay > :is(.td-play, .td-speed),
-  .trading-desk[data-layout="phone"] .td-replay > button:not(.td-play) {
-    grid-column: span 2;
+    grid-template-columns: minmax(0, 1.2fr) 92px minmax(0, 1fr) minmax(0, 1fr);
   }
   .trading-desk[data-layout="phone"] .td-speed {
     display: flex;
@@ -4817,10 +4827,10 @@
   .trading-desk[data-layout="desktop"] .td-hero-book {
     grid-template-columns: repeat(2, minmax(80px, auto));
   }
-  .trading-desk[data-layout="desktop"] .td-hero-book > div {
+  .trading-desk[data-layout="desktop"] .td-hero-book > :is(div, button) {
     padding: 1px 8px 2px;
   }
-  .trading-desk[data-layout="desktop"] .td-hero-book dd {
+  .trading-desk[data-layout="desktop"] .td-hero-book :is(dd, .td-hero-book-price) {
     font-size: 18px;
   }
   .trading-desk[data-layout="desktop"] .td-chartbar {
@@ -4837,4 +4847,161 @@
   .trading-desk[data-layout="desktop"] .td-segment button {
     min-height: 24px;
   }
+}
+
+/* Phone desk (2026-10-31, docs/superpowers/specs/2026-10-31-phone-desk-design.md): the 江波圖 near the top, big
+   江波圖 cards in 自選, the ticket first in 下單. Phones and large text only; desktops and tablets do not change. */
+/* The top: the clock and the replay controls, then 快訊 in at most two lines (a fill's price must not be cut). The
+   lesson's principle and the round's plan are in 教材; feedback, the 10:00 checkpoint and the end still show. */
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hints :is(.td-tip, .td-plan-chip) {
+  display: none;
+}
+/* Only the block padding: 大字 on a wide screen keeps the centred column's inline padding. */
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hints {
+  padding-block: 4px;
+}
+.trading-desk[data-layout="phone"] .td-hints {
+  padding-inline: 10px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hints > .td-alert {
+  display: -webkit-box;
+  overflow: hidden;
+  max-width: 100%;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-alert > :is(span:first-child, time) {
+  margin-right: 6px;
+}
+.trading-desk[data-layout="phone"] .td-bar {
+  gap: 6px;
+  padding: 6px 10px;
+}
+/* 大廳 and 教材 as icons (their aria-labels name them), so row one holds the clock and 標準／大字. */
+.trading-desk[data-layout="phone"] :is(.td-home, .td-tool) {
+  justify-content: center;
+  width: 44px;
+  padding: 0;
+}
+.trading-desk[data-layout="phone"] :is(.td-home, .td-tool) span {
+  display: none;
+}
+
+/* Narrow phones: the clock's state word (已暫停, 重播中) goes; the dot and 播放／暫停 still show it. */
+@media (max-width: 379px) {
+  .trading-desk[data-layout="phone"] .td-clock small {
+    display: none;
+  }
+}
+
+/* 行情: the quote in two rows (name; price beside 買進／賣出), the code-and-time line left to the clock above. */
+.trading-desk[data-layout="phone"] .td-hero {
+  padding: 6px 12px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-line {
+  display: none;
+}
+/* Large text puts the stamp (09:27 收價 · 歷史重播) on a row of its own; the clock above says the time. */
+.trading-desk[data-layout="senior"] .td-hero-stamp {
+  display: none;
+}
+
+/* 下單: 核對 stays above the bottom tabs, so it is on screen on the smallest phones too. Only while it can be pressed:
+   a disabled one stays under the line that says why (no holdings, a stale review, the large-order tick). */
+.trading-desk[data-layout="phone"] .sim-ticket .sim-submit:not(:disabled) {
+  position: sticky;
+  bottom: calc(68px + env(safe-area-inset-bottom));
+  z-index: 2;
+  box-shadow: 0 0 0 8px var(--td-panel);
+}
+.trading-desk[data-layout="senior"] .sim-ticket .sim-submit:not(:disabled) {
+  position: sticky;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  z-index: 2;
+  box-shadow: 0 0 0 8px var(--td-panel);
+}
+/* The confirm card and the large-order tick, scrolled into view, stop above the tabs and the pinned button. */
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .sim-ticket :is(.sim-confirm, .sim-large) {
+  scroll-margin-bottom: calc(140px + env(safe-area-inset-bottom));
+}
+
+/* 自選 cards: one card a stock, its 江波圖 on the right half. The page scrolls, so nothing sticks, there is no
+   height limit and the column names go. */
+.trading-desk .td-watch-table[data-cards="true"] {
+  max-height: none;
+  overflow: visible;
+}
+.trading-desk .td-watch-table[data-cards="true"] .td-watch-fixed {
+  position: static;
+}
+.trading-desk .td-watch-table[data-cards="true"] .td-watch-cols {
+  display: none;
+}
+.trading-desk .td-watch-table[data-cards="true"] .td-watch-row {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  grid-template-areas:
+    "name mini"
+    "price mini"
+    "change mini";
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 2px;
+  min-height: 108px;
+  padding: 10px 12px;
+  text-align: left;
+  /* The chosen card is brought into view above the bottom tabs, not under them. */
+  scroll-margin-bottom: calc(80px + env(safe-area-inset-bottom));
+}
+.trading-desk .td-watch-table[data-cards="true"] .td-watch-row .td-watch-name {
+  grid-area: name;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
+}
+.trading-desk .td-watch-table[data-cards="true"] .td-watch-row .td-watch-name span {
+  overflow: hidden;
+  font-size: 17px;
+  text-overflow: ellipsis;
+}
+.trading-desk .td-watch-table[data-cards="true"] .td-watch-row .td-watch-name small {
+  font-size: 12px;
+}
+.trading-desk .td-watch-table[data-cards="true"] .td-watch-row .td-watch-price {
+  grid-area: price;
+  font-size: 26px;
+  line-height: 1.1;
+}
+.trading-desk .td-watch-table[data-cards="true"] .td-watch-row .td-watch-cell {
+  grid-area: change;
+  font-size: 14px;
+}
+.trading-desk .td-watch-table[data-cards="true"] .td-mini {
+  grid-area: mini;
+  height: 88px;
+}
+.trading-desk .td-watch-table[data-cards="true"] .td-mini-empty {
+  display: grid;
+  place-items: center;
+}
+.trading-desk[data-layout="senior"] .td-watch-table[data-cards="true"] .td-watch-row {
+  min-height: 124px;
+}
+.trading-desk[data-layout="senior"] .td-watch-table[data-cards="true"] .td-watch-row .td-watch-name span {
+  font-size: 20px;
+}
+.trading-desk[data-layout="senior"] .td-watch-table[data-cards="true"] .td-watch-row .td-watch-price {
+  font-size: 30px;
+}
+.trading-desk[data-layout="senior"] .td-watch-table[data-cards="true"] .td-watch-row .td-watch-cell {
+  font-size: 17px;
+}
+.trading-desk[data-layout="senior"] .td-watch-table[data-cards="true"] .td-mini {
+  height: 100px;
+}
+/* The owner's 富邦行情 link would take a row of its own on a phone: it stays on tablets and desktops. */
+.trading-desk[data-layout="phone"] .td-fubon-entry {
+  display: none;
+}
+.trading-desk[data-layout="phone"] .td-chartbar {
+  padding: 4px 12px;
 }

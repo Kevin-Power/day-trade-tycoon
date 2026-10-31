@@ -457,13 +457,13 @@ test("runBookCell: null without books, sizes only when the books manifest says l
   await writeDay(dir, "2026-10-28", SIX);
   assert.equal(await runBookCell(dir, "2026-10-28", "2330", 0), null);
   assert.equal(await runBookCell("", "2026-10-28", "2330", 0), null);
-  const rows = [[1000, 4, [[[100, 10]], [[101, 5]]]], [500, 8, [[0, 100, 11]]], [61_000, 8, [[5, 101, 7]]]];
+  const rows = [[1000, 4, [[[100, 10]], [[101, 5]]]], [1500, 8, [[0, 100, 11]]], [61_000, 8, [[5, 101, 7]]]];
   await putBooks(dir, "2026-10-28", "unverified", { "2330": { rows, gaps: [[30_000, 40_000]] } });
   assert.deepEqual(await runBookCell(dir, "2026-10-28", "2330", 0), {
     start: null,
     frames: [
       [1000, { bids: [[100, 10]], asks: [[101, 5]] }],
-      [1500, { bids: [[100, 11]], asks: [[101, 5]] }],
+      [2500, { bids: [[100, 11]], asks: [[101, 5]] }],
     ],
     gaps: [[30_000, 40_000]],
     sizes: false,
@@ -471,7 +471,7 @@ test("runBookCell: null without books, sizes only when the books manifest says l
   // The gap began after the last book before 09:01, so the book at 09:01 is unknown.
   assert.deepEqual(await runBookCell(dir, "2026-10-28", "2330", 1), {
     start: null,
-    frames: [[62_500, { bids: [[100, 11]], asks: [[101, 7]] }]],
+    frames: [[63_500, { bids: [[100, 11]], asks: [[101, 7]] }]],
     gaps: [],
     sizes: false,
   });

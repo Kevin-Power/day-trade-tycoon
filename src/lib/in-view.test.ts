@@ -101,3 +101,18 @@ test("a stopped row hears nothing more, even from a late entry", () => {
   FakeObserver.all[0].fire({ target: a, isIntersecting: true }, { target: b, isIntersecting: true });
   assert.deepEqual(seen, ["b:true"]);
 });
+
+test("without a scroll container (a page that scrolls, like the phone's 自選 cards) rows watch the viewport", () => {
+  const [a, b] = [element("a"), element("b")];
+  const seen: string[] = [];
+  const stopA = watchInView(a, null, 104, (inView) => seen.push(`a:${inView}`));
+  watchInView(b, null, 104, (inView) => seen.push(`b:${inView}`));
+  assert.equal(FakeObserver.all.length, 1);
+  const [observer] = FakeObserver.all;
+  assert.equal(observer.options.root, null);
+  assert.equal(observer.options.rootMargin, "104px 0px");
+  observer.fire({ target: b, isIntersecting: true });
+  assert.deepEqual(seen, ["b:true"]);
+  stopA();
+  assert.equal(observer.targets.has(a), false);
+});

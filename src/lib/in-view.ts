@@ -7,18 +7,22 @@
 type Listener = (inView: boolean) => void;
 type Hub = { observer: IntersectionObserver; listeners: Map<Element, Listener> };
 
-const hubs = new WeakMap<Element, Map<number, Hub>>();
+const hubs = new WeakMap<object, Map<number, Hub>>();
+/** The key of the hubs rooted at the viewport (root null). */
+const VIEWPORT = {};
 
 /**
- * Calls `notify` with whether `target` is within `margin` px (above or below) of the visible part of `root`: once
- * when watching starts (asynchronously, as the browser first measures it), then whenever that changes. Returns the
- * function that stops watching; the shared observer goes with its last watcher.
+ * Calls `notify` with whether `target` is within `margin` px (above or below) of the visible part of `root` (null:
+ * the viewport, for a list the page itself scrolls): once when watching starts (asynchronously, as the browser first
+ * measures it), then whenever that changes. Returns the function that stops watching; the shared observer goes with
+ * its last watcher.
  */
-export function watchInView(target: Element, root: Element, margin: number, notify: Listener): () => void {
-  let byMargin = hubs.get(root);
+export function watchInView(target: Element, root: Element | null, margin: number, notify: Listener): () => void {
+  const key = root ?? VIEWPORT;
+  let byMargin = hubs.get(key);
   if (!byMargin) {
     byMargin = new Map();
-    hubs.set(root, byMargin);
+    hubs.set(key, byMargin);
   }
   const margins = byMargin;
   let hub = margins.get(margin);

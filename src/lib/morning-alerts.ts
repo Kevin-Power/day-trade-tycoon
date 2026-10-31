@@ -3,7 +3,7 @@ import { formatPrice } from "./market/ticks.ts";
 import type { MorningCatalog, MorningState } from "./morning.ts";
 import { fillPriceText } from "./morning-ledger.ts";
 
-export type MorningAlertKind = "fill" | "swing-high" | "cross-up" | "cross-down";
+export type MorningAlertKind = "fill" | "swing-high" | "break-high" | "cross-up" | "cross-down";
 export type MorningAlert = { t: number; kind: MorningAlertKind; code: string; text: string };
 
 // Within one minute the learner's own fill is the most important, so it sorts last.
@@ -11,7 +11,8 @@ const PRIORITY: Record<MorningAlertKind, number> = {
   "cross-up": 0,
   "cross-down": 0,
   "swing-high": 1,
-  fill: 2,
+  "break-high": 2,
+  fill: 3,
 };
 
 /**
@@ -34,6 +35,16 @@ export function deriveMorningAlerts(catalog: MorningCatalog, state: MorningState
         code: symbol.code,
         text: `${symbol.name} 前高確認 ${formatPrice(high.p)}`,
       });
+      // N 字攻擊's breakout: the first minute after the confirmation that closes above the 前高. Only the price
+      // is described, never a reason to trade.
+      const breakout = bars.find((bar) => bar.t >= high.confirmedAt && bar.c > high.p);
+      if (breakout)
+        alerts.push({
+          t: breakout.t + 60,
+          kind: "break-high",
+          code: symbol.code,
+          text: `${symbol.name} 過前高 ${formatPrice(high.p)}`,
+        });
     }
     for (let index = 1; index < bars.length; index++) {
       const before = bars[index - 1]!.c - symbol.previousClose;

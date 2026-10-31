@@ -204,7 +204,7 @@ export function PaperOrder({
   /** Sends that failed in this visit, for 委託回報. */
   failures?: readonly LocalOrderFailure[];
   /** A price and side handed over from the display book on the phone's 行情 page (not sent); only for its stock. */
-  prefill?: { price: number; side: "buy" | "sell"; nonce: number; code: string };
+  prefill?: { price?: number; side: "buy" | "sell"; nonce: number; code: string };
   onSelect: (code: string) => void;
   onPrepare: () => void;
   onReview: () => void;
@@ -267,6 +267,8 @@ export function PaperOrder({
     // The ticket remounts per stock: another stock's price is never carried over.
     if (!prefill || prefill.code !== code) return;
     setSide(prefill.side);
+    // A side alone (the quote's 買進／賣出) keeps the order type: 市價 unless the learner chose 限價.
+    if (prefill.price === undefined) return;
     setOrderType("limit");
     setLimitDraft(formatPrice(prefill.price));
   }, [prefill, code]);
@@ -433,35 +435,40 @@ export function PaperOrder({
     />
   );
 
+  const bookPane = (
+    <section className="td-book-pane" data-pane="book" aria-label="個股報價與五檔">
+      {variant === "desk" ? (
+        <>
+          <QuoteDetailGrid catalog={catalog} session={session} code={code} />
+          <StockTabs
+            onChange={(id) => {
+              if (id !== "book") changeFlash(false);
+            }}
+            tabs={[
+              { id: "book", label: "五檔", content: book },
+              {
+                id: "tape",
+                label: "明細",
+                content: <TradeTape catalog={catalog} session={session} code={code} />,
+              },
+              {
+                id: "minutes",
+                label: "分鐘",
+                content: <MinuteTable session={session} code={code} />,
+              },
+            ]}
+          />
+        </>
+      ) : (
+        book
+      )}
+    </section>
+  );
+
   return (
     <div className="morning-order-station" data-flash={flash} data-variant={variant}>
-      <section className="td-book-pane" data-pane="book" aria-label="個股報價與五檔">
-        {variant === "desk" ? (
-          <>
-            <QuoteDetailGrid catalog={catalog} session={session} code={code} />
-            <StockTabs
-              onChange={(id) => {
-                if (id !== "book") changeFlash(false);
-              }}
-              tabs={[
-                { id: "book", label: "五檔", content: book },
-                {
-                  id: "tape",
-                  label: "明細",
-                  content: <TradeTape catalog={catalog} session={session} code={code} />,
-                },
-                {
-                  id: "minutes",
-                  label: "分鐘",
-                  content: <MinuteTable session={session} code={code} />,
-                },
-              ]}
-            />
-          </>
-        ) : (
-          book
-        )}
-      </section>
+      {/* Phones put the ticket first: 買進／賣出, 市價 and the lots without scrolling; the book follows it. */}
+      {variant === "desk" && bookPane}
       <section
         className="sim-ticket"
         data-pane="ticket"
@@ -712,6 +719,14 @@ export function PaperOrder({
                   max={side === "sell" && holdingLots > 0 ? holdingLots : undefined}
                   onChange={changeLots}
                 />
+                {/* Right under the side and the lots that cause it, so the smallest phones show it without scrolling. */}
+                {invalidSell && (
+                  <p className="sim-ticket-message">
+                    {holdingLots
+                      ? "賣出張數超過庫存，請減少張數。"
+                      : "這檔目前沒有庫存，先模擬買進後才能賣出。"}
+                  </p>
+                )}
                 <dl className="sim-order-facts">
                   <div>
                     <dt>
@@ -740,13 +755,6 @@ export function PaperOrder({
                     </dd>
                   </div>
                 </dl>
-                {invalidSell && (
-                  <p className="sim-ticket-message">
-                    {holdingLots
-                      ? "賣出張數超過庫存，請減少張數。"
-                      : "這檔目前沒有庫存，先模擬買進後才能賣出。"}
-                  </p>
-                )}
                 {ready && (
                   <button
                     type="submit"
@@ -795,6 +803,7 @@ export function PaperOrder({
           <p className="sim-ticket-footnote">教學模擬・不連接券商、不送出真實委託</p>
         </div>
       </section>
+      {variant !== "desk" && bookPane}
     </div>
   );
 }

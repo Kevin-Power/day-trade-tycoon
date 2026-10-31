@@ -35,11 +35,9 @@ const rows = [
 test("replays in arrival order", () => {
   const timeline = readBookTimeline(doc(rows))!;
   const cell1 = bookCell(timeline, 1);
-  // The row whose time went back is still applied after the one before it, and is shown at the latest time seen.
-  assert.deepEqual(cell1.frames, [
-    [61_000, book([[100, 12], [99.5, 3], [99, 2]], [[101, 6]])],
-    [61_000, book([[100, 12], [99.4, 7], [99, 2]], [[101, 6]])],
-  ]);
+  // The row whose time went back is still applied after the one before it, and is shown at the latest time seen:
+  // both are in second 61, which keeps only its last book.
+  assert.deepEqual(cell1.frames, [[61_000, book([[100, 12], [99.4, 7], [99, 2]], [[101, 6]])]]);
   assert.deepEqual(bookCell(timeline, 0).frames, [
     [1000, book([[100, 10], [99.5, 3], [99, 2]], [[100.5, 4], [101, 6]])],
     [21_000, book([[100, 12], [99.5, 3], [99, 2]], [[100.5, 4], [101, 6]])],
@@ -66,15 +64,15 @@ test("a row exactly on the cell start belongs to the cell, not to its start", ()
 
 test("frames are full snapshots", () => {
   const timeline = readBookTimeline(doc(rows))!;
-  const [first, second] = bookCell(timeline, 1).frames;
+  const [first, second] = bookCell(timeline, 0).frames;
   // Every frame carries all the levels, not the change.
   assert.equal(first[1].bids.length, 3);
-  assert.equal(first[1].asks.length, 1); // the emptied ask is gone, the second ask moved up
-  assert.equal(second[1].bids.length, 3);
+  assert.equal(second[1].bids.length, 3); // only bid 1's size changed
+  assert.equal(second[1].asks.length, 2);
   // Frames do not share (or alias) each other's levels.
-  second[1].bids[0][1] = 999;
-  assert.equal(first[1].bids[0][1], 12);
-  assert.equal(bookCell(timeline, 1).frames[0][1].bids[0][1], 12);
+  second[1].bids[1][1] = 999;
+  assert.equal(first[1].bids[1][1], 3);
+  assert.equal(bookCell(timeline, 0).frames[1][1].bids[1][1], 3);
 });
 
 test("a full row replaces the whole book", () => {
@@ -183,6 +181,78 @@ test("a bad file is no timeline", () => {
   }
   // An empty file and a file with no rows are valid: there is just nothing to show.
   assert.deepEqual(bookCell(readBookTimeline(doc([]))!, 0), { start: null, frames: [], gaps: [] });
+});
+
+test("a second keeps only its last book, at that book's own time", () => {
+  const timeline = readBookTimeline(doc([
+    [1000, FULL, [[[100, 1]], [[101, 1]]]], // 1.000 s
+    [200, 0, [[0, 100, 2]]], // 1.200 s
+    [700, 0, [[5, 101, 3]]], // 1.900 s
+    [200, 0, [[0, 100, 4]]], // 2.100 s
+  ]))!;
+  assert.deepEqual(bookCell(timeline, 0).frames, [
+    [1900, book([[100, 2]], [[101, 3]])],
+    [2100, book([[100, 4]], [[101, 3]])],
+  ]);
+  assert.equal(timeline.times.length, 2);
+});
+
+// The book every change makes, one per row, as the recorder sent them: what the desk would show with no thinning.
+function everyBook(rowsOf: [number, number, unknown][]): [number, BookLevels][] {
+  const bids = new Map<number, [number, number]>();
+  const asks = new Map<number, [number, number]>();
+  const out: [number, BookLevels][] = [];
+  let time = 0;
+  for (const [dt, flags, payload] of rowsOf) {
+    time += dt;
+    if (flags & FULL) {
+      bids.clear();
+      asks.clear();
+      const [bidLevels, askLevels] = payload as [[number, number][], [number, number][]];
+      bidLevels.forEach((level, index) => bids.set(index, [...level]));
+      askLevels.forEach((level, index) => asks.set(index, [...level]));
+    } else {
+      for (const [slot, price, size] of payload as [number, number, number][]) {
+        const side = slot < 5 ? bids : asks;
+        side.set(slot % 5, [price, size]);
+      }
+    }
+    const levels = (side: Map<number, [number, number]>) => [...side.entries()].sort((a, b) => a[0] - b[0]).map(([, level]) => [...level] as [number, number]);
+    out.push([time, book(levels(bids), levels(asks))]);
+  }
+  return out;
+}
+
+test("a busy minute sends one book a second, each the one every change made by then", () => {
+  // A change every 7 ms through cell 0 (and into cell 1): bid 1's size counts the changes.
+  const busy: [number, number, unknown][] = [[0, FULL, [[[100, 0]], [[101, 1]]]]];
+  for (let n = 1; n * 7 < 61_000; n += 1) busy.push([7, 0, [[0, 100, n]]]);
+  const timeline = readBookTimeline(doc(busy))!;
+  const cell0 = bookCell(timeline, 0);
+  assert.equal(cell0.frames.length, 60);
+  const naive = everyBook(busy);
+  const shownAt = (frames: [number, BookLevels][], start: BookLevels | null, ms: number) =>
+    frames.filter(([at]) => at <= ms).at(-1)?.[1] ?? start;
+  const naiveAt = (ms: number) => naive.filter(([at]) => at <= ms).at(-1)?.[1] ?? null;
+  // At the end of every second (and at rest, the cell's last ms) the book is exactly the one every change made.
+  for (let second = 1; second <= 60; second += 1) {
+    const ms = second * 1000 - 1;
+    assert.deepEqual(shownAt(cell0.frames, cell0.start, ms), naiveAt(ms), `at ${ms} ms`);
+  }
+  // Each frame is the last change of its second, at that change's own time: never shown before it happened.
+  for (const [ms, levels] of cell0.frames) assert.deepEqual(naive.filter(([at]) => at === ms).at(-1)?.[1], levels);
+  // The next cell starts with the book every change of cell 0 made.
+  assert.deepEqual(bookCell(timeline, 1).start, naiveAt(59_999));
+});
+
+test("a gap inside a second leaves that second's last book after it", () => {
+  const timeline = readBookTimeline(doc([
+    [12_100, FULL, [[[100, 1]], [[101, 1]]]], // 12.100 s
+    [500, 0, [[0, 100, 2]]], // 12.600 s, after the gap
+  ], [[12_200, 12_500]]))!;
+  const cell0 = bookCell(timeline, 0);
+  assert.deepEqual(cell0.frames, [[12_600, book([[100, 2]], [[101, 1]])]]);
+  assert.deepEqual(cell0.gaps, [[12_200, 12_500]]);
 });
 
 test("a diff row before any full row builds on an empty book", () => {

@@ -48,6 +48,7 @@ export function WatchTable({
   book,
   code,
   compact = false,
+  cards = false,
   indexSelected,
   onSelect,
   onIndex,
@@ -58,6 +59,11 @@ export function WatchTable({
   book?: MorningBookCell;
   code: string;
   compact?: boolean;
+  /**
+   * Phones' 自選 page (with `compact`): one card a stock, its 江波圖 on the right half as big as a broker app's
+   * watch list, the change beside the percentage; the page scrolls, not the table.
+   */
+  cards?: boolean;
   /** Phones: whether 行情 shows the index (a toggle); desktops leave it out (the row only points at the pane). */
   indexSelected?: boolean;
   onSelect: (code: string) => void;
@@ -106,7 +112,7 @@ export function WatchTable({
       ?.scrollIntoView({ block: "nearest" });
   }, [code, indexSelected]);
   return (
-    <section ref={tableRef} className="td-watch-table" data-compact={compact} aria-label="自選報價">
+    <section ref={tableRef} className="td-watch-table" data-compact={compact} data-cards={cards} aria-label="自選報價">
       <div ref={fixedRef} className="td-watch-fixed">
         <div className="td-titlebar td-watch-head">
           <span>
@@ -152,7 +158,10 @@ export function WatchTable({
                 : `${arrow(indexQuote.tone)}${indexQuote.changeText}`}
             </span>
           )}
-          <span className="td-watch-cell">{indexQuote?.percentText || dash}</span>
+          <span className="td-watch-cell">
+            {cards && indexQuote?.last != null && `${arrow(indexQuote.tone)}${indexQuote.changeText} `}
+            {indexQuote?.percentText || dash}
+          </span>
           {!compact && (
             <>
               <span className="td-watch-cell td-watch-muted">{dash}</span>
@@ -198,6 +207,7 @@ export function WatchTable({
               bid={best.bid}
               ask={best.ask}
               compact={compact}
+              cards={cards}
               selected={indexSelected !== true && code === symbol.code}
               scale={scale}
               endT={endT}
@@ -218,6 +228,7 @@ type RowProps = {
   bid: number | null;
   ask: number | null;
   compact: boolean;
+  cards: boolean;
   selected: boolean;
   scale: MiniScale;
   endT: number;
@@ -237,6 +248,7 @@ function sameRow(a: RowProps, b: RowProps): boolean {
     a.bid === b.bid &&
     a.ask === b.ask &&
     a.compact === b.compact &&
+    a.cards === b.cards &&
     a.selected === b.selected &&
     a.scale === b.scale &&
     a.endT === b.endT &&
@@ -251,6 +263,7 @@ const StockRow = memo(function StockRow({
   bid,
   ask,
   compact,
+  cards,
   selected,
   scale,
   endT,
@@ -278,7 +291,10 @@ const StockRow = memo(function StockRow({
           {quote.last === null ? dash : `${arrow(quote.tone)}${quote.changeText}`}
         </span>
       )}
-      <span className="td-watch-cell">{quote.percentText || dash}</span>
+      <span className="td-watch-cell">
+        {cards && quote.last !== null && `${arrow(quote.tone)}${quote.changeText} `}
+        {quote.percentText || dash}
+      </span>
       {!compact && (
         <>
           <span className="td-watch-cell" data-tone={toneOf(bid, symbol.previousClose)}>

@@ -39,7 +39,11 @@ import type { LessonPicker, PickerSymbol, RadarList } from "./types.ts";
 export const FIRST_LESSON_DAY = "2026-10-21";
 /** Trades kept in memory at most, over every (day, stock); the least recently used go first. */
 export const TRADE_CACHE_LIMIT = 3_000_000;
-/** Recorded book rows (twenty numbers each) kept in memory at most. */
+/**
+ * Recorded book rows kept in memory at most. Every row is the same size (twenty numbers and a time, about 170 bytes),
+ * so this is a byte limit: about 85 MB. A stock's morning is at most 5,401 rows (one a second, R17), so even the
+ * busiest 90 stocks fit.
+ */
 const BOOK_CACHE_ROWS = 500_000;
 /** Days whose stock lists, pickers, TAIEX and books manifests stay cached. */
 const DAYS_KEPT = 8;
@@ -576,8 +580,8 @@ function bookTimeline(dir: string, date: string, code: string, version: string):
 }
 
 /**
- * One stock's recorded books in one cell (09:00 + cell minutes): the book as the cell starts, every change inside
- * it, and the stretches whose book is unknown (R7). Null when the day or the stock has no recorded books; the
+ * One stock's recorded books in one cell (09:00 + cell minutes): the book as the cell starts, the book each second
+ * inside it ended with (R17), and the stretches whose book is unknown (R7). Null when the day or the stock has no recorded books; the
  * desk then shows only the trades' best bid and ask. `sizes` false: the desk shows 「—」 for every size.
  */
 export async function runBookCell(

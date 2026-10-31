@@ -48,7 +48,7 @@ const scan = (senior) => {
   // Prices use the monospaced face (every digit the same width), so columns line up.
   const numbers = [];
   for (const el of document.querySelectorAll(
-    ".td-hero-price strong, .td-hero-book dd, .td-watch-price, .td-book-price, .td-book-last strong, .td-index-value, .sim-order-facts dd",
+    ".td-hero-price strong, .td-hero-book :is(dd, .td-hero-book-price), .td-watch-price, .td-book-price, .td-book-last strong, .td-index-value, .sim-order-facts dd",
   )) {
     if (!visible(el)) continue;
     const style = getComputedStyle(el);
@@ -124,8 +124,8 @@ const scan = (senior) => {
     factBaselines,
     overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     hero: text(".td-hero h1"),
-    heroBid: text('.td-hero-book [data-side="bid"] dd'),
-    heroAsk: text('.td-hero-book [data-side="ask"] dd'),
+    heroBid: text('.td-hero-book [data-side="bid"] :is(dd, .td-hero-book-price)'),
+    heroAsk: text('.td-hero-book [data-side="ask"] :is(dd, .td-hero-book-price)'),
     labels: {
       real: shown('.td-chip[data-kind="real"]'),
       // Market data is real (富邦逐筆, 2026-10-28): nothing of the quote is labelled 模擬 any more; the paper-trading
@@ -264,16 +264,34 @@ for (const item of cases) {
     // Switch to 鴻海 2317: quote, chart, book and order ticket all follow.
     if (phone) {
       await page.getByRole("button", { name: "自選", exact: true }).click();
-      // Each row's name and price stay apart (the TAIEX row is the widest).
+      // Each row's name and price stay apart (the TAIEX row is the widest). Phones' 自選 cards (2026-10-31) stack
+      // name, price and change on the left, so there each is above the next and all of them left of the 江波圖.
       const collisions = await page.evaluate(() =>
         [...document.querySelectorAll(".td-watch-row")].flatMap((row) => {
           const name = row.querySelector(".td-watch-name");
           const price = row.querySelector(".td-watch-price");
           if (!name || !price) return [];
-          const right = Math.max(...[...name.children].map((child) => child.getBoundingClientRect().right));
-          const range = document.createRange();
-          range.selectNodeContents(price);
-          const left = range.getBoundingClientRect().left;
+          const textBox = (node) => {
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            return range.getBoundingClientRect();
+          };
+          const nameBox = [...name.children].map((child) => child.getBoundingClientRect());
+          const right = Math.max(...nameBox.map((box) => box.right));
+          const priceBox = textBox(price);
+          if (row.closest('.td-watch-table[data-cards="true"]')) {
+            const cell = row.querySelector(".td-watch-cell");
+            const mini = row.querySelector(".td-mini")?.getBoundingClientRect();
+            const cellBox = cell ? textBox(cell) : null;
+            const found = [];
+            const bottom = Math.max(...nameBox.map((box) => box.bottom));
+            if (bottom > priceBox.top + 1) found.push(`${row.dataset.code} name ends at ${Math.round(bottom)}, price starts at ${Math.round(priceBox.top)} (down)`);
+            if (cellBox && priceBox.bottom > cellBox.top + 1) found.push(`${row.dataset.code} price ends at ${Math.round(priceBox.bottom)}, change starts at ${Math.round(cellBox.top)} (down)`);
+            const textRight = Math.max(right, priceBox.right, cellBox?.right ?? 0);
+            if (mini && textRight > mini.left + 1) found.push(`${row.dataset.code} text ends at ${Math.round(textRight)}, 江波圖 starts at ${Math.round(mini.left)}`);
+            return found;
+          }
+          const left = priceBox.left;
           return right > left + 1 ? [`${row.dataset.code} name ends at ${Math.round(right)}, price starts at ${Math.round(left)}`] : [];
         }),
       );
@@ -289,7 +307,7 @@ for (const item of cases) {
       stepper: document.querySelector('.td-stepper select')?.value ?? null,
       ticket: document.querySelector('select[aria-label="下單商品"]')?.value ?? null,
       watch: document.querySelector('.td-watch-row[aria-pressed="true"] .td-watch-name small')?.textContent ?? null,
-      bid: document.querySelector('.td-hero-book [data-side="bid"] dd')?.textContent?.trim(),
+      bid: document.querySelector('.td-hero-book [data-side="bid"] :is(dd, .td-hero-book-price)')?.textContent?.trim(),
     }));
     if (!/^鴻海/.test(synced.hero ?? "")) fail(`hero did not follow the watchlist (${synced.hero})`);
     if (!synced.chart.includes("2317")) fail("chart did not follow the watchlist");

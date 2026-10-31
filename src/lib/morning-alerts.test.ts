@@ -71,6 +71,36 @@ test("a swing high appears only once it is confirmed, and never from unrevealed 
   ]);
 });
 
+// A 前高 of 1025 at 09:02, confirmed when 09:04 closes (t=300); everything closes under the previous close until then.
+const peak = [bar(0, 1000, 995), bar(1, 1005, 995), bar(2, 1025, 995), bar(3, 1010, 995), bar(4, 1005, 995)];
+
+test("a close above a confirmed 前高 is 過前高 at the minute it completes, once (N 字攻擊)", () => {
+  const bars = [...peak, bar(5, 1022, 1020), bar(6, 1032, 1030), bar(7, 1040, 1035), bar(8, 1030, 1010), bar(9, 1040, 1035)];
+  assert.deepEqual(deriveMorningAlerts(catalog, state(10, bars)), [
+    { t: 300, kind: "swing-high", code: "2330", text: "台積電 前高確認 1025" },
+    { t: 360, kind: "cross-up", code: "2330", text: "台積電 站上昨收 1000" },
+    { t: 420, kind: "break-high", code: "2330", text: "台積電 過前高 1025" },
+  ]);
+});
+
+test("過前高 never comes from a minute that is not revealed, nor from a close at the 前高", () => {
+  const bars = [...peak, bar(5, 1022, 1020), bar(6, 1032, 1030)];
+  // At cursor 6, minute 6 (09:06) is not complete.
+  assert.equal(deriveMorningAlerts(catalog, state(6, bars)).some((alert) => alert.kind === "break-high"), false);
+  assert.deepEqual(deriveMorningAlerts(catalog, state(6, bars)), deriveMorningAlerts(catalog, state(6, bars.slice(0, 6))));
+  const equal = [...peak, bar(5, 1025, 1025)];
+  assert.equal(deriveMorningAlerts(catalog, state(6, equal)).some((alert) => alert.kind === "break-high"), false);
+});
+
+test("in one minute 過前高 sorts after 站上昨收 and before the learner's fill", () => {
+  const bars = [...peak, bar(5, 1032, 1030)];
+  const fill = { id: "f", code: "2330", side: "buy" as const, shares: 1000, price: 1010, fee: 20, tax: 0, t: 300 };
+  assert.deepEqual(
+    deriveMorningAlerts(catalog, state(6, bars, [fill])).map((alert) => alert.kind),
+    ["swing-high", "cross-up", "break-high", "fill"],
+  );
+});
+
 test("the learner's fills are alerts and sort last within the same minute", () => {
   const bars = [bar(0, 1000, 995), bar(1, 1010, 1005)];
   const fill = { id: "f", code: "2330", side: "buy" as const, shares: 1000, price: 1005, fee: 20, tax: 0, t: 120 };

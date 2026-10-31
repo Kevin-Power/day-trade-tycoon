@@ -20,6 +20,11 @@
 // Then it gives the run up and starts one on five stocks: on tablets, phones and 大字 (820x900, 375x812, 320x700, both
 // 大字) a list of five stocks or fewer does not scroll at all (R9), every row is whole in view, nothing scrolls
 // sideways and no columns run into each other. That run is given up at the end, so no run is left open.
+// Phones and 大字 show 自選 as cards since 2026-10-31 (one card a stock, its 江波圖 on the right half, ruling R18 in
+// docs/phone-desk-2026-10-31.md): there the page scrolls, not the table, so R9's limits do not apply. The same checks
+// run against the screen instead: the page scrolls, a mini is painted for every card within a card of the screen and
+// for no other, the chosen card is brought into view above the bottom tabs, and a card's name, price and change are
+// stacked on its left with nothing reaching its 江波圖.
 // Usage: node scripts/qa/desk-watch80.mjs [label] [proxyPort]   (proxyPort defaults to 18811, as desk-server's)
 import { chromium } from "playwright";
 import { randomUUID } from "node:crypto";
@@ -98,7 +103,11 @@ const CASES = [
 const look = (page) =>
   page.evaluate(() => {
     const table = document.querySelector(".td-watch-table");
+    // Cards: the page scrolls, so rows are measured against the screen and the part above the bottom tabs is in view.
+    const cards = table.dataset.cards === "true";
     const box = table.getBoundingClientRect();
+    const origin = cards ? 0 : box.top;
+    const dockTop = document.querySelector("nav.td-dock")?.getBoundingClientRect().top ?? innerHeight;
     const fixed = table.querySelector(".td-watch-fixed").getBoundingClientRect();
     const taiex = table.querySelector('.td-watch-row[data-code="TAIEX"]').getBoundingClientRect();
     const rows = [...table.querySelectorAll(".td-watch-rows .td-watch-row")].map((row) => {
@@ -106,8 +115,8 @@ const look = (page) =>
       const canvas = row.querySelector("canvas.td-mini");
       return {
         code: row.dataset.code,
-        top: rect.top - box.top,
-        bottom: rect.bottom - box.top,
+        top: rect.top - origin,
+        bottom: rect.bottom - origin,
         pressed: row.getAttribute("aria-pressed") === "true",
         canvas: Boolean(canvas),
         painted: Boolean(canvas?.dataset.painted),
@@ -119,10 +128,12 @@ const look = (page) =>
     const shown = (cell) => {
       if (cell.tagName === "CANVAS") {
         const box = cell.getBoundingClientRect();
-        return { left: box.left, right: box.right };
+        return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
       }
       let left = Infinity;
       let right = -Infinity;
+      let top = Infinity;
+      let bottom = -Infinity;
       const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
       for (let node = walker.nextNode(); node; node = walker.nextNode()) {
         if (!node.textContent.trim()) continue;
@@ -138,9 +149,11 @@ const look = (page) =>
           if (!rect.width) continue;
           left = Math.min(left, Math.max(rect.left, clip.left));
           right = Math.max(right, Math.min(rect.right, clip.right));
+          top = Math.min(top, rect.top);
+          bottom = Math.max(bottom, rect.bottom);
         }
       }
-      return right === -Infinity ? null : { left, right };
+      return right === -Infinity ? null : { left, right, top, bottom };
     };
     const overlaps = [];
     for (const row of table.querySelectorAll(".td-watch-row")) {
@@ -148,20 +161,35 @@ const look = (page) =>
         .filter((cell) => !cell.classList.contains("sr-only") && cell.getBoundingClientRect().width > 0)
         .map((cell) => ({ name: cell.className.split(" ").at(-1) || cell.tagName, box: shown(cell) }))
         .filter((cell) => cell.box);
+      if (cards) {
+        // Name, price and change stacked on the left, each above the next; none of them reaches the 江波圖.
+        const text = cells.filter((cell) => cell.name !== "td-mini" && cell.name !== "CANVAS");
+        const mini = cells.find((cell) => cell.name === "td-mini" || cell.name === "CANVAS");
+        for (let i = 1; i < text.length; i++)
+          if (text[i - 1].box.bottom > text[i].box.top + 0.5)
+            overlaps.push(`${row.dataset.code} ${text[i - 1].name}↓${text[i].name} by ${(text[i - 1].box.bottom - text[i].box.top).toFixed(1)}px`);
+        for (const cell of text)
+          if (mini && cell.box.right > mini.box.left + 0.5)
+            overlaps.push(`${row.dataset.code} ${cell.name}→江波圖 by ${(cell.box.right - mini.box.left).toFixed(1)}px`);
+        continue;
+      }
       for (let i = 1; i < cells.length; i++)
         if (cells[i - 1].box.right > cells[i].box.left + 0.5)
           overlaps.push(`${row.dataset.code} ${cells[i - 1].name}→${cells[i].name} by ${(cells[i - 1].box.right - cells[i].box.left).toFixed(1)}px`);
     }
     return {
+      cards,
       overlaps,
       layout: document.querySelector(".trading-desk")?.dataset.layout,
       box: { height: box.height, top: box.top },
-      scrollTop: table.scrollTop,
-      scrollHeight: table.scrollHeight,
-      clientHeight: table.clientHeight,
+      scrollTop: cards ? scrollY : table.scrollTop,
+      scrollHeight: cards ? document.documentElement.scrollHeight : table.scrollHeight,
+      clientHeight: cards ? innerHeight : table.clientHeight,
+      // Where a whole row is in view: above the bottom tabs for cards, the table's own bottom otherwise.
+      visibleBottom: cards ? dockTop : table.clientHeight,
       overflowY: style.overflowY,
-      fixedTop: fixed.top - box.top,
-      fixedBottom: fixed.bottom - box.top,
+      fixedTop: cards ? 0 : fixed.top - box.top,
+      fixedBottom: cards ? 0 : fixed.bottom - box.top,
       taiexTop: taiex.top - box.top,
       taiexBottom: taiex.bottom - box.top,
       inViewport: fixed.top >= 0 && fixed.bottom <= innerHeight + 1,
@@ -173,17 +201,21 @@ const look = (page) =>
   });
 const rowHeightOf = (view) => view.rows[0].bottom - view.rows[0].top;
 // The minis are painted for the rows within one row of the table's scrollport (the bars sit over its top, and rows
-// under them count). Rows within `slack` px of that edge may go either way, so only clear cases are checked.
-const slack = 4;
-const mustPaint = (row, view) => row.bottom > -rowHeightOf(view) + slack && row.top < view.clientHeight + rowHeightOf(view) - slack;
-const mustNotPaint = (row, view) => row.bottom < -rowHeightOf(view) - slack || row.top > view.clientHeight + rowHeightOf(view) + slack;
-// In view: whole, below the bars and above the table's bottom.
-const visible = (row, view) => row.top >= view.fixedBottom - 1 && row.bottom <= view.clientHeight + 1;
+// under them count). Rows within `slack` px of that edge may go either way, so only clear cases are checked. Cards
+// are watched against the screen with the card's height as read when watching starts: a little more slack there.
+const slackOf = (view) => (view.cards ? 12 : 4);
+const mustPaint = (row, view) =>
+  row.bottom > -rowHeightOf(view) + slackOf(view) && row.top < view.clientHeight + rowHeightOf(view) - slackOf(view);
+const mustNotPaint = (row, view) =>
+  row.bottom < -rowHeightOf(view) - slackOf(view) || row.top > view.clientHeight + rowHeightOf(view) + slackOf(view);
+// In view: whole, below the bars and above the table's bottom (cards: on the screen, above the bottom tabs).
+const visible = (row, view) => row.top >= view.fixedBottom - 1 && row.bottom <= view.visibleBottom + 1;
 
 async function scrollTable(page, to) {
   await page.evaluate((target) => {
     const table = document.querySelector(".td-watch-table");
-    table.scrollTop = target === "bottom" ? table.scrollHeight : target;
+    if (table.dataset.cards === "true") scrollTo(0, target === "bottom" ? document.documentElement.scrollHeight : target);
+    else table.scrollTop = target === "bottom" ? table.scrollHeight : target;
   }, to);
   await page.waitForTimeout(900);
 }
@@ -220,14 +252,18 @@ for (const c of CASES) {
     report.rows = top.rows.length;
     report.barsHeight = Math.round(top.fixedBottom);
     if (top.rows.length < MIN_STOCKS) fail(c.name, `only ${top.rows.length} 自選 rows`);
-    if (!(top.scrollHeight > top.clientHeight + 1 && top.overflowY !== "visible"))
+    report.cards = top.cards;
+    if (top.cards) {
+      if (!(top.scrollHeight > top.clientHeight + 1)) fail(c.name, `the page does not scroll (${top.scrollHeight}px in ${top.clientHeight}px)`);
+      if (top.overflowY !== "visible") fail(c.name, `the cards scroll inside the table (overflow-y ${top.overflowY})`);
+    } else if (!(top.scrollHeight > top.clientHeight + 1 && top.overflowY !== "visible"))
       fail(c.name, `the table does not scroll (content ${top.scrollHeight}px in ${top.clientHeight}px, overflow-y ${top.overflowY})`);
     if (top.pageOverflowX > 0) fail(c.name, `the page scrolls sideways by ${top.pageOverflowX}px`);
     if (top.tableOverflowX > 1) fail(c.name, `the table scrolls sideways by ${top.tableOverflowX}px`);
     // Layout limits (R9): a table on any layout but a desktop is as tall as the larger of half the screen and the
     // sticky block plus five rows (a long list fills it); the desktop's pane (the grid's top row) stays near a
     // quarter of the screen however many stocks there are.
-    if (!desktop) {
+    if (!desktop && !top.cards) {
       const cap = Math.max(c.height * 0.5, top.fixedBottom + 5 * rowH);
       report.cap = Math.round(cap);
       if (top.box.height > cap + 1) fail(c.name, `the table is ${Math.round(top.box.height)}px tall, over its cap of ${Math.round(cap)}px (half of ${c.height}px, or the bars ${Math.round(top.fixedBottom)}px + 5 rows of ${rowH}px)`);
@@ -238,7 +274,9 @@ for (const c of CASES) {
     report.overlaps = top.overlaps.length;
     if (top.overlaps.length) fail(c.name, `自選 columns run into each other: ${top.overlaps.slice(0, 4).join("; ")}`);
     await page.screenshot({ path: `${out}${c.name}-top.png` });
-    await page.locator(".td-watch-table").screenshot({ path: `${out}${c.name}-table.png` });
+    // An element screenshot of a list taller than the screen widens the viewport while it captures, which paints cards
+    // the page would not: cards (whose list is the page) keep the page screenshot only.
+    if (!top.cards) await page.locator(".td-watch-table").screenshot({ path: `${out}${c.name}-table.png` });
 
     // The title bar says where the list came from, and nothing about 模擬.
     const head = await page.evaluate(() => {
@@ -284,10 +322,12 @@ for (const c of CASES) {
     if (bottom.overlaps.length) fail(c.name, `bottom: 自選 columns run into each other: ${bottom.overlaps.slice(0, 4).join("; ")}`);
     const last = bottom.rows.at(-1);
     report.bottom = { fixedTop: Math.round(bottom.fixedTop), lastBottom: Math.round(last.bottom), clientHeight: bottom.clientHeight };
-    if (Math.abs(bottom.fixedTop) > 1) fail(c.name, `scrolled to the bottom, the bars are ${Math.round(bottom.fixedTop)}px from the table's top`);
-    if (!bottom.inViewport) fail(c.name, "scrolled to the bottom, the bars are outside the screen");
-    if (bottom.taiexTop < bottom.fixedTop - 1 || bottom.taiexBottom > bottom.fixedBottom + 1) fail(c.name, "the TAIEX row left the bars");
-    if (!visible(last, bottom)) fail(c.name, `the last row is not fully in view (top ${Math.round(last.top)}, bottom ${Math.round(last.bottom)}, bars end ${Math.round(bottom.fixedBottom)}, table ${bottom.clientHeight})`);
+    if (!bottom.cards) {
+      if (Math.abs(bottom.fixedTop) > 1) fail(c.name, `scrolled to the bottom, the bars are ${Math.round(bottom.fixedTop)}px from the table's top`);
+      if (!bottom.inViewport) fail(c.name, "scrolled to the bottom, the bars are outside the screen");
+      if (bottom.taiexTop < bottom.fixedTop - 1 || bottom.taiexBottom > bottom.fixedBottom + 1) fail(c.name, "the TAIEX row left the bars");
+    }
+    if (!visible(last, bottom)) fail(c.name, `the last row is not fully in view (top ${Math.round(last.top)}, bottom ${Math.round(last.bottom)}, bars end ${Math.round(bottom.fixedBottom)}, in view to ${Math.round(bottom.visibleBottom)})`);
     // Rows painted at the top stay painted: only a row that is far from the visible part now and was never near it
     // before counts as painted wrongly.
     const paintedFarBottom = checkPaint(bottom, "bottom").filter((code) => !mayBeNear.has(code));
@@ -412,11 +452,20 @@ for (const c of CASES) {
       report.tableHeight = Math.round(view.box.height);
       report.content = view.scrollHeight;
       report.bars = Math.round(view.fixedBottom);
+      report.cards = view.cards;
       if (view.rows.length !== 5) fail(name, `${view.rows.length} 自選 rows, expected 5`);
-      if (view.scrollHeight > view.clientHeight + 1) fail(name, `a 5-stock list scrolls: ${view.scrollHeight}px of content in ${view.clientHeight}px`);
-      const last = view.rows.at(-1);
-      if (!visible(last, view)) fail(name, `the 5th row is not whole in view (bottom ${Math.round(last.bottom)}px, table ${view.clientHeight}px)`);
-      if (view.box.height > Math.max(c.height * 0.5, view.fixedBottom + 5 * rowH) + 1) fail(name, `the table is ${Math.round(view.box.height)}px tall, over its cap`);
+      if (view.cards) {
+        // Five cards are taller than a phone (R18): scrolled down, the 5th is whole above the bottom tabs.
+        await scrollTable(page, "bottom");
+        const end = await look(page);
+        const last = end.rows.at(-1);
+        if (!visible(last, end)) fail(name, `scrolled down, the 5th card is not whole in view (bottom ${Math.round(last.bottom)}px, tabs at ${Math.round(end.visibleBottom)}px)`);
+      } else {
+        if (view.scrollHeight > view.clientHeight + 1) fail(name, `a 5-stock list scrolls: ${view.scrollHeight}px of content in ${view.clientHeight}px`);
+        const last = view.rows.at(-1);
+        if (!visible(last, view)) fail(name, `the 5th row is not whole in view (bottom ${Math.round(last.bottom)}px, table ${view.clientHeight}px)`);
+        if (view.box.height > Math.max(c.height * 0.5, view.fixedBottom + 5 * rowH) + 1) fail(name, `the table is ${Math.round(view.box.height)}px tall, over its cap`);
+      }
       if (view.pageOverflowX > 0) fail(name, `the page scrolls sideways by ${view.pageOverflowX}px`);
       if (view.tableOverflowX > 1) fail(name, `the table scrolls sideways by ${view.tableOverflowX}px`);
       if (view.overlaps.length) fail(name, `自選 columns run into each other: ${view.overlaps.slice(0, 4).join("; ")}`);
