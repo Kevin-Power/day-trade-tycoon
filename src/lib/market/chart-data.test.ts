@@ -41,6 +41,7 @@ import {
   splitPriceLine,
   terminalReadout,
   timeAxisTicks,
+  volumeScale,
   volumeTone,
   wrapReadout,
   type ChartLabel,
@@ -429,6 +430,20 @@ test("showVolumeAndAverage requires lot volume and a source average on every bar
   assert.equal(showVolumeAndAverage("lot", [bar(0, 10, { a: Number.NaN })]), false);
   assert.equal(showVolumeAndAverage("lot", [bar(0, 10, { a: 10, v: 1.5 })]), false);
   assert.equal(showVolumeAndAverage("lot", [bar(0, 10, { a: 10, v: -1 })]), false);
+});
+
+test("volumeScale fits the pane to the largest minute, except a 09:00 call auction that dwarfs the rest", () => {
+  const bars = (volumes: number[], start = 0) => volumes.map((v, i) => ({ t: start + i * 60, v }));
+  assert.deepEqual(volumeScale([]), { max: 1, clipOpening: false });
+  assert.deepEqual(volumeScale(bars([500])), { max: 500, clipOpening: false });
+  // Under three times the rest: the true scale.
+  assert.deepEqual(volumeScale(bars([2_000, 1_000, 400])), { max: 2_000, clipOpening: false });
+  // Ten times the largest later minute: the pane fits the later minutes (they reach 80%) and 09:00 is cut.
+  assert.deepEqual(volumeScale(bars([10_000, 1_000, 400])), { max: 1_250, clipOpening: true });
+  // Nothing traded after 09:00 yet: nothing to compare with.
+  assert.deepEqual(volumeScale(bars([5_000, 0])), { max: 5_000, clipOpening: false });
+  // A window that does not start at 09:00 has no call auction in it.
+  assert.deepEqual(volumeScale(bars([10_000, 1_000, 400], 600)), { max: 10_000, clipOpening: false });
 });
 
 test("volumeTone compares a minute's close with the minute before", () => {

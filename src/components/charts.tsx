@@ -37,6 +37,7 @@ import {
   splitPriceLine,
   terminalReadout,
   timeAxisTicks,
+  volumeScale,
   volumeTone,
   wrapReadout,
   type ChartLabel,
@@ -397,6 +398,18 @@ function paint(
   const tagY = Math.min(plotBottom - tagHeight / 2, Math.max(padT + tagHeight / 2, yOf(current)));
   ctx.font = font;
   ctx.lineWidth = cssPixels(gridPixels);
+  // 模擬: a faint watermark under everything in the desk chart's plot, so a picture of the desk is never taken for
+  // a broker's chart.
+  if (deskChart) {
+    ctx.save();
+    ctx.globalAlpha = 0.05;
+    ctx.fillStyle = c.fg;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `700 ${Math.round(Math.min(plotH * 0.3, plotW * 0.2, 120))}px ${c.font}`;
+    ctx.fillText("模擬", padL + plotW / 2, padT + plotH / 2);
+    ctx.restore();
+  }
   ctx.strokeStyle = c.grid;
   ctx.fillStyle = c.muted;
   ctx.textBaseline = "middle";
@@ -875,7 +888,10 @@ function paint(
   drawLabels(labelLayers.over);
 
   if (opt.showVolume) {
-    const maxVolume = Math.max(1, ...bars.map((bar) => bar.v));
+    // On the desk a 09:00 call auction that dwarfs every later minute is cut at the top (volumeScale).
+    const scale = deskChart
+      ? volumeScale(bars)
+      : { max: Math.max(1, ...bars.map((bar) => bar.v)), clipOpening: false };
     const base = h - axisH;
     ctx.save();
     ctx.beginPath();
@@ -884,7 +900,7 @@ function paint(
     const closeBefore = new Map<number, number>();
     opt.bars.forEach((bar, index) => closeBefore.set(bar.t, index ? opt.bars[index - 1]!.c : opt.prev));
     for (const bar of bars) {
-      const height = (Math.max(0, bar.v) / maxVolume) * (volH - 8);
+      const height = Math.min(volH - 8, (Math.max(0, bar.v) / scale.max) * (volH - 8));
       if (deskChart) {
         const tone = volumeTone(bar.c, closeBefore.get(bar.t) ?? opt.prev);
         ctx.fillStyle = tone === "up" ? c.up : tone === "down" ? c.down : c.muted;
@@ -898,6 +914,13 @@ function paint(
       const column = snapColumn(xOf(candleTime(bar)), barWidth, sx, hairline);
       const top = snapEdge(base - height, sy);
       ctx.fillRect(column.left, top, column.width, Math.max(0, snapEdge(base, sy) - top));
+      if (scale.clipOpening && bar === bars[0]) {
+        // A gap across the cut 09:00 bar, just under its top: it is taller than the pane shows.
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = c.bg;
+        const gap = snapEdge(top + 4, sy);
+        ctx.fillRect(column.left, gap, column.width, snapEdge(gap + 2, sy) - gap);
+      }
     }
     ctx.restore();
     if (deskChart) {

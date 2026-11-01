@@ -479,6 +479,25 @@ export function showVolumeAndAverage(volumeUnit: string | undefined, bars: reado
 }
 
 /** Colour of a volume bar: this minute's close against the minute before (or the previous close). */
+/** The 09:00 call auction is set apart once it trades at least this many times the largest later minute. */
+const OPENING_CLIP = 3;
+/** Headroom over the largest later minute when 09:00 is set apart: later minutes reach 80% of the pane. */
+const CLIPPED_HEADROOM = 1.25;
+
+/**
+ * The volume pane's full height, in the bars' unit. The 09:00 call auction often trades many times any later
+ * minute and would flatten every other bar: then the pane fits the later minutes and `clipOpening` says the
+ * 09:00 bar is drawn cut at the top (its real volume stays in the readout).
+ */
+export function volumeScale(bars: readonly { t: number; v: number }[]): { max: number; clipOpening: boolean } {
+  const volumes = bars.map((bar) => Math.max(0, bar.v));
+  const largest = Math.max(1, ...volumes);
+  if (bars.length < 2 || bars[0]!.t !== 0) return { max: largest, clipOpening: false };
+  const later = Math.max(0, ...volumes.slice(1));
+  if (later <= 0 || volumes[0]! < later * OPENING_CLIP) return { max: largest, clipOpening: false };
+  return { max: later * CLIPPED_HEADROOM, clipOpening: true };
+}
+
 export function volumeTone(close: number, previousClose: number): "up" | "down" | "flat" {
   if (!Number.isFinite(close) || !Number.isFinite(previousClose) || close === previousClose)
     return "flat";
