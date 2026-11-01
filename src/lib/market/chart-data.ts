@@ -727,14 +727,18 @@ export function limitChartLabels(
 /**
  * Splits placed labels into those drawn under the price and EMA lines (漲停／跌停 on their own, so a
  * price at the limit stays visible) and those drawn over them (every other label, including one that
- * merged with 漲停／跌停).
+ * merged with 漲停／跌停). In the 江波 ±10% view (`band`) every label goes under: its 前高 and level
+ * labels sit at the plot's right edge, which a late price line reaches right where it crosses them.
  */
-export function chartLabelLayers(placed: readonly PlacedChartLabel[]): {
+export function chartLabelLayers(
+  placed: readonly PlacedChartLabel[],
+  { band = false }: { band?: boolean } = {},
+): {
   under: PlacedChartLabel[];
   over: PlacedChartLabel[];
 } {
   const under = (label: PlacedChartLabel) =>
-    label.keys.every((key) => key === "limit-up" || key === "limit-down");
+    band || label.keys.every((key) => key === "limit-up" || key === "limit-down");
   return { under: placed.filter(under), over: placed.filter((label) => !under(label)) };
 }
 

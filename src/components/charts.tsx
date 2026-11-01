@@ -447,7 +447,7 @@ function paint(
 
   // The desk's in-plot labels are placed together, so no two overlap (昨・開・低 2575 when they meet).
   // 漲停／跌停 are drawn under the price and EMA lines, so a price at the limit stays visible; the
-  // others over them.
+  // others over them, except in the 江波 view, where every label is under the lines.
   const lineHeight = c.fontSize + 4;
   // The latest session average, from the source's own bar.a (the desk never derives one).
   const averageNow =
@@ -464,7 +464,9 @@ function paint(
         ];
     if (opt.open && !band)
       labels.push({ key: "open", text: "開", price: opt.open, priceText: label(opt.open), color: c.muted, x: padL + 4, anchor: "start", y: yOf(opt.open) });
-    if (averageNow !== undefined)
+    // At ±10% the price hugs its average too, and a 均 label at the left edge would hide the line's first minutes
+    // (a phone's first twenty): the readout above the chart names 均 and its value.
+    if (averageNow !== undefined && !band)
       labels.push({ key: "average", text: "均", price: averageNow, priceText: averageNow.toFixed(2), color: c.vwap, x: padL + 4, anchor: "start", y: yOf(averageNow) });
     if (band)
       labels.push(
@@ -505,7 +507,7 @@ function paint(
       opt.fitLabels ? { maxShiftLines: 1 } : {},
     );
     ctx.restore();
-    labelLayers = chartLabelLayers(placed);
+    labelLayers = chartLabelLayers(placed, { band: band !== null });
   }
   // Runs draw() with the 漲停／跌停 labels' boxes cut out of the clip (when there are any).
   const clearOfUnderLabels = (draw: () => void) => {
@@ -724,8 +726,8 @@ function paint(
       }
       ctx.restore();
     }
-    // 漲停／跌停 labels (the 江波 view's line chart only) go over the shading and under the EMA and price lines,
-    // so a price at the limit stays visible.
+    // The 江波 view's labels (漲停／跌停, 前高, levels; the line chart only) go over the shading and under the EMA
+    // and price lines, so the price stays visible at the limit, at a 前高 and anywhere else.
     drawLabels(labelLayers.under);
     // Under the price line, so the price stays on top.
     drawEma((time) => xOf(time + (interval ?? 0)));

@@ -778,6 +778,24 @@ test("chartLabelLayers puts the 漲停／跌停 labels under the lines and every
   assert.deepEqual(keys(layers.over), ["average", "swing-0", "average+limit-up"]);
 });
 
+test("chartLabelLayers puts every label of the 江波 ±10% view under the lines, so the price line always shows", () => {
+  const placed = (keys: string[]): PlacedChartLabel => ({
+    keys,
+    price: 1,
+    parts: keys.map((key) => ({ text: key, color: "#fff" })),
+    priceText: "1",
+    left: 0,
+    width: 10,
+    y: 0,
+  });
+  // A 前高 or level label sits at the plot's right edge, which a late price line (after about 10:05 on a phone)
+  // reaches right where it crosses that 前高.
+  const layers = chartLabelLayers([placed(["limit-up"]), placed(["swing-0"]), placed(["level-0"]), placed(["limit-down"])], { band: true });
+  const keys = (labels: readonly PlacedChartLabel[]) => labels.map((label) => label.keys.join("+"));
+  assert.deepEqual(keys(layers.under), ["limit-up", "swing-0", "level-0", "limit-down"]);
+  assert.deepEqual(keys(layers.over), []);
+});
+
 test("chartGutters widens only the left gutter for 「昨 2575」", () => {
   assert.deepEqual(chartGutters({ price: 30, prevAxis: 44, percent: 40 }), { left: 56, right: 54 });
   assert.deepEqual(chartGutters({ price: 50, prevAxis: 44, percent: 40 }), { left: 62, right: 64 });
