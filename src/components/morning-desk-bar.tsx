@@ -122,6 +122,9 @@ export function StatusBar({
         <small aria-hidden="true">{stateWord}</small>
         <span className="sr-only">{stateWord}</span>
       </span>
+      <span className="td-sim" title="教學模擬：重播真實歷史行情，不連接券商，不送出真實委託">
+        模擬
+      </span>
       {session && !showPlan && (
         <dl className="td-account" aria-label="模擬帳戶">
           <div>

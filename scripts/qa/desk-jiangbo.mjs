@@ -4,7 +4,7 @@
 // which the device remembers; the crosshair readout lists the EMAs; phones
 // open on 江波 too; replaying a minute moves the EMAs on with the revealed closes and raises no page
 // error; a price just under 漲停 stays visible where the 漲停 label sits, which keeps its own background under the
-// line; and a 前高 level at that height stays off the label.
+// line; a 前高 level at that height stays off the label; and on a phone nothing covers the line's first minutes.
 // Usage: node scripts/qa/desk-jiangbo.mjs <baseUrl> <label>
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -783,6 +783,99 @@ await check("8-phone", async () => {
   // Phone rows are 52px tall: the 江波圖 mini uses 40px of them.
   if (!mini || mini.height < 39.5) problems.push(`自選's 江波圖 is ${mini?.height}px tall, the row allows 40px`);
   if (problems.length) throw new Error(problems.join("; "));
+});
+
+await check("14-phone-line-start", async () => {
+  // On a phone the price hugs its session average for the first minutes, and a label at the plot's left edge spans
+  // twenty of them: nothing may cover the line there (a 均 label once hid it until about 09:25). Worst case: every
+  // minute of every stock rewritten flat 1% above 昨, its average there too. The solid price line must fill
+  // 09:01–09:08; the dotted line of the latest price on the same row fills well under half of it.
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: DPR, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  page.on("pageerror", (error) => pageErrors.push(`14-phone-line-start: ${error.message}`));
+  try {
+    await page.route("**/api/morning*", async (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      const response = await route.fetch();
+      const body = await response.json();
+      for (const symbol of body.catalog?.symbols ?? []) {
+        const tick = tickOf(symbol.previousClose * 1.01);
+        const price = Number((Math.round((symbol.previousClose * 1.01) / tick) * tick).toFixed(2));
+        for (const bar of body.state?.bars?.[symbol.code] ?? []) Object.assign(bar, { o: price, h: price, l: price, c: price, a: price });
+      }
+      return route.fulfill({ response, json: body });
+    });
+    await page.goto(`${base}/morning`, { waitUntil: "domcontentloaded" });
+    await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 });
+    await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 3000 }).catch(() => {});
+    await rest(page);
+    await page.getByRole("navigation", { name: "主要分頁" }).getByRole("button", { name: /行情/ }).first().click({ timeout: 4000 });
+    await page.waitForTimeout(600);
+    const png = await chart(page).screenshot();
+    writeFileSync(`${out}phone-line-start.png`, png);
+    const found = await page.evaluate(
+      async ({ b64, up, upLine, dpr }) => {
+        const image = new Image();
+        image.src = "data:image/png;base64," + b64;
+        await image.decode();
+        const surface = document.createElement("canvas");
+        surface.width = image.width;
+        surface.height = image.height;
+        const ctx = surface.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(image, 0, 0);
+        const { data } = ctx.getImageData(0, 0, image.width, image.height);
+        const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+        const near = (x, y, c, limit) => {
+          const i = (y * image.width + x) * 4;
+          return Math.max(Math.abs(c[0] - data[i]), Math.abs(c[1] - data[i + 1]), Math.abs(c[2] - data[i + 2])) <= limit;
+        };
+        // The 漲停 line runs the plot's whole width: its row and its ends are the plot's top and its 09:00 and 10:30.
+        const line = rgb(upLine);
+        let upRow = -1;
+        let best = 0;
+        for (let y = 0; y < Math.round(image.height * 0.3); y++) {
+          let hits = 0;
+          for (let x = 0; x < image.width; x++) if (near(x, y, line, 12)) hits++;
+          if (hits > best) [best, upRow] = [hits, y];
+        }
+        let left = -1;
+        let right = -1;
+        for (let x = 0; x < image.width; x++)
+          if (near(x, upRow, line, 12)) {
+            if (left < 0) left = x;
+            right = x;
+          }
+        // The price row: the fullest row of the price colour below the 漲停 label, from 09:01 to the plot's end.
+        const colour = rgb(up);
+        const minute = (right - left) / 90;
+        const x0 = Math.round(left + minute);
+        const x1 = Math.round(left + minute * 8);
+        let priceRow = -1;
+        best = 0;
+        for (let y = upRow + 30 * dpr; y < image.height; y++) {
+          let hits = 0;
+          for (let x = x0; x <= right; x++) if (near(x, y, colour, 40)) hits++;
+          if (hits > best) [best, priceRow] = [hits, y];
+        }
+        let shown = 0;
+        for (let x = x0; x < x1; x++) {
+          for (let y = priceRow - 3; y <= priceRow + 3; y++)
+            if (near(x, y, colour, 40)) {
+              shown++;
+              break;
+            }
+        }
+        return { upRow, left, right, priceRow, columns: x1 - x0, shown: Number((shown / (x1 - x0)).toFixed(3)) };
+      },
+      { b64: png.toString("base64"), up: colours.up, upLine: blend(colours.up, colours.bg, 0.7), dpr: DPR },
+    );
+    if (!(found.left >= 0 && found.right - found.left > 100 && found.priceRow > 0))
+      throw new Error(`cannot find the plot or the price line: ${JSON.stringify(found)}`);
+    if (found.shown < 0.8) throw new Error(`the price line shows over ${Math.round(found.shown * 100)}% of 09:01–09:08: ${JSON.stringify(found)}`);
+    return found;
+  } finally {
+    await context.close();
+  }
 });
 
 await browser.close();

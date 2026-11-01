@@ -32,6 +32,8 @@
   --td-sell-line: #2e8a63;
   --td-sell-fg: #c2f5dd;
   --td-warn: #ffb547;
+  --td-warn-wash: rgb(255 181 71 / 0.09);
+  --td-warn-line: rgb(255 181 71 / 0.3);
   --td-alert-bg: #1a1216;
   --td-alert-fg: #ffc2c6;
   --td-up-wash: rgb(255 92 102 / 0.14);
@@ -366,15 +368,16 @@ html:has(.trading-desk) #app {
 .trading-desk .td-replay button:disabled {
   opacity: 0.45;
 }
+/* Red and green mean up and down (and buy and sell) on the desk; a control that is only on or chosen is blue. */
 .trading-desk .td-start {
   color: #ffffff;
-  background: var(--td-up-fill);
-  border-color: var(--td-up-fill);
+  background: var(--td-accent-fill);
+  border-color: var(--td-accent-fill);
 }
 .trading-desk .td-replay .td-play[data-running="true"] {
-  color: var(--td-buy-fg);
-  background: var(--td-buy-bg);
-  border-color: var(--td-buy-line);
+  color: var(--td-select-fg);
+  background: var(--td-select-bg);
+  border-color: var(--td-select-line);
 }
 .trading-desk .td-speed {
   display: inline-flex;
@@ -422,15 +425,16 @@ html:has(.trading-desk) #app {
   background: var(--td-prev);
   border-radius: 2px;
 }
+/* 快訊 is amber like the chart's 過前高 mark, not red: red is a rising price here. */
 .trading-desk .td-alert {
   margin-left: auto;
   padding-right: 8px;
-  color: var(--td-alert-fg);
-  background: var(--td-alert-bg);
+  color: var(--td-fg);
+  background: var(--td-warn-wash);
 }
 .trading-desk .td-alert > span:first-child {
-  color: #ffffff;
-  background: var(--td-up-fill);
+  color: #0b111b;
+  background: var(--td-warn);
 }
 .trading-desk .td-feedback {
   color: #9ce6ce;
@@ -2411,8 +2415,15 @@ html:has(.trading-desk) #app {
   border: 1px solid var(--td-line);
   border-radius: var(--td-radius);
 }
-.trading-desk .sim-order-facts > div:first-child dd {
-  font-size: 15px;
+/* 參考金額 leads; the estimated fees step back (the other facts stay as they are). */
+/* 600 is IBM Plex Mono's heaviest loaded weight: 700 would be a blurred synthesised bold. */
+.trading-desk .sim-order-facts [data-weight="main"] dd {
+  color: var(--td-fg);
+  font-size: 17px;
+  font-weight: 600;
+}
+.trading-desk .sim-order-facts [data-weight="minor"] :is(dt, dd) {
+  opacity: 0.7;
 }
 .trading-desk .sim-order-facts div {
   display: flex;
@@ -4544,7 +4555,8 @@ html:has(.trading-desk) #app {
 }
 .trading-desk .sim-reports li {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-columns: 40px 15px minmax(0, 1fr);
+  align-items: start;
   gap: 6px;
   padding: 2px 6px;
   font-size: 12px;
@@ -4554,6 +4566,13 @@ html:has(.trading-desk) #app {
 }
 .trading-desk .sim-reports time {
   color: var(--td-muted);
+}
+/* Each state's mark in its colour (送出 blue, 成交 gold, 失敗 red, 不明 amber), so colour is never the only cue. */
+.trading-desk .sim-report-mark {
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+  color: var(--td-report, var(--td-muted));
 }
 .trading-desk .sim-reports li[data-tone="sent"] {
   --td-report: var(--td-accent);
@@ -4567,7 +4586,6 @@ html:has(.trading-desk) #app {
 .trading-desk .sim-reports li[data-tone="failed"] {
   --td-report: var(--td-up);
   color: var(--td-alert-fg);
-  background: var(--td-alert-bg);
 }
 /* 回覆不明: no clear reply, so the classroom may have the order; check 委託 before sending it again. */
 .trading-desk .sim-reports li[data-tone="unknown"] {
@@ -4576,7 +4594,7 @@ html:has(.trading-desk) #app {
   background: rgb(230 184 110 / 0.08);
 }
 .trading-desk[data-layout="senior"] .sim-reports li {
-  grid-template-columns: 52px minmax(0, 1fr);
+  grid-template-columns: 52px 15px minmax(0, 1fr);
 }
 
 /* 大額委託: a buy of half the cash or more needs a tick before 確認送出 works. */
@@ -5047,7 +5065,7 @@ html:has(.trading-desk) #app {
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hints > .td-alert {
   padding: 4px 10px;
   line-height: 1.35;
-  border: 1px solid #33191f;
+  border: 1px solid var(--td-warn-line);
   border-radius: 10px;
 }
 .trading-desk .td-alert > span:first-child {
@@ -5087,4 +5105,82 @@ html:has(.trading-desk) #app {
 }
 .trading-desk[data-layout="phone"] .td-mobile-ticket .sim-ticket-header {
   border-radius: 15px 15px 0 0;
+}
+/* 模擬 on every screen (2026-11-01 review): a badge in the bar, the order ticket's blue frame and title stripe, and
+   the confirmation card's stamp; the 江波圖 has a faint watermark (charts.tsx). The narrowest phones keep the
+   ticket's and the chart's marks only: their bar has no room left. */
+.trading-desk .td-sim {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  padding: 1px 7px;
+  color: var(--td-accent);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--td-accent);
+  border-radius: 999px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-sim {
+  order: 2;
+  margin-right: auto;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-clock:has(+ .td-sim) {
+  margin-right: 0;
+}
+/* On a phone the badge takes the state word's place: the dot and the 播放／暫停 button still tell it. */
+.trading-desk[data-layout="phone"] .td-clock:has(+ .td-sim) small {
+  display: none;
+}
+/* 大字 and the narrowest phones have no room left in the bar. */
+.trading-desk[data-layout="senior"] .td-sim {
+  display: none;
+}
+.trading-desk[data-layout="senior"] .td-clock:has(+ .td-sim) {
+  margin-right: auto;
+}
+@media (max-width: 359px) {
+  .trading-desk .td-sim {
+    display: none;
+  }
+  .trading-desk[data-layout="phone"] .td-clock:has(+ .td-sim) {
+    margin-right: auto;
+  }
+}
+.trading-desk .sim-paper-tag {
+  color: var(--td-accent);
+  border-color: var(--td-accent);
+}
+.trading-desk .sim-ticket {
+  outline: 1px solid var(--td-select-line);
+  outline-offset: -1px;
+}
+.trading-desk .sim-ticket-header {
+  box-shadow:
+    inset 0 2px 0 var(--td-accent),
+    inset 0 calc(-1 * var(--td-hairline)) 0 var(--td-title-line);
+}
+/* The title and the tag keep one line each; the stock menu between them gives way (a long name at 320px). */
+.trading-desk .sim-ticket-header :is(h2, .sim-paper-tag) {
+  flex: none;
+  white-space: nowrap;
+}
+.trading-desk .sim-confirm {
+  position: relative;
+}
+.trading-desk .sim-stamp {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  padding: 0 6px;
+  color: var(--td-accent);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  border: 1.5px solid var(--td-accent);
+  border-radius: 4px;
+  opacity: 0.85;
+  transform: rotate(-8deg);
+  pointer-events: none;
 }

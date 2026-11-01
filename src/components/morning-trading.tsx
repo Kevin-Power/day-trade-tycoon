@@ -490,7 +490,7 @@ export function PaperOrder({
               </option>
             ))}
           </select>
-          <span className="sim-paper-tag">紙上交易</span>
+          <span className="sim-paper-tag">模擬交易</span>
         </header>
         <div className="sim-ticket-body">
           {pending && (
@@ -510,6 +510,9 @@ export function PaperOrder({
               <h3 id="sim-confirm-title" ref={confirmHeading} tabIndex={-1}>
                 確認模擬委託
               </h3>
+              <span className="sim-stamp" aria-hidden>
+                模擬
+              </span>
               <p className="sim-confirm-symbol">
                 {code} {symbol?.name}
               </p>
@@ -533,11 +536,11 @@ export function PaperOrder({
                       : `限價 ${formatPrice(review.limitPrice)}`}
                   </dd>
                 </div>
-                <div>
+                <div data-weight="main">
                   <dt>參考金額（未含費）</dt>
                   <dd>{referenceAmount === null ? "—" : formatMoney(referenceAmount, 0)}</dd>
                 </div>
-                <div>
+                <div data-weight="minor">
                   <dt>預估來回費稅（假設同價出場）</dt>
                   <dd>
                     {referenceAmount === null
@@ -728,13 +731,13 @@ export function PaperOrder({
                   </p>
                 )}
                 <dl className="sim-order-facts">
-                  <div>
+                  <div data-weight="main">
                     <dt>
                       參考金額<small>（未含費）</small>
                     </dt>
                     <dd>{referenceAmount === null ? "—" : formatMoney(referenceAmount, 0)}</dd>
                   </div>
-                  <div>
+                  <div data-weight="minor">
                     <dt>
                       預估來回費稅<small>（假設同價出場）</small>
                     </dt>

@@ -479,6 +479,25 @@ export function showVolumeAndAverage(volumeUnit: string | undefined, bars: reado
 }
 
 /** Colour of a volume bar: this minute's close against the minute before (or the previous close). */
+/** The 09:00 call auction is set apart once it trades at least this many times the largest later minute. */
+const OPENING_CLIP = 3;
+/** Headroom over the largest later minute when 09:00 is set apart: later minutes reach 80% of the pane. */
+const CLIPPED_HEADROOM = 1.25;
+
+/**
+ * The volume pane's full height, in the bars' unit. The 09:00 call auction often trades many times any later
+ * minute and would flatten every other bar: then the pane fits the later minutes and `clipOpening` says the
+ * 09:00 bar is drawn cut at the top (its real volume stays in the readout).
+ */
+export function volumeScale(bars: readonly { t: number; v: number }[]): { max: number; clipOpening: boolean } {
+  const volumes = bars.map((bar) => Math.max(0, bar.v));
+  const largest = Math.max(1, ...volumes);
+  if (bars.length < 2 || bars[0]!.t !== 0) return { max: largest, clipOpening: false };
+  const later = Math.max(0, ...volumes.slice(1));
+  if (later <= 0 || volumes[0]! < later * OPENING_CLIP) return { max: largest, clipOpening: false };
+  return { max: later * CLIPPED_HEADROOM, clipOpening: true };
+}
+
 export function volumeTone(close: number, previousClose: number): "up" | "down" | "flat" {
   if (!Number.isFinite(close) || !Number.isFinite(previousClose) || close === previousClose)
     return "flat";
@@ -727,14 +746,18 @@ export function limitChartLabels(
 /**
  * Splits placed labels into those drawn under the price and EMA lines (漲停／跌停 on their own, so a
  * price at the limit stays visible) and those drawn over them (every other label, including one that
- * merged with 漲停／跌停).
+ * merged with 漲停／跌停). In the 江波 ±10% view (`band`) every label goes under: its 前高 and level
+ * labels sit at the plot's right edge, which a late price line reaches right where it crosses them.
  */
-export function chartLabelLayers(placed: readonly PlacedChartLabel[]): {
+export function chartLabelLayers(
+  placed: readonly PlacedChartLabel[],
+  { band = false }: { band?: boolean } = {},
+): {
   under: PlacedChartLabel[];
   over: PlacedChartLabel[];
 } {
   const under = (label: PlacedChartLabel) =>
-    label.keys.every((key) => key === "limit-up" || key === "limit-down");
+    band || label.keys.every((key) => key === "limit-up" || key === "limit-down");
   return { under: placed.filter(under), over: placed.filter((label) => !under(label)) };
 }
 

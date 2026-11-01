@@ -37,6 +37,7 @@ import {
   splitPriceLine,
   terminalReadout,
   timeAxisTicks,
+  volumeScale,
   volumeTone,
   wrapReadout,
   type ChartLabel,
@@ -397,6 +398,18 @@ function paint(
   const tagY = Math.min(plotBottom - tagHeight / 2, Math.max(padT + tagHeight / 2, yOf(current)));
   ctx.font = font;
   ctx.lineWidth = cssPixels(gridPixels);
+  // 模擬: a faint mark under everything in the plot's bottom right corner, so a picture of the desk is never taken
+  // for a broker's chart. It stays clear of the middle, where 昨 and the latest price's dashes run at ±10%.
+  if (deskChart) {
+    ctx.save();
+    ctx.globalAlpha = 0.1;
+    ctx.fillStyle = c.fg;
+    ctx.textAlign = "right";
+    ctx.textBaseline = "bottom";
+    ctx.font = `600 ${Math.round(Math.min(plotH * 0.14, plotW * 0.12, 44))}px ${c.font}`;
+    ctx.fillText("模擬", padL + plotW - 8, padT + plotH - 6);
+    ctx.restore();
+  }
   ctx.strokeStyle = c.grid;
   ctx.fillStyle = c.muted;
   ctx.textBaseline = "middle";
@@ -447,7 +460,7 @@ function paint(
 
   // The desk's in-plot labels are placed together, so no two overlap (昨・開・低 2575 when they meet).
   // 漲停／跌停 are drawn under the price and EMA lines, so a price at the limit stays visible; the
-  // others over them.
+  // others over them, except in the 江波 view, where every label is under the lines.
   const lineHeight = c.fontSize + 4;
   // The latest session average, from the source's own bar.a (the desk never derives one).
   const averageNow =
@@ -464,7 +477,9 @@ function paint(
         ];
     if (opt.open && !band)
       labels.push({ key: "open", text: "開", price: opt.open, priceText: label(opt.open), color: c.muted, x: padL + 4, anchor: "start", y: yOf(opt.open) });
-    if (averageNow !== undefined)
+    // At ±10% the price hugs its average too, and a 均 label at the left edge would hide the line's first minutes
+    // (a phone's first twenty): the readout above the chart names 均 and its value.
+    if (averageNow !== undefined && !band)
       labels.push({ key: "average", text: "均", price: averageNow, priceText: averageNow.toFixed(2), color: c.vwap, x: padL + 4, anchor: "start", y: yOf(averageNow) });
     if (band)
       labels.push(
@@ -505,7 +520,7 @@ function paint(
       opt.fitLabels ? { maxShiftLines: 1 } : {},
     );
     ctx.restore();
-    labelLayers = chartLabelLayers(placed);
+    labelLayers = chartLabelLayers(placed, { band: band !== null });
   }
   // Runs draw() with the 漲停／跌停 labels' boxes cut out of the clip (when there are any).
   const clearOfUnderLabels = (draw: () => void) => {
@@ -724,8 +739,8 @@ function paint(
       }
       ctx.restore();
     }
-    // 漲停／跌停 labels (the 江波 view's line chart only) go over the shading and under the EMA and price lines,
-    // so a price at the limit stays visible.
+    // The 江波 view's labels (漲停／跌停, 前高, levels; the line chart only) go over the shading and under the EMA
+    // and price lines, so the price stays visible at the limit, at a 前高 and anywhere else.
     drawLabels(labelLayers.under);
     // Under the price line, so the price stays on top.
     drawEma((time) => xOf(time + (interval ?? 0)));
@@ -873,7 +888,10 @@ function paint(
   drawLabels(labelLayers.over);
 
   if (opt.showVolume) {
-    const maxVolume = Math.max(1, ...bars.map((bar) => bar.v));
+    // On the desk a 09:00 call auction that dwarfs every later minute is cut at the top (volumeScale).
+    const scale = deskChart
+      ? volumeScale(bars)
+      : { max: Math.max(1, ...bars.map((bar) => bar.v)), clipOpening: false };
     const base = h - axisH;
     ctx.save();
     ctx.beginPath();
@@ -882,7 +900,7 @@ function paint(
     const closeBefore = new Map<number, number>();
     opt.bars.forEach((bar, index) => closeBefore.set(bar.t, index ? opt.bars[index - 1]!.c : opt.prev));
     for (const bar of bars) {
-      const height = (Math.max(0, bar.v) / maxVolume) * (volH - 8);
+      const height = Math.min(volH - 8, (Math.max(0, bar.v) / scale.max) * (volH - 8));
       if (deskChart) {
         const tone = volumeTone(bar.c, closeBefore.get(bar.t) ?? opt.prev);
         ctx.fillStyle = tone === "up" ? c.up : tone === "down" ? c.down : c.muted;
@@ -896,6 +914,13 @@ function paint(
       const column = snapColumn(xOf(candleTime(bar)), barWidth, sx, hairline);
       const top = snapEdge(base - height, sy);
       ctx.fillRect(column.left, top, column.width, Math.max(0, snapEdge(base, sy) - top));
+      if (scale.clipOpening && bar === bars[0]) {
+        // A gap across the cut 09:00 bar, just under its top: it is taller than the pane shows.
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = c.bg;
+        const gap = snapEdge(top + 4, sy);
+        ctx.fillRect(column.left, gap, column.width, snapEdge(gap + 2, sy) - gap);
+      }
     }
     ctx.restore();
     if (deskChart) {

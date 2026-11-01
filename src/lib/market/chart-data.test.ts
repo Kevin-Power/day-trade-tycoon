@@ -41,6 +41,7 @@ import {
   splitPriceLine,
   terminalReadout,
   timeAxisTicks,
+  volumeScale,
   volumeTone,
   wrapReadout,
   type ChartLabel,
@@ -431,6 +432,20 @@ test("showVolumeAndAverage requires lot volume and a source average on every bar
   assert.equal(showVolumeAndAverage("lot", [bar(0, 10, { a: 10, v: -1 })]), false);
 });
 
+test("volumeScale fits the pane to the largest minute, except a 09:00 call auction that dwarfs the rest", () => {
+  const bars = (volumes: number[], start = 0) => volumes.map((v, i) => ({ t: start + i * 60, v }));
+  assert.deepEqual(volumeScale([]), { max: 1, clipOpening: false });
+  assert.deepEqual(volumeScale(bars([500])), { max: 500, clipOpening: false });
+  // Under three times the rest: the true scale.
+  assert.deepEqual(volumeScale(bars([2_000, 1_000, 400])), { max: 2_000, clipOpening: false });
+  // Ten times the largest later minute: the pane fits the later minutes (they reach 80%) and 09:00 is cut.
+  assert.deepEqual(volumeScale(bars([10_000, 1_000, 400])), { max: 1_250, clipOpening: true });
+  // Nothing traded after 09:00 yet: nothing to compare with.
+  assert.deepEqual(volumeScale(bars([5_000, 0])), { max: 5_000, clipOpening: false });
+  // A window that does not start at 09:00 has no call auction in it.
+  assert.deepEqual(volumeScale(bars([10_000, 1_000, 400], 600)), { max: 10_000, clipOpening: false });
+});
+
 test("volumeTone compares a minute's close with the minute before", () => {
   assert.equal(volumeTone(101, 100), "up");
   assert.equal(volumeTone(99, 100), "down");
@@ -776,6 +791,24 @@ test("chartLabelLayers puts the 漲停／跌停 labels under the lines and every
   assert.deepEqual(keys(layers.under), ["limit-up", "limit-down"]);
   // A label merged with 均 is still read over the lines.
   assert.deepEqual(keys(layers.over), ["average", "swing-0", "average+limit-up"]);
+});
+
+test("chartLabelLayers puts every label of the 江波 ±10% view under the lines, so the price line always shows", () => {
+  const placed = (keys: string[]): PlacedChartLabel => ({
+    keys,
+    price: 1,
+    parts: keys.map((key) => ({ text: key, color: "#fff" })),
+    priceText: "1",
+    left: 0,
+    width: 10,
+    y: 0,
+  });
+  // A 前高 or level label sits at the plot's right edge, which a late price line (after about 10:05 on a phone)
+  // reaches right where it crosses that 前高.
+  const layers = chartLabelLayers([placed(["limit-up"]), placed(["swing-0"]), placed(["level-0"]), placed(["limit-down"])], { band: true });
+  const keys = (labels: readonly PlacedChartLabel[]) => labels.map((label) => label.keys.join("+"));
+  assert.deepEqual(keys(layers.under), ["limit-up", "swing-0", "level-0", "limit-down"]);
+  assert.deepEqual(keys(layers.over), []);
 });
 
 test("chartGutters widens only the left gutter for 「昨 2575」", () => {
