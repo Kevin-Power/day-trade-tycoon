@@ -2416,10 +2416,11 @@ html:has(.trading-desk) #app {
   border-radius: var(--td-radius);
 }
 /* 參考金額 leads; the estimated fees step back (the other facts stay as they are). */
+/* 600 is IBM Plex Mono's heaviest loaded weight: 700 would be a blurred synthesised bold. */
 .trading-desk .sim-order-facts [data-weight="main"] dd {
   color: var(--td-fg);
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .trading-desk .sim-order-facts [data-weight="minor"] :is(dt, dd) {
   opacity: 0.7;

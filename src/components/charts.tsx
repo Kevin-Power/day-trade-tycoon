@@ -398,16 +398,16 @@ function paint(
   const tagY = Math.min(plotBottom - tagHeight / 2, Math.max(padT + tagHeight / 2, yOf(current)));
   ctx.font = font;
   ctx.lineWidth = cssPixels(gridPixels);
-  // 模擬: a faint watermark under everything in the desk chart's plot, so a picture of the desk is never taken for
-  // a broker's chart.
+  // 模擬: a faint mark under everything in the plot's bottom right corner, so a picture of the desk is never taken
+  // for a broker's chart. It stays clear of the middle, where 昨 and the latest price's dashes run at ±10%.
   if (deskChart) {
     ctx.save();
-    ctx.globalAlpha = 0.05;
+    ctx.globalAlpha = 0.1;
     ctx.fillStyle = c.fg;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = `700 ${Math.round(Math.min(plotH * 0.3, plotW * 0.2, 120))}px ${c.font}`;
-    ctx.fillText("模擬", padL + plotW / 2, padT + plotH / 2);
+    ctx.textAlign = "right";
+    ctx.textBaseline = "bottom";
+    ctx.font = `600 ${Math.round(Math.min(plotH * 0.14, plotW * 0.12, 44))}px ${c.font}`;
+    ctx.fillText("模擬", padL + plotW - 8, padT + plotH - 6);
     ctx.restore();
   }
   ctx.strokeStyle = c.grid;
