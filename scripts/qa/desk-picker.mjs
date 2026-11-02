@@ -12,7 +12,7 @@
 //   - a run started from the picker can be given up (asked first, with ruling R10's words) from the 教材 drawer
 //     (desktop) and from 復盤 (phone, 大字), and the picker then opens again on the day's default list, the run listed
 //     in 練習紀錄 as 已放棄;
-//   - a guest (a fresh visitor through the gate) sees 「預設：成交值前 5 名」 and at most five stocks;
+//   - a guest (a fresh visitor through the gate) sees 「預設：成交值前 20 名…」 and starts with the day's 20 default stocks;
 //   - a retired lesson's run opens from 練習紀錄 as text: 「舊課（已停用）」, no chart, and 完成並復盤 / 放棄這局 while
 //     unfinished. A classroom with no retired run gets one record and its page answered in the browser
 //     (`retired: "mocked"` in the results); the server side of retired runs is covered by morning-retired.test.ts.
@@ -37,7 +37,7 @@ mkdirSync(out, { recursive: true });
 
 const MAX = 80;
 const FULL = "最多 80 檔";
-const GUEST_NOTE = "預設：成交值前 5 名";
+const GUEST_NOTE = "預設：成交值前 20 名，先挑成交量 1 萬張以上、股價 2,000 元以下";
 const CONFIRM = "確定放棄這局？放棄後不計紀律分數，可以重新選股。";
 const RETIRED = "舊課（已停用）";
 const RETIRED_LESSON = "morning-20261005-v1-bd566804b809";
@@ -311,7 +311,7 @@ for (const c of CASES) {
   }
 }
 
-// ── A guest: the top 5 and its own words, never the list ───────────────────────────────────────────────────────────
+// ── A guest: the default 20 and its own words, never the list ──────────────────────────────────────────────────────
 {
   const name = "guest-375";
   results[name] = {};
@@ -331,7 +331,7 @@ for (const c of CASES) {
     if (title !== GUEST_NOTE) fail(name, `the guest's note says 「${title}」, not 「${GUEST_NOTE}」`);
     const codes = await chosen(page);
     results[name].defaults = codes;
-    if (!codes.length || codes.length > 5) fail(name, `the guest starts with ${codes.length} stocks, not 1–5`);
+    if (codes.length !== 20) fail(name, `the guest starts with ${codes.length} stocks, not the day's 20 defaults`);
     if (await page.locator(".td-picker-note-detail").count()) fail(name, "the guest sees the list's detail line");
     await page.screenshot({ path: `${out}${name}.png`, fullPage: true });
   } catch (error) {

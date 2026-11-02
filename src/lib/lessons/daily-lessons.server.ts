@@ -22,7 +22,14 @@ import { STOCK_CATALOGUE } from "../market/universe.ts";
 import { MorningError, type MorningSource } from "../morning-engine.ts";
 import type { MorningCatalog, MorningIndexSeries } from "../morning.ts";
 import { bookCell, type BookLevels, type BookTimeline } from "./books.ts";
-import { MAX_RUN_CODES, chooseDefaultCodes, defaultNote } from "./default-codes.ts";
+import {
+  DEFAULT_COUNT,
+  DEFAULT_MAX_PRICE,
+  DEFAULT_MIN_LOTS,
+  MAX_RUN_CODES,
+  chooseDefaultCodes,
+  defaultNote,
+} from "./default-codes.ts";
 import {
   listRadarDates,
   readBooks,
@@ -50,7 +57,6 @@ const DAYS_KEPT = 8;
 /** (day, stock) results of the strict check. */
 const VERDICTS_KEPT = 50_000;
 const MIN_STOCKS = 5;
-const TOP = 5;
 const READ_CONCURRENCY = 16;
 /** A day found closed (its lists could not be read, or fewer than five stocks) is looked at again after this long. */
 export const NEGATIVE_RETRY_MS = 60_000;
@@ -83,6 +89,9 @@ export function lessonTitle(date: string): string {
 
 const compareCodes = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 const byValue = (a: DaySymbol, b: DaySymbol): number => b.tradeValue - a.tradeValue || compareCodes(a.code, b.code);
+/** Enough lots that day, at a price a beginner's 10 M practice cash can take several lots of. */
+const easyToPractise = (symbol: DaySymbol): boolean =>
+  symbol.tradeVolume >= DEFAULT_MIN_LOTS && symbol.referencePrice <= DEFAULT_MAX_PRICE;
 const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 
 /** Least recently used first out; an entry heavier than the whole limit is used by its caller but never kept. */
@@ -437,8 +446,11 @@ type PickerBase = {
   /** Practisable stocks (quick check) by code, with only what is known before 09:00. */
   symbols: PickerSymbol[];
   practisable: Set<string>;
-  /** Practisable stocks not under 處置, by the day's turnover, most first: where the top 5 come from. Server only. */
-  byValue: string[];
+  /**
+   * Practisable stocks not under 處置 in the order the default without a list is taken from: by the day's turnover,
+   * most first, the stocks easy to practise on ahead of the rest. Server only.
+   */
+  defaultOrder: string[];
 };
 
 const pickers = new Lru<Versioned<Promise<PickerBase>>>(DAYS_KEPT);
@@ -450,6 +462,7 @@ function pickerBase(dir: string, ref: DayRef, core: DayCore, details: DayDetails
     const listed = [...core.symbols.values()].filter((symbol) => listedAndComplete(core, symbol.code));
     const traded = await mapLimited(listed, READ_CONCURRENCY, (symbol) => hasMorningVolume(dir, ref.date, symbol.code));
     const practisable = listed.filter((_, index) => traded[index]);
+    const open = practisable.filter((symbol) => !symbol.disposition).sort(byValue);
     return {
       symbols: practisable
         .map(({ code, name, referencePrice, disposition }) => ({
@@ -461,21 +474,26 @@ function pickerBase(dir: string, ref: DayRef, core: DayCore, details: DayDetails
         }))
         .sort((a, b) => compareCodes(a.code, b.code)),
       practisable: new Set(practisable.map((symbol) => symbol.code)),
-      byValue: practisable.filter((symbol) => !symbol.disposition).sort(byValue).map((symbol) => symbol.code),
+      defaultOrder: [...open.filter(easyToPractise), ...open.filter((symbol) => !easyToPractise(symbol))].map(
+        (symbol) => symbol.code,
+      ),
     };
   })();
   pickers.set(ref.date, { version: ref.version, value });
   return value;
 }
 
-/** The day's top 5 by turnover: not under 處置, practisable, and through the strict check (③ decision I, H). */
-async function topFive(dir: string, ref: DayRef, core: DayCore, base: PickerBase): Promise<string[]> {
+/**
+ * The day's default without a list: DEFAULT_COUNT stocks in the default order, not under 處置, practisable, and
+ * through the strict check (③ decision I, H).
+ */
+async function defaultTop(dir: string, ref: DayRef, core: DayCore, base: PickerBase): Promise<string[]> {
   const top: string[] = [];
-  // Five at a time, in turnover order: most days need only the first five files.
-  for (let at = 0; top.length < TOP && at < base.byValue.length; at += TOP) {
-    const batch = base.byValue.slice(at, at + TOP);
-    const passed = await Promise.all(batch.map((code) => passesStrictCheck(dir, ref, core, code)));
-    for (const [index, code] of batch.entries()) if (passed[index] && top.length < TOP) top.push(code);
+  // A batch of DEFAULT_COUNT at a time, in the default order: most days need only the first batch of files.
+  for (let at = 0; top.length < DEFAULT_COUNT && at < base.defaultOrder.length; at += DEFAULT_COUNT) {
+    const batch = base.defaultOrder.slice(at, at + DEFAULT_COUNT);
+    const passed = await mapLimited(batch, READ_CONCURRENCY, (code) => passesStrictCheck(dir, ref, core, code));
+    for (const [index, code] of batch.entries()) if (passed[index] && top.length < DEFAULT_COUNT) top.push(code);
   }
   return top;
 }
@@ -496,7 +514,7 @@ export async function lessonPicker(dir: string, date: string, opts: { guest: boo
   if (!day) return null;
   const { ref, core, details } = day;
   const base = await pickerBase(dir, ref, core, details);
-  const top5 = await topFive(dir, ref, core, base);
+  const top = await defaultTop(dir, ref, core, base);
   const radar = opts.guest ? null : await listBefore(dir, date);
   const choose = () =>
     chooseDefaultCodes({
@@ -505,7 +523,7 @@ export async function lessonPicker(dir: string, date: string, opts: { guest: boo
       radar,
       practisable: new Set([...base.practisable].filter((code) => !knownNotToAgree(ref, code))),
       otc: OTC,
-      top5,
+      top,
       guest: opts.guest,
     });
   let choice = choose();

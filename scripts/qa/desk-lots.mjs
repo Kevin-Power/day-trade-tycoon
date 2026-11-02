@@ -374,42 +374,69 @@ for (const c of CASES) {
     await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 2000 }).catch(() => {});
     const box = page.locator("#sim-lots-value");
 
-    // 2. 400 lots of 台積電: large-order block, then refused for the cash; lightning opens the card.
+    // 2. 台積電: a large order the cash can pay for needs the tick; 400 lots it cannot pay for are said on the ticket
+    //    and never sent (2026-11-02: 石大哥 confirmed one again and again); lightning opens the card for both.
     await page.locator('.td-watch-row[data-code="2330"]').click();
     await page.waitForTimeout(300);
     await page.getByRole("button", { name: "市價", exact: true }).click();
-    await page.locator(".sim-ticket .td-lotpick-toggle").click();
-    await page.locator('.td-lotpick-grid button[data-lots="400"]').click();
+    const cash = (await api()).cash;
+    const tsmcLot = ((await api()).bars["2330"]?.at(-1)?.c ?? 1465) * 1000;
+    // Past half the cash, well short of all of it.
+    const largeLots = Math.ceil((0.55 * cash) / tsmcLot);
+    if (largeLots * tsmcLot > 0.95 * cash) fail(where, `no 台積電 size is large yet affordable (${cash} for ${tsmcLot} a lot)`);
+    await box.fill(String(largeLots));
     await page.getByRole("button", { name: /^核對模擬買進/ }).click();
     const large = page.locator(".sim-large");
     await large.waitFor({ timeout: 4000 });
     const largeText = clean(await large.textContent());
     if (!largeText.includes("大額委託")) fail(where, `the large-order block reads "${largeText}"`);
     const confirmMain = clean(await page.locator(".sim-confirm-main").textContent());
-    if (!confirmMain.includes("400")) fail(where, `the review shows "${confirmMain}", not 400 lots`);
+    if (!confirmMain.includes(String(largeLots))) fail(where, `the review shows "${confirmMain}", not ${largeLots} lots`);
     const send = page.getByRole("button", { name: "確認送出模擬買進" });
-    if (await send.isEnabled()) fail(where, "400 lots can be sent before ticking the large-order confirmation");
+    if (await send.isEnabled()) fail(where, `${largeLots} lots can be sent before ticking the large-order confirmation`);
     await page.locator("#sim-large-ack").check();
+    if (!(await send.isEnabled())) fail(where, "the ticked large order cannot be sent");
+    await page.getByRole("button", { name: "返回修改" }).click();
+    // 400 lots: far more than the cash. Said under the lots, 核對 disabled, nothing sent, no 送出失敗 report.
     const before = (await api()).orders.length;
-    await send.click();
-    await until(async () => /送出失敗 · 買進 台積電 400 張 · 目前模擬資金不足，無法委託/.test(await reportsText()), "no 送出失敗 report for 400 lots of 台積電");
-    if ((await api()).orders.length !== before) fail(where, "the refused 400-lot order was stored");
-    await page.getByRole("button", { name: /重新載入進度/ }).first().click({ timeout: 3000 }).catch(() => {});
-    await page.waitForTimeout(500);
-    await page.getByRole("button", { name: "返回修改" }).click({ timeout: 1500 }).catch(() => {});
-    results.refused = { report: (await reportsText()).match(/送出失敗 · 買進 台積電 400 張 · [^。]*無法委託/)?.[0] ?? null, large: largeText };
-    // Lightning with 400 lots: the card opens, nothing is sent.
-    await box.fill("400");
+    // Rows only: the list's own heading says 「送出失敗、回覆不明只記在這次瀏覽」.
+    const failedRows = page.locator('.sim-reports li[data-tone="failed"]');
+    const failedBefore = await failedRows.count();
+    await page.locator(".sim-ticket .td-lotpick-toggle").click();
+    await page.locator('.td-lotpick-grid button[data-lots="400"]').click();
+    const short = page.locator(".sim-ticket-message", { hasText: "可用模擬資金不足" });
+    await short.waitFor({ timeout: 4000 });
+    const shortText = clean(await short.textContent());
+    if (!/^可用模擬資金不足：這筆含手續費約 [\d,]+，可用 [\d,]+。/.test(shortText)) fail(where, `the ticket says "${shortText}"`);
+    if (await page.getByRole("button", { name: /^核對模擬買進/ }).isEnabled()) fail(where, "400 lots the cash cannot pay for can be reviewed");
+    await page.screenshot({ path: `${out}/1366x900-short-400.png` });
+    // Lightning: a large order and an unaffordable one both open the card, nothing is sent.
     const lightning = page.getByRole("switch", { name: "閃電即送" });
+    await box.fill(String(largeLots));
     await lightning.click();
     const sent = (await api()).orders.length;
     await page.locator('.td-book-cell[data-side="bid"][data-level="1"]').click();
     await page.locator(".sim-large").waitFor({ timeout: 4000 });
     await page.waitForTimeout(600);
-    if ((await api()).orders.length !== sent) fail(where, "lightning sent 400 lots without the confirmation");
+    if ((await api()).orders.length !== sent) fail(where, `lightning sent ${largeLots} lots without the confirmation`);
     if (!clean(await page.locator(".sim-large").textContent()).includes("閃電即送不會直接送出"))
       fail(where, "the lightning card does not say it was not sent");
+    await page.getByRole("button", { name: "返回修改" }).click();
+    // Armed, the ticket shows the lightning panel instead of its box: the book's 每筆張數 (a new count disarms it).
+    await page.locator("#td-lots-value").fill("400");
+    if ((await lightning.getAttribute("aria-checked")) !== "true") await lightning.click();
+    await page.locator('.td-book-cell[data-side="bid"][data-level="1"]').click();
+    await page.locator(".sim-large").waitFor({ timeout: 4000 });
+    await page.waitForTimeout(600);
+    const cardText = clean(await page.locator(".sim-large").textContent());
+    if ((await api()).orders.length !== sent) fail(where, "lightning sent 400 lots the cash cannot pay for");
+    if (!cardText.includes("可用模擬資金不足，無法送出")) fail(where, `the lightning card for 400 lots reads "${cardText}"`);
+    if (await page.locator("#sim-large-ack").count()) fail(where, "the card offers the large-order tick for 400 lots the cash cannot pay for");
+    if (await send.isEnabled()) fail(where, "the card can send 400 lots the cash cannot pay for");
     await page.screenshot({ path: `${out}/1366x900-lightning-400.png` });
+    if ((await api()).orders.length !== before) fail(where, "an order was stored");
+    if ((await failedRows.count()) !== failedBefore) fail(where, "a 送出失敗 report appeared although nothing was sent");
+    results.refused = { ticket: shortText, card: cardText, large: largeText, largeLots };
     await page.getByRole("button", { name: "返回修改" }).click();
     if ((await lightning.getAttribute("aria-checked")) === "true") await lightning.click();
 

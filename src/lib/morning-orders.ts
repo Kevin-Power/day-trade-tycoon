@@ -2,7 +2,7 @@
 // sent), and the run's latest order events — sent, filled, cancelled or turned down, and sends that failed in
 // this visit. Reports come from the run's own records; nothing here changes an order.
 import type { MorningState } from "./morning.ts";
-import { formatPrice } from "./market/ticks.ts";
+import { commission, formatPrice } from "./market/ticks.ts";
 import { fillPriceText } from "./morning-ledger.ts";
 import { formatTime } from "./utils.ts";
 
@@ -23,6 +23,19 @@ export function isLargeOrder(input: {
     availableCash > 0 &&
     amount >= LARGE_ORDER_CASH_SHARE * availableCash
   );
+}
+
+/**
+ * A buy the simulated cash cannot pay for, its fee included: the classroom's own check, so the ticket can say so
+ * and never send it. Sells and unknown amounts are left to the classroom.
+ */
+export function exceedsCash(input: {
+  side: "buy" | "sell";
+  amount: number | null;
+  availableCash: number;
+}): boolean {
+  const { side, amount, availableCash } = input;
+  return side === "buy" && amount !== null && Number.isFinite(amount) && amount + commission(amount) > availableCash;
 }
 
 /** A send that failed in this visit (the server refused it or the connection dropped). Kept on screen only. */

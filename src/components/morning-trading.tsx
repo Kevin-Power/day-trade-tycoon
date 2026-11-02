@@ -4,7 +4,7 @@ import type { MorningBookCell, MorningCatalog, MorningState } from "@/lib/mornin
 import { fillClock, fillPriceText, ledgerSummary, lotProgress } from "@/lib/morning-ledger";
 import { referencePrice, serverSession, shownBook, type LiveMorningState } from "@/lib/morning-live";
 import { formatMoney, formatTime } from "@/lib/utils";
-import { estimateRoundTripCost, formatPrice, stepTick } from "@/lib/market/ticks";
+import { commission, estimateRoundTripCost, formatPrice, stepTick } from "@/lib/market/ticks";
 import { validMorningLimit } from "@/lib/morning-book";
 import { positionMark } from "@/lib/morning-quote";
 import { LotPicker } from "@/components/lot-picker";
@@ -12,7 +12,7 @@ import { MorningOrderBook } from "@/components/morning-order-book";
 import { OrderReports } from "@/components/order-reports";
 import { MinuteTable, QuoteDetailGrid, StockTabs } from "@/components/stock-detail";
 import { TradeTape } from "@/components/trade-tape";
-import { isLargeOrder, orderReports, type LocalOrderFailure } from "@/lib/morning-orders";
+import { exceedsCash, isLargeOrder, orderReports, type LocalOrderFailure } from "@/lib/morning-orders";
 
 export function AccountSummary({ session }: { session: MorningState }) {
   const profit = session.equity - session.startingCash;
@@ -67,6 +67,11 @@ type OrderReview = {
   sessionId: string;
   limitPrice?: number;
 };
+
+/** What a buy the cash cannot pay for would cost with its fee, against the cash: 「這筆含手續費約 …，可用 …」. */
+function cashShortFacts(amount: number, cash: number): string {
+  return `這筆含手續費約 ${formatMoney(amount + commission(amount), 0)}，可用 ${formatMoney(cash, 0)}`;
+}
 
 /** A waiting paper order and its two actions; the ticket shows it, and so does 下單 while 行情 shows the index. */
 export function PendingOrder({
@@ -303,6 +308,11 @@ export function PaperOrder({
       : reference !== null
         ? reference * lots * 1000
         : null;
+  // A buy the cash cannot pay for is said under the lots and never sent: confirming it again and again only
+  // collected 「目前模擬資金不足」 (石大哥, 2026-11-02).
+  const shortCash = Boolean(
+    session && exceedsCash({ side, amount: referenceAmount, availableCash: session.cash }),
+  );
 
   const names = Object.fromEntries(catalog.symbols.map((item) => [item.code, item.name]));
   const reports = orderReports(session ? serverSession(session) : null, names, failures);
@@ -313,6 +323,15 @@ export function PaperOrder({
     review &&
     session &&
     isLargeOrder({
+      side: review.side,
+      amount: reviewAmount !== null && Number.isFinite(reviewAmount) ? reviewAmount : null,
+      availableCash: session.cash,
+    }),
+  );
+  const reviewShort = Boolean(
+    review &&
+    session &&
+    exceedsCash({
       side: review.side,
       amount: reviewAmount !== null && Number.isFinite(reviewAmount) ? reviewAmount : null,
       availableCash: session.cash,
@@ -347,11 +366,13 @@ export function PaperOrder({
     setOrderType("limit");
     setLimitDraft(formatPrice(price));
     onReview();
+    const amount = price * lots * 1000;
     if (
       flashRef.current &&
-      isLargeOrder({ side: pickedSide, amount: price * lots * 1000, availableCash: session.cash })
+      (isLargeOrder({ side: pickedSide, amount, availableCash: session.cash }) ||
+        exceedsCash({ side: pickedSide, amount, availableCash: session.cash }))
     ) {
-      // Lightning never sends a large order: it opens the confirm card instead.
+      // Lightning never sends a large order, nor one the cash cannot pay for: it opens the confirm card instead.
       const next = {
         side: pickedSide,
         lots,
@@ -395,6 +416,7 @@ export function PaperOrder({
       staleReview ||
       locked ||
       invalidSell ||
+      reviewShort ||
       submitting.current ||
       (reviewLarge && !largeAck)
     )
@@ -549,7 +571,15 @@ export function PaperOrder({
                   </dd>
                 </div>
               </dl>
-              {reviewLarge && (
+              {reviewShort && session && reviewAmount !== null ? (
+                <div className="sim-large" role="alert">
+                  <strong>可用模擬資金不足，無法送出</strong>
+                  <p>
+                    {cashShortFacts(reviewAmount, session.cash)}。請按「返回修改」
+                    {holdingLots > 0 ? "，要賣出庫存請改選「賣出」" : ""}。
+                  </p>
+                </div>
+              ) : reviewLarge && (
                 <div className="sim-large" role="alert">
                   <strong>
                     大額委託：參考金額 {formatMoney(reviewAmount ?? 0, 0)}，占可用資金 {largeShare}%
@@ -583,7 +613,9 @@ export function PaperOrder({
               <button
                 type="button"
                 className="sim-submit"
-                disabled={locked || staleReview || invalidSell || (reviewLarge && !largeAck)}
+                disabled={
+                  locked || staleReview || invalidSell || reviewShort || (reviewLarge && !largeAck)
+                }
                 onClick={() => void confirmOrder()}
               >
                 <Check aria-hidden />
@@ -610,7 +642,7 @@ export function PaperOrder({
             <form
               onSubmit={(event) => {
                 event.preventDefault();
-                if (locked || invalidSell || invalidLimit || !session) return;
+                if (locked || invalidSell || invalidLimit || shortCash || !session) return;
                 onReview();
                 setReview({
                   side,
@@ -730,6 +762,12 @@ export function PaperOrder({
                       : "這檔目前沒有庫存，先模擬買進後才能賣出。"}
                   </p>
                 )}
+                {shortCash && session && referenceAmount !== null && (
+                  <p className="sim-ticket-message">
+                    可用模擬資金不足：{cashShortFacts(referenceAmount, session.cash)}。
+                    {holdingLots > 0 ? "要賣出庫存，請按上方「賣出」。" : lots > 1 ? "請減少張數。" : ""}
+                  </p>
+                )}
                 <dl className="sim-order-facts">
                   <div data-weight="main">
                     <dt>
@@ -762,7 +800,7 @@ export function PaperOrder({
                   <button
                     type="submit"
                     className="sim-submit"
-                    disabled={locked || invalidSell || invalidLimit}
+                    disabled={locked || invalidSell || invalidLimit || shortCash}
                   >
                     核對模擬{sideName}
                     <span>{lots} 張</span>

@@ -1,11 +1,22 @@
 // Which stocks a lesson's 自選 starts with, and the exact desk wording for it. Pure: no I/O, no clock.
 // Rules are decisions A–E and L of the radar-watchlist design: the previous trading day's 當沖 list when it is
-// fresh and has practisable stocks, otherwise the day's top 5 by turnover (always for guests).
+// fresh and has practisable stocks, otherwise the day's top 20 by turnover (always for guests), taking first the
+// stocks a beginner can practise on (the owner, 2026-11-02).
 
 import type { RadarList } from "./types.ts";
 
 /** A run holds 1 to 80 stocks. */
 export const MAX_RUN_CODES = 80;
+
+/**
+ * Without a list, the default holds this many stocks (「不只五檔請20檔」). Those trading DEFAULT_MIN_LOTS lots or more
+ * that day at DEFAULT_MAX_PRICE 元 or less come first: a thin 9,000-元 stock such as 川湖 can top the turnover, yet
+ * its 江波圖 hardly moves and one lot nearly empties the 10 M practice cash (「欣興、臻鼎這些一千元左右，成交量在幾萬張的」).
+ */
+export const DEFAULT_COUNT = 20;
+export const DEFAULT_MIN_LOTS = 10_000;
+export const DEFAULT_MAX_PRICE = 2_000;
+const TOP_TEXT = "成交值前 20 名，先挑成交量 1 萬張以上、股價 2,000 元以下";
 
 /** The same stocks, in any order (a run's stocks against the day's default list). */
 export function sameCodes(a: readonly string[], b: readonly string[]): boolean {
@@ -19,7 +30,7 @@ export type ListCounts = { listed: number; otc: number; missing: number };
 
 export type DefaultChoice =
   | { basis: "radar"; radarDate: string; codes: string[]; counts: ListCounts }
-  | { basis: "top5"; reason: "guest" | "no-list" | "stale" | "empty"; codes: string[]; counts?: ListCounts };
+  | { basis: "top"; reason: "guest" | "no-list" | "stale" | "empty"; codes: string[]; counts?: ListCounts };
 
 const compareCodes = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -29,18 +40,19 @@ export function chooseDefaultCodes(input: {
   radar: RadarList | null;
   practisable: ReadonlySet<string>;
   otc: ReadonlySet<string>;
-  top5: readonly string[];
+  /** The day's default without a list (DEFAULT_COUNT stocks at most), in any order. */
+  top: readonly string[];
   guest: boolean;
 }): DefaultChoice {
-  const top5 = [...input.top5].sort(compareCodes);
+  const top = [...input.top].sort(compareCodes);
   // Guests never see the list (decision L): answer before the list is even looked at.
-  if (input.guest) return { basis: "top5", reason: "guest", codes: top5 };
+  if (input.guest) return { basis: "top", reason: "guest", codes: top };
 
   const radar = input.radar;
-  if (!radar || radar.date >= input.lessonDate) return { basis: "top5", reason: "no-list", codes: top5 };
+  if (!radar || radar.date >= input.lessonDate) return { basis: "top", reason: "no-list", codes: top };
   // Another full-market day between the list and the lesson means the radar skipped a day: the list is stale.
   if (input.fullMarketDays.some((day) => day > radar.date && day < input.lessonDate)) {
-    return { basis: "top5", reason: "stale", codes: top5 };
+    return { basis: "top", reason: "stale", codes: top };
   }
 
   const unique = [...new Set(radar.symbols.map((symbol) => symbol.code))];
@@ -53,7 +65,7 @@ export function chooseDefaultCodes(input: {
     if (input.practisable.has(code)) codes.push(code);
   }
   const counts: ListCounts = { listed: unique.length, otc, missing };
-  if (codes.length === 0) return { basis: "top5", reason: "empty", codes: top5, counts };
+  if (codes.length === 0) return { basis: "top", reason: "empty", codes: top, counts };
   return { basis: "radar", radarDate: radar.date, codes: codes.sort(compareCodes).slice(0, MAX_RUN_CODES), counts };
 }
 
@@ -76,9 +88,9 @@ export function defaultNote(choice: DefaultChoice): { title: string; detail: str
   if (choice.basis === "radar") {
     return { title: `預設：前一交易日熱門當沖股（${monthDay(choice.radarDate)} 盤後）`, detail: listDetail(choice.counts) };
   }
-  if (choice.reason === "guest") return { title: "預設：成交值前 5 名", detail: null };
+  if (choice.reason === "guest") return { title: `預設：${TOP_TEXT}`, detail: null };
   return {
-    title: "前一交易日沒有熱門當沖名單，改用成交值前 5 名",
+    title: `前一交易日沒有熱門當沖名單，改用${TOP_TEXT}`,
     detail: choice.reason === "empty" && choice.counts ? listDetail(choice.counts) : null,
   };
 }

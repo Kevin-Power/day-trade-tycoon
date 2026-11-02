@@ -106,7 +106,7 @@ test("a fill's time is shown to the second from the real trade", () => {
 
 test("the manual and the plan form say what the lessons are now", () => {
   const manual = source("src/components/manual-page.tsx");
-  assert.match(manual, /MANUAL_VERSION = "2026-11-02-class2"/);
+  assert.match(manual, /MANUAL_VERSION = "2026-11-02-class3"/);
   for (const phrase of [
     "富邦逐筆",
     "證交所",

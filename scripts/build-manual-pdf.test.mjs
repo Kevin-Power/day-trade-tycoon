@@ -59,7 +59,7 @@ test("manual source tells the matching rule, the real books and the default 自�
     "真實五檔",
     "買一賣一",
     "前一交易日的熱門當沖名單",
-    "成交值前 5 名",
+    "成交值前 20 名",
     "從 2026/10/21 起",
   ])
     assert.ok(text.includes(term), term);

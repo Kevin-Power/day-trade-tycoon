@@ -225,9 +225,9 @@ test('real HTTP daily lessons: real trades revealed one minute at a time, nothin
     assert.equal(/"(close|change|tradeValue|tradeVolume|rank|bars|tape|trades)"/.test(initial.text), false, 'nothing of the day before a run starts');
     const middle = await get(alice, '?lesson=' + MIDDLE);
     assert.equal(middle.body.catalog.lessonId, MIDDLE);
-    assert.equal(middle.body.picker.note.title, '前一交易日沒有熱門當沖名單，改用成交值前 5 名');
+    assert.equal(middle.body.picker.note.title, '前一交易日沒有熱門當沖名單，改用成交值前 20 名，先挑成交量 1 萬張以上、股價 2,000 元以下');
     assert.equal(middle.body.picker.taiexAvailable, false); assert.equal(middle.body.picker.booksAvailable, false);
-    assert.deepEqual([...middle.body.picker.defaults].sort(), [...HOT].sort());
+    assert.deepEqual(middle.body.picker.defaults, FIXTURE.top[middle.body.picker.date]);
     const oldest = await get(alice, '?lesson=' + OLDEST);
     assert.equal(oldest.body.picker.note.title, '預設：前一交易日熱門當沖股（10/20 盤後）');
     for (const query of ['lesson=', 'lesson=unknown', 'lesson=2026-10-07', 'lesson=fubon-20261028-am', 'lesson=fubon-20261023-am', 'lesson=fubon-20260230-am',
