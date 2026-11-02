@@ -71,14 +71,10 @@ assert.equal(setup.status, 200);
 const setupState = await setup.json();
 assert.equal(typeof setupState.available, 'boolean');
 assert.equal(setupState.configured, true);
+// 2026-11-02: the offline package is gone. With admission the old download path is simply not found.
 const download = await request('/api/download/offline', { headers: { cookie } });
-assert.equal(download.status, 200);
-assert.equal(download.headers.get('content-type'), 'application/zip');
-assert.match(download.headers.get('cache-control'), /no-store/);
-const bytes = Buffer.from(await download.arrayBuffer());
-const expected = readFileSync(new URL('../../downloads/daytrade-tycoon-offline.zip', import.meta.url));
+assert.equal(download.status, 404, 'The offline package download must stay removed');
 const digest = data => createHash('sha256').update(data).digest('hex');
-assert.equal(digest(bytes), digest(expected));
 const manual = await request('/manual', { headers: { cookie } });
 assert.equal(manual.status, 200);
 // Admission is resolved in the browser, so the initial HTML has no PDF anchor.
@@ -92,4 +88,4 @@ assert.match(pdf.headers.get('content-type') ?? '', /application\/pdf/);
 const pdfBytes = Buffer.from(await pdf.arrayBuffer());
 const expectedPdf = readFileSync(new URL('../../public/daytrade-tycoon-manual.pdf', import.meta.url));
 assert.equal(digest(pdfBytes), digest(expectedPdf), 'Learner PDF download must match the current manual');
-console.log(JSON.stringify({ verified: true, origin, health: 200, assets: assets.length, publicTrial: 200, trialAssets: trialAssets.length, trialIssuesCookie: false, publicInquiryValidation: 400, privateInquiryList: 403, ownerSetup: setupState.available ? 'ready-uninitialized' : 'initialized', unsignedDownload: 403, signedDownload: 200, zipBytes: bytes.length, zipSha256: digest(bytes), pdfHref, pdfBytes: pdfBytes.length, pdfSha256: digest(pdfBytes) }));
+console.log(JSON.stringify({ verified: true, origin, health: 200, assets: assets.length, publicTrial: 200, trialAssets: trialAssets.length, trialIssuesCookie: false, publicInquiryValidation: 400, privateInquiryList: 403, ownerSetup: setupState.available ? 'ready-uninitialized' : 'initialized', unsignedDownload: 403, signedDownload: 404, pdfHref, pdfBytes: pdfBytes.length, pdfSha256: digest(pdfBytes) }));

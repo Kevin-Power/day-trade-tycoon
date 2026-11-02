@@ -46,7 +46,6 @@ const ICONS = {
   Flame: "custom/flame",
   Footprints: "custom/footprints",
   GraduationCap: "custom/graduation-cap",
-  HardDrive: "archive",
   Inbox: "inbox",
   KeyRound: "key",
   Layers3: "history",

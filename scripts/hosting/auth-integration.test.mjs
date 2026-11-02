@@ -165,6 +165,8 @@ test("real HTTP standalone auth, owner bootstrap, role isolation and durable res
     assert.equal(admitted.status, 200);
     assert.ok(admitted.headers.getSetCookie().every(value => /HttpOnly/.test(value) && /Secure/.test(value)));
     assert.equal((await request("/api/gate", { jar: owner })).body.ok, true);
+    // 2026-11-02: no offline package is offered any more; even an admitted visitor finds no download.
+    assert.equal((await request("/api/download/offline", { jar: owner })).status, 404, "The offline package download must stay removed");
     t.diagnostic("HTTP gate: incorrect password, forged cookie and foreign origin rejected");
     stage = "reserved email and bootstrap";
     const reserved = await request("/api/auth/sign-up/email", { method: "POST", data: { email: ownerEmail, password, name: "Reserved attempt" }, jar: owner });
