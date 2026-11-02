@@ -15,6 +15,9 @@ import { AbandonRun, RunRecords } from "@/components/run-records";
 import { REPLAY_DELAY, type ReplaySpeed } from "@/lib/replay-speed";
 import { TradeTape } from "@/components/trade-tape";
 import { useTickReplay } from "@/components/use-tick-replay";
+import { OrderNoticeToast } from "@/components/order-notice";
+import { useOrderNotice } from "@/components/use-order-notice";
+import { signedMoney } from "@/lib/morning-notices";
 import {
   AccountSummary,
   DisplayBook,
@@ -1023,6 +1026,15 @@ function MorningLesson({
   );
   const latestAlert = alerts.at(-1);
   const latestFill = [...alerts].reverse().find((alert) => alert.kind === "fill");
+  // 成交／未成交 on top of the page the moment the replay reaches it, and 本輪損益 on the 庫存 tab: during a trade
+  // there is no time to keep opening 庫存 or 委託 (the owner, 2026-11-02).
+  const stockNames = useMemo(
+    () => Object.fromEntries((catalog?.symbols ?? []).map((symbol) => [symbol.code, symbol.name])),
+    [catalog],
+  );
+  const orderNotice = useOrderNotice(marketSession && !replaying ? marketSession : null, stockNames);
+  const deskSession = liveMarket ?? marketSession;
+  const deskProfit = deskSession && !showPlan ? deskSession.equity - deskSession.startingCash : null;
   const accessCard = access ? (
     <AccessCard
       problem={describeAccessProblem(access.status, access.message)}
@@ -1542,9 +1554,11 @@ function MorningLesson({
                   pending={
                     marketSession?.orders.filter((item) => item.status === "pending").length ?? 0
                   }
+                  profit={deskProfit}
                   onSelect={setActivePane}
                 />
               )}
+              <OrderNoticeToast notice={orderNotice} />
               {coachOpen && session && !completed && (
                 <CoachMarks
                   layout={layout}
@@ -1739,12 +1753,24 @@ function PageFrame({
 function MobileDock({
   active,
   pending,
+  profit,
   onSelect,
 }: {
   active: MorningPane;
   pending: number;
+  /** 本輪損益 (fees and tax paid included), under 庫存 on every tab; null before a run. */
+  profit: number | null;
   onSelect: (pane: MorningPane) => void;
 }) {
+  const whole = profit === null ? null : Math.round(profit);
+  const profitText = whole === null ? null : signedMoney(whole);
+  const positionsLabel = [
+    "庫存",
+    profitText !== null ? `本輪損益 ${profitText}` : null,
+    pending > 0 ? `${pending} 筆待成交` : null,
+  ]
+    .filter(Boolean)
+    .join("，");
   const items = [
     { pane: "watch", label: "自選", Icon: Star },
     { pane: "market", label: "行情", Icon: ChartCandlestick },
@@ -1758,9 +1784,7 @@ function MobileDock({
           key={pane}
           type="button"
           aria-pressed={active === pane}
-          aria-label={
-            pane === "positions" && pending > 0 ? `${label}，${pending} 筆待成交` : undefined
-          }
+          aria-label={pane === "positions" && positionsLabel !== label ? positionsLabel : undefined}
           data-coach={`tab-${pane}`}
           onClick={() => {
             onSelect(pane);
@@ -1769,6 +1793,11 @@ function MobileDock({
         >
           <Icon aria-hidden />
           <span>{label}</span>
+          {pane === "positions" && whole !== null && (
+            <small className="td-dock-profit" data-tone={whole > 0 ? "up" : whole < 0 ? "down" : "flat"}>
+              {profitText}
+            </small>
+          )}
           {pane === "positions" && pending > 0 && (
             <em className="td-dock-badge" aria-hidden>
               {pending}
