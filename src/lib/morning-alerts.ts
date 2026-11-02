@@ -2,6 +2,7 @@ import type { Bar } from "./game/types.ts";
 import { deriveSwingHighs, type ConfirmedSwingHigh } from "./market/swing-highs.ts";
 import { formatPrice } from "./market/ticks.ts";
 import type { MorningCatalog, MorningState } from "./morning.ts";
+import { EXIT_NAME } from "./morning-exit.ts";
 import { fillPriceText } from "./morning-ledger.ts";
 
 export type MorningAlertKind = "fill" | "swing-high" | "break-high" | "cross-up" | "cross-down";
@@ -79,11 +80,12 @@ export function deriveMorningAlerts(catalog: MorningCatalog, state: MorningState
   for (const fill of state.fills) {
     if (!Number.isFinite(fill.t) || fill.t > cutoff) continue;
     const name = catalog.symbols.find((item) => item.code === fill.code)?.name ?? fill.code;
+    const auto = state.orders.find((order) => order.id === fill.id)?.auto;
     alerts.push({
       t: fill.t,
       kind: "fill",
       code: fill.code,
-      text: `你的委託成交：${name} ${fill.side === "buy" ? "買進" : "賣出"} ${fill.shares / 1000} 張 @ ${fillPriceText(fill.price)}`,
+      text: `${auto ? `自動${EXIT_NAME[auto]}成交` : "你的委託成交"}：${name} ${fill.side === "buy" ? "買進" : "賣出"} ${fill.shares / 1000} 張 @ ${fillPriceText(fill.price)}`,
     });
   }
   // Order by when each event became visible: a fill happens at a minute's open but is revealed

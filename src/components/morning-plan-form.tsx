@@ -1,7 +1,8 @@
 import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowRight } from "@/lib/icons";
-import type { MorningPlan } from "@/lib/morning";
+import type { MorningExitPlan, MorningPlan } from "@/lib/morning";
 import { GUEST_TERMS_TEXT } from "@/lib/morning-access";
+import { DEFAULT_EXIT, STOP_LOSS_CHOICES, TAKE_PROFIT_CHOICES } from "@/lib/morning-exit";
 import {
   applyPlanTemplate,
   DEFAULT_PLAN_TEMPLATE,
@@ -48,6 +49,9 @@ export function PlanForm({
       stop: "",
     }),
   );
+  // 自動出場 (2026-11-02, 石大哥): set before the run, on by default; the engine sells at 停利 or 停損 by itself.
+  const [exitOn, setExitOn] = useState(true);
+  const [exit, setExit] = useState<MorningExitPlan>(DEFAULT_EXIT);
   const [invalid, setInvalid] = useState("");
   // With a template chosen the details stay folded, so the start button is on the first screen.
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -77,12 +81,13 @@ export function PlanForm({
   }
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const next = {
+    const next: MorningPlan = {
       ...plan,
       focusCode,
       reason: plan.reason.trim(),
       entry: plan.entry.trim(),
       stop: plan.stop.trim(),
+      ...(exitOn ? { exit } : {}),
     };
     if (!next.reason || !next.entry || !next.stop) {
       setInvalid("每一欄都寫下自己的想法；尚不確定也可以說明正在等待什麼。");
@@ -96,6 +101,47 @@ export function PlanForm({
       不需要先猜對漲跌。計畫會隨新的一輪保存，重播期間保留原文供復盤核對。
     </p>
   );
+  const exitChoice = (
+    <fieldset className="td-exit-plan min-w-0">
+      <legend className="sr-only">自動出場</legend>
+      <label className="td-exit-on">
+        <input type="checkbox" checked={exitOn} onChange={(event) => setExitOn(event.target.checked)} className="size-5 shrink-0" />
+        <span>自動出場</span>
+      </label>
+      <label className="td-exit-pick">
+        <span>停利</span>
+        <select
+          value={exit.takeProfitPct}
+          disabled={!exitOn}
+          onChange={(event) => setExit({ ...exit, takeProfitPct: Number(event.target.value) })}
+        >
+          {TAKE_PROFIT_CHOICES.map((value) => (
+            <option key={value} value={value}>
+              +{value}%
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="td-exit-pick">
+        <span>停損</span>
+        <select
+          value={exit.stopLossPct}
+          disabled={!exitOn}
+          onChange={(event) => setExit({ ...exit, stopLossPct: Number(event.target.value) })}
+        >
+          {STOP_LOSS_CHOICES.map((value) => (
+            <option key={value} value={value}>
+              -{value}%
+            </option>
+          ))}
+        </select>
+      </label>
+      <small className="td-exit-hint">
+        {exitOn ? "買進成交後，價格碰到停利或停損，就自動用市價全部賣出。" : "關閉：出場要自己按「賣出」。"}
+      </small>
+    </fieldset>
+  );
+  // 自動出場 sits right under the start button, so the button stays on a phone's first screen.
   const startBlock = (
     <>
       {guest && <p className="td-guest-terms text-base leading-relaxed">{GUEST_TERMS_TEXT}</p>}
@@ -103,6 +149,7 @@ export function PlanForm({
         {busy ? "正在保存…" : choice === "custom" ? "保存計畫，進入 09:00 練習" : "用這個計畫開始"}
         <ArrowRight className="shrink-0" aria-hidden />
       </button>
+      {exitChoice}
     </>
   );
   return (

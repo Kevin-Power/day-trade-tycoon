@@ -3371,6 +3371,62 @@ html:has(.trading-desk) #app {
   font-size: 16px;
 }
 
+/* 自動出場 on the plan card: one row above the start button (it wraps on narrow screens) */
+.trading-desk .td-exit-plan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--td-line);
+  border-radius: var(--td-radius);
+  background: var(--td-panel);
+}
+.trading-desk :is(.td-exit-on, .td-exit-pick) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 15px;
+  color: var(--td-fg);
+}
+.trading-desk .td-exit-on span {
+  font-weight: 600;
+}
+.trading-desk .td-exit-pick select {
+  min-height: 40px;
+  padding: 0 6px;
+  /* 16px: iOS zooms into smaller menus */
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  color: var(--td-select-fg);
+  background: var(--td-select-bg);
+  border: 1px solid var(--td-select-line);
+  border-radius: var(--td-radius);
+}
+.trading-desk .td-exit-pick select:disabled {
+  opacity: 0.45;
+}
+.trading-desk .td-exit-hint {
+  flex-basis: 100%;
+  padding-bottom: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--td-muted);
+}
+.trading-desk[data-layout="senior"] :is(.td-exit-on, .td-exit-pick) {
+  min-height: 56px;
+  font-size: 18px;
+}
+.trading-desk[data-layout="senior"] .td-exit-pick select {
+  min-height: 48px;
+  font-size: 18px;
+}
+.trading-desk[data-layout="senior"] .td-exit-hint {
+  font-size: 15px;
+}
+
 /* First-time coach marks: dim the desk, ring the parts each step names */
 .trading-desk .td-coach {
   position: fixed;

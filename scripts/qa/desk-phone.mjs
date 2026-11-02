@@ -10,8 +10,9 @@
 //   3. 行情's 買進 opens 下單 on 買進 with 市價 chosen, the page's heading focused (the button that had focus is gone),
 //      and 核對模擬買進 on screen without scrolling (pinned above the tabs); 賣出 likewise, or, when it cannot be
 //      pressed (no holdings), the line saying why on screen instead.
-//   4. Once (390×844): a 市價 1 張 order is sent from there, and the next minute fills it; the fill is then said
-//      across the top (taps go through it) and goes by itself, 本輪損益 shows under 庫存, and 行情 says the holding.
+//   4. Once (390×844): a 市價 1 張 order is sent from there and the desk goes back to 行情 (2026-11-02, 石大哥: the
+//      江波圖 is seen going on); the next minute fills it; the fill is then said across the top (taps go through it)
+//      and goes by itself, 本輪損益 shows under 庫存, and 行情 says the holding.
 // Runs in chromium or webkit (Safari's engine). Usage: node scripts/qa/desk-phone.mjs <baseUrl> <label> [chromium|webkit]
 import { chromium, webkit } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -175,6 +176,15 @@ for (const [width, height, senior] of sizes) {
       await page.waitForTimeout(400);
       await page.getByRole("button", { name: /^核對模擬買進/ }).first().click();
       await page.getByRole("button", { name: "確認送出模擬買進" }).click();
+      const quoteTab = dock.getByRole("button", { name: /行情/ });
+      await page.waitForFunction(
+        () => document.querySelector('nav[aria-label="主要分頁"] button[aria-pressed="true"]')?.textContent?.includes("行情"),
+        null,
+        { timeout: 8000 },
+      ).catch(() => {});
+      result.afterSend = (await quoteTab.getAttribute("aria-pressed")) === "true" ? "行情" : "not 行情";
+      if (result.afterSend !== "行情") fail("sending an order does not go back to 行情");
+      await dock.getByRole("button", { name: /下單/ }).click();
       await page.getByText(/委託成功 · 買進 .* 1 張 市價/).first().waitFor({ timeout: 8000 });
       await page.getByRole("button", { name: "前進 1 分鐘" }).click();
       await page.getByText(/成交 · 買進 .* 1 張 @/).first().waitFor({ timeout: 12000 });

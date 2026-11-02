@@ -3,6 +3,7 @@
 // this visit. Reports come from the run's own records; nothing here changes an order.
 import type { MorningState } from "./morning.ts";
 import { commission, formatPrice } from "./market/ticks.ts";
+import { EXIT_NAME } from "./morning-exit.ts";
 import { fillPriceText } from "./morning-ledger.ts";
 import { formatTime } from "./utils.ts";
 
@@ -152,16 +153,20 @@ export function orderReports(
   const events: { cursor: number; report: OrderReport }[] = [];
   for (const order of state?.orders ?? []) {
     const lots = order.shares / 1000;
-    const subject = what(order.side, order.code, lots);
+    // The classroom's 自動出場 sell names itself in each of its lines.
+    const auto = order.auto ? `自動${EXIT_NAME[order.auto]} · ` : "";
+    const subject = `${auto}${what(order.side, order.code, lots)}`;
     events.push({
       cursor: order.submittedCursor,
       report: {
         key: `${order.id}:sent`,
         time: clock(order.submittedCursor * 60),
         tone: "sent",
-        text: `委託成功 · ${order.entryMode === "lightning" ? "閃電 · " : ""}${subject} ${how(order.limitPrice)}${
-          order.limitPrice === undefined ? "（量夠才成交，用平均價）" : ""
-        }`,
+        text: order.auto
+          ? `${subject} 市價（成交價到 ${formatPrice(order.triggerPrice ?? 0)}）`
+          : `委託成功 · ${order.entryMode === "lightning" ? "閃電 · " : ""}${subject} ${how(order.limitPrice)}${
+              order.limitPrice === undefined ? "（量夠才成交，用平均價）" : ""
+            }`,
       },
     });
     if (order.status === "filled") {

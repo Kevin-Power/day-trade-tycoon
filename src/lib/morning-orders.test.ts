@@ -302,3 +302,33 @@ test("an order filled from several trades reports their average; one still waiti
     ],
   );
 });
+
+test("自動出場 says it is the classroom's: 停利／停損 at the trade price that fired it", () => {
+  const exit = run({
+    orders: [
+      { id: "A", code: "2330", side: "buy", shares: 1000, status: "filled", submittedCursor: 20, price: 2575 },
+      {
+        id: "E",
+        code: "2330",
+        side: "sell",
+        shares: 1000,
+        status: "filled",
+        submittedCursor: 31,
+        price: 2615,
+        auto: "takeProfit",
+        triggerPrice: 2615,
+      },
+    ],
+    fills: [
+      { id: "A", code: "2330", side: "buy", shares: 1000, price: 2575, fee: 2202, tax: 0, t: 1200 },
+      { id: "E", code: "2330", side: "sell", shares: 1000, price: 2615, fee: 2236, tax: 3923, t: 1880 },
+    ],
+  });
+  assert.deepEqual(
+    orderReports(exit, NAMES, []).slice(0, 2).map(({ tone, time, text }) => ({ tone, time, text })),
+    [
+      { tone: "filled", time: "09:31", text: "成交 · 自動停利 · 賣出 台積電 1 張 @ 2615" },
+      { tone: "sent", time: "09:31", text: "自動停利 · 賣出 台積電 1 張 市價（成交價到 2615）" },
+    ],
+  );
+});

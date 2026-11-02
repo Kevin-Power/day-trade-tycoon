@@ -7,6 +7,17 @@ test("a fill is read with name, side, lots and plain price", () => {
   assert.equal(fillAnnouncement({ side: "sell", shares: 2000, price: 98.5 }, "鴻海"), "你的委託成交：鴻海，賣出 2 張，98.5 元");
 });
 
+test("a 自動出場 sell is read as the classroom's 停利／停損", () => {
+  assert.equal(
+    fillAnnouncement({ side: "sell", shares: 1000, price: 867 }, "中砂", "takeProfit"),
+    "自動停利成交：中砂，賣出 1 張，867 元",
+  );
+  assert.equal(
+    fillAnnouncement({ side: "sell", shares: 1000, price: 845 }, "中砂", "stopLoss"),
+    "自動停損成交：中砂，賣出 1 張，845 元",
+  );
+});
+
 test("a fill made of several trades is read at its average to two decimals, never the raw number", () => {
   assert.equal(
     fillAnnouncement({ side: "buy", shares: 400_000, price: 20.577125000000006 }, "東元"),

@@ -13,6 +13,7 @@ import { OrderReports } from "@/components/order-reports";
 import { MinuteTable, QuoteDetailGrid, StockTabs } from "@/components/stock-detail";
 import { TradeTape } from "@/components/trade-tape";
 import { exceedsCash, isLargeOrder, orderReports, type LocalOrderFailure } from "@/lib/morning-orders";
+import { EXIT_NAME } from "@/lib/morning-exit";
 
 export function AccountSummary({ session }: { session: MorningState }) {
   const profit = session.equity - session.startingCash;
@@ -278,7 +279,8 @@ export function PaperOrder({
     setLimitDraft(formatPrice(prefill.price));
   }, [prefill, code]);
   const position = session?.positions.find((item) => item.code === code);
-  const pending = session?.orders.find((item) => item.status === "pending");
+  // The learner's own waiting order locks sending; a 自動出場 sell does not (the classroom refuses a second sell).
+  const pending = session?.orders.find((item) => item.status === "pending" && !item.auto);
   const pendingId = pending?.id;
   useEffect(() => {
     if (pendingId) pendingPanel.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
@@ -291,8 +293,10 @@ export function PaperOrder({
   const reference = referencePrice(session, code, symbol?.previousClose);
   const holdingLots = (position?.shares ?? 0) / 1000;
   const invalidSell = side === "sell" && lots > holdingLots;
+  // While the classroom's 自動出場 sell of this stock waits, the classroom takes no other order of it.
+  const exiting = Boolean(session?.orders.some((item) => item.status === "pending" && item.auto && item.code === code));
   const ready = Boolean(session && session.cursor >= 1 && !session.completed && !atEnd);
-  const locked = busy || Boolean(pending) || !ready;
+  const locked = busy || Boolean(pending) || !ready || exiting;
   const staleReview = Boolean(
     review && (review.revision !== session?.revision || review.sessionId !== session?.id),
   );
@@ -755,6 +759,7 @@ export function PaperOrder({
                   onChange={changeLots}
                 />
                 {/* Right under the side and the lots that cause it, so the smallest phones show it without scrolling. */}
+                {exiting && <p className="sim-ticket-message">這檔正在自動出場，等它成交後才能再下這檔。</p>}
                 {invalidSell && (
                   <p className="sim-ticket-message">
                     {holdingLots
@@ -1037,6 +1042,17 @@ function ledgerRecords(
             tone: mark.tone,
             className: "sim-mark",
           },
+          ...(item.exit
+            ? [
+                {
+                  label: "自動出場",
+                  // None past 漲停／跌停 (morning-exit.ts).
+                  value: `停利 ${item.exit.takeProfit === null ? "—" : formatPrice(item.exit.takeProfit)}／停損 ${
+                    item.exit.stopLoss === null ? "—" : formatPrice(item.exit.stopLoss)
+                  }`,
+                },
+              ]
+            : []),
         ],
       };
     });
@@ -1047,7 +1063,7 @@ function ledgerRecords(
       .map((item) => ({
         key: item.id,
         name: name(item.code),
-        sub: `${item.code} · ${formatTime(item.submittedCursor * 60).slice(0, 5)}${item.entryMode === "lightning" ? " · 閃電" : ""}`,
+        sub: `${item.code} · ${formatTime(item.submittedCursor * 60).slice(0, 5)}${item.entryMode === "lightning" ? " · 閃電" : ""}${item.auto ? ` · 自動${EXIT_NAME[item.auto]}` : ""}`,
         cells: [
           {
             label: "方向 / 張數",
@@ -1069,7 +1085,7 @@ function ledgerRecords(
                 {item.status === "pending" && (
                   <small className="sim-record-progress">{lotProgress(item)}</small>
                 )}
-                {item.status === "pending" && !session.completed && (
+                {item.status === "pending" && !item.auto && !session.completed && (
                   <button
                     type="button"
                     className="sim-cancel"

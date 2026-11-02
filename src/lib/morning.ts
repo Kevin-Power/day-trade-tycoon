@@ -4,6 +4,8 @@ import type { BookLevels } from "./lessons/books.ts";
 import type { TradeRow } from "./lessons/trades.ts";
 import type { LessonPicker, RunRecord } from "./lessons/types.ts";
 
+/** 自動出場: percent from a holding's average cost (morning-exit.ts). */
+export type MorningExitPlan = { takeProfitPct: number; stopLossPct: number };
 export type MorningPlan = {
   exerciseId?: string;
   bias: "observe" | "bullish" | "bearish";
@@ -11,7 +13,14 @@ export type MorningPlan = {
   reason: string;
   entry: string;
   stop: string;
+  /** Runs started before 2026-11-02, and plans with 自動出場 turned off, have none. */
+  exit?: MorningExitPlan;
 };
+/**
+ * A holding's 自動出場 prices, figured at its latest buy fill; only trades after `fromMs` (ms after 09:00) fire them.
+ * null: past the day's 漲停／跌停, so none.
+ */
+export type MorningPositionExit = { takeProfit: number | null; stopLoss: number | null; fromMs: number };
 export type MorningCatalog = {
   lessonId: string;
   title: string;
@@ -65,6 +74,9 @@ export type MorningOrder = {
   filledValue?: number;
   /** A limit whose first trade after it did not touch: it fills at its own price once the lots are there. */
   atLimit?: boolean;
+  /** The classroom's market sell for the plan's 自動出場 (the learner's own orders have none), and the trade price that fired it. */
+  auto?: "takeProfit" | "stopLoss";
+  triggerPrice?: number;
 };
 export type MorningFill = {
   id: string;
@@ -95,7 +107,7 @@ export type MorningState = {
   startingCash: number;
   cash: number;
   equity: number;
-  positions: { code: string; shares: number; averageCost: number }[];
+  positions: { code: string; shares: number; averageCost: number; exit?: MorningPositionExit }[];
   orders: MorningOrder[];
   fills: MorningFill[];
   completed: boolean;

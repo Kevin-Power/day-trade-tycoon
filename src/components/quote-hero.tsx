@@ -51,7 +51,7 @@ export function QuoteHero({
   const best = bestQuotes(shownBook(session, catalog, book, symbol.code));
   // Held: the stamp says the holding instead of the time (the clock above has it), so it is seen while trading.
   const position = session?.positions.find((item) => item.code === symbol.code && item.shares > 0);
-  const holding = position ? holdingText(position, quote.last ?? undefined) : null;
+  const holding = position ? holdingText(position, quote.last ?? undefined, session?.fills ?? []) : null;
   const toneOf = (value: number | null) =>
     value === null || value === symbol.previousClose
       ? "flat"

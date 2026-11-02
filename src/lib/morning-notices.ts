@@ -3,6 +3,7 @@
 // price is reached the screen should say 成交 at once; during a trade there is no time to keep opening 庫存 or 委託.
 // Pure: the caller passes two views of the run, the last one announced and the one now.
 import type { MorningState } from "./morning.ts";
+import { EXIT_CANCEL, EXIT_NAME } from "./morning-exit.ts";
 import { fillPriceText } from "./morning-ledger.ts";
 import { positionMark, type QuoteTone } from "./morning-quote.ts";
 import { formatMoney } from "./utils.ts";
@@ -12,14 +13,17 @@ type Position = MorningState["positions"][number];
 export type OrderNoticeView = Pick<MorningState, "id" | "fills" | "orders" | "positions">;
 export type OrderNotice = {
   id: string;
-  label: "成交" | "未成交";
+  /** 停利出場／停損出場: the classroom's 自動出場 sell (morning-exit.ts). */
+  label: "成交" | "未成交" | "停利出場" | "停損出場";
   text: string;
   /** A sell's result: 「這筆 +38,422」, fees and tax included. */
   result?: { text: string; tone: QuoteTone };
 };
 
-/** The learner's own ending of an order: it needs no notice. */
-const OWN_ENDINGS = new Set(["由學員取消", "結束練習時取消尚未成交委託", "放棄這局時取消尚未成交委託"]);
+/**
+ * Endings that need no notice: the learner's own, and a sell that gave way to 自動出場 (whose fill is said instead).
+ */
+const OWN_ENDINGS = new Set(["由學員取消", "結束練習時取消尚未成交委託", "放棄這局時取消尚未成交委託", EXIT_CANCEL]);
 const cents = (value: number) => Math.round(value * 100) / 100;
 const toneOf = (value: number): QuoteTone => (value > 0 ? "up" : value < 0 ? "down" : "flat");
 
@@ -34,6 +38,14 @@ export function signedMoney(value: number): string {
  * went with them (shared out by shares), its own fee and its tax. Fills in the order they happened.
  */
 export function sellResults(fills: readonly Fill[]): Map<string, number> {
+  return replayFills(fills).results;
+}
+
+/** Each sell's result (sellResults), and what is still held of each stock: its shares, cost and buy fees. */
+function replayFills(fills: readonly Fill[]): {
+  results: Map<string, number>;
+  held: Map<string, { shares: number; cost: number; fees: number }>;
+} {
   const held = new Map<string, { shares: number; cost: number; fees: number }>();
   const results = new Map<string, number>();
   for (const fill of fills) {
@@ -52,7 +64,7 @@ export function sellResults(fills: readonly Fill[]): Map<string, number> {
     results.set(fill.id, cents(fill.shares * fill.price - cost - fees - fill.fee - fill.tax));
     held.set(fill.code, { shares: book.shares - fill.shares, cost: book.cost - cost, fees: book.fees - fees });
   }
-  return results;
+  return { results, held };
 }
 
 /**
@@ -73,7 +85,13 @@ export function orderNotices(
     const text = `${fill.side === "buy" ? "買進" : "賣出"} ${names[fill.code] ?? fill.code} ${fill.shares / 1000} 張 @ ${fillPriceText(fill.price)}`;
     if (fill.side === "sell") {
       const result = results.get(fill.id) ?? 0;
-      notices.push({ id: fill.id, label: "成交", text, result: { text: `這筆 ${signedMoney(result)}`, tone: toneOf(Math.round(result)) } });
+      const auto = after.orders.find((order) => order.id === fill.id)?.auto;
+      notices.push({
+        id: fill.id,
+        label: auto ? `${EXIT_NAME[auto]}出場` : "成交",
+        text,
+        result: { text: `這筆 ${signedMoney(result)}`, tone: toneOf(Math.round(result)) },
+      });
       continue;
     }
     const holding = after.positions.find((position) => position.code === fill.code);
@@ -95,16 +113,20 @@ export function orderNotices(
 
 /**
  * A stock's holding for the quote block in three short parts (a phone stacks them beside the name): 「庫存 2 張」,
- * 「均 1785」 and its 參考損益 at the latest price, fees and tax not included.
+ * 「均 1785」 and its result at the latest price less the buy fees paid for the shares held (2026-11-02, 石大哥:
+ * with one stock held it is the 本輪損益 under 庫存). Selling costs are not counted until a sell.
  */
 export function holdingText(
   position: Position,
   lastClose: number | undefined,
+  fills: readonly Fill[],
 ): { lots: string; average: string; result: { text: string; tone: QuoteTone } | null } {
   const mark = positionMark(position, lastClose);
+  const fees = replayFills(fills).held.get(position.code)?.fees ?? 0;
+  const value = mark.value === null ? null : cents(mark.value - fees);
   return {
     lots: `庫存 ${position.shares / 1000} 張`,
     average: `均 ${fillPriceText(position.averageCost)}`,
-    result: mark.value === null ? null : { text: signedMoney(mark.value), tone: mark.tone },
+    result: value === null ? null : { text: signedMoney(value), tone: toneOf(Math.round(value)) },
   };
 }

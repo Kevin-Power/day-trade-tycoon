@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import type { MorningState } from "./morning.ts";
 import { holdingText, orderNotices, sellResults, signedMoney, type OrderNoticeView } from "./morning-notices.ts";
+import { EXIT_CANCEL } from "./morning-exit.ts";
 
 type Fill = MorningState["fills"][number];
 type Order = MorningState["orders"][number];
@@ -77,14 +78,40 @@ test("money with its sign, and a stock's holding for the quote block", () => {
   assert.equal(signedMoney(-1_234.4), "-1,234");
   assert.equal(signedMoney(0), "0");
   // Three short parts, so a phone can stack them beside the stock's name (a 320px screen has about 118px there).
-  assert.deepEqual(holdingText({ code: "3533", shares: 2000, averageCost: 1785 }, 1810), {
+  // 2026-11-02, 石大哥: 「+4,000」 beside the name and 「+3,270」 under 庫存 were the same holding; the buy fees
+  // paid for it now come off here too (+50,000 − 1,518 − 1,535), so with one stock held the two agree.
+  assert.deepEqual(holdingText({ code: "3533", shares: 2000, averageCost: 1785 }, 1810, BUYS), {
     lots: "庫存 2 張",
     average: "均 1785",
-    result: { text: "+50,000", tone: "up" },
+    result: { text: "+46,947", tone: "up" },
   });
-  assert.deepEqual(holdingText({ code: "3533", shares: 2000, averageCost: 1785.5 }, undefined), {
+  assert.deepEqual(holdingText({ code: "3533", shares: 2000, averageCost: 1785.5 }, undefined, BUYS), {
     lots: "庫存 2 張",
     average: "均 1785.50",
     result: null,
   });
+});
+
+test("the holding's fees are the buy fees of the shares still held, stock by stock", () => {
+  const fills = [...BUYS, fill("C", "sell", 1000, 1810, 1547, 2715), fill("D", "buy", 1000, 100, 20, 0, "2330")];
+  // Half of 嘉澤 sold: half of its buy fees went with it; 台積電's own fee is not 嘉澤's.
+  assert.equal(holdingText({ code: "3533", shares: 1000, averageCost: 1785 }, 1785, fills).result?.text, "-1,526");
+  assert.equal(holdingText({ code: "2330", shares: 1000, averageCost: 100 }, 100, fills).result?.text, "-20");
+});
+
+test("the classroom's 自動出場 sell is said as 停利出場 or 停損出場; the learner's sell it replaced is not said", () => {
+  const before = view({ fills: BUYS, orders: [order("S", "pending", { limitPrice: 1830 })] });
+  const exit = order("X", "filled", { auto: "stopLoss", triggerPrice: 1765, price: 1760 });
+  const after = view({
+    fills: [...BUYS, fill("X", "sell", 2000, 1760, 3009, 5280)],
+    orders: [order("S", "cancelled", { limitPrice: 1830, reason: EXIT_CANCEL }), exit],
+  });
+  assert.deepEqual(orderNotices(before, after, NAMES), [
+    { id: "X", label: "停損出場", text: "賣出 嘉澤 2 張 @ 1760", result: { text: "這筆 -61,342", tone: "down" } },
+  ]);
+  const up = view({
+    fills: [...BUYS, fill("Y", "sell", 2000, 1815, 3095, 5445)],
+    orders: [order("Y", "filled", { auto: "takeProfit", triggerPrice: 1815, price: 1815 })],
+  });
+  assert.equal(orderNotices(view({ fills: BUYS }), up, NAMES)[0].label, "停利出場");
 });
