@@ -24,9 +24,9 @@
 
 2026-10-05 已修正講師回饋讀取失敗後重試錯誤頁面的問題，正式 release 為 `20261004T210252925Z`，詳見 [回饋重試驗證紀錄](docs/feedback-retry-2026-10-05.md)。手機第一筆計畫草稿保留的前輪修正見 [草稿驗證紀錄](docs/plan-draft-2026-10-05.md)。
 
-公開課程詢問表單與僅管理講師可見的收件區已上線，詳見 [詢問功能與驗證紀錄](docs/course-inquiries-2026-10-05.md)。業主目前尚無公開 LINE／電話／招生 Email，可先由網站收件；課程費用、日期與付款方式仍未確認，不代表已開放收費招生。
+2026-11-02 起網站不再有收費、報價、報名與課程詢問的內容：課程與授權頁撤下（`/license` 轉回教室），公開詢問表單一起撤下；管理講師工作台裡的舊詢問收件區仍保留，只有管理講師看得到。舊紀錄見 [詢問功能與驗證紀錄](docs/course-inquiries-2026-10-05.md)。
 
-學員手冊為 8 頁，修訂 `2026-10-28-lessons1` 說明每日真實教材（富邦逐筆、證交所大盤）、交易日與主題選擇、自選預設的熱門當沖名單、每局 1 到 80 檔、計畫範本、券商式交易台（江波圖、EMA、五檔點價、委託回報）、逐分鐘回放、紙上委託的撮合規則及保存復盤流程；生成行情操作已撤除。排版與檔案核對見 `docs/pdf-source.md`。下列較早文件僅為歷史紀錄：`docs/reading-pace-2026-10-05.md`、`docs/instruction-feedback-2026-10-05.md`、`docs/mobile-teaching-2026-10-04.md`。
+學員手冊為 8 頁，修訂 `2026-11-02-class1` 說明每日真實教材（富邦逐筆、證交所大盤）、交易日與主題選擇、自選預設的熱門當沖名單、每局 1 到 80 檔、計畫範本、券商式交易台（江波圖、EMA、五檔點價、委託回報）、逐分鐘回放、紙上委託的撮合規則及保存復盤流程；生成行情操作已撤除。排版與檔案核對見 `docs/pdf-source.md`。下列較早文件僅為歷史紀錄：`docs/reading-pace-2026-10-05.md`、`docs/instruction-feedback-2026-10-05.md`、`docs/mobile-teaching-2026-10-04.md`。
 
 ## 功能與資料
 
@@ -68,9 +68,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\hosting\host.ps1 s
 
 ## 學員教材
 
-- 免費體驗：`/try`（公開、不用帳號、不計正式成績）
+- 體驗：`/try`（公開、不用帳號、不計正式成績）
 - 線上說明書：`/manual`（教室入場後）
-- 課程說明：`/license`（公開，價格與日期由教室確認）
+- `/license`：舊連結，轉回教室（2026-11-02 起沒有課程與收費頁）
 - 講師工作台：`/teacher`（需登入、完成班級資料並有講師權限）
 - PDF：`npm run build:manual-pdf`
 - 離線包：`npm run build:offline`，輸出 `downloads/daytrade-tycoon-offline.zip`

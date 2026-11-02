@@ -149,12 +149,6 @@ export function Lobby() {
               <BookOpen className="hidden sm:block" aria-hidden="true" />
               教材
             </Link>
-            <Link
-              to="/license"
-              className="academy-nav-link inline-flex min-h-11 items-center rounded-lg px-2.5 text-xs sm:px-3 sm:text-sm"
-            >
-              課程說明
-            </Link>
             <button
               type="button"
               onClick={lock}
@@ -440,13 +434,13 @@ export function Lobby() {
               <div className="min-w-0">
                 <h3 className="text-sm font-medium">上課前，先熟悉教室</h3>
                 <p className="mt-1 text-xs leading-6 text-muted">
-                  手冊整理入場、模擬操作、提交復盤與常見問題。課程日期、費用及入班安排請向講師確認。
+                  手冊整理入場、模擬操作、提交復盤與常見問題。
                 </p>
                 <Link
-                  to="/license"
+                  to="/manual"
                   className="academy-nav-link mt-2 inline-flex min-h-10 items-center gap-1 rounded-lg text-xs"
                 >
-                  查看課程說明 <ArrowRight aria-hidden="true" />
+                  打開手冊 <ArrowRight aria-hidden="true" />
                 </Link>
               </div>
             </div>

@@ -3,15 +3,14 @@ import assert from "node:assert/strict";
 import { GATE_PUBLIC_PATHS, isGatePublicPath } from "./public-path.ts";
 
 describe("gate public paths", () => {
-  it("lets visitors read the license and try the separate public experience", () => {
-    assert.deepEqual([...GATE_PUBLIC_PATHS], ["/license", "/try"]);
-    assert.equal(isGatePublicPath("/license"), true);
+  it("lets visitors try the separate public experience and nothing else", () => {
+    assert.deepEqual([...GATE_PUBLIC_PATHS], ["/try"]);
     assert.equal(isGatePublicPath("/try"), true);
   });
 
   it("keeps classroom, account, download and server function paths behind the gate", () => {
     for (const path of [
-      "/", "/manual", "/login", "/setup", "/teacher", "/session/example/review",
+      "/", "/manual", "/login", "/setup", "/teacher", "/session/example/review", "/license",
       "/api", "/api/download/offline", "/api/auth/sign-in/email", "/_serverFn/try",
       "/daytrade-tycoon-offline.zip",
     ]) assert.equal(isGatePublicPath(path), false, path);

@@ -1,9 +1,8 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, LoaderCircle, LockKeyhole, ScrollText } from "@/lib/icons";
+import { ArrowRight, LoaderCircle, LockKeyhole } from "@/lib/icons";
 import { AuthPasswordInput, ClassroomAuthLayout } from "@/components/classroom-auth-layout";
 import { CONSENT, DISCLAIMER } from "@/lib/provenance";
-import { LICENSE_QUOTE } from "@/lib/license";
 
 type Props = {
   onOpen: () => void;
@@ -53,15 +52,6 @@ export function GateScreen({ onOpen, submit }: Props) {
       }
       heroDescription="從看盤、寫計畫到紙上下單，在真實歷史 K 線中逐步練習。六個練習主題，每一輪都有可以回看的紀錄。"
       features={FEATURES}
-      footer={
-        <>
-          <Link to="/license" className="academy-nav-link inline-flex items-center gap-1.5">
-            <ScrollText aria-hidden="true" />
-            教室授權說明
-          </Link>
-          <p className="mt-1">無須入場碼即可查看 · {LICENSE_QUOTE}</p>
-        </>
-      }
     >
       <div className="mb-6">
         <p className="academy-eyebrow flex items-center gap-2">

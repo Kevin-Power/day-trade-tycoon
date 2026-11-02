@@ -39,7 +39,7 @@ export function ClassroomAuthLayout({
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Link to="/try" className="access-demo-link">
-              免費體驗 <ArrowRight aria-hidden />
+              先體驗 <ArrowRight aria-hidden />
             </Link>
             <SimChip
               label="模擬教學"

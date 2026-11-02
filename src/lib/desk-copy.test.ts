@@ -74,8 +74,6 @@ test("the matching text is the real rule: 量夠才成交 — touching trades co
   for (const path of [
     ...DESK,
     "src/components/manual-page.tsx",
-    "src/components/license-page.tsx",
-    "src/lib/license.ts",
     "src/lib/morning-orders.ts",
   ]) {
     const text = source(path);
@@ -106,9 +104,9 @@ test("a fill's time is shown to the second from the real trade", () => {
   assert.ok(!/formatTime\(fill\.t\)/.test(trading));
 });
 
-test("the manual, licence and lobby say what the lessons are now", () => {
+test("the manual and the plan form say what the lessons are now", () => {
   const manual = source("src/components/manual-page.tsx");
-  assert.match(manual, /MANUAL_VERSION = "2026-10-28-lessons1"/);
+  assert.match(manual, /MANUAL_VERSION = "2026-11-02-class1"/);
   for (const phrase of [
     "富邦逐筆",
     "證交所",
@@ -124,13 +122,10 @@ test("the manual, licence and lobby say what the lessons are now", () => {
     "成交量不足",
   ])
     assert.ok(manual.includes(phrase), `manual: ${phrase}`);
-  for (const path of ["src/components/morning-plan-form.tsx", "src/components/license-page.tsx"])
-    assert.ok(source(path).includes("量夠才成交"), `${path} tells 量夠才成交`);
+  assert.ok(source("src/components/morning-plan-form.tsx").includes("量夠才成交"));
   assert.ok(source("src/components/morning-plan-form.tsx").includes("每筆 1–400 張"));
   for (const path of [
     "src/components/manual-page.tsx",
-    "src/components/license-page.tsx",
-    "src/lib/license.ts",
     "src/components/live-tape.tsx",
     "src/components/real-candles-entry.tsx",
   ]) {
@@ -139,8 +134,6 @@ test("the manual, licence and lobby say what the lessons are now", () => {
       assert.ok(!text.includes(word), `${path} still says ${word}`);
   }
   // The list is never called a recommendation, a win rate or the radar (decision D of the list design).
-  for (const path of ["src/components/manual-page.tsx", "src/components/license-page.tsx", "src/lib/license.ts"]) {
-    const text = source(path);
-    for (const word of ["推薦", "勝率", "漲停雷達"]) assert.ok(!text.includes(word), `${path} says ${word}`);
-  }
+  const text = source("src/components/manual-page.tsx");
+  for (const word of ["推薦", "勝率", "漲停雷達"]) assert.ok(!text.includes(word), `manual says ${word}`);
 });
