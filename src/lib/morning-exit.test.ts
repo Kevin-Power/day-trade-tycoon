@@ -27,12 +27,23 @@ test("停利 is the first tick at or over the target, 停損 the last tick at or
   assert.equal(exitPrices(990, DEFAULT_EXIT, 990).takeProfit, 1005);
 });
 
-test("each exit follows its own price band's tick and stays inside the day's limits", () => {
+test("each exit follows its own price band's tick", () => {
   // 10.01 × 1.005 = 10.06005 on a 0.05 grid → 10.1; × 0.995 = 9.95995 on a 0.01 grid → 9.95.
   assert.deepEqual(exitPrices(10.01, { takeProfitPct: 0.5, stopLossPct: 0.5 }, 10), { takeProfit: 10.1, stopLoss: 9.95 });
-  // Near 漲停 (110 from 100) the 停利 is the limit; near 跌停 (90) the 停損 is.
-  assert.equal(exitPrices(109, { takeProfitPct: 3, stopLossPct: 1 }, 100).takeProfit, 110);
-  assert.equal(exitPrices(90.5, { takeProfitPct: 1, stopLossPct: 2 }, 100).stopLoss, 90);
+});
+
+test("a 停利 past 漲停, or a 停損 past 跌停, cannot be reached: there is none, never one at the limit", () => {
+  // Bought at 漲停 110 (from 100): 停利 111.65 is past it. Pulled down to 110 it would sell at once, at a loss.
+  assert.deepEqual(exitPrices(110, DEFAULT_EXIT, 100), { takeProfit: null, stopLoss: 108.5 });
+  // 109 × 1.015 = 110.635: past 漲停 too; 109.5 × 1.005 = 110.0475 as well.
+  assert.equal(exitPrices(109, DEFAULT_EXIT, 100).takeProfit, null);
+  assert.equal(exitPrices(109.5, { takeProfitPct: 0.5, stopLossPct: 1 }, 100).takeProfit, null);
+  // Exactly at 漲停 is reachable: 108 × 1.015 = 109.62 → 110.
+  assert.equal(exitPrices(108, DEFAULT_EXIT, 100).takeProfit, 110);
+  // Bought at 跌停 90: 停損 89.1 is past it; 停利 91.35 on the 0.1 grid → 91.4.
+  assert.deepEqual(exitPrices(90, DEFAULT_EXIT, 100), { takeProfit: 91.4, stopLoss: null });
+  assert.equal(exitTrigger({ takeProfit: null, stopLoss: 108.5 }, 110), null);
+  assert.equal(exitTrigger({ takeProfit: 91.4, stopLoss: null }, 90), null);
 });
 
 test("a trade at or over 停利, or at or under 停損, fires; one between does not", () => {

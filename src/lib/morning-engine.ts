@@ -297,8 +297,9 @@ function armExit(state: MorningStoredState, source: MorningSource, code: string,
   position.exit = { ...exitPrices(position.averageCost, state.plan.exit, previousClose), fromMs };
 }
 /**
- * A trade at `price` fired the holding's exit: the learner's waiting sell of the stock gives way, and the classroom
- * places a market sell of the whole holding at that moment.
+ * A trade at `price` fired the holding's exit: the learner's waiting order of the stock gives way (a sell would sell
+ * twice, a buy would be averaged with shares being sold), and the classroom places a market sell of the whole
+ * holding at that moment.
  */
 function placeExit(
   state: MorningStoredState,
@@ -307,7 +308,7 @@ function placeExit(
   cursor: number,
 ): MorningOrder {
   const waiting = learnerPending(state);
-  if (waiting?.code === position.code && waiting.side === "sell") {
+  if (waiting?.code === position.code) {
     waiting.status = "cancelled";
     waiting.reason = EXIT_CANCEL;
   }
@@ -384,24 +385,41 @@ function matchInCell(
   }
   if (result.atLimit) order.atLimit = true;
 }
+/** The classroom's 自動出場 sell of `code` is waiting (no learner order of the stock may be sent meanwhile). */
+function exitWaiting(state: MorningStoredState, code: string): boolean {
+  return state.orders.some((order) => order.status === "pending" && order.auto && order.code === code);
+}
+/** The index in `rows` of the first trade after the holding's fill at or past its 停利／停損; −1: none. */
+function exitAt(position: MorningStoredState["positions"][number], rows: readonly TradeRow[]): number {
+  const exit = position.exit;
+  return exit ? rows.findIndex(([ms, price]) => ms > exit.fromMs && exitTrigger(exit, price) !== null) : -1;
+}
 /**
- * A real run's cell: the learner's waiting order meets the cell's real trades first, then the classroom's 自動出場
- * sells still waiting, then each armed holding: its first trade at or past 停利／停損 places a market sell of the
- * whole holding, which meets the trades from that one on.
+ * A real run's cell. The classroom's 自動出場 sells still waiting meet its trades first. Then the learner's waiting
+ * order, unless its stock's 停利／停損 is reached at or before the trade that would fill it: then the exit goes first
+ * and the order is cancelled. Then each armed holding: its first trade at or past 停利／停損 places a market sell of
+ * the whole holding, which meets the trades from that one on.
  */
 function advanceOnTrades(state: MorningStoredState, source: MorningSource, pending: MorningOrder | undefined): void {
   const cell = state.cursor;
   // Check the cell's bars before changing cash or revealing anything.
   for (const code of runCodes(state, source)) cellBar(source, code, cell);
-  const waitingExits = state.orders.filter((order) => order.status === "pending" && order.auto);
-  for (const order of pending ? [pending, ...waitingExits] : waitingExits)
-    matchInCell(state, source, order, cellSlice(stockTrades(source, order.code), cell));
+  const rowsOf = (code: string) => cellSlice(stockTrades(source, code), cell);
+  for (const order of state.orders.filter((item) => item.status === "pending" && item.auto))
+    matchInCell(state, source, order, rowsOf(order.code));
+  if (pending) {
+    const rows = rowsOf(pending.code);
+    const position = state.positions.find((item) => item.code === pending.code);
+    const at = position && !exitWaiting(state, pending.code) ? exitAt(position, rows) : -1;
+    const result = at >= 0 ? matchOrder({ ...pending, lots: pending.shares / LOT_SHARES }, rows) : null;
+    if (position && result && (result.kind !== "fill" || rows[at][0] <= result.ms))
+      matchInCell(state, source, placeExit(state, position, rows[at][1], cell), rows.slice(at));
+    else matchInCell(state, source, pending, rows);
+  }
   for (const position of [...state.positions]) {
-    const exit = position.exit;
-    if (!exit || state.orders.some((order) => order.status === "pending" && order.auto && order.code === position.code))
-      continue;
-    const rows = cellSlice(stockTrades(source, position.code), cell);
-    const at = rows.findIndex(([ms, price]) => ms > exit.fromMs && exitTrigger(exit, price) !== null);
+    if (!state.positions.includes(position) || exitWaiting(state, position.code)) continue;
+    const rows = rowsOf(position.code);
+    const at = exitAt(position, rows);
     if (at >= 0) matchInCell(state, source, placeExit(state, position, rows[at][1], cell), rows.slice(at));
   }
   state.cursor++;
@@ -544,11 +562,7 @@ export function applyMorningAction(
     );
     if (action.side === "buy" && knownNotional + commission(knownNotional) > state.cash)
       throw new MorningError(400, "目前模擬資金不足，無法委託");
-    if (
-      action.side === "sell" &&
-      state.orders.some((order) => order.status === "pending" && order.auto && order.code === action.code)
-    )
-      throw new MorningError(409, "這檔正在自動出場，請等它成交");
+    if (exitWaiting(state, action.code)) throw new MorningError(409, "這檔正在自動出場，請等它成交");
     if (
       action.side === "sell" &&
       (state.positions.find((item) => item.code === action.code)?.shares ?? 0) < shares

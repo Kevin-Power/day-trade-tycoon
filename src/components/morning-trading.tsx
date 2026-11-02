@@ -293,8 +293,10 @@ export function PaperOrder({
   const reference = referencePrice(session, code, symbol?.previousClose);
   const holdingLots = (position?.shares ?? 0) / 1000;
   const invalidSell = side === "sell" && lots > holdingLots;
+  // While the classroom's 自動出場 sell of this stock waits, the classroom takes no other order of it.
+  const exiting = Boolean(session?.orders.some((item) => item.status === "pending" && item.auto && item.code === code));
   const ready = Boolean(session && session.cursor >= 1 && !session.completed && !atEnd);
-  const locked = busy || Boolean(pending) || !ready;
+  const locked = busy || Boolean(pending) || !ready || exiting;
   const staleReview = Boolean(
     review && (review.revision !== session?.revision || review.sessionId !== session?.id),
   );
@@ -757,6 +759,7 @@ export function PaperOrder({
                   onChange={changeLots}
                 />
                 {/* Right under the side and the lots that cause it, so the smallest phones show it without scrolling. */}
+                {exiting && <p className="sim-ticket-message">這檔正在自動出場，等它成交後才能再下這檔。</p>}
                 {invalidSell && (
                   <p className="sim-ticket-message">
                     {holdingLots
@@ -1043,7 +1046,10 @@ function ledgerRecords(
             ? [
                 {
                   label: "自動出場",
-                  value: `停利 ${formatPrice(item.exit.takeProfit)}／停損 ${formatPrice(item.exit.stopLoss)}`,
+                  // None past 漲停／跌停 (morning-exit.ts).
+                  value: `停利 ${item.exit.takeProfit === null ? "—" : formatPrice(item.exit.takeProfit)}／停損 ${
+                    item.exit.stopLoss === null ? "—" : formatPrice(item.exit.stopLoss)
+                  }`,
                 },
               ]
             : []),

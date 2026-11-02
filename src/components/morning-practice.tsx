@@ -1958,8 +1958,8 @@ function MorningChart({
   const exit = session?.positions.find((position) => position.code === symbol.code)?.exit;
   const exitLevels = exit
     ? [
-        { price: exit.takeProfit, label: "停利", tone: "up" as const },
-        { price: exit.stopLoss, label: "停損", tone: "down" as const },
+        ...(exit.takeProfit === null ? [] : [{ price: exit.takeProfit, label: "停利", tone: "up" as const }]),
+        ...(exit.stopLoss === null ? [] : [{ price: exit.stopLoss, label: "停損", tone: "down" as const }]),
       ]
     : undefined;
   const sourceBacked = showVolumeAndAverage(catalog.volumeUnit, bars);

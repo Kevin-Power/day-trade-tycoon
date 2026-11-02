@@ -1104,6 +1104,18 @@ test("a plan's 自動出場 is optional and takes only the listed percentages", 
     assert.throws(() => parseMorningAction({ ...start, plan: { ...plan, exit } }), { status: 400 });
 });
 
+test("buying at 漲停 arms no 停利, so nothing is sold at once at a loss", () => {
+  // 2330's 漲停 from 100 is 110: every trade of 09:02 on is at 110.
+  const trades = dayTrades();
+  trades["2330"] = trades["2330"].map((row) => (row[0] >= 2 * CELL ? ([row[0], 110, row[2], 109.5, 110] as const) : row));
+  const source = runFixture(trades);
+  let state = advanceTo(beginExit(source), source, 2);
+  state = order(state, source, { code: "2330", side: "buy", lots: 1 });
+  state = advanceTo(state, source, 10);
+  assert.equal(state.orders.length, 1);
+  assert.deepEqual(state.positions[0].exit, { takeProfit: null, stopLoss: 108.5, fromMs: 2 * CELL + 1_000 });
+});
+
 test("a buy fill arms the plan's exit at the holding's average, on the tick grid, from the fill's trade on", () => {
   const source = runFixture(dayTrades());
   let state = advance(beginExit(source), source);
@@ -1220,7 +1232,63 @@ test("a learner's waiting sell of the stock gives way when its exit fires", () =
   assert.deepEqual(state.positions, []);
 });
 
-test("an exit short of lots waits like a market order: the learner may still trade other stocks, not sell this one, and it ends at 10:30", () => {
+test("an exit that fires before the learner's waiting sell of the stock would fill goes first and cancels it", () => {
+  // Holding 2 at 100.5 (停損 99.4); a limit sell at 101 waits. 09:05: 99 at +1 s fires the 停損, 101 at +20 s would
+  // have filled the sell.
+  const trades = withTrade(5, 1_000, 99, 1);
+  const source = runFixture(trades);
+  let state = advance(beginExit(source), source);
+  state = order(state, source, { code: "2330", side: "buy", lots: 2 });
+  state = advanceTo(state, source, 2);
+  state = order(state, source, { code: "2330", side: "sell", lots: 2, limitPrice: 101.5 });
+  state = advanceTo(state, source, 5);
+  // 101.5 was never reached before 09:05; now make 09:05:20 reach it after the 停損.
+  const later = runFixture(
+    Object.fromEntries(Object.entries(trades).map(([code, rows]) => [
+      code,
+      code === "2330" ? rows.map((row) => (row[0] === 5 * CELL + 20_000 ? ([row[0], 101.5, 2, 101, 101.5] as const) : row)) : rows,
+    ])),
+  );
+  state = advance(state, later);
+  assert.equal(state.orders[1].status, "cancelled");
+  assert.equal(state.orders[1].reason, EXIT_CANCEL);
+  assert.equal(state.orders[2].auto, "stopLoss");
+  assert.equal(state.orders[2].status, "filled");
+  assert.equal(state.fills.at(-1)?.id, state.orders[2].id);
+});
+
+test("an exit that fires at the trade that would fill the learner's waiting buy of the stock goes first; the buy is cancelled, never blended", () => {
+  // Holding 1 at 100 (停損 99); a limit buy at 99 waits. 09:05:01 trades 98.9: it reaches the 停損 and would fill the
+  // buy, which would move the average and the exit past the 停損 already reached.
+  const trades = withTrade(5, 1_000, 98.9, 1);
+  const source = runFixture(trades);
+  let state = advance(beginExit(source), source);
+  state = order(state, source, { code: "2330", side: "buy", lots: 1 });
+  state = advanceTo(state, source, 2);
+  assert.equal(state.positions[0].exit?.stopLoss, 99);
+  state = order(state, source, { code: "2330", side: "buy", lots: 1, limitPrice: 99 });
+  state = advanceTo(state, source, 6);
+  assert.equal(state.orders[1].status, "cancelled");
+  assert.equal(state.orders[1].reason, EXIT_CANCEL);
+  assert.equal(state.orders[2].auto, "stopLoss");
+  assert.deepEqual(state.positions, []);
+});
+
+test("a learner's order that fills before the exit's trade goes first: a buy moves the average and the exit with it", () => {
+  // Holding 1 at 100 (停利 101.5). 09:03:01 trades 5 lots at 100: a limit buy of 2 at 100 fills there; the average
+  // stays 100 and the exit is figured again from that trade on. 101 at +20 s is under 101.5: no exit.
+  const source = runFixture(withTrade(3, 1_000, 100, 5));
+  let state = advance(beginExit(source), source);
+  state = order(state, source, { code: "2330", side: "buy", lots: 1 });
+  state = advanceTo(state, source, 3);
+  state = order(state, source, { code: "2330", side: "buy", lots: 2, limitPrice: 100 });
+  state = advance(state, source);
+  assert.equal(state.orders[1].status, "filled");
+  assert.deepEqual(state.positions[0].exit, { takeProfit: 101.5, stopLoss: 99, fromMs: 3 * CELL + 1_000 });
+  assert.equal(state.orders.length, 2);
+});
+
+test("an exit short of lots waits like a market order: the learner may still trade other stocks, not this one, and it ends at 10:30", () => {
   // 2330 trades until 09:06 only; at 09:06:01 1 lot at 99.5 fires the 停損 of 20 lots, and 6 lots are all there are.
   const trades = withTrade(6, 1_000, 99.5, 1);
   trades["2330"] = trades["2330"].filter(([ms]) => ms < 7 * CELL);
@@ -1234,10 +1302,11 @@ test("an exit short of lots waits like a market order: the learner may still tra
   assert.equal(exit.auto, "stopLoss");
   assert.equal(exit.status, "pending");
   assert.equal(exit.filledLots, 6);
-  assert.throws(() => order(state, source, { code: "2330", side: "sell", lots: 1 }), {
-    status: 409,
-    message: "這檔正在自動出場，請等它成交",
-  });
+  for (const side of ["sell", "buy"])
+    assert.throws(() => order(state, source, { code: "2330", side, lots: 1 }), {
+      status: 409,
+      message: "這檔正在自動出場，請等它成交",
+    });
   assert.throws(
     () => applyMorningAction(state, action(state, { action: "cancel", orderId: exit.id }), source, state.nextAdvanceAt),
     { status: 409 },

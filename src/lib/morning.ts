@@ -16,8 +16,11 @@ export type MorningPlan = {
   /** Runs started before 2026-11-02, and plans with 自動出場 turned off, have none. */
   exit?: MorningExitPlan;
 };
-/** A holding's 自動出場 prices, figured at its latest buy fill; only trades after `fromMs` (ms after 09:00) fire it. */
-export type MorningPositionExit = { takeProfit: number; stopLoss: number; fromMs: number };
+/**
+ * A holding's 自動出場 prices, figured at its latest buy fill; only trades after `fromMs` (ms after 09:00) fire them.
+ * null: past the day's 漲停／跌停, so none.
+ */
+export type MorningPositionExit = { takeProfit: number | null; stopLoss: number | null; fromMs: number };
 export type MorningCatalog = {
   lessonId: string;
   title: string;
