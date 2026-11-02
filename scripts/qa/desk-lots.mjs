@@ -399,6 +399,9 @@ for (const c of CASES) {
     await page.getByRole("button", { name: "返回修改" }).click();
     // 400 lots: far more than the cash. Said under the lots, 核對 disabled, nothing sent, no 送出失敗 report.
     const before = (await api()).orders.length;
+    // Rows only: the list's own heading says 「送出失敗、回覆不明只記在這次瀏覽」.
+    const failedRows = page.locator('.sim-reports li[data-tone="failed"]');
+    const failedBefore = await failedRows.count();
     await page.locator(".sim-ticket .td-lotpick-toggle").click();
     await page.locator('.td-lotpick-grid button[data-lots="400"]').click();
     const short = page.locator(".sim-ticket-message", { hasText: "可用模擬資金不足" });
@@ -419,7 +422,8 @@ for (const c of CASES) {
     if (!clean(await page.locator(".sim-large").textContent()).includes("閃電即送不會直接送出"))
       fail(where, "the lightning card does not say it was not sent");
     await page.getByRole("button", { name: "返回修改" }).click();
-    await box.fill("400");
+    // Armed, the ticket shows the lightning panel instead of its box: the book's 每筆張數 (a new count disarms it).
+    await page.locator("#td-lots-value").fill("400");
     if ((await lightning.getAttribute("aria-checked")) !== "true") await lightning.click();
     await page.locator('.td-book-cell[data-side="bid"][data-level="1"]').click();
     await page.locator(".sim-large").waitFor({ timeout: 4000 });
@@ -431,7 +435,7 @@ for (const c of CASES) {
     if (await send.isEnabled()) fail(where, "the card can send 400 lots the cash cannot pay for");
     await page.screenshot({ path: `${out}/1366x900-lightning-400.png` });
     if ((await api()).orders.length !== before) fail(where, "an order was stored");
-    if (/送出失敗/.test(await reportsText())) fail(where, "a 送出失敗 report appeared although nothing was sent");
+    if ((await failedRows.count()) !== failedBefore) fail(where, "a 送出失敗 report appeared although nothing was sent");
     results.refused = { ticket: shortText, card: cardText, large: largeText, largeLots };
     await page.getByRole("button", { name: "返回修改" }).click();
     if ((await lightning.getAttribute("aria-checked")) === "true") await lightning.click();
