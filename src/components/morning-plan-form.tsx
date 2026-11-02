@@ -141,14 +141,15 @@ export function PlanForm({
       </small>
     </fieldset>
   );
+  // 自動出場 sits right under the start button, so the button stays on a phone's first screen.
   const startBlock = (
     <>
-      {exitChoice}
       {guest && <p className="td-guest-terms text-base leading-relaxed">{GUEST_TERMS_TEXT}</p>}
       <button type="submit" disabled={busy || !focusCode} className={cn(PRIMARY, "w-full")}>
         {busy ? "正在保存…" : choice === "custom" ? "保存計畫，進入 09:00 練習" : "用這個計畫開始"}
         <ArrowRight className="shrink-0" aria-hidden />
       </button>
+      {exitChoice}
     </>
   );
   return (

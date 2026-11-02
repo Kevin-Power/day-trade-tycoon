@@ -35,6 +35,8 @@ for (const [width, height] of [
     await shot("review");
     if (await page.locator("#sim-large-ack").isVisible()) await page.locator("#sim-large-ack").check();
     await page.getByRole("button", { name: "確認送出模擬買進" }).click();
+    // Sent, a phone goes back to 行情 (2026-11-02); the waiting order is on 下單.
+    if (phone) await page.getByRole("button", { name: "下單", exact: true }).click();
     await page.getByText("委託已送出 · 等待撮合").waitFor();
     await shot("pending");
     await page.getByRole("button", { name: "撤回委託" }).first().click();
