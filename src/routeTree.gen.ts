@@ -31,7 +31,6 @@ import { Route as ApiAdminSetupRouteImport } from './routes/api/admin/setup'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiBrokerOrderRouteImport } from './routes/api/broker/order'
 import { Route as ApiBrokerQuotesRouteImport } from './routes/api/broker/quotes'
-import { Route as ApiDownloadOfflineRouteImport } from './routes/api/download/offline'
 import { Route as SessionIdReviewRouteImport } from './routes/session.$id.review'
 
 const IndexRoute = IndexRouteImport.update({
@@ -144,11 +143,6 @@ const ApiBrokerQuotesRoute = ApiBrokerQuotesRouteImport.update({
   path: '/api/broker/quotes',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiDownloadOfflineRoute = ApiDownloadOfflineRouteImport.update({
-  id: '/api/download/offline',
-  path: '/api/download/offline',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SessionIdReviewRoute = SessionIdReviewRouteImport.update({
   id: '/session/$id/review',
   path: '/session/$id/review',
@@ -178,7 +172,6 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
   '/api/broker/quotes': typeof ApiBrokerQuotesRoute
-  '/api/download/offline': typeof ApiDownloadOfflineRoute
   '/session/$id/review': typeof SessionIdReviewRoute
 }
 export interface FileRoutesByTo {
@@ -204,7 +197,6 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
   '/api/broker/quotes': typeof ApiBrokerQuotesRoute
-  '/api/download/offline': typeof ApiDownloadOfflineRoute
   '/session/$id/review': typeof SessionIdReviewRoute
 }
 export interface FileRoutesById {
@@ -231,7 +223,6 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/broker/order': typeof ApiBrokerOrderRoute
   '/api/broker/quotes': typeof ApiBrokerQuotesRoute
-  '/api/download/offline': typeof ApiDownloadOfflineRoute
   '/session/$id/review': typeof SessionIdReviewRoute
 }
 export interface FileRouteTypes {
@@ -259,7 +250,6 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/broker/order'
     | '/api/broker/quotes'
-    | '/api/download/offline'
     | '/session/$id/review'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -285,7 +275,6 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/broker/order'
     | '/api/broker/quotes'
-    | '/api/download/offline'
     | '/session/$id/review'
   id:
     | '__root__'
@@ -311,7 +300,6 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/broker/order'
     | '/api/broker/quotes'
-    | '/api/download/offline'
     | '/session/$id/review'
   fileRoutesById: FileRoutesById
 }
@@ -338,7 +326,6 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiBrokerOrderRoute: typeof ApiBrokerOrderRoute
   ApiBrokerQuotesRoute: typeof ApiBrokerQuotesRoute
-  ApiDownloadOfflineRoute: typeof ApiDownloadOfflineRoute
   SessionIdReviewRoute: typeof SessionIdReviewRoute
 }
 
@@ -498,13 +485,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBrokerQuotesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/download/offline': {
-      id: '/api/download/offline'
-      path: '/api/download/offline'
-      fullPath: '/api/download/offline'
-      preLoaderRoute: typeof ApiDownloadOfflineRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/session/$id/review': {
       id: '/session/$id/review'
       path: '/session/$id/review'
@@ -538,7 +518,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiBrokerOrderRoute: ApiBrokerOrderRoute,
   ApiBrokerQuotesRoute: ApiBrokerQuotesRoute,
-  ApiDownloadOfflineRoute: ApiDownloadOfflineRoute,
   SessionIdReviewRoute: SessionIdReviewRoute,
 }
 export const routeTree = rootRouteImport

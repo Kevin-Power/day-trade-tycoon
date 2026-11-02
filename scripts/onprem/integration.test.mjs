@@ -129,7 +129,8 @@ test('extracted standalone package: Chrome admission, owner setup, cookies, no d
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth && document.body.scrollWidth <= window.innerWidth), true);
     await page.screenshot({ path: join(evidence, 'mobile.png'), fullPage: true });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
-    const privateDownload = await get('/api/download/offline'); assert.equal(privateDownload.status(), 200);
+    // 2026-11-02: no offline package is offered any more, not even inside the classroom.
+    const privateDownload = await get('/api/download/offline'); assert.equal(privateDownload.status(), 404);
     const stableSettings = await readFile(join(root, 'data/config.json'), 'utf8');
     await stop();
     await start();

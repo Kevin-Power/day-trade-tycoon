@@ -39,6 +39,15 @@ test("the course and licence page, its inquiry form and its copy are gone", () =
     assert.equal(existsSync(url(path)), false, path);
 });
 
+// Later the same day, the owner: 「離線包也拿掉」. The classroom offers no offline package: no download card, no manual
+// section, no PDF answer and no download route. The build tools for the on-prem package stay as they are.
+test("no offline package is offered: no download link, manual section, PDF answer or route", () => {
+  const OFFER = /\/api\/download\/offline|下載離線|離線閱讀|離線包|地端教室/;
+  for (const path of ["src/components/lobby.tsx", "src/components/manual-page.tsx", "docs/pdf-source.json"])
+    assert.doesNotMatch(read(path), OFFER, path);
+  assert.equal(existsSync(url("src/routes/api/download/offline.ts")), false, "the download route");
+});
+
 test("an old /license link lands in the classroom instead of a missing page", () => {
   assert.match(read("src/routes/license.tsx"), /throw redirect\(\{ to: "\/"/);
 });

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useGate } from "@/lib/gate/context";
 import { MORNING_EXERCISES } from "@/lib/morning-exercises";
 
-export const MANUAL_VERSION = "2026-11-02-class1";
+export const MANUAL_VERSION = "2026-11-02-class2";
 const PDF_HREF = `/daytrade-tycoon-manual.pdf?v=${MANUAL_VERSION}`;
 const GITHUB = "https://github.com/Kevin-Power/day-trade-tycoon";
 
@@ -19,10 +19,9 @@ const TOC = [
   { id: "lessons", n: "03", label: "教材課綱" },
   { id: "data", n: "04", label: "資料哪裡來" },
   { id: "broker", n: "05", label: "紙上委託與真實交易" },
-  { id: "offline", n: "06", label: "地端教室" },
-  { id: "rules", n: "07", label: "規則與成本" },
-  { id: "risk", n: "08", label: "不承諾什麼" },
-  { id: "agenda", n: "09", label: "上課前的五件事" },
+  { id: "rules", n: "06", label: "規則與成本" },
+  { id: "risk", n: "07", label: "不承諾什麼" },
+  { id: "agenda", n: "08", label: "上課前的五件事" },
 ] as const;
 
 export function ManualPage() {
@@ -73,7 +72,6 @@ export function ManualPage() {
         <Lessons />
         <Data />
         <Broker />
-        <Offline />
         <Rules />
         <Risk />
         <Agenda />
@@ -348,23 +346,9 @@ function Broker() {
   );
 }
 
-function Offline() {
-  return (
-    <Section id="offline" n="06" title="地端教室">
-      <p className="text-base leading-7 text-muted">
-        新版離線包只提供使用手冊、固定委託操作範例與既有歷史復盤閱讀。生成行情練習已停止；離線包不包含真實分鐘回放，也不會下載整日未揭露行情供預看。
-      </p>
-      <p className="mt-4 text-base leading-7 text-muted">
-        要進行真實 K
-        練習，請連線後按大廳主題卡的「連線開始練習」，前往正式教室並登入個人帳號。舊版本機歷史紀錄保存在原瀏覽器；換裝置或清除資料可能無法再讀取。
-      </p>
-    </Section>
-  );
-}
-
 function Rules() {
   return (
-    <Section id="rules" n="07" title="規則與成本">
+    <Section id="rules" n="06" title="規則與成本">
       <div className="overflow-hidden rounded-lg border border-border">
         <table className="w-full text-left text-base">
           <tbody>
@@ -422,7 +406,7 @@ function Rules() {
 
 function Risk() {
   return (
-    <Section id="risk" n="08" title="不承諾什麼">
+    <Section id="risk" n="07" title="不承諾什麼">
       <ul className="list-disc space-y-3 pl-5 text-base leading-7 text-muted">
         <li>這是教學與紙上模擬，不是投資建議、獲利保證或代操。</li>
         <li>市場上真的有成交，不代表你的委託也成交；紙上模型沒有完整重現滑價、排隊、斷線或流動性，量夠就成交、不必排隊，結果對學員稍微有利。</li>
@@ -435,7 +419,7 @@ function Risk() {
 
 function Agenda() {
   return (
-    <Section id="agenda" n="09" title="上課前的五件事">
+    <Section id="agenda" n="08" title="上課前的五件事">
       <ol className="space-y-5 text-base leading-7">
         <Step n="1" title="確認教材範圍">
           向講師確認開課安排。每個交易日收盤後多一堂早盤教材（從 2026/10/21 起），每局 1 到 80 檔，六個主題共用當天行情；舊劇本情境仍停用。
@@ -444,7 +428,7 @@ function Agenda() {
           入場碼與個人帳號用途不同；講師權限由管理員核准。
         </Step>
         <Step n="3" title="準備連線裝置">
-          手機、平板及桌機可使用真實早盤頁；需要網路及登入。頁首可調整顯示模式，離線包只供閱讀，沒有每日教材。
+          手機、平板及桌機可使用真實早盤頁；需要網路及登入。頁首可調整顯示模式。
         </Step>
         <Step n="4" title="先寫計畫">
           填寫觀察方向、商品、理由、進場與停止條件。這是復盤用文字，不是自動停損或下單訊號。

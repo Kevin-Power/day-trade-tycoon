@@ -6,10 +6,8 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardList,
-  Download,
   FileText,
   Flag,
-  HardDrive,
   Layers3,
   LogOut,
   ShieldCheck,
@@ -428,7 +426,7 @@ export function Lobby() {
               </div>
             </details>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-3">
             <div className="academy-card flex min-w-0 items-start gap-3 rounded-2xl border border-border bg-surface p-4 sm:p-5">
               <BookOpen className="mt-0.5 shrink-0 text-muted" aria-hidden="true" />
               <div className="min-w-0">
@@ -442,31 +440,6 @@ export function Lobby() {
                 >
                   打開手冊 <ArrowRight aria-hidden="true" />
                 </Link>
-              </div>
-            </div>
-            <div className="academy-card flex min-w-0 items-start gap-3 rounded-2xl border border-border bg-surface p-4 sm:p-5">
-              <HardDrive className="mt-0.5 shrink-0 text-muted" aria-hidden="true" />
-              <div className="min-w-0">
-                <h3 className="text-sm font-medium">離線閱讀教材</h3>
-                <p className="mt-1 text-xs leading-6 text-muted">
-                  離線包保留教材、固定委託範例與既有紀錄。選擇上方練習主題會前往線上教室；真實 K
-                  回放需要連線與個人帳號。
-                </p>
-                {CLASSROOM_OFFLINE ? (
-                  <span className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted">
-                    <Check aria-hidden="true" />
-                    目前使用離線教室
-                  </span>
-                ) : (
-                  <a
-                    href="/api/download/offline"
-                    download="當沖大富翁-地端教室.zip"
-                    className="academy-nav-link mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-lg text-xs"
-                  >
-                    <Download aria-hidden="true" />
-                    下載離線教材
-                  </a>
-                )}
               </div>
             </div>
           </div>
