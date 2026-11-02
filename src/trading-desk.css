@@ -1089,13 +1089,25 @@ html:has(.trading-desk) #app {
 .trading-desk .td-hero-stamp time {
   color: var(--td-fg);
 }
-/* A held stock: its holding in place of the time stamp, the 參考損益 in its colour. */
+/* A held stock: its holding in place of the time stamp, the 參考損益 in its colour (600: the mono face's weight). */
 .trading-desk .td-hero-stamp[data-holding] {
+  display: flex;
+  gap: 6px;
   color: var(--td-fg);
 }
 .trading-desk .td-hero-stamp b {
   color: var(--td-tone);
   font-family: var(--font-mono);
+  font-weight: 600;
+}
+/* Phones stack it beside the name, three short lines within the name's row (about 118px wide on a 320px screen). */
+.trading-desk[data-layout="phone"] .td-hero-stamp[data-holding] {
+  flex-direction: column;
+  align-self: center;
+  align-items: flex-end;
+  gap: 0;
+  margin: 0;
+  line-height: 13px;
 }
 .trading-desk .td-hero-price {
   grid-area: price;
@@ -2866,7 +2878,11 @@ html:has(.trading-desk) #app {
   font-style: normal;
   text-align: center;
 }
-/* 本輪損益 under 庫存 on every tab (2026-11-02): inside the tab's own height, so the tabs never grow. */
+/* 本輪損益 under 庫存 on every tab (2026-11-02): inside the tab's own height, so the tabs never grow (大字: 30px icon,
+   a 19px label line and the 12px figure stay within its 68px). */
+.trading-desk .td-dock button > span {
+  line-height: 1.2;
+}
 .trading-desk .td-dock-profit {
   max-width: 100%;
   overflow: hidden;
@@ -2926,6 +2942,7 @@ html:has(.trading-desk) #app {
 .trading-desk .td-order-notice b {
   color: var(--td-tone);
   font-family: var(--font-mono);
+  font-weight: 600;
 }
 @keyframes td-order-notice-in {
   from {

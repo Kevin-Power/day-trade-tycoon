@@ -93,14 +93,18 @@ export function orderNotices(
   return notices;
 }
 
-/** A stock's holding for the quote block: 「庫存 2 張 · 均 1785」 and its 參考損益 at the latest price (fees not included). */
+/**
+ * A stock's holding for the quote block in three short parts (a phone stacks them beside the name): 「庫存 2 張」,
+ * 「均 1785」 and its 參考損益 at the latest price, fees and tax not included.
+ */
 export function holdingText(
   position: Position,
   lastClose: number | undefined,
-): { text: string; result: { text: string; tone: QuoteTone } | null } {
+): { lots: string; average: string; result: { text: string; tone: QuoteTone } | null } {
   const mark = positionMark(position, lastClose);
   return {
-    text: `庫存 ${position.shares / 1000} 張 · 均 ${fillPriceText(position.averageCost)}`,
+    lots: `庫存 ${position.shares / 1000} 張`,
+    average: `均 ${fillPriceText(position.averageCost)}`,
     result: mark.value === null ? null : { text: signedMoney(mark.value), tone: mark.tone },
   };
 }

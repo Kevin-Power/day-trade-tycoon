@@ -223,7 +223,8 @@ for (const item of cases) {
       if (
         !first.dock ||
         first.dock.bottom !== item.height ||
-        first.dock.buttons.join() !== "自選,行情,下單,庫存" ||
+        // 2026-11-02: 庫存 carries 本輪損益 under its label once a run has started.
+        first.dock.buttons.map((text) => text.replace(/^庫存[+-]?[\d,]+$/, "庫存")).join() !== "自選,行情,下單,庫存" ||
         first.dock.narrowest < 72
       )
         fail(`bottom tabs wrong ${JSON.stringify(first.dock)}`);

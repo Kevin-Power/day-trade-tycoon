@@ -197,7 +197,7 @@ for (const [width, height, senior] of sizes) {
       await page.getByRole("navigation", { name: "主要分頁" }).getByRole("button", { name: /行情/ }).click();
       const stamp = ((await page.locator(".td-hero-stamp[data-holding]").textContent({ timeout: 4000 }).catch(() => "")) ?? "").trim();
       result.holding = stamp;
-      if (!/^庫存 \d+ 張 · 均 [\d.]+ · [+-]?[\d,]+$/.test(stamp)) fail(`the held stock's quote block says 「${stamp}」`);
+      if (!/^庫存 \d+ 張 均 [\d.]+ [+-]?[\d,]+$/.test(stamp)) fail(`the held stock's quote block says 「${stamp}」`);
       await page.screenshot({ path: `${out}${name}-holding.png` });
       await notice.waitFor({ state: "detached", timeout: 9000 }).catch(() => fail("the fill notice stays on screen"));
     }

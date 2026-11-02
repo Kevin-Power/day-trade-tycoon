@@ -86,10 +86,10 @@ export function QuoteHero({
         <p className="td-hero-stamp" data-holding={holding ? "true" : undefined}>
           {holding ? (
             <>
-              {holding.text}
+              <span>{holding.lots}</span> <span>{holding.average}</span>
               {holding.result && (
                 <>
-                  {" · "}
+                  {" "}
                   <b data-tone={holding.result.tone}>{holding.result.text}</b>
                 </>
               )}

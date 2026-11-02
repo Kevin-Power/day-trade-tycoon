@@ -76,12 +76,15 @@ test("money with its sign, and a stock's holding for the quote block", () => {
   assert.equal(signedMoney(46_947), "+46,947");
   assert.equal(signedMoney(-1_234.4), "-1,234");
   assert.equal(signedMoney(0), "0");
+  // Three short parts, so a phone can stack them beside the stock's name (a 320px screen has about 118px there).
   assert.deepEqual(holdingText({ code: "3533", shares: 2000, averageCost: 1785 }, 1810), {
-    text: "庫存 2 張 · 均 1785",
+    lots: "庫存 2 張",
+    average: "均 1785",
     result: { text: "+50,000", tone: "up" },
   });
   assert.deepEqual(holdingText({ code: "3533", shares: 2000, averageCost: 1785.5 }, undefined), {
-    text: "庫存 2 張 · 均 1785.50",
+    lots: "庫存 2 張",
+    average: "均 1785.50",
     result: null,
   });
 });
