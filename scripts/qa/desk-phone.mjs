@@ -10,7 +10,8 @@
 //   3. 行情's 買進 opens 下單 on 買進 with 市價 chosen, the page's heading focused (the button that had focus is gone),
 //      and 核對模擬買進 on screen without scrolling (pinned above the tabs); 賣出 likewise, or, when it cannot be
 //      pressed (no holdings), the line saying why on screen instead.
-//   4. Once (390×844): a 市價 1 張 order is sent from there, and the next minute fills it.
+//   4. Once (390×844): a 市價 1 張 order is sent from there, and the next minute fills it; the fill is then said
+//      across the top (taps go through it) and goes by itself, 本輪損益 shows under 庫存, and 行情 says the holding.
 // Runs in chromium or webkit (Safari's engine). Usage: node scripts/qa/desk-phone.mjs <baseUrl> <label> [chromium|webkit]
 import { chromium, webkit } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -179,6 +180,26 @@ for (const [width, height, senior] of sizes) {
       await page.getByText(/成交 · 買進 .* 1 張 @/).first().waitFor({ timeout: 12000 });
       result.sent = "委託成功 → 成交";
       await page.screenshot({ path: `${out}${name}-filled.png` });
+      // 2026-11-02: once the replay reaches the fill it is said across the top, where taps go through it; 本輪損益 is
+      // under 庫存 on every tab; the held stock's quote block says the holding; the notice goes by itself.
+      const notice = page.locator(".td-order-notice");
+      await notice.waitFor({ timeout: 8000 });
+      const noticeText = ((await notice.textContent()) ?? "").replace(/\s+/g, " ").trim();
+      result.notice = noticeText;
+      if (!/^成交 ?買進 .+ 1 張 @ [\d.]+ · 庫存 \d+ 張 均 [\d.]+$/.test(noticeText)) fail(`the fill notice reads 「${noticeText}」`);
+      if ((await notice.evaluate((node) => getComputedStyle(node).pointerEvents)) !== "none") fail("the fill notice catches taps");
+      const noticeAt = await box(notice);
+      if (noticeAt.top < 0 || noticeAt.top > 40) fail(`the fill notice is not across the top (its top at ${Math.round(noticeAt.top)}px)`);
+      await page.screenshot({ path: `${out}${name}-notice.png` });
+      const profit = ((await page.locator(".td-dock .td-dock-profit").textContent()) ?? "").trim();
+      result.dockProfit = profit;
+      if (!/^[+-]?[\d,]+$/.test(profit)) fail(`under 庫存 it says 「${profit}」, not 本輪損益`);
+      await page.getByRole("navigation", { name: "主要分頁" }).getByRole("button", { name: /行情/ }).click();
+      const stamp = ((await page.locator(".td-hero-stamp[data-holding]").textContent({ timeout: 4000 }).catch(() => "")) ?? "").trim();
+      result.holding = stamp;
+      if (!/^庫存 \d+ 張 均 [\d.]+ [+-]?[\d,]+$/.test(stamp)) fail(`the held stock's quote block says 「${stamp}」`);
+      await page.screenshot({ path: `${out}${name}-holding.png` });
+      await notice.waitFor({ state: "detached", timeout: 9000 }).catch(() => fail("the fill notice stays on screen"));
     }
   } catch (error) {
     fail(String(error.message ?? error).split("\n")[0]);

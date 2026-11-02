@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from "@/lib/icons";
 import type { MorningBookCell, MorningCatalog } from "@/lib/morning";
 import { lastTrade, shownBook, type LiveMorningState } from "@/lib/morning-live";
 import { bestQuotes, quoteSummary } from "@/lib/morning-quote";
+import { holdingText } from "@/lib/morning-notices";
 import { formatPrice } from "@/lib/market/ticks";
 import { formatTime } from "@/lib/utils";
 import { useTickFlash } from "@/components/use-tick-flash";
@@ -48,6 +49,9 @@ export function QuoteHero({
   const quote = quoteSummary(bars, symbol.previousClose);
   const trade = session ? lastTrade(session, symbol.code, catalog) : null;
   const best = bestQuotes(shownBook(session, catalog, book, symbol.code));
+  // Held: the stamp says the holding instead of the time (the clock above has it), so it is seen while trading.
+  const position = session?.positions.find((item) => item.code === symbol.code && item.shares > 0);
+  const holding = position ? holdingText(position, quote.last ?? undefined) : null;
   const toneOf = (value: number | null) =>
     value === null || value === symbol.previousClose
       ? "flat"
@@ -79,8 +83,18 @@ export function QuoteHero({
         ) : (
           title
         )}
-        <p className="td-hero-stamp">
-          {quote.last === null ? (
+        <p className="td-hero-stamp" data-holding={holding ? "true" : undefined}>
+          {holding ? (
+            <>
+              <span>{holding.lots}</span> <span>{holding.average}</span>
+              {holding.result && (
+                <>
+                  {" "}
+                  <b data-tone={holding.result.tone}>{holding.result.text}</b>
+                </>
+              )}
+            </>
+          ) : quote.last === null ? (
             "待揭露第一分鐘"
           ) : session?.replay && trade ? (
             <>

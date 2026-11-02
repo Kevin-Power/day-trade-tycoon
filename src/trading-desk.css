@@ -1089,6 +1089,26 @@ html:has(.trading-desk) #app {
 .trading-desk .td-hero-stamp time {
   color: var(--td-fg);
 }
+/* A held stock: its holding in place of the time stamp, the 參考損益 in its colour (600: the mono face's weight). */
+.trading-desk .td-hero-stamp[data-holding] {
+  display: flex;
+  gap: 6px;
+  color: var(--td-fg);
+}
+.trading-desk .td-hero-stamp b {
+  color: var(--td-tone);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+/* Phones stack it beside the name, three short lines within the name's row (about 118px wide on a 320px screen). */
+.trading-desk[data-layout="phone"] .td-hero-stamp[data-holding] {
+  flex-direction: column;
+  align-self: center;
+  align-items: flex-end;
+  gap: 0;
+  margin: 0;
+  line-height: 13px;
+}
 .trading-desk .td-hero-price {
   grid-area: price;
   display: flex;
@@ -2857,6 +2877,105 @@ html:has(.trading-desk) #app {
   font: 600 11px/18px var(--font-mono);
   font-style: normal;
   text-align: center;
+}
+/* 本輪損益 under 庫存 on every tab (2026-11-02): inside the tab's own height, so the tabs never grow (大字: 30px icon,
+   a 19px label line and the 12px figure stay within its 68px). */
+.trading-desk .td-dock button > span {
+  line-height: 1.2;
+}
+.trading-desk .td-dock-profit {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--td-tone);
+  font: 600 11px/1 var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trading-desk[data-layout="senior"] .td-dock-profit {
+  font-size: 12px;
+}
+/* 大字: the tabs are about 57px (30px icon, 19px label), with no room for a third line; the figure goes beside the
+   icon instead, so 庫存 keeps its height and the 江波圖 its 160px. */
+.trading-desk[data-layout="senior"] .td-dock button:has(> .td-dock-profit) {
+  display: grid;
+  grid-template-columns: auto minmax(0, auto);
+  grid-template-areas:
+    "icon profit"
+    "label label";
+  place-content: center;
+  align-items: center;
+  gap: 3px 4px;
+}
+.trading-desk[data-layout="senior"] .td-dock button:has(> .td-dock-profit) > svg {
+  grid-area: icon;
+}
+.trading-desk[data-layout="senior"] .td-dock button:has(> .td-dock-profit) > span {
+  grid-area: label;
+  justify-self: center;
+}
+.trading-desk[data-layout="senior"] .td-dock button > .td-dock-profit {
+  grid-area: profit;
+}
+/* 成交／未成交 the moment the replay reaches it (2026-11-02): on top of the page for a few seconds, never in the way
+   of a press (taps go through it). Desktops: the bottom right corner; phones and 大字: across the top. */
+.trading-desk .td-order-notice {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 60;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  max-width: min(440px, calc(100vw - 32px));
+  margin: 0;
+  padding: 10px 14px;
+  color: var(--td-fg);
+  background: var(--td-raised);
+  border: 1px solid var(--td-select-line);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.5);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  pointer-events: none;
+  animation: td-order-notice-in 0.18s ease-out;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-order-notice {
+  top: max(8px, env(safe-area-inset-top));
+  right: 8px;
+  bottom: auto;
+  left: 8px;
+  max-width: none;
+}
+.trading-desk[data-layout="senior"] .td-order-notice {
+  font-size: 18px;
+}
+.trading-desk .td-order-notice strong {
+  padding: 1px 8px;
+  color: #ffffff;
+  background: var(--td-accent-fill);
+  border-radius: 6px;
+}
+.trading-desk .td-order-notice[data-label="closed"] strong {
+  color: #1a1300;
+  background: var(--td-warn);
+}
+.trading-desk .td-order-notice b {
+  color: var(--td-tone);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+@keyframes td-order-notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trading-desk .td-order-notice {
+    animation: none;
+  }
 }
 .trading-desk[data-layout="senior"] :is(.td-bar :is(button, select, a), .td-replay :is(button, .td-speed)) {
   min-height: 56px;

@@ -50,6 +50,19 @@ result.marketBuy = {
 await until(async () => /你的委託成交/.test((await page.locator(".td-alert").textContent().catch(() => "")) ?? ""), "fill alert not visible after a manual step");
 const announced = await page.locator('.td-hints [aria-live="polite"]').textContent();
 assert.match(announced ?? "", /你的委託成交/);
+// 2026-11-02: the fill is also said in the bottom right corner for a few seconds, where clicks go through it.
+const notice = page.locator(".td-order-notice");
+await notice.waitFor({ timeout: 8000 });
+const noticeText = ((await notice.textContent()) ?? "").replace(/\s+/g, " ").trim();
+assert.match(noticeText, /^成交 ?買進 .+ \d+ 張 @ [\d.]+ · 庫存 \d+ 張 均 [\d.]+$/);
+assert.equal(await notice.evaluate((node) => getComputedStyle(node).pointerEvents), "none");
+const corner = await notice.evaluate((node) => {
+  const box = node.getBoundingClientRect();
+  return { right: innerWidth - box.right, bottom: innerHeight - box.bottom };
+});
+assert.ok(corner.right >= 8 && corner.right <= 24 && corner.bottom >= 8 && corner.bottom <= 24, JSON.stringify(corner));
+result.notice = noticeText;
+await page.screenshot({ path: `${out}/notice-1366.png` });
 
 // 2. Lightning sell from the right column (委賣, 賣1) of the book after the buy, then withdraw it.
 const lightning = page.getByRole("switch", { name: "閃電即送" });
