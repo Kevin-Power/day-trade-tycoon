@@ -25,7 +25,6 @@ for (const [width, height, senior] of [
     ["try", "/try"],
     ["manual", "/manual"],
     ["login", "/login"],
-    ["license", "/license"],
   ]) {
     await page.goto(base + path, { waitUntil: "load" });
     await page.waitForTimeout(1200);

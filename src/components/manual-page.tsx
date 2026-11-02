@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useGate } from "@/lib/gate/context";
 import { MORNING_EXERCISES } from "@/lib/morning-exercises";
 
-export const MANUAL_VERSION = "2026-10-28-lessons1";
+export const MANUAL_VERSION = "2026-11-02-class1";
 const PDF_HREF = `/daytrade-tycoon-manual.pdf?v=${MANUAL_VERSION}`;
 const GITHUB = "https://github.com/Kevin-Power/day-trade-tycoon";
 
@@ -441,11 +441,7 @@ function Agenda() {
           向講師確認開課安排。每個交易日收盤後多一堂早盤教材（從 2026/10/21 起），每局 1 到 80 檔，六個主題共用當天行情；舊劇本情境仍停用。
         </Step>
         <Step n="2" title="確認自己的帳號">
-          入場碼與個人帳號用途不同；註冊不代表繳費，講師權限由管理員核准。課程安排與費用請看{" "}
-          <Link to="/license" className="underline underline-offset-4">
-            課程說明
-          </Link>{" "}
-          並向講師確認。
+          入場碼與個人帳號用途不同；講師權限由管理員核准。
         </Step>
         <Step n="3" title="準備連線裝置">
           手機、平板及桌機可使用真實早盤頁；需要網路及登入。頁首可調整顯示模式，離線包只供閱讀，沒有每日教材。

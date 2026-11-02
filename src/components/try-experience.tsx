@@ -62,7 +62,7 @@ export function TryExperience() {
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-5 pb-12 pt-8 sm:px-8">
-        <p className="text-base font-semibold text-brand">免費體驗 · 不用帳號</p>
+        <p className="text-base font-semibold text-brand">模擬體驗 · 不用帳號</p>
         <h1 className="mt-3 text-3xl font-semibold leading-snug tracking-tight">
           照自己的步調，
           <br className="sm:hidden" />
@@ -266,8 +266,8 @@ export function TryExperience() {
                   </p>
                 )}
               </section>
-              <Link to="/license" hash="course-inquiry" className={`${PRIMARY} mt-6`}>
-                詢問課程與操作協助
+              <Link to="/" className={`${PRIMARY} mt-6`}>
+                已有入場碼，前往教室
                 <ArrowRight aria-hidden="true" />
               </Link>
               <button
@@ -278,9 +278,6 @@ export function TryExperience() {
                 <RotateCcw aria-hidden="true" />
                 從頭開始新一輪
               </button>
-              <Link to="/" className={`${SECONDARY} mt-3`}>
-                已有入場碼，前往教室
-              </Link>
             </>
           ) : null}
         </section>

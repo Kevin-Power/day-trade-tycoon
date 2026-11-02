@@ -1,5 +1,5 @@
-/** Paths that skip the classroom entry password. Buyer-facing only. */
-export const GATE_PUBLIC_PATHS = ["/license", "/try"] as const;
+/** Paths that skip the classroom entry password: only the public trial (the course page went on 2026-11-02). */
+export const GATE_PUBLIC_PATHS = ["/try"] as const;
 
 export type GatePublicPath = (typeof GATE_PUBLIC_PATHS)[number];
 

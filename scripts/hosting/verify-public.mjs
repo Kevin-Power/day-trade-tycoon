@@ -21,9 +21,10 @@ assert.match(html, /當沖大富翁/);
 const assets = [...new Set([...html.matchAll(/(?:src|href)="(\/assets\/[^"?#]+)[^"]*"/g)].map(match => match[1]))];
 assert.ok(assets.length > 0);
 for (const path of assets) assert.equal((await request(path)).status, 200, path);
-const license = await request('/license');
-assert.equal(license.status, 200);
-assert.match(await license.text(), /從第一筆有計畫的操作開始/);
+// The course page went on 2026-11-02; an old link lands in the classroom.
+const license = await request('/license', { redirect: 'manual' });
+assert.ok([301, 302, 303, 307, 308].includes(license.status), `/license answers ${license.status}`);
+assert.equal(new URL(license.headers.get('location'), origin).pathname, '/');
 const trial = await request('/try');
 assert.equal(trial.status, 200);
 assert.equal(trial.headers.getSetCookie().length, 0);

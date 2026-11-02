@@ -76,9 +76,6 @@ function LoginLayout({ children }: { children: ReactNode }) {
       }
     >
       {children}
-      <p className="mt-5 text-sm leading-7 text-muted">
-        帳號註冊不代表完成繳費或取得課程資格，請依講師的入班安排使用。
-      </p>
     </ClassroomAuthLayout>
   );
 }

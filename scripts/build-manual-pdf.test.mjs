@@ -36,8 +36,7 @@ test("manual source explains the daily real lessons and their current limits", (
     "1 到 80 檔",
     "1,000 萬元",
     "保存復盤",
-    "註冊帳號不等於完成繳費",
-    "沒有線上刷卡",
+    "課前最後核對",
   ])
     assert.ok(text.includes(term), term);
   assert.doesNotMatch(text, /Grok|45 分鐘|註冊時班級代碼填 TEACHER|個股分時.*套用大盤節奏/);
