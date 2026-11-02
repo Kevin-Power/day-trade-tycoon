@@ -460,6 +460,10 @@ await check("10-phone", async () => {
   await page.getByRole("button", { name: "市價", exact: true }).click();
   await page.getByRole("button", { name: /^核對模擬買進/ }).click();
   await page.getByRole("button", { name: "確認送出模擬買進" }).click();
+  // Sent, a phone goes back to 行情 (2026-11-02); the waiting order is on 下單.
+  await page.waitForTimeout(400);
+  if ((await dock("行情").getAttribute("aria-pressed")) !== "true") problems.push("sending does not go back to 行情");
+  await dock("下單").click();
   await page.getByText("委託已送出 · 等待撮合").first().waitFor({ timeout: 6000 });
   await dock("自選").click();
   await page.locator('.td-watch-row[data-code="TAIEX"]').click();
