@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 // 2026-11-02, the owner: 「把收費講師那些通通拿掉」. Learners get a classroom, not a sales page: no prices, quotes,
 // enrolment, payment, inquiry form or licence plans. 報價 alone stays legal (自選報價 are market quotes), and so do
@@ -23,6 +23,15 @@ const SALES = /繳費|報名|付款|收費|授權|方案|詢問|免費|課程說
 
 test("learner screens and the PDF manual carry no prices, quotes, enrolment or licence plans", () => {
   for (const path of LEARNER_FILES) assert.doesNotMatch(read(path), SALES, path);
+});
+
+// Page titles show in the browser tab and in LINE's in-app browser bar, so every page route counts as a learner screen.
+test("page routes and their titles carry no sales words either", () => {
+  const pages = readdirSync(url("src/routes"), { recursive: true, encoding: "utf8" })
+    .map(path => path.replaceAll("\\", "/"))
+    .filter(path => path.endsWith(".tsx") && !path.startsWith("api/") && path !== "license.tsx");
+  assert.ok(pages.includes("try.tsx") && pages.length >= 10, pages.join(", "));
+  for (const path of pages) assert.doesNotMatch(read(`src/routes/${path}`), SALES, path);
 });
 
 test("the course and licence page, its inquiry form and its copy are gone", () => {
