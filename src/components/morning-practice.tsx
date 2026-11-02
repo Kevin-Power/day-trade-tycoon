@@ -18,6 +18,7 @@ import { useTickReplay } from "@/components/use-tick-replay";
 import { OrderNoticeToast } from "@/components/order-notice";
 import { useOrderNotice } from "@/components/use-order-notice";
 import { signedMoney } from "@/lib/morning-notices";
+import { exitPlanText } from "@/lib/morning-exit";
 import {
   AccountSummary,
   DisplayBook,
@@ -696,6 +697,7 @@ function MorningLesson({
       fillAnnouncement(
         fill,
         catalog.symbols.find((symbol) => symbol.code === fill.code)?.name ?? fill.code,
+        run.orders.find((order) => order.id === fill.id)?.auto,
       ),
     );
   }, [data?.state, catalog, say]);
@@ -840,9 +842,14 @@ function MorningLesson({
       { lesson: session.lessonId },
     );
     const next = sent.response;
-    if (next?.state)
+    if (next?.state) {
       setFeedback("紙上委託已記錄，尚未代表成交。前進一分鐘後，請核對委託與成交紀錄。");
-    else {
+      // Phones (2026-11-02, 石大哥): back to 行情 once sent, so the 江波圖 is seen going on; 成交 is said on top.
+      if (singlePane && activePane === "trade") {
+        setActivePane("market");
+        window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "auto" }));
+      }
+    } else {
       const message = sendFailureMessage(sent.outcome);
       if (message)
         setFailures((list) =>
@@ -967,7 +974,7 @@ function MorningLesson({
   const marketSession = newPlan ? null : session;
   // The recorded book of the newest minute (one stock's); a new plan's preview has none.
   const deskBook = newPlan ? undefined : data?.book;
-  const pendingOrder = marketSession?.orders.find((item) => item.status === "pending");
+  const pendingOrder = marketSession?.orders.find((item) => item.status === "pending" && !item.auto);
   // What the desk shows: a newly revealed minute plays trade by trade. Orders use the same run and revision.
   const liveMarket = useTickReplay(marketSession ?? null, catalog, REPLAY_DELAY[speed] * 0.9);
   // Alerts and minute tables wait for the replaying minute to finish, so nothing is announced ahead of it.
@@ -1947,6 +1954,14 @@ function MorningChart({
   const fills = (session?.fills ?? [])
     .filter((fill) => fill.code === symbol.code)
     .map((fill) => ({ t: fill.t, p: fill.price, side: fill.side }));
+  // 自動出場: the holding's 停利 (up colour) and 停損 (down colour) as dashed levels.
+  const exit = session?.positions.find((position) => position.code === symbol.code)?.exit;
+  const exitLevels = exit
+    ? [
+        { price: exit.takeProfit, label: "停利", tone: "up" as const },
+        { price: exit.stopLoss, label: "停損", tone: "down" as const },
+      ]
+    : undefined;
   const sourceBacked = showVolumeAndAverage(catalog.volumeUnit, bars);
   return (
     <section className="td-chart" data-coach="chart" aria-label={symbol.name + "歷史分鐘行情"}>
@@ -1966,6 +1981,7 @@ function MorningChart({
             swingHighs={swingHighs}
             breakouts={breakouts}
             fills={fills}
+            levels={exitLevels}
             variant={candles ? "candles" : "stock"}
             presentation="terminal"
             showVolume={sourceBacked}
@@ -2105,6 +2121,7 @@ function SavedPlan({ plan, catalog }: { plan: MorningPlan; catalog: MorningCatal
           { label: "觀察理由", value: plan.reason },
           { label: "等待的操作條件", value: plan.entry },
           { label: "計畫失效／停止條件", value: plan.stop },
+          { label: "自動出場", value: plan.exit ? exitPlanText(plan.exit) : "關閉，自己按賣出" },
         ].map((item) => (
           <div key={item.label}>
             <dt className="text-sm text-muted">{item.label}</dt>

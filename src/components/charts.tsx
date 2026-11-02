@@ -87,8 +87,11 @@ export type TapeChartProps = {
    * confirmed 前高; marked in amber over that close.
    */
   breakouts?: { t: number; p: number }[];
-  /** Extra labelled dashed levels, e.g. yesterday's high (昨高). */
-  levels?: { price: number; label: string }[];
+  /**
+   * Extra labelled dashed levels, e.g. yesterday's high (昨高), amber; `tone` draws one in the up or down colour
+   * (自動出場's 停利 and 停損).
+   */
+  levels?: { price: number; label: string; tone?: "up" | "down" }[];
   /** Outlines the candle of this minute (the daily question's moment). */
   markT?: number;
   /**
@@ -502,7 +505,7 @@ function paint(
         labels.push({ key: `swing-${index}`, text: "前高", price: point.p, priceText: label(point.p), color: c.warn, x: w - padR - 4, anchor: "end", y: above ? y - lineHeight / 2 - 1 : y + lineHeight / 2 + 1 });
       });
     labels.push(
-      ...levelChartLabels(opt.levels ?? [], {
+      ...levelChartLabels((opt.levels ?? []).map((level) => ({ ...level, color: level.tone && c[level.tone] })), {
         x: w - padR - 4, top: padT, lineHeight, color: c.warn, yOf, priceText: label,
       }),
     );
@@ -810,7 +813,7 @@ function paint(
         const y = hRule(yOf(level.price));
         ctx.save();
         ctx.lineCap = "butt";
-        ctx.strokeStyle = c.warn;
+        ctx.strokeStyle = level.tone ? c[level.tone] : c.warn;
         ctx.lineWidth = cssPixels(hairline);
         ctx.setLineDash(deviceDashPattern([5, 4], sx));
         ctx.beginPath();

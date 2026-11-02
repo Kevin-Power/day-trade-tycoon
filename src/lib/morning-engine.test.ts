@@ -17,6 +17,8 @@ import type { Bar } from "./game/types.ts";
 import type { TradeRow } from "./lessons/trades.ts";
 import { commission, DAYTRADE_TAX } from "./market/ticks.ts";
 import { exceedsCash } from "./morning-orders.ts";
+import { DEFAULT_EXIT, EXIT_CANCEL, exitPrices } from "./morning-exit.ts";
+import { VOLUME_CANCEL } from "./lessons/matching.ts";
 
 const plan: MorningPlan = {
   bias: "observe",
@@ -1074,4 +1076,221 @@ test("matching never reads a trade the advance does not reveal: a source cut aft
   assert.equal(state.orders[0].status, "filled");
   assert.equal(state.orders[1].status, "cancelled");
   assert.equal(state.orders[1].reason, "成交量不足");
+});
+
+// 自動出場 (2026-11-02): the plan's 停利／停損 sell the whole holding at market once a real trade reaches either.
+const exitPlan: MorningPlan = { ...plan, exit: { ...DEFAULT_EXIT } };
+const beginExit = (source: MorningSource, codes = Object.keys(source.trades!)) =>
+  createMorningState(randomUUID(), exitPlan, source, 0, codes);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** 2330 with one trade of cell `cell` (at +1 s, +20 s or +45 s) changed to `price` × `lots`. */
+function withTrade(cell: number, offset: number, price: number, lots: number): Record<string, TradeRow[]> {
+  const trades = dayTrades();
+  trades["2330"] = trades["2330"].map((row) =>
+    row[0] === cell * CELL + offset ? ([row[0], price, lots, price - 0.5, price] as const) : row,
+  );
+  return trades;
+}
+
+test("a plan's 自動出場 is optional and takes only the listed percentages", () => {
+  const start = { action: "start", requestId: randomUUID(), plan: exitPlan, codes: ["2330"] };
+  assert.deepEqual(parseMorningAction(start), start);
+  for (const exit of [
+    { takeProfitPct: 1.2, stopLossPct: 1 },
+    { takeProfitPct: 1.5, stopLossPct: 3 },
+    { takeProfitPct: 1.5 },
+    { takeProfitPct: 1.5, stopLossPct: 1, trailing: true },
+  ])
+    assert.throws(() => parseMorningAction({ ...start, plan: { ...plan, exit } }), { status: 400 });
+});
+
+test("a buy fill arms the plan's exit at the holding's average, on the tick grid, from the fill's trade on", () => {
+  const source = runFixture(dayTrades());
+  let state = advance(beginExit(source), source);
+  // 2 lots at market: 100 × 1 + 101 × 1 → 100.5 at 09:01:20.
+  state = order(state, source, { code: "2330", side: "buy", lots: 2 });
+  state = advance(state, source);
+  assert.deepEqual(state.positions, [
+    { code: "2330", shares: 2000, averageCost: 100.5, exit: { ...exitPrices(100.5, DEFAULT_EXIT, 100), fromMs: CELL + 20_000 } },
+  ]);
+  assert.deepEqual(state.positions[0].exit, { takeProfit: 102.5, stopLoss: 99.4, fromMs: CELL + 20_000 });
+  // 100–101 never reaches either: nothing is sold by itself.
+  state = advanceTo(state, source, 30);
+  assert.equal(state.orders.length, 1);
+  assert.equal(state.positions[0].shares, 2000);
+  assert.equal(visibleMorningState(state, source).positions[0].exit?.takeProfit, 102.5);
+});
+
+test("a trade at 停利 sells the whole holding at market from that trade on, as the classroom's own order", () => {
+  const source = runFixture(withTrade(5, 20_000, 102.5, 3));
+  let state = advance(beginExit(source), source);
+  state = order(state, source, { code: "2330", side: "buy", lots: 2 });
+  state = advanceTo(state, source, 6);
+  const exit = state.orders[1];
+  assert.match(exit.id, UUID);
+  assert.notEqual(exit.id, state.orders[0].id);
+  assert.deepEqual(
+    { side: exit.side, shares: exit.shares, status: exit.status, auto: exit.auto, triggerPrice: exit.triggerPrice, submittedCursor: exit.submittedCursor, price: exit.price },
+    { side: "sell", shares: 2000, status: "filled", auto: "takeProfit", triggerPrice: 102.5, submittedCursor: 5, price: 102.5 },
+  );
+  assert.equal(exit.limitPrice, undefined);
+  assert.deepEqual(state.fills[1], {
+    id: exit.id,
+    code: "2330",
+    side: "sell",
+    shares: 2000,
+    price: 102.5,
+    fee: commission(205_000),
+    tax: Math.round(205_000 * DAYTRADE_TAX),
+    t: 5 * 60 + 20,
+    ms: 5 * CELL + 20_000,
+  });
+  assert.deepEqual(state.positions, []);
+  // Bought again, the exit is armed again; the run goes on as before.
+  state = order(state, source, { code: "2330", side: "buy", lots: 1 });
+  state = advance(state, source);
+  assert.equal(state.positions[0].exit?.fromMs, 6 * CELL + 1_000);
+});
+
+test("a trade at or under 停損 sells at market: the average of the lots from that trade on", () => {
+  // 09:07:20 trades 1 lot at 99, under 99.4; the market sell takes it and 1 of the 3 lots at 100.5 after.
+  const source = runFixture(withTrade(7, 20_000, 99, 1));
+  let state = advance(beginExit(source), source);
+  state = order(state, source, { code: "2330", side: "buy", lots: 2 });
+  state = advanceTo(state, source, 8);
+  assert.equal(state.orders[1].auto, "stopLoss");
+  assert.equal(state.orders[1].triggerPrice, 99);
+  assert.equal(state.fills[1].price, 99.75);
+  assert.equal(state.fills[1].ms, 7 * CELL + 45_000);
+  assert.deepEqual(state.positions, []);
+});
+
+test("trades before the buy's fill never fire its exit; the ones after it in the same minute do", () => {
+  // 09:03: 105 at +1 s (before the fill), the limit's 99.5 at +20 s (the fill), 100.5 at +45 s (between).
+  const trades = withTrade(3, 1_000, 105, 1);
+  trades["2330"] = trades["2330"].map((row) =>
+    row[0] === 3 * CELL + 20_000 ? ([row[0], 99.5, 1, 99, 99.5] as const) : row,
+  );
+  const source = runFixture(trades);
+  let state = advance(beginExit(source), source);
+  state = order(state, source, { code: "2330", side: "buy", lots: 1, limitPrice: 99.5 });
+  state = advanceTo(state, source, 4);
+  assert.equal(state.fills[0].price, 99.5);
+  // 99.5 → 停利 100.9925 → 101, 停損 98.505 → 98.5.
+  assert.deepEqual(state.positions[0].exit, { takeProfit: 101, stopLoss: 98.5, fromMs: 3 * CELL + 20_000 });
+  assert.equal(state.orders.length, 1);
+  // 09:04:20 trades at 101.
+  state = advance(state, source);
+  assert.equal(state.orders[1].auto, "takeProfit");
+  assert.equal(state.fills[1].price, 101);
+  assert.equal(state.fills[1].ms, 4 * CELL + 20_000);
+});
+
+test("a second buy figures the exit again from the new average; a sell by hand keeps it, and selling all drops it", () => {
+  const source = runFixture(dayTrades());
+  let state = advance(beginExit(source), source);
+  state = order(state, source, { code: "2330", side: "buy", lots: 1 });
+  state = advance(state, source);
+  assert.deepEqual(state.positions[0].exit, { takeProfit: 101.5, stopLoss: 99, fromMs: CELL + 1_000 });
+  // 2 more at 100.5: (100 + 201) / 3 = 100.333…; 停利 101.838… → 102, 停損 99.33 → 99.3.
+  state = order(state, source, { code: "2330", side: "buy", lots: 2 });
+  state = advance(state, source);
+  assert.deepEqual(state.positions[0].exit, { takeProfit: 102, stopLoss: 99.3, fromMs: 2 * CELL + 20_000 });
+  state = order(state, source, { code: "2330", side: "sell", lots: 1 });
+  state = advance(state, source);
+  assert.equal(state.positions[0].shares, 2000);
+  assert.deepEqual(state.positions[0].exit, { takeProfit: 102, stopLoss: 99.3, fromMs: 2 * CELL + 20_000 });
+  state = order(state, source, { code: "2330", side: "sell", lots: 2 });
+  state = advanceTo(state, source, 90);
+  assert.deepEqual(state.positions, []);
+  assert.equal(state.orders.filter((item) => item.auto).length, 0);
+});
+
+test("a learner's waiting sell of the stock gives way when its exit fires", () => {
+  const source = runFixture(withTrade(5, 20_000, 102.5, 3));
+  let state = advance(beginExit(source), source);
+  state = order(state, source, { code: "2330", side: "buy", lots: 2 });
+  state = advance(state, source);
+  state = order(state, source, { code: "2330", side: "sell", lots: 2, limitPrice: 103 });
+  state = advanceTo(state, source, 6);
+  assert.equal(state.orders[1].status, "cancelled");
+  assert.equal(state.orders[1].reason, EXIT_CANCEL);
+  assert.equal(state.orders[2].auto, "takeProfit");
+  assert.equal(state.orders[2].status, "filled");
+  assert.deepEqual(state.positions, []);
+});
+
+test("an exit short of lots waits like a market order: the learner may still trade other stocks, not sell this one, and it ends at 10:30", () => {
+  // 2330 trades until 09:06 only; at 09:06:01 1 lot at 99.5 fires the 停損 of 20 lots, and 6 lots are all there are.
+  const trades = withTrade(6, 1_000, 99.5, 1);
+  trades["2330"] = trades["2330"].filter(([ms]) => ms < 7 * CELL);
+  const source = runFixture(trades);
+  let state = advance(beginExit(source), source);
+  state = order(state, source, { code: "2330", side: "buy", lots: 20 });
+  state = advanceTo(state, source, 7);
+  // (3 × 603.5 + 100 + 101) / 20 = 100.575: 停損 99.569… → 99.5.
+  assert.equal(state.positions[0].exit?.stopLoss, 99.5);
+  const exit = state.orders[1];
+  assert.equal(exit.auto, "stopLoss");
+  assert.equal(exit.status, "pending");
+  assert.equal(exit.filledLots, 6);
+  assert.throws(() => order(state, source, { code: "2330", side: "sell", lots: 1 }), {
+    status: 409,
+    message: "這檔正在自動出場，請等它成交",
+  });
+  assert.throws(
+    () => applyMorningAction(state, action(state, { action: "cancel", orderId: exit.id }), source, state.nextAdvanceAt),
+    { status: 409 },
+  );
+  state = order(state, source, { code: "1101", side: "buy", lots: 1 });
+  assert.equal(state.orders[2].status, "pending");
+  state = advanceTo(state, source, 90);
+  assert.equal(state.orders[1].status, "cancelled");
+  assert.equal(state.orders[1].reason, VOLUME_CANCEL);
+  assert.equal(state.positions[0].shares, 20_000);
+});
+
+test("a plan without 自動出場 never sells by itself", () => {
+  const source = runFixture(withTrade(5, 20_000, 102.5, 3));
+  let state = advance(begin(source), source);
+  state = order(state, source, { code: "2330", side: "buy", lots: 2 });
+  state = advanceTo(state, source, 90);
+  assert.equal(state.orders.length, 1);
+  assert.equal(state.positions[0].exit, undefined);
+});
+
+test("an old lesson's exit fires on a minute's open and fills at that open", () => {
+  const source = fixture();
+  let state = createMorningState(randomUUID(), exitPlan, source, 0);
+  state = applyMorningAction(state, action(state, { action: "advance" }), source, 1000);
+  state = applyMorningAction(state, action(state, { action: "order", code: "2330", side: "buy", lots: 1 }), source, 1100);
+  // Opens are 100 + minute: bought at 09:01's 101; 停利 102.515 → 103 is 09:03's open.
+  for (let now = 2000; state.cursor < 4; now += 1000)
+    state = applyMorningAction(state, action(state, { action: "advance" }), source, now);
+  assert.deepEqual(state.positions, []);
+  assert.equal(state.orders[1].auto, "takeProfit");
+  assert.equal(state.fills[1].price, 103);
+  assert.equal(state.fills[1].t, 180);
+});
+
+test("with 自動出場 matching still never reads a trade the advance does not reveal", () => {
+  const trades = withTrade(40, 20_000, 99, 2);
+  const full = runFixture(trades);
+  const cut = (cursor: number): MorningSource => ({
+    ...full,
+    bars: Object.fromEntries(Object.entries(full.bars).map(([code, rows]) => [code, rows.filter((bar) => bar.t < cursor * 60)])),
+    trades: Object.fromEntries(Object.entries(trades).map(([code, rows]) => [code, rows.filter(([ms]) => ms < cursor * CELL)])),
+  });
+  let state = advance(beginExit(full), full);
+  for (let cursor = 1; cursor < 90; cursor++) {
+    if (cursor === 1 || cursor === 50) state = order(state, full, { code: "2330", side: "buy", lots: 2 });
+    const next = advance(state, full);
+    const blind = applyMorningAction(state, action(state, { action: "advance" }), cut(cursor + 1), state.nextAdvanceAt);
+    assert.deepEqual(blind, next, `advance from ${cursor}`);
+    state = next;
+  }
+  assert.deepEqual(
+    state.orders.map((item) => item.auto ?? "learner"),
+    ["learner", "stopLoss", "learner"],
+  );
 });

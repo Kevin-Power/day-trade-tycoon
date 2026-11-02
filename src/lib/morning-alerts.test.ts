@@ -162,3 +162,11 @@ test("a fill revealed by the latest advance is the latest alert, even when that 
   assert.equal(alerts.at(-1)?.kind, "fill");
   assert.equal(alerts.at(-1)?.t, 120);
 });
+
+test("a 自動出場 sell is announced as the classroom's 停利／停損, not as the learner's order", () => {
+  const bars = [bar(0, 1000, 995), bar(1, 1010, 1005)];
+  const fill = { id: "x", code: "2330", side: "sell" as const, shares: 1000, price: 1015, fee: 20, tax: 3, t: 100 };
+  const run = state(2, bars, [fill]);
+  run.orders = [{ id: "x", code: "2330", side: "sell", shares: 1000, status: "filled", submittedCursor: 1, price: 1015, auto: "takeProfit", triggerPrice: 1015 }];
+  assert.equal(deriveMorningAlerts(catalog, run).at(-1)?.text, "自動停利成交：台積電 賣出 1 張 @ 1015");
+});

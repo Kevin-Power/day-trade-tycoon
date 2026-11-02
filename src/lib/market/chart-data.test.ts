@@ -660,6 +660,17 @@ test("a labelled level sits just above its line at the right edge", () => {
   assert.deepEqual(labels, [{ key: "level-0", text: "昨高", price: 100, priceText: "100", color: "#e7b549", x: 300, anchor: "end", y: 91 }]);
 });
 
+test("a level with its own colour keeps it (自動出場's 停利 and 停損)", () => {
+  const labels = levelChartLabels(
+    [
+      { price: 120, label: "停利", color: "#f0525f" },
+      { price: 100, label: "停損", color: "#22c38e" },
+    ],
+    { x: 300, top: 10, lineHeight: 16, color: "#e7b549", yOf: (price) => 200 - price, priceText: String },
+  );
+  assert.deepEqual(labels.map((label) => [label.text, label.color]), [["停利", "#f0525f"], ["停損", "#22c38e"]]);
+});
+
 test("a level label too close to the top goes below its line", () => {
   const [label] = levelChartLabels([{ price: 185, label: "昨高" }], {
     x: 300, top: 10, lineHeight: 16, color: "#e7b549", yOf: (price) => 200 - price, priceText: String,

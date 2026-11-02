@@ -13,6 +13,7 @@ import { OrderReports } from "@/components/order-reports";
 import { MinuteTable, QuoteDetailGrid, StockTabs } from "@/components/stock-detail";
 import { TradeTape } from "@/components/trade-tape";
 import { exceedsCash, isLargeOrder, orderReports, type LocalOrderFailure } from "@/lib/morning-orders";
+import { EXIT_NAME } from "@/lib/morning-exit";
 
 export function AccountSummary({ session }: { session: MorningState }) {
   const profit = session.equity - session.startingCash;
@@ -278,7 +279,8 @@ export function PaperOrder({
     setLimitDraft(formatPrice(prefill.price));
   }, [prefill, code]);
   const position = session?.positions.find((item) => item.code === code);
-  const pending = session?.orders.find((item) => item.status === "pending");
+  // The learner's own waiting order locks sending; a 自動出場 sell does not (the classroom refuses a second sell).
+  const pending = session?.orders.find((item) => item.status === "pending" && !item.auto);
   const pendingId = pending?.id;
   useEffect(() => {
     if (pendingId) pendingPanel.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
@@ -1037,6 +1039,14 @@ function ledgerRecords(
             tone: mark.tone,
             className: "sim-mark",
           },
+          ...(item.exit
+            ? [
+                {
+                  label: "自動出場",
+                  value: `停利 ${formatPrice(item.exit.takeProfit)}／停損 ${formatPrice(item.exit.stopLoss)}`,
+                },
+              ]
+            : []),
         ],
       };
     });
@@ -1047,7 +1057,7 @@ function ledgerRecords(
       .map((item) => ({
         key: item.id,
         name: name(item.code),
-        sub: `${item.code} · ${formatTime(item.submittedCursor * 60).slice(0, 5)}${item.entryMode === "lightning" ? " · 閃電" : ""}`,
+        sub: `${item.code} · ${formatTime(item.submittedCursor * 60).slice(0, 5)}${item.entryMode === "lightning" ? " · 閃電" : ""}${item.auto ? ` · 自動${EXIT_NAME[item.auto]}` : ""}`,
         cells: [
           {
             label: "方向 / 張數",
@@ -1069,7 +1079,7 @@ function ledgerRecords(
                 {item.status === "pending" && (
                   <small className="sim-record-progress">{lotProgress(item)}</small>
                 )}
-                {item.status === "pending" && !session.completed && (
+                {item.status === "pending" && !item.auto && !session.completed && (
                   <button
                     type="button"
                     className="sim-cancel"

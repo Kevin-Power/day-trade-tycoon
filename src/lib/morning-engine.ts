@@ -18,6 +18,7 @@ import { MAX_RUN_CODES } from "./lessons/default-codes.ts";
 import { endReason, matchOrder, tradesBefore } from "./lessons/matching.ts";
 import { MAX_LOTS, MIN_LOTS } from "./morning-lots.ts";
 import { cellSlice, CELL_MS, type TradeRow } from "./lessons/trades.ts";
+import { EXIT_CANCEL, exitPrices, exitTrigger, STOP_LOSS_CHOICES, TAKE_PROFIT_CHOICES } from "./morning-exit.ts";
 
 export const MORNING_STARTING_CASH = 10_000_000;
 export const MORNING_ADVANCE_INTERVAL = 1_000;
@@ -69,6 +70,13 @@ export const planSchema = z
     reason: text,
     entry: text,
     stop: text,
+    exit: z
+      .object({
+        takeProfitPct: z.number().refine((value) => (TAKE_PROFIT_CHOICES as readonly number[]).includes(value)),
+        stopLossPct: z.number().refine((value) => (STOP_LOSS_CHOICES as readonly number[]).includes(value)),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 const base = {
@@ -273,6 +281,49 @@ function fillOrder(
   if (at.ms !== undefined) fill.ms = at.ms;
   state.fills.push(fill);
 }
+/** The learner's waiting order (one at a time); the classroom's 自動出場 sells are not the learner's. */
+function learnerPending(state: MorningStoredState): MorningOrder | undefined {
+  return state.orders.find((order) => order.status === "pending" && !order.auto);
+}
+/** The classroom's own order: the run's id with the order's number as its last group, so it stays UUID-shaped. */
+function autoOrderId(state: MorningStoredState): string {
+  return `${state.id.slice(0, 24)}${state.orders.length.toString(16).padStart(12, "0")}`;
+}
+/** After a buy fill: the holding's 停利／停損 from its average now; only trades after `fromMs` fire them. */
+function armExit(state: MorningStoredState, source: MorningSource, code: string, fromMs: number): void {
+  const position = state.positions.find((item) => item.code === code);
+  if (!state.plan.exit || !position) return;
+  const previousClose = source.catalog.symbols.find((symbol) => symbol.code === code)!.previousClose;
+  position.exit = { ...exitPrices(position.averageCost, state.plan.exit, previousClose), fromMs };
+}
+/**
+ * A trade at `price` fired the holding's exit: the learner's waiting sell of the stock gives way, and the classroom
+ * places a market sell of the whole holding at that moment.
+ */
+function placeExit(
+  state: MorningStoredState,
+  position: MorningStoredState["positions"][number],
+  price: number,
+  cursor: number,
+): MorningOrder {
+  const waiting = learnerPending(state);
+  if (waiting?.code === position.code && waiting.side === "sell") {
+    waiting.status = "cancelled";
+    waiting.reason = EXIT_CANCEL;
+  }
+  const order: MorningOrder = {
+    id: autoOrderId(state),
+    code: position.code,
+    side: "sell",
+    shares: position.shares,
+    status: "pending",
+    submittedCursor: cursor,
+    auto: exitTrigger(position.exit!, price)!,
+    triggerPrice: price,
+  };
+  state.orders.push(order);
+  return order;
+}
 /** An old lesson: a waiting order meets this minute's OPEN only; limits wait, never infer intraminute fills. */
 function advanceOnOpens(state: MorningStoredState, source: MorningSource, pending: MorningOrder | undefined): void {
   // Validate this minute for every symbol before changing cash or revealing any bar.
@@ -282,7 +333,17 @@ function advanceOnOpens(state: MorningStoredState, source: MorningSource, pendin
     const eligible =
       pending.limitPrice === undefined ||
       (pending.side === "buy" ? bar.o <= pending.limitPrice : bar.o >= pending.limitPrice);
-    if (eligible) fillOrder(state, pending, bar.o, { t: bar.t }, "下一分鐘開盤價變動後，模擬資金不足，未成交");
+    if (eligible) {
+      fillOrder(state, pending, bar.o, { t: bar.t }, "下一分鐘開盤價變動後，模擬資金不足，未成交");
+      if (pending.side === "buy" && pending.status === "filled") armExit(state, source, pending.code, bar.t * 1000);
+    }
+  }
+  // 自動出場: a holding armed before this minute meets its open, and is sold there.
+  for (const position of [...state.positions]) {
+    if (!position.exit || position.exit.fromMs >= state.cursor * CELL_MS) continue;
+    const bar = barAt(source, position.code, state.cursor);
+    if (!exitTrigger(position.exit, bar.o)) continue;
+    fillOrder(state, placeExit(state, position, bar.o, state.cursor), bar.o, { t: bar.t }, "");
   }
   state.cursor++;
   if (state.cursor === source.catalog.maxCursor && pending?.status === "pending") {
@@ -291,44 +352,65 @@ function advanceOnOpens(state: MorningStoredState, source: MorningSource, pendin
   }
 }
 /**
- * A real run: a waiting order meets the real trades of the cell being revealed (③ §5 with 量夠才成交), in their
- * order. What the cell gathers for it (lots and value of the touching trades) is saved on the order for the next.
+ * A waiting order meets `trades` of the cell being revealed (③ §5 with 量夠才成交), in their order. What they gather
+ * for it (lots and value of the touching trades) is saved on the order for the next cell.
+ */
+function matchInCell(
+  state: MorningStoredState,
+  source: MorningSource,
+  order: MorningOrder,
+  trades: readonly TradeRow[],
+): void {
+  const result = matchOrder({ ...order, lots: order.shares / LOT_SHARES }, trades);
+  if (result.kind === "fill") {
+    delete order.filledLots;
+    delete order.filledValue;
+    delete order.atLimit;
+    order.seen = true;
+    fillOrder(
+      state,
+      order,
+      result.price,
+      { t: Math.floor(result.ms / 1000), ms: result.ms },
+      "成交價變動後，模擬資金不足，未成交",
+    );
+    if (order.side === "buy" && order.status === "filled") armExit(state, source, order.code, result.ms);
+    return;
+  }
+  if (result.seen) order.seen = true;
+  if (result.filledLots > 0) {
+    order.filledLots = result.filledLots;
+    order.filledValue = result.filledValue;
+  }
+  if (result.atLimit) order.atLimit = true;
+}
+/**
+ * A real run's cell: the learner's waiting order meets the cell's real trades first, then the classroom's 自動出場
+ * sells still waiting, then each armed holding: its first trade at or past 停利／停損 places a market sell of the
+ * whole holding, which meets the trades from that one on.
  */
 function advanceOnTrades(state: MorningStoredState, source: MorningSource, pending: MorningOrder | undefined): void {
   const cell = state.cursor;
   // Check the cell's bars before changing cash or revealing anything.
   for (const code of runCodes(state, source)) cellBar(source, code, cell);
-  if (pending) {
-    const result = matchOrder(
-      { ...pending, lots: pending.shares / LOT_SHARES },
-      cellSlice(stockTrades(source, pending.code), cell),
-    );
-    if (result.kind === "fill") {
-      delete pending.filledLots;
-      delete pending.filledValue;
-      delete pending.atLimit;
-      pending.seen = true;
-      fillOrder(
-        state,
-        pending,
-        result.price,
-        { t: Math.floor(result.ms / 1000), ms: result.ms },
-        "成交價變動後，模擬資金不足，未成交",
-      );
-    } else {
-      if (result.seen) pending.seen = true;
-      if (result.filledLots > 0) {
-        pending.filledLots = result.filledLots;
-        pending.filledValue = result.filledValue;
-      }
-      if (result.atLimit) pending.atLimit = true;
-    }
+  const waitingExits = state.orders.filter((order) => order.status === "pending" && order.auto);
+  for (const order of pending ? [pending, ...waitingExits] : waitingExits)
+    matchInCell(state, source, order, cellSlice(stockTrades(source, order.code), cell));
+  for (const position of [...state.positions]) {
+    const exit = position.exit;
+    if (!exit || state.orders.some((order) => order.status === "pending" && order.auto && order.code === position.code))
+      continue;
+    const rows = cellSlice(stockTrades(source, position.code), cell);
+    const at = rows.findIndex(([ms, price]) => ms > exit.fromMs && exitTrigger(exit, price) !== null);
+    if (at >= 0) matchInCell(state, source, placeExit(state, position, rows[at][1], cell), rows.slice(at));
   }
   state.cursor++;
-  if (state.cursor === source.catalog.maxCursor && pending?.status === "pending") {
-    pending.status = "cancelled";
-    pending.reason = endReason(pending);
-  }
+  if (state.cursor === source.catalog.maxCursor)
+    for (const order of state.orders)
+      if (order.status === "pending") {
+        order.status = "cancelled";
+        order.reason = endReason(order);
+      }
 }
 /** A new run; `codes` are its stocks in the order chosen (an old lesson's run may have none: all its stocks). */
 export function createMorningState(
@@ -430,7 +512,7 @@ export function applyMorningAction(
   assertLesson(previous, source);
   assertActionable(previous, action);
   const state = structuredClone(previous);
-  const pending = state.orders.find((order) => order.status === "pending");
+  const pending = learnerPending(state);
   if (action.action === "advance") {
     if (state.cursor >= source.catalog.maxCursor)
       throw new MorningError(409, "已到本次教材結尾，請完成復盤");
@@ -462,6 +544,11 @@ export function applyMorningAction(
     );
     if (action.side === "buy" && knownNotional + commission(knownNotional) > state.cash)
       throw new MorningError(400, "目前模擬資金不足，無法委託");
+    if (
+      action.side === "sell" &&
+      state.orders.some((order) => order.status === "pending" && order.auto && order.code === action.code)
+    )
+      throw new MorningError(409, "這檔正在自動出場，請等它成交");
     if (
       action.side === "sell" &&
       (state.positions.find((item) => item.code === action.code)?.shares ?? 0) < shares
@@ -496,24 +583,17 @@ function assertActionable(previous: MorningStoredState, action: Exclude<MorningA
     throw new MorningError(409, "練習已更新，請重新讀取目前進度");
   if (previous.completed) throw new MorningError(409, "這份練習已完成，無法再修改");
 }
-/** Finish (with the reflection) or abandon: the waiting order is cancelled and the run is completed. */
+/** Finish (with the reflection) or abandon: the waiting orders (the learner's and 自動出場's) are cancelled and the run is completed. */
 function closeRun(state: MorningStoredState, action: Extract<MorningAction, { action: "finish" | "abandon" }>): void {
-  const pending = state.orders.find((order) => order.status === "pending");
-  if (action.action === "abandon") {
-    if (pending) {
-      pending.status = "cancelled";
-      pending.reason = "放棄這局時取消尚未成交委託";
+  const reason = action.action === "abandon" ? "放棄這局時取消尚未成交委託" : "結束練習時取消尚未成交委託";
+  for (const order of state.orders)
+    if (order.status === "pending") {
+      order.status = "cancelled";
+      order.reason = reason;
     }
-    state.completed = true;
-    state.abandoned = true;
-  } else {
-    if (pending) {
-      pending.status = "cancelled";
-      pending.reason = "結束練習時取消尚未成交委託";
-    }
-    state.completed = true;
-    state.reflection = action.reflection;
-  }
+  state.completed = true;
+  if (action.action === "abandon") state.abandoned = true;
+  else state.reflection = action.reflection;
 }
 /**
  * Finish or abandon from what is saved, without the lesson's data (③ decision R): holdings keep the value saved
