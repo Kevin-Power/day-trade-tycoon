@@ -1,9 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MAX_RUN_CODES, chooseDefaultCodes, defaultNote } from "./default-codes.ts";
+import {
+  DEFAULT_COUNT,
+  DEFAULT_MAX_PRICE,
+  DEFAULT_MIN_LOTS,
+  MAX_RUN_CODES,
+  chooseDefaultCodes,
+  defaultNote,
+} from "./default-codes.ts";
 import type { RadarList } from "./types.ts";
 
-const NO_LIST_TITLE = "前一交易日沒有熱門當沖名單，改用成交值前 5 名";
+const NO_LIST_TITLE = "前一交易日沒有熱門當沖名單，改用成交值前 20 名，先挑成交量 1 萬張以上、股價 2,000 元以下";
+const GUEST_TITLE = "預設：成交值前 20 名，先挑成交量 1 萬張以上、股價 2,000 元以下";
 
 function listOf(date: string, codes: string[]): RadarList {
   return { date, symbols: codes.map((code) => ({ code, name: `名${code}` })) };
@@ -17,7 +25,7 @@ function input(overrides: Partial<Input> = {}): Input {
     radar: listOf("2026-10-27", ["2330", "2317"]),
     practisable: new Set(["2330", "2317", "2454", "1101", "2603", "2002"]),
     otc: new Set(["6488"]),
-    top5: ["2603", "2330", "2317", "2454", "1101"],
+    top: ["2603", "2330", "2317", "2454", "1101"],
     guest: false,
     ...overrides,
   };
@@ -25,6 +33,14 @@ function input(overrides: Partial<Input> = {}): Input {
 
 test("MAX_RUN_CODES is 80", () => {
   assert.equal(MAX_RUN_CODES, 80);
+});
+
+// 2026-11-02, the owner after 石大哥 tried 川湖 (about 9,400 元, a few thousand lots): 「範例先不要用川湖太高價的股票…
+// 欣興、臻鼎這些一千元左右，成交量在幾萬張的，一般學員比較會操作到」, then 「不只五檔請20檔」.
+test("without a list the default holds 20 stocks, 10,000 lots or more at 2,000 元 or less first", () => {
+  assert.equal(DEFAULT_COUNT, 20);
+  assert.equal(DEFAULT_MIN_LOTS, 10_000);
+  assert.equal(DEFAULT_MAX_PRICE, 2_000);
 });
 
 test("a fresh list: radar basis with the codes sorted by code, and the list date", () => {
@@ -37,9 +53,9 @@ test("a fresh list: radar basis with the codes sorted by code, and the list date
   });
 });
 
-test("guest comes first: top 5 sorted by code, no radarDate and no counts, even with a fresh list", () => {
+test("guest comes first: the top sorted by code, no radarDate and no counts, even with a fresh list", () => {
   const choice = chooseDefaultCodes(input({ guest: true }));
-  assert.deepEqual(choice, { basis: "top5", reason: "guest", codes: ["1101", "2317", "2330", "2454", "2603"] });
+  assert.deepEqual(choice, { basis: "top", reason: "guest", codes: ["1101", "2317", "2330", "2454", "2603"] });
   assert.equal("radarDate" in choice, false);
   assert.equal("counts" in choice, false);
 });
@@ -50,22 +66,22 @@ test("guest never looks at the list: a throwing getter on it is never touched", 
       throw new Error("the guest path read the list");
     },
   });
-  assert.equal(chooseDefaultCodes(input({ guest: true, radar })).basis, "top5");
+  assert.equal(chooseDefaultCodes(input({ guest: true, radar })).basis, "top");
 });
 
-test("no list at all: top5 / no-list, sorted, no counts", () => {
+test("no list at all: top / no-list, sorted, no counts", () => {
   const choice = chooseDefaultCodes(input({ radar: null }));
-  assert.deepEqual(choice, { basis: "top5", reason: "no-list", codes: ["1101", "2317", "2330", "2454", "2603"] });
+  assert.deepEqual(choice, { basis: "top", reason: "no-list", codes: ["1101", "2317", "2330", "2454", "2603"] });
   assert.equal("counts" in choice, false);
 });
 
 test("list dated the lesson day or later counts as no list", () => {
   const same = chooseDefaultCodes(input({ radar: listOf("2026-10-28", ["2330"]) }));
-  assert.equal(same.basis, "top5");
-  assert.equal(same.basis === "top5" && same.reason, "no-list");
+  assert.equal(same.basis, "top");
+  assert.equal(same.basis === "top" && same.reason, "no-list");
   const later = chooseDefaultCodes(input({ radar: listOf("2026-10-29", ["2330"]) }));
-  assert.equal(later.basis, "top5");
-  assert.equal(later.basis === "top5" && later.reason, "no-list");
+  assert.equal(later.basis, "top");
+  assert.equal(later.basis === "top" && later.reason, "no-list");
 });
 
 test("stale: another full-market day sits between the list and the lesson", () => {
@@ -76,7 +92,7 @@ test("stale: another full-market day sits between the list and the lesson", () =
       fullMarketDays: ["2026-10-21", "2026-10-22", "2026-10-27"],
     }),
   );
-  assert.deepEqual(choice, { basis: "top5", reason: "stale", codes: ["1101", "2317", "2330", "2454", "2603"] });
+  assert.deepEqual(choice, { basis: "top", reason: "stale", codes: ["1101", "2317", "2330", "2454", "2603"] });
 });
 
 test("closed days in between do not make the list stale (typhoon 10/23, holiday 10/26)", () => {
@@ -141,10 +157,10 @@ test("codes are capped at 80, smallest codes first", () => {
   assert.deepEqual(choice.counts, { listed: 100, otc: 0, missing: 0 });
 });
 
-test("nothing practisable left: top5 / empty, with the counts", () => {
+test("nothing practisable left: top / empty, with the counts", () => {
   const choice = chooseDefaultCodes(input({ radar: listOf("2026-10-27", ["6488", "8888", "9999"]) }));
   assert.deepEqual(choice, {
-    basis: "top5",
+    basis: "top",
     reason: "empty",
     codes: ["1101", "2317", "2330", "2454", "2603"],
     counts: { listed: 3, otc: 1, missing: 2 },
@@ -154,17 +170,17 @@ test("nothing practisable left: top5 / empty, with the counts", () => {
 test("a list with no symbols is empty too", () => {
   const choice = chooseDefaultCodes(input({ radar: listOf("2026-10-27", []) }));
   assert.deepEqual(choice, {
-    basis: "top5",
+    basis: "top",
     reason: "empty",
     codes: ["1101", "2317", "2330", "2454", "2603"],
     counts: { listed: 0, otc: 0, missing: 0 },
   });
 });
 
-test("the caller's top5 array is not reordered", () => {
-  const top5 = ["2603", "2330", "2317", "2454", "1101"];
-  chooseDefaultCodes(input({ radar: null, top5 }));
-  assert.deepEqual(top5, ["2603", "2330", "2317", "2454", "1101"]);
+test("the caller's top array is not reordered", () => {
+  const top = ["2603", "2330", "2317", "2454", "1101"];
+  chooseDefaultCodes(input({ radar: null, top }));
+  assert.deepEqual(top, ["2603", "2330", "2317", "2454", "1101"]);
 });
 
 test("note, radar: the date is MM/DD with zero padding, detail is null when nothing was left out", () => {
@@ -230,7 +246,7 @@ test("note, empty list with no symbols: just the list size", () => {
 
 test("note, guest: its own title, no detail", () => {
   const note = defaultNote(chooseDefaultCodes(input({ guest: true })));
-  assert.deepEqual(note, { title: "預設：成交值前 5 名", detail: null });
+  assert.deepEqual(note, { title: GUEST_TITLE, detail: null });
 });
 
 test("no text promises or ranks: no 推薦 / 勝率 / 漲停雷達 / score in any note", () => {

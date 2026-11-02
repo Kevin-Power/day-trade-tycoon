@@ -73,13 +73,13 @@ test("a day's picker is kept for a minute per audience, then read again", () => 
   await writeDay(dir, "2026-10-27", SIX);
   await writeDay(dir, "2026-10-28", SIX_ALL_MORNING);
   const first = await dayPicker(dir, "2026-10-28", false, 0);
-  assert.equal(first!.note.title, "前一交易日沒有熱門當沖名單，改用成交值前 5 名");
+  assert.equal(first!.note.title, "前一交易日沒有熱門當沖名單，改用成交值前 20 名，先挑成交量 1 萬張以上、股價 2,000 元以下");
   await putRadar(dir, "2026-10-27", ["2454", "2330"]); // the list arrives late
   assert.equal(await dayPicker(dir, "2026-10-28", false, 59_999), first);
   const later = await dayPicker(dir, "2026-10-28", false, 60_000);
   assert.equal(later!.note.title, "預設：前一交易日熱門當沖股（10/27 盤後）");
   assert.deepEqual(later!.defaults, ["2330", "2454"]);
   const guest = await dayPicker(dir, "2026-10-28", true, 60_000);
-  assert.deepEqual(guest!.note, { title: "預設：成交值前 5 名", detail: null });
+  assert.deepEqual(guest!.note, { title: "預設：成交值前 20 名，先挑成交量 1 萬張以上、股價 2,000 元以下", detail: null });
   assert.equal(await dayPicker(dir, "2026-10-26", false, 0), null);
 }));

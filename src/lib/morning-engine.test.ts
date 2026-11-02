@@ -16,6 +16,7 @@ import type { MorningAction, MorningIndexSeries, MorningPlan } from "./morning.t
 import type { Bar } from "./game/types.ts";
 import type { TradeRow } from "./lessons/trades.ts";
 import { commission, DAYTRADE_TAX } from "./market/ticks.ts";
+import { exceedsCash } from "./morning-orders.ts";
 
 const plan: MorningPlan = {
   bias: "observe",
@@ -915,6 +916,23 @@ test("an order is 1 to 400 lots: 400 is accepted, 401 is not", () => {
   state = order(state, source, { code: "2330", side: "buy", lots: 400 });
   assert.equal(state.orders[0].shares, 400_000);
   assert.equal(state.orders[0].status, "pending");
+});
+
+test("the ticket's cash check and the classroom's agree to the cent: the fee counts", () => {
+  const source = runFixture(dayTrades());
+  const state = advance(begin(source), source);
+  // The first minute's last 2330 trade is at 100.5: ten lots at market are 1,005,000 before the fee.
+  const amount = 10 * 1000 * 100.5;
+  for (const [cash, refused] of [
+    [amount + commission(amount), false],
+    [amount + commission(amount) - 0.01, true],
+    [amount, true],
+  ] as const) {
+    assert.equal(exceedsCash({ side: "buy", amount, availableCash: cash }), refused, String(cash));
+    const send = () => order({ ...state, cash }, source, { code: "2330", side: "buy", lots: 10 });
+    if (refused) assert.throws(send, { status: 400, message: "目前模擬資金不足，無法委託" });
+    else assert.equal(send().orders[0].status, "pending");
+  }
 });
 
 test("a large order counts real lots cell by cell, keeps them in the saved run, and fills at the average when they are complete", () => {

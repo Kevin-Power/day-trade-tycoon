@@ -343,9 +343,9 @@ await check("8-order-reports", async () => {
     await reload.click();
     await desktop.waitForTimeout(600);
   }
-  // A send the server refuses: more 台積電 than the cash allows. An order is 1 to 400 lots; 400 lots of the fixture's
-  // 台積電 (about 1,480 a share) is about 590 M against the ~7 M left after the seed. Never skipped: if 400 lots still
-  // fit the cash, the check fails.
+  // More 台積電 than the cash allows is never sent (2026-11-02: 石大哥 confirmed and resent one again and again, each
+  // turned down by the server). An order is 1 to 400 lots; 400 lots of the fixture's 台積電 (about 1,480 a share) is
+  // about 590 M against the ~7 M left after the seed. Never skipped: if 400 lots still fit the cash, the check fails.
   await clearPending(desktop);
   const state = await api();
   const lot = state.bars["2330"].at(-1).c * 1000;
@@ -353,16 +353,20 @@ await check("8-order-reports", async () => {
   if (lot * lots <= state.cash) throw new Error(`400 lots of 台積電 fit the cash (${state.cash} for ${lot} a lot)`);
   await selectStock(desktop, "2330");
   await desktop.getByRole("button", { name: "市價" }).first().click();
+  const failedRows = desktop.locator('.sim-reports li[data-tone="failed"]');
+  const failedBefore = await failedRows.count();
   await setLots(desktop, lots);
-  await desktop.getByRole("button", { name: /^核對模擬買進/ }).click();
-  if (await desktop.locator("#sim-large-ack").isVisible().catch(() => false)) await desktop.locator("#sim-large-ack").check();
-  const ordersBefore = state.orders.length;
-  await desktop.getByRole("button", { name: "確認送出模擬買進" }).click();
-  await until(async () => /資金不足/.test(await desktop.locator('.sim-reports li[data-tone="failed"]').first().textContent().catch(() => "")), "no 送出失敗 report saying 資金不足");
-  const failed = clean(await desktop.locator('.sim-reports li[data-tone="failed"]').first().textContent());
-  if ((await api()).orders.length !== ordersBefore) throw new Error("the refused order was stored anyway");
-  await desktop.getByRole("button", { name: /重新載入進度/ }).first().click({ timeout: 4000 }).catch(() => {});
-  return { refused: { lots, lot, cash: state.cash, report: failed } };
+  const short = desktop.locator(".sim-ticket-message", { hasText: "可用模擬資金不足" });
+  await short.waitFor({ timeout: 4000 });
+  const said = clean(await short.textContent());
+  if (!/^可用模擬資金不足：這筆含手續費約 [\d,]+，可用 [\d,]+。/.test(said)) throw new Error(`the ticket says "${said}"`);
+  if (await desktop.getByRole("button", { name: /^核對模擬買進/ }).isEnabled())
+    throw new Error("400 lots the cash cannot pay for can still be reviewed");
+  await desktop.waitForTimeout(400);
+  if ((await api()).orders.length !== state.orders.length) throw new Error("an order the cash cannot pay for was sent");
+  if ((await failedRows.count()) !== failedBefore) throw new Error("a 送出失敗 report appeared although nothing was sent");
+  await setLots(desktop, 1);
+  return { short: { lots, lot, cash: state.cash, said } };
 });
 
 await check("11-plan-chip", async () => {

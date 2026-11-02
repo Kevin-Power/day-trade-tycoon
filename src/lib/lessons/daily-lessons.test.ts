@@ -56,6 +56,8 @@ type Stock = {
   close?: number;
   change?: number;
   tradeValue?: number;
+  /** Lots traded that day (the day list's tradeVolume); 10 by default. */
+  tradeVolume?: number;
   disposition?: boolean;
   /** Morning trades; by default two, in the first two minutes. */
   trades?: TradeRow[];
@@ -110,7 +112,7 @@ async function writeDay(dir: string, date: string, stocks: Stock[], options: { c
       referencePrice,
       close,
       change: stock.change ?? close - referencePrice,
-      tradeVolume: 10,
+      tradeVolume: stock.tradeVolume ?? 10,
       tradeValue: stock.tradeValue ?? 1_000_000,
       disposition: stock.disposition ?? false,
       bars: 2,
@@ -161,7 +163,7 @@ const SIX: Stock[] = [
   { code: "1101", referencePrice: 30, tradeValue: 5_000_000 },
   { code: "2002", referencePrice: 20, tradeValue: 4_000_000 },
 ];
-const NO_LIST = "前一交易日沒有熱門當沖名單，改用成交值前 5 名";
+const NO_LIST = "前一交易日沒有熱門當沖名單，改用成交值前 20 名，先挑成交量 1 萬張以上、股價 2,000 元以下";
 const isConflict = (code: string) => (error: unknown) =>
   error instanceof MorningError && error.status === 409 && error.message.includes(code);
 
@@ -225,8 +227,8 @@ test("picker never includes close, change or tradeValue of the lesson day", () =
     code: "2330", name: "台積電", referencePrice: 1000, previousValue: 111_000_000, disposition: false,
   });
   assert.equal(picker.symbols.find((symbol) => symbol.code === "2881")!.previousValue, null);
-  // The top 5 by the day's turnover go out as codes in code order: no rank, no amount.
-  assert.deepEqual(picker.defaults, ["2317", "2330", "2454", "2603", "2881"]);
+  // The day's default (up to 20, here all seven) goes out as codes in code order: no rank, no amount.
+  assert.deepEqual(picker.defaults, ["1101", "2002", "2317", "2330", "2454", "2603", "2881"]);
   assert.deepEqual(picker.note, { title: NO_LIST, detail: null });
   assert.equal(picker.taiexAvailable, false);
   assert.equal(picker.booksAvailable, false);
@@ -234,7 +236,7 @@ test("picker never includes close, change or tradeValue of the lesson day", () =
   assert.equal((await lessonPicker(dir, "2026-10-28", { guest: false }))!.taiexAvailable, true);
 }));
 
-test("picker defaults: radar list, OTC counted, guest gets top5 without radar fields", () => fixture(async (dir) => {
+test("picker defaults: radar list, OTC counted, guest gets the top without radar fields", () => fixture(async (dir) => {
   await writeDay(dir, "2026-10-27", SIX);
   await writeDay(dir, "2026-10-28", [...SIX.slice(0, 5), { ...SIX[5], complete: false }]); // 2002 not practisable
   await putRadar(dir, "2026-10-22", ["1101"]); // older
@@ -250,22 +252,22 @@ test("picker defaults: radar list, OTC counted, guest gets top5 without radar fi
 
   const guest = (await lessonPicker(dir, "2026-10-28", { guest: true }))!;
   assert.deepEqual(guest.defaults, ["1101", "2317", "2330", "2454", "2603"]);
-  assert.deepEqual(guest.note, { title: "預設：成交值前 5 名", detail: null });
+  assert.deepEqual(guest.note, { title: "預設：成交值前 20 名，先挑成交量 1 萬張以上、股價 2,000 元以下", detail: null });
   assert.deepEqual(guest.symbols, member.symbols);
   const json = JSON.stringify(guest);
   for (const hidden of ["radar", "Radar", "2026-10-27", "10/27", "20261027", "名單", "當沖", "盤後", "檔", "6488", "9999"]) {
     assert.equal(json.includes(hidden), false, hidden);
   }
 
-  // A list with another full-market day between it and the lesson is stale: the top 5 again.
+  // A list with another full-market day between it and the lesson is stale: the top again (all six here).
   await rm(join(dir, "radar/2026-10-28.json"));
   await writeDay(dir, "2026-10-29", SIX);
   const stale = (await lessonPicker(dir, "2026-10-29", { guest: false }))!;
   assert.deepEqual(stale.note, { title: NO_LIST, detail: null });
-  assert.deepEqual(stale.defaults, ["1101", "2317", "2330", "2454", "2603"]);
+  assert.deepEqual(stale.defaults, ["1101", "2002", "2317", "2330", "2454", "2603"]);
 }));
 
-test("top5 skips disposition and unpractisable", () => fixture(async (dir) => {
+test("the default skips disposition and unpractisable", () => fixture(async (dir) => {
   const trades = defaultTrades(100);
   const wrongBars = barsFrom(trades).map((bar): MarketBarRow => [bar[0], bar[1], bar[2], bar[3], bar[4], bar[5] + 4, bar[6]]);
   await writeDay(dir, "2026-10-28", [
@@ -282,11 +284,34 @@ test("top5 skips disposition and unpractisable", () => fixture(async (dir) => {
     { code: "2891", tradeValue: 10 },
   ]);
   const picker = (await lessonPicker(dir, "2026-10-28", { guest: false }))!;
-  assert.deepEqual(picker.defaults, ["1101", "2002", "2881", "2882", "2886"]);
+  assert.deepEqual(picker.defaults, ["1101", "2002", "2881", "2882", "2886", "2891"]);
   assert.deepEqual(picker.note, { title: NO_LIST, detail: null });
   // A 處置 stock can still be picked by hand; one whose data turned out not to agree is no longer offered.
   assert.deepEqual(picker.symbols.map((symbol) => symbol.code), ["1101", "2002", "2330", "2881", "2882", "2886", "2891"]);
   assert.equal(picker.symbols.find((symbol) => symbol.code === "2330")!.disposition, true);
+}));
+
+// 2026-11-02, the owner: no thin, dear stock such as 川湖 among the defaults; beginners trade stocks of about 1,000 元
+// with tens of thousands of lots (欣興、臻鼎), and twenty of them, not five.
+test("the default without a list: 20 stocks, 10,000 lots or more at 2,000 元 or less first, then by turnover", () => fixture(async (dir) => {
+  // Twenty-one easy stocks (2301–2321) and three the turnover ranks higher: dear, thin, and one just over each line.
+  const easy = (count: number): Stock[] => Array.from({ length: count }, (_, index) => ({
+    code: String(2301 + index), referencePrice: 1_000, tradeVolume: 30_000, tradeValue: 50_000_000 - index,
+  }));
+  const hard: Stock[] = [
+    { code: "2059", referencePrice: 9_400, tradeVolume: 1_500, tradeValue: 90_000_000 }, // 川湖: dear and thin
+    { code: "3008", referencePrice: 2_005, tradeVolume: 40_000, tradeValue: 80_000_000 }, // 5 元 too dear
+    { code: "3034", referencePrice: 2_000, tradeVolume: 9_999, tradeValue: 70_000_000 }, // 1 lot too thin
+  ];
+  await writeDay(dir, "2026-10-28", [...hard, ...easy(21)]);
+  const full = (await lessonPicker(dir, "2026-10-28", { guest: true }))!;
+  assert.deepEqual(full.defaults, easy(20).map((stock) => stock.code));
+  // Exactly on the lines counts as easy: 10,000 lots, 2,000 元.
+  await writeDay(dir, "2026-10-29", [...hard, { code: "2330", referencePrice: 2_000, tradeVolume: 10_000, tradeValue: 1 }, ...easy(18)]);
+  const onTheLines = (await lessonPicker(dir, "2026-10-29", { guest: true }))!;
+  assert.equal(onTheLines.defaults.includes("2330"), true);
+  // Fewer than twenty easy ones: the rest by turnover fill the twenty (川湖 first, it has the most turnover).
+  assert.deepEqual(onTheLines.defaults, [...easy(18).map((stock) => stock.code), "2059", "2330"].sort());
 }));
 
 test("buildRunSource rejects a code whose ticks disagree with bars", () => fixture(async (dir) => {
@@ -295,6 +320,8 @@ test("buildRunSource rejects a code whose ticks disagree with bars", () => fixtu
   const wrongPrice = barsFrom(trades).map((bar, index): MarketBarRow => (index === 0 ? [bar[0], bar[1], bar[2] + 0.5, bar[3], bar[4], bar[5], bar[6]] : bar));
   await writeDay(dir, "2026-10-28", [
     ...SIX,
+    // Twenty-one stocks with more turnover fill the default, so the picker never strict-checks the two below.
+    ...Array.from({ length: 15 }, (_, index): Stock => ({ code: String(2301 + index), tradeValue: 100 + index })),
     { code: "2882", referencePrice: 50, tradeValue: 2, trades, bars: wrongVolume },
     { code: "2883", referencePrice: 50, tradeValue: 1, trades, bars: wrongPrice },
     { code: "6488", tradeValue: 3 },

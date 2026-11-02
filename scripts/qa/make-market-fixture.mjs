@@ -90,6 +90,15 @@ export const FIXTURE = {
   questionDay: DATE,
   lessonDays: ["2026-10-21", "2026-10-22", "2026-10-27"],
   hot: HOT.map((stock) => stock.code),
+  /**
+   * Each lesson day's default without a list (guests, and members on a day without a fresh list), in code order:
+   * 20 stocks, those with 10,000 lots or more at 2,000 元 or less first (2026-11-02). The hot five are always in it.
+   */
+  top: {
+    "2026-10-21": ["1590", "1605", "2303", "2308", "2317", "2330", "2337", "2353", "2379", "2382", "2449", "2454", "2492", "2881", "2885", "2886", "2891", "3037", "3711", "5876"],
+    "2026-10-22": ["1590", "1605", "2303", "2308", "2317", "2330", "2337", "2353", "2379", "2382", "2449", "2454", "2492", "2881", "2885", "2886", "2912", "3037", "3711", "5876"],
+    "2026-10-27": ["1102", "1326", "1590", "1605", "2303", "2308", "2317", "2330", "2353", "2379", "2382", "2454", "2492", "2881", "2885", "2887", "3037", "3231", "5876", "6239"],
+  },
   /** Under 處置 on every lesson day: practisable, never in a top 5. */
   disposition: "2409",
   /** No trade before 10:30 on any lesson day (it trades in the afternoon): never practisable. */
@@ -374,6 +383,14 @@ async function writeLessonDay(dir, { date, factor, taiex, publishedAt }, referen
   const practisable = symbols.filter((symbol) => !symbol.disposition && ![FIXTURE.cold, FIXTURE.incomplete, FIXTURE.mismatch, FIXTURE.noTicks].includes(symbol.code));
   const top = practisable.sort((a, b) => b.tradeValue - a.tradeValue).slice(0, 5).map((symbol) => symbol.code).sort();
   if (top.join() !== [...FIXTURE.hot].sort().join()) throw new Error(`${date}: the top 5 by turnover are ${top}, not the hot five`);
+  // The default without a list (src/lib/lessons/default-codes.ts): 20 stocks the classroom offers and checks, those
+  // with 10,000 lots or more at 2,000 元 or less first, each group by turnover. It must be FIXTURE.top's.
+  const offered = symbols.filter((symbol) => !symbol.disposition && ![FIXTURE.cold, FIXTURE.incomplete, FIXTURE.mismatch].includes(symbol.code)
+    && !(symbol.code === FIXTURE.noTicks && date === FIXTURE.noTicksDay));
+  offered.sort((a, b) => b.tradeValue - a.tradeValue || (a.code < b.code ? -1 : 1));
+  const easy = (symbol) => symbol.tradeVolume >= 10_000 && symbol.referencePrice <= 2_000;
+  const defaults = [...offered.filter(easy), ...offered.filter((symbol) => !easy(symbol))].slice(0, 20).map((symbol) => symbol.code).sort();
+  if (defaults.join() !== FIXTURE.top[date].join()) throw new Error(`${date}: the default 20 are ${defaults}, not FIXTURE.top's`);
 
   dayFiles.unshift(await put(dir, `days/${date}/index.json`, json({ schema: 1, date, coverage: "full-market", volumeUnit: "lot", symbols }, 1)));
   const dayManifest = json({

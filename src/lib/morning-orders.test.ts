@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { commission } from "./market/ticks.ts";
 import type { MorningState } from "./morning.ts";
 import {
   classifySendFailure,
+  exceedsCash,
   isLargeOrder,
   sendFailureText,
   LARGE_ORDER_CASH_SHARE,
@@ -59,6 +61,19 @@ test("a buy is large from half of the available cash; sells never are", () => {
   assert.equal(isLargeOrder({ side: "sell", amount: 9_000_000, availableCash: 1_000 }), false);
   assert.equal(isLargeOrder({ side: "buy", amount: null, availableCash: 10_000_000 }), false);
   assert.equal(isLargeOrder({ side: "buy", amount: 1_000, availableCash: 0 }), false);
+});
+
+// 2026-11-02, 石大哥 on a phone: one 川湖 lot left 556,800, and a second 9,415,000 buy could still be confirmed and
+// sent, again and again, each turned down with 「目前模擬資金不足」. The classroom's own rule decides it before sending.
+test("a buy the cash cannot pay for, its fee included, is held back; sells and unknown amounts never are", () => {
+  const fee = commission(9_415_000);
+  assert.equal(exceedsCash({ side: "buy", amount: 9_415_000, availableCash: 556_800 }), true);
+  assert.equal(exceedsCash({ side: "buy", amount: 9_415_000, availableCash: 9_415_000 + fee }), false);
+  assert.equal(exceedsCash({ side: "buy", amount: 9_415_000, availableCash: 9_415_000 + fee - 1 }), true);
+  assert.equal(exceedsCash({ side: "buy", amount: 9_415_000, availableCash: 9_415_000 }), true, "the fee counts");
+  assert.equal(exceedsCash({ side: "sell", amount: 9_415_000, availableCash: 0 }), false);
+  assert.equal(exceedsCash({ side: "buy", amount: null, availableCash: 0 }), false);
+  assert.equal(exceedsCash({ side: "buy", amount: Number.NaN, availableCash: 0 }), false);
 });
 
 test("reports read newest first: a failed send, the cancel, its send, the fill and the first send", () => {

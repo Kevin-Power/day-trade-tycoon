@@ -143,15 +143,15 @@ test('real HTTP guest flow: gate-only guest accounts, start-to-consent, practice
     stage = 'a guest\'s picker never uses the list';
     const picker = initial.body.picker;
     assert.equal(picker.lessonId, 'fubon-20261027-am');
-    assert.equal(picker.note.title, '預設：成交值前 5 名'); assert.equal(picker.note.detail, null);
-    assert.deepEqual(picker.defaults, [...FIXTURE.hot].sort(), 'a guest starts with the day\'s five most traded stocks');
+    assert.equal(picker.note.title, '預設：成交值前 20 名，先挑成交量 1 萬張以上、股價 2,000 元以下'); assert.equal(picker.note.detail, null);
+    assert.deepEqual(picker.defaults, FIXTURE.top['2026-10-27'], 'a guest starts with the day\'s default 20');
     assert.deepEqual(initial.body.catalog.symbols.map(symbol => symbol.code), picker.defaults);
     assert.deepEqual(initial.body.catalog.note, picker.note);
     for (const lesson of ['fubon-20261022-am', 'fubon-20261021-am']) {
       const other = await request('/api/morning?lesson=' + lesson, { jar: guest });
       assert.equal(other.status, 200);
-      assert.equal(other.body.picker.note.title, '預設：成交值前 5 名', lesson + ': the same wording on every day');
-      assert.deepEqual([...other.body.picker.defaults].sort(), [...FIXTURE.hot].sort());
+      assert.equal(other.body.picker.note.title, '預設：成交值前 20 名，先挑成交量 1 萬張以上、股價 2,000 元以下', lesson + ': the same wording on every day');
+      assert.deepEqual(other.body.picker.defaults, FIXTURE.top[other.body.picker.date]);
     }
 
     stage = 'guest practice after accepting the statement on start';

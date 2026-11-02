@@ -17,7 +17,7 @@
 //      body compressed (gzip level 6 and brotli quality 5, measured here; the QA server sends it uncompressed) is at
 //      most 60 KB, and the server answers within 100 ms (time to the reply's headers on loopback).
 //   7. A guest (a fresh visitor through the gate): nothing the server sends it names the list (no radar, 熱門當沖, 名單,
-//      「M/D 盤後）」, or the list's counts), its picker on every day is the top 5 with 「預設：成交值前 5 名」, while the owner's
+//      「M/D 盤後）」, or the list's counts), its picker on every day is that day's default 20 with 「預設：成交值前 20 名…」, while the owner's
 //      10/27 picker does carry the list (so the check can see it).
 // The owner's runs this starts are given up at the end. Usage: node scripts/qa/desk-lessons.mjs [label] [proxyPort]
 import { chromium } from "playwright";
@@ -153,10 +153,10 @@ const listDetail = (listDate, lessonDate) => {
 };
 const EXPECTED = {
   [D27]: { title: `預設：前一交易日熱門當沖股（${FIXTURE.radarFor[D27].slice(5).replace("-", "/")} 盤後）`, detail: listDetail(FIXTURE.radarFor[D27], D27), defaults: listDefaults(FIXTURE.radarFor[D27], D27), books: true, taiex: true },
-  [D22]: { title: "前一交易日沒有熱門當沖名單，改用成交值前 5 名", detail: null, defaults: sorted(FIXTURE.hot), books: false, taiex: false },
+  [D22]: { title: "前一交易日沒有熱門當沖名單，改用成交值前 20 名，先挑成交量 1 萬張以上、股價 2,000 元以下", detail: null, defaults: FIXTURE.top[D22], books: false, taiex: false },
   [D21]: { title: `預設：前一交易日熱門當沖股（${FIXTURE.radarFor[D21].slice(5).replace("-", "/")} 盤後）`, detail: listDetail(FIXTURE.radarFor[D21], D21), defaults: listDefaults(FIXTURE.radarFor[D21], D21), books: false, taiex: true },
 };
-const GUEST_TITLE = "預設：成交值前 5 名";
+const GUEST_TITLE = "預設：成交值前 20 名，先挑成交量 1 萬張以上、股價 2,000 元以下";
 const PICKER_KEYS = "code,disposition,name,previousValue,referencePrice";
 const pickers = {};
 
@@ -494,7 +494,7 @@ await check("7-guest-no-list", async () => {
       if (note.title !== GUEST_TITLE || note.detail !== null) problems.push(`${body.url}: the guest's note is ${JSON.stringify(note)}`);
     if (data?.picker) {
       pickersSeen++;
-      if (data.picker.defaults.join() !== sorted(FIXTURE.hot).join()) problems.push(`${body.url}: the guest's defaults are ${data.picker.defaults.join(",")}, not the top 5`);
+      if (data.picker.defaults.join() !== FIXTURE.top[data.picker.date]?.join()) problems.push(`${body.url}: the guest's defaults are ${data.picker.defaults.join(",")}, not the day's default 20`);
     }
   }
   if (api.length < 5) problems.push(`only ${api.length} API replies were seen`);

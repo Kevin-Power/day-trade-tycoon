@@ -121,8 +121,8 @@ test("guest responses never contain radar data", () => withMarket(async (dir) =>
     };
     const first = served(await get("guest"));
     clean("guest GET", first);
-    assert.deepEqual(first.picker!.defaults, ["1101", "2317", "2330", "2454", "2603"]);
-    assert.deepEqual(first.picker!.note, { title: "預設：成交值前 5 名", detail: null });
+    assert.deepEqual(first.picker!.defaults, ["1101", "2002", "2317", "2330", "2454", "2603"]);
+    assert.deepEqual(first.picker!.note, { title: "預設：成交值前 20 名，先挑成交量 1 萬張以上、股價 2,000 元以下", detail: null });
     assert.deepEqual(first.catalog.symbols.map((symbol) => symbol.code), first.picker!.defaults);
     assert.deepEqual(first.catalog.note, first.picker!.note);
 
