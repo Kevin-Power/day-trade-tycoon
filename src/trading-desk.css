@@ -2894,6 +2894,28 @@ html:has(.trading-desk) #app {
 .trading-desk[data-layout="senior"] .td-dock-profit {
   font-size: 12px;
 }
+/* 大字: the tabs are about 57px (30px icon, 19px label), with no room for a third line; the figure goes beside the
+   icon instead, so 庫存 keeps its height and the 江波圖 its 160px. */
+.trading-desk[data-layout="senior"] .td-dock button:has(> .td-dock-profit) {
+  display: grid;
+  grid-template-columns: auto minmax(0, auto);
+  grid-template-areas:
+    "icon profit"
+    "label label";
+  place-content: center;
+  align-items: center;
+  gap: 3px 4px;
+}
+.trading-desk[data-layout="senior"] .td-dock button:has(> .td-dock-profit) > svg {
+  grid-area: icon;
+}
+.trading-desk[data-layout="senior"] .td-dock button:has(> .td-dock-profit) > span {
+  grid-area: label;
+  justify-self: center;
+}
+.trading-desk[data-layout="senior"] .td-dock button > .td-dock-profit {
+  grid-area: profit;
+}
 /* 成交／未成交 the moment the replay reaches it (2026-11-02): on top of the page for a few seconds, never in the way
    of a press (taps go through it). Desktops: the bottom right corner; phones and 大字: across the top. */
 .trading-desk .td-order-notice {
