@@ -856,6 +856,8 @@ function MorningLesson({
         window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "auto" }));
       }
     } else {
+      // Not sent: the replay stops, as the notice of a refused order says it does.
+      if (fromTradeBar) setAuto(false);
       const message = sendFailureMessage(sent.outcome);
       if (message)
         setFailures((list) =>
@@ -1438,6 +1440,7 @@ function MorningLesson({
                         <PhoneTradeBar
                           catalog={catalog}
                           session={liveMarket}
+                          serverReference={marketSession?.bars[code]?.at(-1)?.c ?? null}
                           code={code}
                           lots={barLots}
                           onLots={setBarLots}

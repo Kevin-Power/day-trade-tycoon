@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { MorningState } from "./morning.ts";
-import { phoneTrade, type PhoneTradeInput } from "./phone-trade.ts";
+import { phoneTrade, tapAllowed, TAP_GUARD_MS, type PhoneTradeInput } from "./phone-trade.ts";
 
 type Order = MorningState["orders"][number];
 const NAMES = { "2330": "台積電", "3037": "欣興" };
@@ -14,9 +14,11 @@ const input = (over: Partial<PhoneTradeInput> = {}, session: Partial<PhoneTradeI
   names: NAMES,
   lots: 1,
   reference: 1465,
+  serverReference: null,
   atEnd: false,
   busy: false,
   sending: null,
+  missed: null,
   armed: false,
   ...over,
 });
@@ -94,4 +96,32 @@ test("before the first minute, after the close and while a request is out, nothi
   assert.equal(busy.buy.sub, "市價", "a busy desk keeps the words");
   const sending = ready(phoneTrade(input({ busy: true, sending: "buy" })));
   assert.equal(sending.buy.sub, "送出中…");
+});
+
+test("賣出 sells at most 400 lots, the most one order may have, and says so", () => {
+  const view = ready(phoneTrade(input({}, { positions: [{ code: "2330", shares: 410_000, averageCost: 20 }] })));
+  assert.deepEqual(view.sell, { enabled: true, label: "賣出", sub: "400 張（共 410）", lots: 400 });
+});
+
+test("the cash check also uses the minute's last trade, which the classroom prices a market buy at", () => {
+  // Mid-replay the played trade is 1400 but the minute the classroom revealed ends at 1465: 7 張 cost 10.25 M.
+  const view = ready(phoneTrade(input({ lots: 7, reference: 1400, serverReference: 1465 })));
+  assert.equal(view.buy.enabled, false);
+  assert.equal(view.buy.sub, "資金不足");
+  const large = ready(phoneTrade(input({ lots: 4, reference: 1000, serverReference: 1465 })));
+  assert.equal(large.buy.tap, "arm");
+});
+
+test("a tap right after the bar changed under the finger is ignored, so a double tap neither confirms nor sells", () => {
+  assert.equal(tapAllowed(null, 1_000), true);
+  assert.equal(tapAllowed(1_000, 1_000 + TAP_GUARD_MS - 1), false);
+  assert.equal(tapAllowed(1_000, 1_000 + TAP_GUARD_MS), true);
+  assert.ok(TAP_GUARD_MS >= 500, "longer than a double tap");
+});
+
+test("a send the classroom did not take says so on its button until the next one", () => {
+  const view = ready(phoneTrade(input({ missed: "sell" }, { positions: [{ code: "2330", shares: 1000, averageCost: 1465 }] })));
+  assert.equal(view.sell.sub, "未送出");
+  assert.equal(view.sell.enabled, true, "it can be tried again");
+  assert.equal(view.buy.sub, "市價");
 });

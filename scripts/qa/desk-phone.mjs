@@ -229,8 +229,17 @@ for (const [width, height, senior] of sizes) {
       const sell = ((await page.locator(".td-tradebar").getByRole("button", { name: /^賣出/ }).textContent()) ?? "").replace(/\s+/g, " ").trim();
       result.sellButton = sell;
       if (held && sell !== `賣出 全部 ${held[1]} 張`) fail(`the bar's 賣出 reads 「${sell}」 with ${held[1]} 張 held`);
-      const chartName = (await page.locator('main canvas[role="img"]').first().getAttribute("aria-label")) ?? "";
-      if (held && !chartName.includes(`庫存 ${held[1]} 張，成本 ${held[2]}`)) fail("the 江波圖 does not name the holding's 成本 line");
+      const chart = page.locator('main canvas[role="img"]').first();
+      const chartName = (await chart.getAttribute("aria-label")) ?? "";
+      // data-levels: the levels the chart drew (its paint writes them down; it paints on the next frame).
+      if (held)
+        await page
+          .waitForFunction((want) => document.querySelector('main canvas[role="img"]')?.dataset.levels?.split("|").includes(want), `成本 ${held[2]}`, { timeout: 3000 })
+          .catch(() => {});
+      const drawn = ((await chart.getAttribute("data-levels")) ?? "").split("|");
+      result.levels = drawn;
+      if (held && !drawn.includes(`成本 ${held[2]}`)) fail(`the 江波圖 draws ${drawn.join(", ") || "no levels"}, not 成本 ${held[2]}`);
+      if (held && !chartName.includes(`庫存 ${held[1]} 張，成本 ${held[2]}`)) fail("the 江波圖's name does not say the holding's 成本");
       await page.screenshot({ path: `${out}${name}-holding.png` });
       await notice.waitFor({ state: "detached", timeout: 9000 }).catch(() => fail("the fill notice stays on screen"));
     }

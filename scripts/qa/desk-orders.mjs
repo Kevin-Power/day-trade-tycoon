@@ -54,7 +54,7 @@ assert.match(announced ?? "", /你的委託成交/);
 const notice = page.locator(".td-order-notice");
 await notice.waitFor({ timeout: 8000 });
 const noticeText = ((await notice.textContent()) ?? "").replace(/\s+/g, " ").trim();
-assert.match(noticeText, /^成交 ?買進 .+ \d+ 張 @ [\d.]+ · 庫存 \d+ 張 均 [\d.]+$/);
+assert.match(noticeText, /^成交 ?買進 .+ \d+ 張 @ [\d.]+ · 庫存 \d+ 張 成本 [\d.]+$/);
 assert.equal(await notice.evaluate((node) => getComputedStyle(node).pointerEvents), "none");
 const corner = await notice.evaluate((node) => {
   const box = node.getBoundingClientRect();

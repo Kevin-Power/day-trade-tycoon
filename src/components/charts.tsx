@@ -769,32 +769,6 @@ function paint(
       ctx.fill();
     }
   }
-  // The learner's fills: a buy points up from under its price, a sell down from over it. The desk draws them larger,
-  // outlined in the background colour, so a holding's entry is seen on the line (2026-11-04, the owner).
-  const fillHalf = terminal ? 6 : 4;
-  const fillTall = terminal ? 10 : 7;
-  for (const fill of inChartWindow(opt.fills ?? [], window).slice(0, 48)) {
-    if (isIndex) break;
-    const x = xOf(fill.t);
-    const y = yOf(fill.p);
-    const dir = fill.side === "buy" ? 1 : -1;
-    ctx.save();
-    ctx.fillStyle = fill.side === "buy" ? c.up : c.down;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x - fillHalf, y + dir * fillTall);
-    ctx.lineTo(x + fillHalf, y + dir * fillTall);
-    ctx.closePath();
-    if (terminal) {
-      ctx.strokeStyle = c.bg;
-      ctx.lineWidth = 1.5;
-      ctx.lineJoin = "round";
-      ctx.setLineDash([]);
-      ctx.stroke();
-    }
-    ctx.fill();
-    ctx.restore();
-  }
   // 過前高: an amber point-down mark over the close of the breakout minute, and its name in an amber tag above it.
   for (const mark of inChartWindow(opt.breakouts ?? [], window).slice(0, 8)) {
     if (isIndex) break;
@@ -824,6 +798,10 @@ function paint(
   // Dashed levels (昨高 and the like, 前高) skip the 漲停／跌停 labels' boxes, so those labels stay readable.
   clearOfUnderLabels(() => {
     if (terminal) {
+      // What is drawn, for checks that cannot read the canvas: 「成本 1462.50|停利 1485」.
+      ctx.canvas.dataset.levels = (opt.levels ?? [])
+        .map((level) => `${level.label} ${level.priceText ?? label(level.price)}`)
+        .join("|");
       for (const level of opt.levels ?? []) {
         const y = hRule(yOf(level.price));
         ctx.save();
@@ -902,6 +880,33 @@ function paint(
       ctx.restore();
     }
   });
+  // The learner's fills: a buy points up from under its price, a sell down from over it. The desk draws them larger,
+  // outlined in the background colour and over the levels (a buy's tip is at about its 成本), so a holding's entry
+  // is seen on the line (2026-11-04, the owner).
+  const fillHalf = terminal ? 6 : 4;
+  const fillTall = terminal ? 10 : 7;
+  for (const fill of inChartWindow(opt.fills ?? [], window).slice(0, 48)) {
+    if (isIndex) break;
+    const x = xOf(fill.t);
+    const y = yOf(fill.p);
+    const dir = fill.side === "buy" ? 1 : -1;
+    ctx.save();
+    ctx.fillStyle = fill.side === "buy" ? c.up : c.down;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - fillHalf, y + dir * fillTall);
+    ctx.lineTo(x + fillHalf, y + dir * fillTall);
+    ctx.closePath();
+    if (terminal) {
+      ctx.strokeStyle = c.bg;
+      ctx.lineWidth = 1.5;
+      ctx.lineJoin = "round";
+      ctx.setLineDash([]);
+      ctx.stroke();
+    }
+    ctx.fill();
+    ctx.restore();
+  }
   ctx.restore();
   drawLabels(labelLayers.over);
 
