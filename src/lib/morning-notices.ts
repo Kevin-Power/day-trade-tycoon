@@ -98,7 +98,7 @@ export function orderNotices(
     notices.push({
       id: fill.id,
       label: "成交",
-      text: holding ? `${text} · 庫存 ${holding.shares / 1000} 張 均 ${fillPriceText(holding.averageCost)}` : text,
+      text: holding ? `${text} · 庫存 ${holding.shares / 1000} 張 成本 ${fillPriceText(holding.averageCost)}` : text,
     });
   }
   const waiting = new Set(before.orders.filter((order) => order.status === "pending").map((order) => order.id));
@@ -113,8 +113,9 @@ export function orderNotices(
 
 /**
  * A stock's holding for the quote block in three short parts (a phone stacks them beside the name): 「庫存 2 張」,
- * 「均 1785」 and its result at the latest price less the buy fees paid for the shares held (2026-11-02, 石大哥:
- * with one stock held it is the 本輪損益 under 庫存). Selling costs are not counted until a sell.
+ * 「成本 1785」 (as the chart's line says; the chart's 均 is the day's average price) and its result at the latest
+ * price less the buy fees paid for the shares held (2026-11-02, 石大哥: with one stock held it is the 本輪損益 under
+ * 庫存). Selling costs are not counted until a sell.
  */
 export function holdingText(
   position: Position,
@@ -126,7 +127,7 @@ export function holdingText(
   const value = mark.value === null ? null : cents(mark.value - fees);
   return {
     lots: `庫存 ${position.shares / 1000} 張`,
-    average: `均 ${fillPriceText(position.averageCost)}`,
+    average: `成本 ${fillPriceText(position.averageCost)}`,
     result: value === null ? null : { text: signedMoney(value), tone: toneOf(Math.round(value)) },
   };
 }

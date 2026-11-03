@@ -671,6 +671,13 @@ test("a level with its own colour keeps it (自動出場's 停利 and 停損)", 
   assert.deepEqual(labels.map((label) => [label.text, label.color]), [["停利", "#f0525f"], ["停損", "#22c38e"]]);
 });
 
+test("a level with its own price text keeps it: a 成本 of 1462.50 is not rounded to the tick (1463)", () => {
+  const [label] = levelChartLabels([{ price: 1462.5, label: "成本", priceText: "1462.50" }], {
+    x: 300, top: 10, lineHeight: 16, color: "#e7b549", yOf: () => 100, priceText: (price) => price.toFixed(0),
+  });
+  assert.equal(label!.priceText, "1462.50");
+});
+
 test("a level label too close to the top goes below its line", () => {
   const [label] = levelChartLabels([{ price: 185, label: "昨高" }], {
     x: 300, top: 10, lineHeight: 16, color: "#e7b549", yOf: (price) => 200 - price, priceText: String,
