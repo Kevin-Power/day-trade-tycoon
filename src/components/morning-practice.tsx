@@ -18,7 +18,8 @@ import { useTickReplay } from "@/components/use-tick-replay";
 import { OrderNoticeToast } from "@/components/order-notice";
 import { useOrderNotice } from "@/components/use-order-notice";
 import { signedMoney } from "@/lib/morning-notices";
-import { exitPlanText } from "@/lib/morning-exit";
+import { exitPlanText, holdingLevels } from "@/lib/morning-exit";
+import { fillPriceText } from "@/lib/morning-ledger";
 import {
   AccountSummary,
   DisplayBook,
@@ -31,6 +32,7 @@ import { MinuteTable, QuoteDetailGrid, StockTabs } from "@/components/stock-deta
 import { IndexPanel } from "@/components/index-panel";
 import { WatchTable } from "@/components/watch-table";
 import { ChartToolbar, QuoteHero, QuoteLine } from "@/components/quote-hero";
+import { PhoneTradeBar } from "@/components/phone-trade-bar";
 import { useGuestBootstrap } from "@/components/use-guest-bootstrap";
 import { AccessCard } from "@/components/access-card";
 import { GuestBanner, GuestSaveCard, LinkNoticeBanner } from "@/components/guest-prompts";
@@ -586,14 +588,15 @@ function MorningLesson({
   const runKey = sessionId ?? "plan";
   const [indexViewFor, setIndexViewFor] = useState<string | null>(null);
   const indexView = indexViewFor === runKey;
-  // Phones: a price tapped in the 行情 book (or just a side, from the quote's 買進／賣出), handed to 下單 for that
-  // stock (filled in, never sent).
+  // Phones: a price tapped in the 行情 book, handed to 下單 for that stock (filled in, never sent).
   const [prefill, setPrefill] = useState<{
     price?: number;
     side: "buy" | "sell";
     nonce: number;
     code: string;
   }>();
+  // Phones: the lots the 行情 trade bar's 買進 buys, kept across stocks and tabs.
+  const [barLots, setBarLots] = useState(1);
   // Desktops: the TAIEX row moves focus to the 大盤 pane it points at.
   const indexPane = useRef<HTMLDivElement>(null);
   // The plan chip opens 教材 at the round's plan, expanded.
@@ -824,9 +827,11 @@ function MorningLesson({
     lots: number,
     revision: number,
     options?: MorningOrderOptions,
+    /** The 行情 trade bar's: the replay keeps playing, so the fill comes as the line goes on. */
+    fromTradeBar = false,
   ) {
     if (!session || session.revision !== revision) return false;
-    setAuto(false);
+    if (!fromTradeBar) setAuto(false);
     const requestId = crypto.randomUUID();
     const sent = await send(
       {
@@ -843,7 +848,8 @@ function MorningLesson({
     );
     const next = sent.response;
     if (next?.state) {
-      setFeedback("紙上委託已記錄，尚未代表成交。前進一分鐘後，請核對委託與成交紀錄。");
+      // The trade bar says its waiting order itself; two more lines on top would push the 江波圖 down.
+      if (!fromTradeBar) setFeedback("紙上委託已記錄，尚未代表成交。前進一分鐘後，請核對委託與成交紀錄。");
       // Phones (2026-11-02, 石大哥): back to 行情 once sent, so the 江波圖 is seen going on; 成交 is said on top.
       if (singlePane && activePane === "trade") {
         setActivePane("market");
@@ -1359,19 +1365,7 @@ function MorningLesson({
                         titleRef={practiceHeading}
                         onSelect={singlePane ? setSelected : undefined}
                         clock={singlePane ? replayClockText : undefined}
-                        onTrade={
-                          singlePane && !showPlan
-                            ? (side) => {
-                                setPrefill({ side, nonce: Date.now(), code });
-                                setActivePane("trade");
-                                window.scrollTo({ top: 0, behavior: "auto" });
-                                // The button that had focus is gone with 行情: keyboards start again at the page.
-                                window.requestAnimationFrame(() =>
-                                  practiceHeading.current?.focus({ preventScroll: true }),
-                                );
-                              }
-                            : undefined
-                        }
+                        compactBook={singlePane}
                       />
                       {chartBar}
                     </>
@@ -1435,6 +1429,24 @@ function MorningLesson({
                         ]}
                       />
                     )}
+                    {singlePane &&
+                      activePane === "market" &&
+                      !indexView &&
+                      liveMarket &&
+                      !completed &&
+                      !atEnd && (
+                        <PhoneTradeBar
+                          catalog={catalog}
+                          session={liveMarket}
+                          code={code}
+                          lots={barLots}
+                          onLots={setBarLots}
+                          atEnd={atEnd}
+                          busy={Boolean(busy || error || notice)}
+                          onOrder={(side, lots, revision) => order(side, lots, revision, undefined, true)}
+                          onCancel={cancel}
+                        />
+                      )}
                     {singlePane && activePane === "watch" && (
                       <WatchTable
                         catalog={catalog}
@@ -1954,14 +1966,9 @@ function MorningChart({
   const fills = (session?.fills ?? [])
     .filter((fill) => fill.code === symbol.code)
     .map((fill) => ({ t: fill.t, p: fill.price, side: fill.side }));
-  // 自動出場: the holding's 停利 (up colour) and 停損 (down colour) as dashed levels.
-  const exit = session?.positions.find((position) => position.code === symbol.code)?.exit;
-  const exitLevels = exit
-    ? [
-        ...(exit.takeProfit === null ? [] : [{ price: exit.takeProfit, label: "停利", tone: "up" as const }]),
-        ...(exit.stopLoss === null ? [] : [{ price: exit.stopLoss, label: "停損", tone: "down" as const }]),
-      ]
-    : undefined;
+  // A holding: its 成本 as a solid accent line, its 自動出場 停利 (up colour) and 停損 (down colour) as dashed ones.
+  const held = session?.positions.find((position) => position.code === symbol.code && position.shares > 0);
+  const levels = holdingLevels(held);
   const sourceBacked = showVolumeAndAverage(catalog.volumeUnit, bars);
   return (
     <section className="td-chart" data-coach="chart" aria-label={symbol.name + "歷史分鐘行情"}>
@@ -1981,7 +1988,7 @@ function MorningChart({
             swingHighs={swingHighs}
             breakouts={breakouts}
             fills={fills}
-            levels={exitLevels}
+            levels={levels.length ? levels : undefined}
             variant={candles ? "candles" : "stock"}
             presentation="terminal"
             showVolume={sourceBacked}
@@ -1992,7 +1999,7 @@ function MorningChart({
             priceBand={candles ? undefined : JIANGBO_BAND}
             emaPeriods={DESK_EMA_PERIODS}
             interactive
-            ariaLabel={`${catalog.date} ${code} ${symbol.name}歷史${candles ? "一分鐘K線" : "江波圖（昨收上下 10%）"}，含 EMA11、EMA24（一分鐘收盤價），只包含已揭露分鐘，最新一分鐘依富邦的真實逐筆成交重播，播完時是這分鐘的收盤價，${sourceBacked ? "含均價與成交量（張）" : "不顯示成交量或均價"}。${lastComplete ? `最新完整分鐘 ${formatTime(lastComplete.t).slice(0, 5)} 開 ${formatPrice(lastComplete.o)} 高 ${formatPrice(lastComplete.h)} 低 ${formatPrice(lastComplete.l)} 收 ${formatPrice(lastComplete.c)}。` : "第一分鐘重播中。"}`}
+            ariaLabel={`${catalog.date} ${code} ${symbol.name}歷史${candles ? "一分鐘K線" : "江波圖（昨收上下 10%）"}，含 EMA11、EMA24（一分鐘收盤價），只包含已揭露分鐘，最新一分鐘依富邦的真實逐筆成交重播，播完時是這分鐘的收盤價，${sourceBacked ? "含均價與成交量（張）" : "不顯示成交量或均價"}。${held ? `庫存 ${held.shares / 1000} 張，成本 ${fillPriceText(held.averageCost)}。` : ""}${lastComplete ? `最新完整分鐘 ${formatTime(lastComplete.t).slice(0, 5)} 開 ${formatPrice(lastComplete.o)} 高 ${formatPrice(lastComplete.h)} 低 ${formatPrice(lastComplete.l)} 收 ${formatPrice(lastComplete.c)}。` : "第一分鐘重播中。"}`}
           />
         ) : (
           <div className="td-chart-waiting">

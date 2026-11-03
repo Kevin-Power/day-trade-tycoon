@@ -24,7 +24,7 @@ export function QuoteHero({
   titleRef,
   onSelect,
   clock,
-  onTrade,
+  compactBook = false,
 }: {
   catalog: MorningCatalog;
   session: LiveMorningState | null;
@@ -36,8 +36,11 @@ export function QuoteHero({
   onSelect?: (code: string) => void;
   /** Phones: the replay clock (HH:MM:SS) for the code-and-time line under the quote. */
   clock?: string;
-  /** Phones: 買進／賣出 are buttons that open 下單 on that side (like a broker app's quote block). */
-  onTrade?: (side: "buy" | "sell") => void;
+  /**
+   * Phones: the best bid and ask as two short lines (買價／賣價) beside the price; 買進 and 賣出 are the trade bar's
+   * (2026-11-04).
+   */
+  compactBook?: boolean;
 }) {
   const symbol = catalog.symbols.find((item) => item.code === code) ?? catalog.symbols[0];
   const tick = useTickFlash(
@@ -68,7 +71,12 @@ export function QuoteHero({
     </h1>
   );
   return (
-    <header className="td-hero" data-tone={quote.tone} data-stepper={Boolean(onSelect)}>
+    <header
+      className="td-hero"
+      data-tone={quote.tone}
+      data-stepper={Boolean(onSelect)}
+      data-compact={compactBook || undefined}
+    >
       <div className="td-hero-id">
         {onSelect ? (
           <div className="td-hero-step">
@@ -124,39 +132,16 @@ export function QuoteHero({
           </span>
         )}
       </p>
-      {onTrade ? (
-        <div className="td-hero-book" role="group" aria-label="最佳買價與賣價，點一下到下單">
-          {(
-            [
-              ["bid", "buy", "買進", best.bid],
-              ["ask", "sell", "賣出", best.ask],
-            ] as const
-          ).map(([side, order, label, value]) => (
-            <button
-              key={side}
-              type="button"
-              data-side={side}
-              data-tone={toneOf(value)}
-              aria-label={`${label}，${side === "bid" ? "最佳買價" : "最佳賣價"} ${price(value)}，到下單`}
-              onClick={() => onTrade(order)}
-            >
-              <span className="td-hero-book-label">{label}</span>
-              <span className="td-hero-book-price">{price(value)}</span>
-            </button>
-          ))}
+      <dl className="td-hero-book" data-compact={compactBook || undefined} aria-label="最佳買價與賣價">
+        <div data-side="bid" data-tone={toneOf(best.bid)}>
+          <dt>{compactBook ? "買價" : "買進"}</dt>
+          <dd>{price(best.bid)}</dd>
         </div>
-      ) : (
-        <dl className="td-hero-book" aria-label="最佳買價與賣價">
-          <div data-side="bid" data-tone={toneOf(best.bid)}>
-            <dt>買進</dt>
-            <dd>{price(best.bid)}</dd>
-          </div>
-          <div data-side="ask" data-tone={toneOf(best.ask)}>
-            <dt>賣出</dt>
-            <dd>{price(best.ask)}</dd>
-          </div>
-        </dl>
-      )}
+        <div data-side="ask" data-tone={toneOf(best.ask)}>
+          <dt>{compactBook ? "賣價" : "賣出"}</dt>
+          <dd>{price(best.ask)}</dd>
+        </div>
+      </dl>
       {clock && (
         <p className="td-hero-line">
           <span>{symbol.code}</span>

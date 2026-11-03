@@ -42,7 +42,7 @@ test("a fill the replay has reached is announced once, with the holding after a 
     positions: [{ code: "3533", shares: 2000, averageCost: 1785 }],
   });
   assert.deepEqual(orderNotices(before, after, NAMES), [
-    { id: "B", label: "成交", text: "買進 嘉澤 1 張 @ 1795 · 庫存 2 張 均 1785" },
+    { id: "B", label: "成交", text: "買進 嘉澤 1 張 @ 1795 · 庫存 2 張 成本 1785" },
   ]);
   assert.deepEqual(orderNotices(after, after, NAMES), [], "nothing new, nothing said");
 });
@@ -82,12 +82,12 @@ test("money with its sign, and a stock's holding for the quote block", () => {
   // paid for it now come off here too (+50,000 − 1,518 − 1,535), so with one stock held the two agree.
   assert.deepEqual(holdingText({ code: "3533", shares: 2000, averageCost: 1785 }, 1810, BUYS), {
     lots: "庫存 2 張",
-    average: "均 1785",
+    average: "成本 1785",
     result: { text: "+46,947", tone: "up" },
   });
   assert.deepEqual(holdingText({ code: "3533", shares: 2000, averageCost: 1785.5 }, undefined, BUYS), {
     lots: "庫存 2 張",
-    average: "均 1785.50",
+    average: "成本 1785.50",
     result: null,
   });
 });

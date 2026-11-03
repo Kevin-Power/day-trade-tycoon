@@ -703,7 +703,7 @@ export const LABEL_PADDING = 4;
 
 /** Labels for extra horizontal levels (e.g. 昨高): at the right edge, just above the line, or below it near the top. */
 export function levelChartLabels(
-  levels: readonly { price: number; label: string; color?: string }[],
+  levels: readonly { price: number; label: string; color?: string; priceText?: string }[],
   place: { x: number; top: number; lineHeight: number; color: string; yOf: (price: number) => number; priceText: (price: number) => string },
 ): ChartLabel[] {
   return levels.map((level, index) => {
@@ -713,7 +713,7 @@ export function levelChartLabels(
       key: `level-${index}`,
       text: level.label,
       price: level.price,
-      priceText: place.priceText(level.price),
+      priceText: level.priceText ?? place.priceText(level.price),
       color: level.color ?? place.color,
       x: place.x,
       anchor: "end",

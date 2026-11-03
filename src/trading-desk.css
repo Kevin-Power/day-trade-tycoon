@@ -1140,17 +1140,17 @@ html:has(.trading-desk) #app {
   gap: 6px;
   margin: 0;
 }
-.trading-desk .td-hero-book > :is(div, button) {
+.trading-desk .td-hero-book > div {
   padding: 2px 10px 3px;
   background: var(--td-bg);
   border: 1px solid var(--td-line-strong);
   border-top: 2px solid var(--td-up);
   border-radius: var(--td-radius);
 }
-.trading-desk .td-hero-book > :is(div, button)[data-side="ask"] {
+.trading-desk .td-hero-book > div[data-side="ask"] {
   border-top-color: var(--td-down);
 }
-.trading-desk .td-hero-book :is(dt, .td-hero-book-label) {
+.trading-desk .td-hero-book dt {
   display: flex;
   align-items: center;
   color: var(--td-muted);
@@ -1158,23 +1158,11 @@ html:has(.trading-desk) #app {
   line-height: 1.3;
   white-space: nowrap;
 }
-.trading-desk .td-hero-book :is(dd, .td-hero-book-price) {
+.trading-desk .td-hero-book dd {
   margin: 0;
   color: var(--td-tone);
   font: 600 24px/1 var(--font-mono);
   text-align: right;
-}
-/* Phones: the two boxes are buttons that open 下單 on their side. */
-.trading-desk .td-hero-book > button {
-  display: block;
-  min-height: 44px;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.trading-desk .td-hero-book .td-hero-book-price {
-  display: block;
 }
 @container (max-width: 760px) {
   .trading-desk .td-hero {
@@ -2713,10 +2701,10 @@ html:has(.trading-desk) #app {
   grid-template-columns: repeat(2, minmax(78px, auto));
   gap: 6px;
 }
-.trading-desk[data-layout="phone"] .td-hero-book > :is(div, button) {
+.trading-desk[data-layout="phone"] .td-hero-book > div {
   padding: 5px 9px 6px;
 }
-.trading-desk[data-layout="phone"] .td-hero-book :is(dd, .td-hero-book-price) {
+.trading-desk[data-layout="phone"] .td-hero-book dd {
   font-size: 22px;
 }
 .trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-id {
@@ -2746,13 +2734,13 @@ html:has(.trading-desk) #app {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-book > :is(div, button) {
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-book > div {
   padding: 6px 12px 7px;
 }
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-book :is(dt, .td-hero-book-label) {
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-book dt {
   font-size: 12px;
 }
-.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-book :is(dd, .td-hero-book-price) {
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-book dd {
   font-size: 26px;
   text-align: left;
 }
@@ -3061,10 +3049,10 @@ html:has(.trading-desk) #app {
 .trading-desk[data-layout="senior"] .td-hero h1 {
   font-size: 28px;
 }
-.trading-desk[data-layout="senior"] :is(.td-hero-stamp, .td-hero-book :is(dt, .td-hero-book-label), .td-hero-line) {
+.trading-desk[data-layout="senior"] :is(.td-hero-stamp, .td-hero-book dt, .td-hero-line) {
   font-size: 15px;
 }
-.trading-desk[data-layout="senior"] .td-hero-book :is(dd, .td-hero-book-price) {
+.trading-desk[data-layout="senior"] .td-hero-book dd {
   font-size: 30px;
 }
 .trading-desk[data-layout="senior"] .td-chip {
@@ -5033,10 +5021,10 @@ html:has(.trading-desk) #app {
   .trading-desk[data-layout="desktop"] .td-hero-book {
     grid-template-columns: repeat(2, minmax(80px, auto));
   }
-  .trading-desk[data-layout="desktop"] .td-hero-book > :is(div, button) {
+  .trading-desk[data-layout="desktop"] .td-hero-book > div {
     padding: 1px 8px 2px;
   }
-  .trading-desk[data-layout="desktop"] .td-hero-book :is(dd, .td-hero-book-price) {
+  .trading-desk[data-layout="desktop"] .td-hero-book dd {
     font-size: 18px;
   }
   .trading-desk[data-layout="desktop"] .td-chartbar {
@@ -5359,3 +5347,208 @@ html:has(.trading-desk) #app {
   transform: rotate(-8deg);
   pointer-events: none;
 }
+
+/* Phones' 行情 (2026-11-04, the owner: 「江波圖、買進按鈕、買完馬上看到庫存，通通在一個手機畫面搞定」). The quote's best
+   bid and ask are two short lines beside the price; 買進 and 賣出 are the trade bar's, pinned above the bottom tabs. */
+.trading-desk .td-hero-book[data-compact] {
+  grid-template-columns: auto;
+  gap: 4px;
+  align-self: center;
+}
+.trading-desk .td-hero-book[data-compact] > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+.trading-desk .td-hero-book[data-compact] dt {
+  font-size: 12px;
+}
+.trading-desk .td-hero-book[data-compact] dd {
+  font-size: 18px;
+  text-align: right;
+}
+/* What the bar takes from the chart's room, the quote gives back: a smaller price, less padding. */
+.trading-desk[data-layout="phone"] .td-hero[data-compact] {
+  gap: 4px 10px;
+  padding: 4px 12px;
+}
+.trading-desk[data-layout="phone"] .td-hero[data-compact] .td-hero-price strong {
+  font-size: clamp(38px, 11vw, 46px);
+}
+.trading-desk[data-layout="senior"] .td-hero[data-compact] {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "id id"
+    "price book";
+  align-items: center;
+}
+.trading-desk[data-layout="senior"] .td-hero-book[data-compact] dt {
+  font-size: 15px;
+}
+.trading-desk[data-layout="senior"] .td-hero-book[data-compact] dd {
+  font-size: 22px;
+}
+
+.trading-desk .td-tradebar {
+  position: sticky;
+  bottom: calc(60px + var(--td-hairline) + env(safe-area-inset-bottom));
+  z-index: 30;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--td-panel);
+  border-top: var(--td-hairline) solid var(--td-line-strong);
+}
+.trading-desk .td-tradebar[data-state="waiting"] {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.trading-desk .td-tradebar-lots {
+  display: flex;
+  background: var(--td-bg);
+  border: 1px solid var(--td-line-strong);
+  border-radius: var(--td-radius);
+}
+.trading-desk .td-tradebar-lots button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  min-height: 48px;
+  color: var(--td-fg);
+  background: transparent;
+  border: 0;
+}
+.trading-desk .td-tradebar-lots button:disabled {
+  color: var(--td-muted);
+  opacity: 0.4;
+}
+.trading-desk .td-tradebar-lots svg {
+  width: 15px;
+  height: 15px;
+}
+.trading-desk .td-tradebar-lots output {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 48px;
+  color: var(--td-fg);
+  font: 600 17px/1 var(--font-mono);
+}
+.trading-desk .td-tradebar-lots output small {
+  color: var(--td-muted);
+  font: 500 12px/1 var(--font-sans);
+}
+.trading-desk :is(.td-tradebar-buy, .td-tradebar-sell, .td-tradebar-cancel) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--td-radius);
+  font: inherit;
+  cursor: pointer;
+}
+.trading-desk .td-tradebar-buy {
+  color: #ffffff;
+  background: var(--td-up-fill);
+}
+.trading-desk .td-tradebar-sell {
+  color: #04120a;
+  background: var(--td-down);
+}
+.trading-desk :is(.td-tradebar-buy, .td-tradebar-sell) strong {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.trading-desk :is(.td-tradebar-buy, .td-tradebar-sell) small {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trading-desk .td-tradebar-buy:disabled {
+  color: rgb(255 255 255 / 0.5);
+  background: #691f2e;
+  cursor: default;
+}
+.trading-desk .td-tradebar-sell:disabled {
+  color: rgb(4 18 10 / 0.7);
+  background: #146b4d;
+  cursor: default;
+}
+/* A large buy's first tap: the second one sends it. */
+.trading-desk .td-tradebar-buy[data-armed] {
+  box-shadow:
+    0 0 0 2px var(--td-panel),
+    0 0 0 4px var(--td-warn);
+}
+.trading-desk .td-tradebar-wait {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  margin: 0;
+}
+.trading-desk .td-tradebar-wait strong {
+  overflow: hidden;
+  color: var(--td-fg);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trading-desk .td-tradebar-wait span {
+  color: var(--td-muted);
+  font-size: 12px;
+}
+.trading-desk .td-tradebar-cancel {
+  min-width: 76px;
+  color: var(--td-fg);
+  background: var(--td-raised);
+  border: 1px solid var(--td-line-strong);
+  font-size: 15px;
+  font-weight: 600;
+}
+.trading-desk .td-tradebar-cancel:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+/* The 大字 tabs are 56px (the global 56px buttons), not their own rule's 68px. */
+.trading-desk[data-layout="senior"] .td-tradebar {
+  bottom: calc(56px + var(--td-hairline) + env(safe-area-inset-bottom));
+}
+.trading-desk[data-layout="senior"] .td-tradebar-lots button {
+  width: 56px;
+  min-height: 56px;
+}
+.trading-desk[data-layout="senior"] :is(.td-tradebar-buy, .td-tradebar-sell, .td-tradebar-cancel) {
+  min-height: 56px;
+}
+.trading-desk[data-layout="senior"] .td-tradebar-lots output {
+  font-size: 20px;
+}
+.trading-desk[data-layout="senior"] :is(.td-tradebar-buy, .td-tradebar-sell) strong {
+  font-size: 20px;
+}
+.trading-desk[data-layout="senior"] :is(.td-tradebar-buy, .td-tradebar-sell, .td-tradebar-lots output) small,
+.trading-desk[data-layout="senior"] .td-tradebar-wait span {
+  font-size: 14px;
+}
+.trading-desk[data-layout="senior"] .td-tradebar-wait strong {
+  font-size: 16px;
+}
+

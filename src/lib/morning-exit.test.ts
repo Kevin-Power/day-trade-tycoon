@@ -5,6 +5,7 @@ import {
   exitPlanText,
   exitPrices,
   exitTrigger,
+  holdingLevels,
   STOP_LOSS_CHOICES,
   TAKE_PROFIT_CHOICES,
 } from "./morning-exit.ts";
@@ -54,4 +55,19 @@ test("a trade at or over 停利, or at or under 停損, fires; one between does 
   assert.equal(exitTrigger(exit, 840), "stopLoss");
   assert.equal(exitTrigger(exit, 866), null);
   assert.equal(exitTrigger(exit, 846), null);
+});
+
+test("a holding's chart levels: 成本 as a solid line, then its 停利 and 停損 (2026-11-04, the owner)", () => {
+  assert.deepEqual(holdingLevels({ averageCost: 1462.5, exit: { takeProfit: 1485, stopLoss: 1445, fromMs: 0 } }), [
+    { price: 1462.5, label: "成本", tone: "accent", solid: true, priceText: "1462.50" },
+    { price: 1485, label: "停利", tone: "up" },
+    { price: 1445, label: "停損", tone: "down" },
+  ]);
+  // Past the day's limit an exit has no price, and a run without 自動出場 has none at all.
+  assert.deepEqual(holdingLevels({ averageCost: 100, exit: { takeProfit: null, stopLoss: 99, fromMs: 0 } }), [
+    { price: 100, label: "成本", tone: "accent", solid: true, priceText: "100.0" },
+    { price: 99, label: "停損", tone: "down" },
+  ]);
+  assert.deepEqual(holdingLevels({ averageCost: 100 }), [{ price: 100, label: "成本", tone: "accent", solid: true, priceText: "100.0" }]);
+  assert.deepEqual(holdingLevels(undefined), []);
 });

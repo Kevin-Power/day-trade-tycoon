@@ -89,9 +89,10 @@ export type TapeChartProps = {
   breakouts?: { t: number; p: number }[];
   /**
    * Extra labelled dashed levels, e.g. yesterday's high (昨高), amber; `tone` draws one in the up or down colour
-   * (自動出場's 停利 and 停損).
+   * (自動出場's 停利 and 停損) or the accent, `solid` without dashes (a holding's 成本); `priceText` in place of the
+   * tick-rounded price (a 成本 of 1462.50).
    */
-  levels?: { price: number; label: string; tone?: "up" | "down" }[];
+  levels?: { price: number; label: string; tone?: "up" | "down" | "accent"; solid?: boolean; priceText?: string }[];
   /** Outlines the candle of this minute (the daily question's moment). */
   markT?: number;
   /**
@@ -123,6 +124,7 @@ function tokens(canvas: HTMLCanvasElement) {
     vol: read("--color-vol", "#c084fc"),
     vwap: read("--color-vwap", "#9eb6d4"),
     warn: read("--color-warn", "#e7b549"),
+    accent: read("--td-accent", "#5b9bff"),
     emaFast: read("--color-ema-fast", "#7dd3fc"),
     emaSlow: read("--color-ema-slow", "#c084fc"),
     font: read("--font-mono", "ui-monospace, monospace"),
@@ -767,18 +769,31 @@ function paint(
       ctx.fill();
     }
   }
+  // The learner's fills: a buy points up from under its price, a sell down from over it. The desk draws them larger,
+  // outlined in the background colour, so a holding's entry is seen on the line (2026-11-04, the owner).
+  const fillHalf = terminal ? 6 : 4;
+  const fillTall = terminal ? 10 : 7;
   for (const fill of inChartWindow(opt.fills ?? [], window).slice(0, 48)) {
     if (isIndex) break;
     const x = xOf(fill.t);
     const y = yOf(fill.p);
     const dir = fill.side === "buy" ? 1 : -1;
+    ctx.save();
     ctx.fillStyle = fill.side === "buy" ? c.up : c.down;
     ctx.beginPath();
     ctx.moveTo(x, y);
-    ctx.lineTo(x - 4, y + dir * 7);
-    ctx.lineTo(x + 4, y + dir * 7);
+    ctx.lineTo(x - fillHalf, y + dir * fillTall);
+    ctx.lineTo(x + fillHalf, y + dir * fillTall);
     ctx.closePath();
+    if (terminal) {
+      ctx.strokeStyle = c.bg;
+      ctx.lineWidth = 1.5;
+      ctx.lineJoin = "round";
+      ctx.setLineDash([]);
+      ctx.stroke();
+    }
     ctx.fill();
+    ctx.restore();
   }
   // 過前高: an amber point-down mark over the close of the breakout minute, and its name in an amber tag above it.
   for (const mark of inChartWindow(opt.breakouts ?? [], window).slice(0, 8)) {
@@ -815,7 +830,7 @@ function paint(
         ctx.lineCap = "butt";
         ctx.strokeStyle = level.tone ? c[level.tone] : c.warn;
         ctx.lineWidth = cssPixels(hairline);
-        ctx.setLineDash(deviceDashPattern([5, 4], sx));
+        ctx.setLineDash(level.solid ? [] : deviceDashPattern([5, 4], sx));
         ctx.beginPath();
         ctx.moveTo(snapEdge(padL, sx), y);
         ctx.lineTo(gridRight, y);
