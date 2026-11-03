@@ -14,12 +14,6 @@ import { AuthPasswordInput, ClassroomAuthLayout } from "@/components/classroom-a
 export const Route = createFileRoute("/setup")({ component: AdminSetup });
 type SetupStatus = { configured: boolean; available: boolean; email?: string };
 
-const FEATURES = [
-  { title: "設定專屬講師帳號", description: "使用指定信箱與你親自設定的密碼，完成首次啟用。" },
-  { title: "安排班級模擬練習", description: "帶領學員依照課程目標，練習觀察、決策與風險管理。" },
-  { title: "從紀錄了解學習進度", description: "回看本班練習結果，讓課後討論有具體依據。" },
-] as const;
-
 function AdminSetup() {
   const [status, setStatus] = useState<SetupStatus | null>(null);
   const [name, setName] = useState("講師");
@@ -77,15 +71,6 @@ function AdminSetup() {
 
   return (
     <ClassroomAuthLayout
-      heroTitle={
-        <>
-          你的教室，
-          <br />
-          從這裡開始。
-        </>
-      }
-      heroDescription="完成一次講師設定，就能開始準備帶班。讓模擬練習與課後討論，成為學員學習的日常。"
-      features={FEATURES}
       footer={
         !done ? (
           <Link to="/login" className="academy-nav-link inline-flex items-center gap-2">

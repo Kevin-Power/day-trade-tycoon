@@ -16,15 +16,6 @@ export const Route = createFileRoute("/login")({
   component: Login,
 });
 
-const FEATURES = [
-  { title: "找到自己的學習起點", description: "依照課程安排，從基礎觀察逐步練習到完整操作。" },
-  { title: "保留每次練習的收穫", description: "登入帳號後，可跨裝置回看已儲存的練習紀錄。" },
-  {
-    title: "與講師一起檢視進度",
-    description: "讓本班講師了解學習情況，協助你找到下一個練習重點。",
-  },
-] as const;
-
 type VerifiedAccount = { id: string; name: string; email: string };
 
 function Login() {
@@ -59,15 +50,6 @@ function Login() {
 function LoginLayout({ children }: { children: ReactNode }) {
   return (
     <ClassroomAuthLayout
-      heroTitle={
-        <>
-          讓每一次練習，
-          <br />
-          都有跡可循。
-        </>
-      }
-      heroDescription="用個人帳號整理學習進度，隨時回看你的模擬操作。練習不只看結果，也看每一步如何決定。"
-      features={FEATURES}
       footer={
         <Link to="/" className="academy-nav-link inline-flex min-h-12 items-center gap-2">
           <ArrowLeft aria-hidden="true" />

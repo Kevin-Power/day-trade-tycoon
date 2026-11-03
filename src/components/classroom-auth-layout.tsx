@@ -4,20 +4,13 @@ import { Link } from "@tanstack/react-router";
 import { BrandMark } from "@/components/brand-mark";
 import { SimChip } from "@/components/provenance";
 import { DisplayControls } from "@/components/display-controls";
-import { WorkspacePreview } from "@/components/workspace-preview";
 
-type Feature = { title: string; description: string };
-
+// One plain column on every screen size, like a broker's sign-in page: the brand, then the form. No slogan, drawn
+// preview or feature list (2026-11-03, 「首頁能不能去除AI味道」).
 export function ClassroomAuthLayout({
-  heroTitle,
-  heroDescription,
-  features,
   children,
   footer,
 }: {
-  heroTitle: ReactNode;
-  heroDescription: string;
-  features: readonly Feature[];
   children: ReactNode;
   footer?: ReactNode;
 }) {
@@ -32,9 +25,7 @@ export function ClassroomAuthLayout({
             <BrandMark className="size-10 shrink-0 sm:size-11" />
             <div>
               <p className="text-base font-semibold tracking-wide text-fg sm:text-lg">當沖大富翁</p>
-              <p className="mt-0.5 text-[0.6rem] font-medium tracking-[0.16em] text-muted sm:text-[0.65rem]">
-                DAY TRADE TYCOON
-              </p>
+              <p className="mt-0.5 text-xs text-muted">股文觀指教室</p>
             </div>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -49,46 +40,19 @@ export function ClassroomAuthLayout({
           </div>
         </header>
 
-        <div className="access-grid">
-          <section aria-label="教室介紹" className="access-hero">
-            <p className="academy-eyebrow flex items-center gap-2.5">
-              <span aria-hidden="true" className="h-px w-6 bg-current opacity-60" />
-              股文觀指 · 交易實作教室
-            </p>
-            <h2 className="access-hero-title">{heroTitle}</h2>
-            <p className="mt-4 max-w-md text-pretty text-base leading-7 text-muted">
-              {heroDescription}
-            </p>
-            <WorkspacePreview />
-            <ol className="access-features">
-              {features.map((feature, index) => (
-                <li key={feature.title} className="flex items-start gap-3">
-                  <span className="pt-1 font-mono text-xs font-medium text-brand">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <div>
-                    <h3 className="text-sm font-medium text-fg">{feature.title}</h3>
-                    <p className="mt-1 text-xs leading-6 text-muted">{feature.description}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
+        <div className="access-column">
+          <section
+            id="classroom-access"
+            tabIndex={-1}
+            className="academy-card access-form scroll-mt-6 p-5 sm:p-8"
+          >
+            {children}
           </section>
-
-          <div className="access-form-column">
-            <section
-              id="classroom-access"
-              tabIndex={-1}
-              className="academy-card access-form scroll-mt-6 p-5 sm:p-8"
-            >
-              {children}
-            </section>
-            {footer ? (
-              <footer className="mx-auto mt-5 max-w-md text-center text-sm leading-6 text-muted">
-                {footer}
-              </footer>
-            ) : null}
-          </div>
+          {footer ? (
+            <footer className="mx-auto mt-5 max-w-md text-center text-sm leading-6 text-muted">
+              {footer}
+            </footer>
+          ) : null}
         </div>
       </div>
     </main>

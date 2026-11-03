@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, LoaderCircle, LockKeyhole } from "@/lib/icons";
+import { ArrowRight, LoaderCircle } from "@/lib/icons";
 import { AuthPasswordInput, ClassroomAuthLayout } from "@/components/classroom-auth-layout";
 import { CONSENT, DISCLAIMER } from "@/lib/provenance";
 
@@ -8,12 +8,6 @@ type Props = {
   onOpen: () => void;
   submit: (password: string) => Promise<{ ok: boolean; reason?: string }>;
 };
-
-const FEATURES = [
-  { title: "跟著講師掌握觀察重點", description: "從盤勢與交易節奏開始，知道每次練習要看什麼。" },
-  { title: "在模擬環境反覆練習", description: "練習進出場與風險控管，建立有依據的決策流程。" },
-  { title: "透過復盤找到下一步", description: "回看操作與學習紀錄，把每一盤轉化成具體心得。" },
-] as const;
 
 export function GateScreen({ onOpen, submit }: Props) {
   const [password, setPassword] = useState("");
@@ -42,37 +36,12 @@ export function GateScreen({ onOpen, submit }: Props) {
   }
 
   return (
-    <ClassroomAuthLayout
-      heroTitle={
-        <>
-          把每一次判斷，
-          <br />
-          練成自己的交易紀律。
-        </>
-      }
-      heroDescription="從看盤、寫計畫到紙上下單，在真實歷史 K 線中逐步練習。六個練習主題，每一輪都有可以回看的紀錄。"
-      features={FEATURES}
-    >
+    <ClassroomAuthLayout>
       <div className="mb-6">
-        <p className="academy-eyebrow flex items-center gap-2">
-          <LockKeyhole aria-hidden="true" />
-          01 / 教室入場
-        </p>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-fg">進入交易教室</h1>
-        <p className="mt-2 text-sm leading-6 text-muted">
-          準備好講師提供的入場碼，開始今天的模擬練習。
-        </p>
-      </div>
-
-      <div className="access-trial mb-7 rounded-xl border border-brand/25 bg-brand/5 p-4">
-        <p className="text-base font-semibold text-fg">第一次來？先試著操作看看</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-fg">進入交易教室</h1>
         <p className="mt-2 text-base leading-7 text-muted">
-          不用帳號，跟著步驟練習確認委託、查看成交與理解成本。
+          重播真實交易日 09:00–10:30 的行情，用 1,000 萬模擬資金練習當沖。委託不會送到券商。
         </p>
-        <Link to="/try" className="academy-button-primary mt-4 !min-h-14 w-full !text-base">
-          先體驗模擬操作
-          <ArrowRight aria-hidden="true" />
-        </Link>
       </div>
 
       <form onSubmit={onSubmit} aria-busy={busy}>
@@ -99,7 +68,7 @@ export function GateScreen({ onOpen, submit }: Props) {
           </p>
         ) : null}
 
-        <div className="mt-6 rounded-xl border border-border bg-bg/50 p-4">
+        <div className="mt-6 rounded-lg border border-border bg-bg/50 p-4">
           <p className="text-xs font-medium text-fg">練習前，請先了解</p>
           <p id="classroom-disclaimer" className="mt-2 text-xs leading-6 text-muted">
             {DISCLAIMER}
@@ -127,10 +96,19 @@ export function GateScreen({ onOpen, submit }: Props) {
           {busy ? "正在核對入場碼…" : "進入教室"}
           {!busy ? <ArrowRight aria-hidden="true" /> : null}
         </button>
-        <p className="mt-3 text-center text-xs leading-5 text-muted">
-          僅供模擬教學 · 不會送出真實交易委託
-        </p>
       </form>
+
+      {/* Students bring the teacher's code, so the guest trial is the quieter way in, after the form. */}
+      <div className="access-trial mt-7 border-t border-border pt-6">
+        <p className="text-base font-semibold text-fg">沒有入場碼？</p>
+        <p className="mt-1 text-base leading-7 text-muted">
+          不用帳號，跟著步驟試一次下單，看成交和成本怎麼算。
+        </p>
+        <Link to="/try" className="academy-button-secondary mt-4 !min-h-12 w-full !text-base">
+          先體驗模擬操作
+          <ArrowRight aria-hidden="true" />
+        </Link>
+      </div>
     </ClassroomAuthLayout>
   );
 }

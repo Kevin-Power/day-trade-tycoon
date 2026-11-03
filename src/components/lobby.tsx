@@ -36,7 +36,6 @@ import { useGate } from "@/lib/gate/context";
 import { ClassroomAccount } from "@/components/classroom-account";
 import { DisplayControls } from "@/components/display-controls";
 import { BrandMark } from "@/components/brand-mark";
-import { WorkspacePreview } from "@/components/workspace-preview";
 import { RealCandlesLink } from "@/components/real-candles-entry";
 import { PracticeGoalReminder } from "@/components/practice-goal";
 import { TodayCard } from "@/components/today-card";
@@ -125,9 +124,7 @@ export function Lobby() {
             <BrandMark className="size-10 shrink-0" />
             <span className="min-w-0">
               <span className="block text-sm font-semibold tracking-wide">當沖大富翁</span>
-              <span className="block text-[11px] tracking-[0.14em] text-muted">
-                DAY TRADE TYCOON
-              </span>
+              <span className="block text-xs text-muted">股文觀指教室</span>
             </span>
           </a>
           <nav aria-label="教室導覽" className="flex min-w-0 flex-wrap items-center gap-1 sm:gap-2">
@@ -172,9 +169,6 @@ export function Lobby() {
         <section aria-labelledby="classroom-title" className="lobby-launchpad">
           <div className="premium-hero-copy min-w-0">
             <div className="mb-3 flex flex-wrap items-center gap-2.5">
-              <span className="academy-eyebrow text-xs font-medium tracking-[0.16em] text-muted">
-                當沖實作 · 模擬交易教室
-              </span>
               <SimChip />
               {CLASSROOM_OFFLINE && (
                 <span className="rounded-md border border-border px-2 py-0.5 text-[11px] text-muted">
@@ -184,14 +178,14 @@ export function Lobby() {
             </div>
             <h1
               id="classroom-title"
-              className="premium-hero-title academy-title text-balance text-4xl font-semibold leading-tight tracking-tight sm:text-5xl"
+              className="premium-hero-title academy-title text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
             >
-              今天，先練好
-              <span className="premium-hero-title-accent block">一筆有計畫的交易。</span>
+              {CLASSROOM_OFFLINE ? "離線教材" : "當沖模擬下單"}
             </h1>
-            <p className="academy-description mt-5 max-w-xl text-pretty text-base leading-8 text-muted">
-              選擇練習主題，打開交易工作台。觀察已完成的歷史 K
-              線，核對紙上委託與庫存，最後留下自己的判斷。
+            <p className="academy-description mt-4 max-w-xl text-pretty text-base leading-8 text-muted">
+              {CLASSROOM_OFFLINE
+                ? "閱讀練習主題，回看這台裝置留下的練習紀錄。"
+                : "重播真實交易日 09:00–10:30 的行情，用 1,000 萬模擬資金下單，委託不會送到券商。每個交易日的進度分開保存。"}
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               {!CLASSROOM_OFFLINE ? (
@@ -232,11 +226,6 @@ export function Lobby() {
                 固定委託操作範例
               </Link>
             </div>
-            {!CLASSROOM_OFFLINE && (
-              <p className="mt-3 text-base leading-relaxed text-muted">
-                真實歷史分鐘 K · 紙上模擬交易 · 每個交易日分別保存進度
-              </p>
-            )}
             {recentReview && (
               <p className="mt-3 text-base leading-relaxed text-muted">
                 {recentReview.achievedCount > 0
@@ -246,7 +235,6 @@ export function Lobby() {
               </p>
             )}
           </div>
-          <WorkspacePreview />
         </section>
 
         {CLASSROOM_OFFLINE && (
@@ -272,9 +260,6 @@ export function Lobby() {
         <section id="courses" aria-labelledby="courses-title" className="scroll-mt-6">
           <div className="premium-section-heading mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="academy-eyebrow mb-2 text-xs font-medium tracking-[0.16em] text-muted">
-                循序練習 · 隨時回看
-              </p>
               <h2 id="courses-title" className="text-2xl font-semibold tracking-tight">
                 六個真實回放練習
               </h2>
@@ -306,9 +291,6 @@ export function Lobby() {
         <section aria-labelledby="progress-title" className="mt-9 border-t border-border pt-7">
           <div className="premium-section-heading mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="academy-eyebrow mb-2 text-xs font-medium tracking-[0.16em] text-muted">
-                留下紀錄 · 練習回看
-              </p>
               <h2 id="progress-title" className="text-2xl font-semibold tracking-tight">
                 這台裝置的歷史練習紀錄
               </h2>
@@ -354,9 +336,6 @@ export function Lobby() {
         <section aria-labelledby="materials-title" className="mt-9">
           <div className="premium-section-heading mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="academy-eyebrow mb-2 text-xs font-medium tracking-[0.16em] text-muted">
-                隨時翻閱 · 反覆熟悉
-              </p>
               <h2 id="materials-title" className="text-2xl font-semibold tracking-tight">
                 教材與練習工具
               </h2>
@@ -447,9 +426,8 @@ export function Lobby() {
         <footer className="premium-academy-footer mt-10 flex flex-wrap items-center justify-between gap-x-5 gap-y-3 border-t border-border pt-6 text-xs leading-6 text-muted">
           <span className="flex items-center gap-2.5">
             <BrandMark className="size-7 shrink-0" />
-            當沖大富翁 · 講師帶班與模擬練習
+            當沖大富翁 · 股文觀指教室
           </span>
-          <span>先有計畫，再用紀錄檢查每一次操作。</span>
         </footer>
       </main>
     </div>
