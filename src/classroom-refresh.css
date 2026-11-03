@@ -90,23 +90,25 @@
   background: #f4f7fd;
 }
 
+/* The entry page and the lobby's top: the desk's ink (trading-desk.css --td-*), flat, so the way in looks like the
+   desk it leads to (2026-11-03, 「首頁能不能去除AI味道」). */
 .classroom-access-page,
 .lobby-launchpad {
-  --color-fg: #edf3ff;
-  --color-muted: #adbed5;
-  --color-subtle: #a2b4ce;
-  --color-border: #2a3d58;
+  --color-fg: #e9eef5;
+  --color-muted: #a7b1c0;
+  --color-subtle: #a7b1c0;
+  --color-border: #2a3341;
   --color-brand: #93baff;
   --color-brand-fg: #0d1c31;
-  --color-surface: #13243c;
-  --color-elevated: #223752;
+  --color-surface: #10141b;
+  --color-elevated: #171d27;
   --color-warn: #e4c58d;
   --color-tape: #e4c58d;
   color: var(--color-fg);
-  background: #0e1b30;
+  background: #0b0e13;
 }
 .classroom-access-page {
-  background: radial-gradient(ellipse at 12% 25%, #1c3555, transparent 65%), #0e1b30;
+  color-scheme: dark;
 }
 .access-container {
   width: min(1280px, 100%);
@@ -120,7 +122,7 @@
   flex-wrap: wrap;
   gap: 14px;
   min-height: 92px;
-  border-bottom: 1px solid #304158;
+  border-bottom: 1px solid #1c232d;
 }
 .access-demo-link {
   display: inline-flex;
@@ -131,181 +133,66 @@
   font-size: 14px;
   color: #b6ceee;
 }
-.access-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(350px, 0.85fr);
-  align-items: center;
-  gap: clamp(32px, 6vw, 80px);
-  padding-block: 46px;
-}
-.access-hero {
-  min-width: 0;
-}
-.access-hero-title {
-  margin-top: 22px;
-  font-size: clamp(32px, 3.5vw, 48px);
-  font-weight: 650;
-  line-height: 1.4;
-  letter-spacing: -0.04em;
-  text-wrap: balance;
-}
-.access-hero > .academy-eyebrow {
-  color: #e1bc77;
-}
-.access-form-column {
-  min-width: 0;
+/* One column on every screen size: the form is the page. */
+.access-column {
+  width: min(480px, 100%);
+  margin: 48px auto 0;
 }
 .academy-page .access-form {
-  --color-fg: #172940;
-  --color-muted: #55667e;
-  --color-subtle: #64738a;
-  --color-bg: #f1f5fb;
-  --color-surface: #fff;
-  --color-border: #dce3ed;
-  --color-border-strong: #a4b3c9;
-  --color-brand: #275bb4;
+  --color-fg: #e9eef5;
+  --color-muted: #a7b1c0;
+  --color-subtle: #a7b1c0;
+  --color-bg: #0b0e13;
+  --color-surface: #10141b;
+  --color-border: #2a3341;
+  --color-border-strong: #3a4556;
+  --color-brand: #5b9bff;
   --color-brand-fg: #fff;
-  --color-elevated: #e5edf8;
+  --color-elevated: #171d27;
+  --color-up: #ff5c66;
   color: var(--color-fg);
-  background: #fff;
-  border: 1px solid #d8e1ee;
-  border-top: 4px solid #d9b575;
-  box-shadow: 0 20px 60px #0003;
-  border-radius: 14px;
+  background: #10141b;
+  border: 1px solid #1c232d;
+  box-shadow: none;
+  border-radius: 8px;
 }
-.access-trial p + p {
-  font-size: 14px;
-  line-height: 1.7;
+.academy-page .access-form .academy-input {
+  color: var(--color-fg);
+  background: #0b0e13;
+  border-color: #3a4556;
 }
-.access-features {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-  margin-top: 28px;
+.academy-page .access-form .academy-input:focus {
+  border-color: #5b9bff;
+  box-shadow: 0 0 0 3px rgb(91 155 255 / 0.2);
 }
-.access-features p {
-  line-height: 1.65;
+.academy-page .access-form .academy-button-secondary {
+  color: #d6e6ff;
+  background: transparent;
+  border-color: #2d4b7d;
 }
-.access-features li > span {
-  color: #e1bc77;
-}
-
-.workspace-preview {
-  margin: 30px 0 0;
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid #3c526f;
-  border-radius: 12px;
-  background: #101e33;
-  color: #c4d4eb;
-  box-shadow: 0 20px 45px -25px #0008;
-}
-.workspace-preview-heading,
-.workspace-preview-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 13px 16px;
-  font-size: 13px;
-}
-.workspace-preview-heading {
-  background: #1a2e49;
-  border-bottom: 1px solid #32455f;
-}
-.workspace-preview-heading > span:first-child,
-.workspace-preview-footer > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.workspace-preview-tag {
-  color: #e5c58d;
-  font-size: 11px;
-  border: 1px solid #7b6949;
-  border-radius: 4px;
-  padding: 2px 6px;
-}
-.workspace-preview-body {
-  display: grid;
-  grid-template-columns: 28% minmax(0, 1fr);
-}
-.workspace-preview-watch {
-  border-right: 1px solid #283c58;
-  font-size: 11px;
-}
-.workspace-preview-watch > p {
-  padding: 12px;
-  color: #90a7c4;
-}
-.workspace-preview-watch > div {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  border-top: 1px solid #283c58;
-  padding: 12px;
-}
-.workspace-preview-watch span {
-  grid-column: 1/-1;
-}
-.workspace-preview-watch i {
-  height: 4px;
-  background: #536c8c;
-  border-radius: 2px;
-}
-.workspace-preview-watch [data-selected="true"] {
-  background: #203b5f;
-  border-left: 2px solid #a1c5ff;
-}
-.workspace-preview-chart {
-  min-width: 0;
-  padding: 14px 14px 8px;
-}
-.workspace-preview-chart > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 11px;
-}
-.workspace-preview-chart svg {
-  width: 100%;
-  height: auto;
-  margin-top: 14px;
-}
-.workspace-preview-chart > p {
-  text-align: center;
-  font-size: 11px;
-  color: #a7bad3;
-}
-.workspace-preview-footer {
-  border-top: 1px solid #283c58;
-  justify-content: center;
-  color: #b8cce8;
-  font-size: 12px;
+.academy-page .access-form .academy-button-secondary:hover:not(:disabled) {
+  background: #182640;
+  border-color: #5b9bff;
 }
 
 .classroom-lobby .academy-header {
-  background: #0e1b30;
-  color: #eef3fc;
-  border-color: #293d59;
-  --color-muted: #afc0d8;
-  --color-fg: #eef3fc;
+  background: #0b0e13;
+  color: #e9eef5;
+  border-color: #1c232d;
+  --color-muted: #a7b1c0;
+  --color-fg: #e9eef5;
   --color-brand: #a0c6ff;
-  --color-surface: #15283f;
-  --color-border: #3d526e;
+  --color-surface: #10141b;
+  --color-border: #2a3341;
 }
 .classroom-lobby .academy-header .academy-nav-link {
   color: #c3d1e7;
 }
 .lobby-launchpad {
   margin-block: 28px 20px;
-  padding: clamp(24px, 4vw, 44px);
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  align-items: center;
-  gap: 40px;
-  border-radius: 18px;
-  border: 1px solid #314661;
+  padding: clamp(24px, 4vw, 40px);
+  border-radius: 8px;
+  border: 1px solid #1c232d;
 }
 .lobby-launchpad .academy-title {
   font-size: clamp(28px, 3vw, 42px);
@@ -314,12 +201,6 @@
 .lobby-launchpad .academy-description {
   font-size: 15px;
   line-height: 1.85;
-}
-.lobby-launchpad .workspace-preview {
-  margin: 0;
-}
-.lobby-launchpad .premium-hero-title-accent {
-  color: #e4c58d;
 }
 .lobby-launchpad .academy-button-primary {
   background: #b8d3ff;
@@ -372,17 +253,6 @@
   .access-container {
     padding-inline: 28px;
   }
-  .access-grid {
-    gap: 28px;
-    grid-template-columns: minmax(0, 1fr) minmax(330px, 0.9fr);
-  }
-  .access-features {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-  .access-features li p {
-    display: none;
-  }
 }
 @media (max-width: 767px) {
   .access-container {
@@ -396,40 +266,12 @@
   .access-header .access-demo-link {
     display: none;
   }
-  .access-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 26px;
-    padding-block: 28px;
-  }
-  .access-hero {
-    width: 100%;
-  }
-  .access-hero-title {
-    font-size: 30px;
-    line-height: 1.4;
-    margin-top: 12px;
-  }
-  .access-hero > p {
-    font-size: 14px;
-    line-height: 1.85;
-  }
-  .access-hero .workspace-preview,
-  .access-features {
-    display: none;
-  }
-  .access-form-column {
-    width: 100%;
-    max-width: 500px;
+  .access-column {
+    margin-top: 24px;
   }
   .lobby-launchpad {
-    grid-template-columns: 1fr;
-    gap: 24px;
     margin-top: 18px;
     padding: 24px;
-  }
-  .lobby-launchpad .workspace-preview {
-    display: none;
   }
   .lobby-practice-path {
     gap: 8px;
@@ -463,28 +305,20 @@ html[data-reading-mode="senior"] :is(.classroom-access-page, .lobby-launchpad) {
   --color-border: #6680a1;
 }
 html[data-reading-mode="senior"] .access-form {
-  --color-muted: #3c536f;
-  --color-subtle: #455d7c;
-  --color-border: #a6b7cd;
+  --color-muted: #c9d2de;
+  --color-subtle: #c9d2de;
+  --color-border: #4a5668;
 }
-html[data-reading-mode="senior"] .access-grid {
-  grid-template-columns: 1fr;
-}
-html[data-reading-mode="senior"] .access-hero .workspace-preview {
-  display: none;
-}
-html[data-reading-mode="senior"] .access-features {
-  display: none;
+html[data-reading-mode="senior"] .access-column {
+  width: min(560px, 100%);
 }
 
 @media print {
   .classroom-access-page,
-  .lobby-launchpad {
+  .lobby-launchpad,
+  .academy-page .access-form {
     background: #fff !important;
     color: #000 !important;
-  }
-  .workspace-preview {
-    display: none;
   }
 }
 
