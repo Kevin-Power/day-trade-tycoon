@@ -20,8 +20,11 @@ import {
   formatPercentChange,
   hairlineDevicePixels,
   inChartWindow,
+  bandGridRows,
+  chartZoomBand,
   jiangboGridPrices,
   jiangboGridRows,
+  parseDeskScale,
   jiangboPriceRange,
   JIANGBO_BAND,
   miniScaleLabel,
@@ -979,4 +982,40 @@ test("sameBars: a replay's new list with the same minutes and newest bar is the 
   assert.equal(sameBars([], settled), false);
   // The next minute replaces the forming bar with the finished one and adds another: never the same.
   assert.equal(sameBars([...settled, forming], [...settled, forming, bar(180, 102)]), false);
+});
+
+test("chartZoomBand: the desk's 放大 is the smallest ±1/2/3/5/10% step that holds every price with room above it", () => {
+  // Highs and lows count (the desk draws every trade), and so do the holding's 成本／停利／停損 levels.
+  assert.equal(chartZoomBand(100, [100.5, 99.4]), 0.01);
+  // Nine tenths of a step at most: a price on the frame would hide in its edge.
+  assert.equal(chartZoomBand(100, [100.9]), 0.01);
+  assert.equal(chartZoomBand(100, [100.95]), 0.02);
+  assert.equal(chartZoomBand(1460, [1485, 1455]), 0.02);
+  assert.equal(chartZoomBand(1460, [1485, 1495]), 0.03);
+  assert.equal(chartZoomBand(100, [104.6]), 0.1);
+  assert.equal(chartZoomBand(100, []), 0.01);
+  assert.equal(chartZoomBand(0, [10]), JIANGBO_BAND);
+  assert.equal(chartZoomBand(100, [Number.NaN, 0, 100.3]), 0.01);
+});
+
+test("bandGridRows: ±10% keeps the 江波 rows; 放大 steps are whole 0.25/0.5/1/2/2.5% rows, as many as fit", () => {
+  for (const [height, font] of [[404, 12], [263, 12], [351, 16]] as const)
+    assert.equal(bandGridRows(JIANGBO_BAND, height, font), jiangboGridRows(height, font));
+  // Each row at least 2.2 lines tall (12px text: 26.4px); at most 10 rows.
+  assert.equal(bandGridRows(0.01, 300, 12), 8); // 0.25%
+  assert.equal(bandGridRows(0.01, 150, 12), 4); // 0.5%
+  assert.equal(bandGridRows(0.02, 300, 12), 8); // 0.5%
+  assert.equal(bandGridRows(0.02, 150, 12), 4); // 1%
+  assert.equal(bandGridRows(0.03, 300, 12), 6); // 1%
+  assert.equal(bandGridRows(0.03, 100, 12), 2);
+  assert.equal(bandGridRows(0.05, 300, 12), 10); // 1%
+  assert.equal(bandGridRows(0.05, 150, 12), 4); // 2.5%
+});
+
+test("parseDeskScale: a device's own choice, else 放大 on phones and ±10% on desks", () => {
+  assert.equal(parseDeskScale("zoom", false), "zoom");
+  assert.equal(parseDeskScale("fixed", true), "fixed");
+  assert.equal(parseDeskScale(null, true), "zoom");
+  assert.equal(parseDeskScale(null, false), "fixed");
+  assert.equal(parseDeskScale("something", true), "zoom");
 });

@@ -22,8 +22,9 @@ import {
   hairlineDevicePixels,
   inChartWindow,
   isDrawableBar,
+  bandGridRows,
   jiangboGridPrices,
-  jiangboGridRows,
+  JIANGBO_BAND,
   jiangboPriceRange,
   limitChartLabels,
   lineRuns,
@@ -257,9 +258,12 @@ function paint(
   const bars = (
     interval ? completedBarsInWindow(opt.bars, window, interval) : inChartWindow(opt.bars, window)
   ).filter(isDrawableBar);
-  // Desk 江波 view: a fixed axis at the previous close ±priceBand.
+  // Desk 江波 view: a fixed axis at the previous close ±priceBand (±10%, or the 放大 step).
   const band =
     deskChart && !isCandles && opt.priceBand ? bandPriceRange(opt.prev, opt.priceBand) : null;
+  // 漲停／跌停 lie on a ±10% frame; a zoomed one leaves them outside, so they are not drawn.
+  const limitsShown = band !== null && opt.priceBand! >= JIANGBO_BAND;
+  ctx.canvas.dataset.band = band ? String(opt.priceBand) : "";
   // EMA lines (desk only): every revealed minute since 09:00 feeds them, not only the visible window.
   const emaSource =
     deskChart && opt.emaPeriods?.length ? emaSourceBars(opt.bars, window.dataEnd, interval) : [];
@@ -299,9 +303,9 @@ function paint(
   const label = (price: number) => (isIndex ? formatIndex(price) : formatPrice(price));
   const font = `${c.fontSize}px ${c.font}`;
   ctx.font = font;
-  // Both 江波 grids (2% and 5% steps) are measured: which one fits is only known once the plot is laid out.
+  // Every grid the band can have is measured: which one fits is only known once the plot is laid out.
   const bandPrices = band
-    ? [10, 4].flatMap((rows) => jiangboGridPrices(opt.prev, opt.priceBand!, rows))
+    ? [10, 8, 6, 4, 2].flatMap((rows) => jiangboGridPrices(opt.prev, opt.priceBand!, rows))
     : [];
   // In the 江波 view the previous close is labelled 「昨」 in the price gutter, not over the line.
   const prevAxisText = band ? `昨 ${label(opt.prev)}` : "";
@@ -425,9 +429,9 @@ function paint(
   const gridBottom = snapEdge(h - axisH, sy);
   const fittedRows = Math.max(2, Math.min(5, Math.floor(plotH / (c.fontSize * 2.6))));
   // An even count puts the previous close (0.00%) on the middle grid line of the intraday chart.
-  // The 江波 band has 2% steps when the plot is tall enough, 5% steps otherwise.
+  // The ±10% band has 2% steps when the plot is tall enough, 5% steps otherwise; a zoomed band whole small steps.
   const rows = band
-    ? jiangboGridRows(plotH, c.fontSize)
+    ? bandGridRows(opt.priceBand!, plotH, c.fontSize)
     : deskChart && !isCandles
       ? Math.max(2, fittedRows - (fittedRows % 2))
       : fittedRows;
@@ -486,7 +490,7 @@ function paint(
     // (a phone's first twenty): the readout above the chart names 均 and its value.
     if (averageNow !== undefined && !band)
       labels.push({ key: "average", text: "均", price: averageNow, priceText: averageNow.toFixed(2), color: c.vwap, x: padL + 4, anchor: "start", y: yOf(averageNow) });
-    if (band)
+    if (limitsShown)
       labels.push(
         ...limitChartLabels(opt.prev, { x: padL + 4, lineHeight, up: c.up, down: c.down, yOf, priceText: label }),
       );
@@ -579,7 +583,7 @@ function paint(
     ctx.stroke();
     ctx.restore();
   };
-  if (band) {
+  if (limitsShown) {
     // 漲停／跌停 at the real limit prices, just inside the ±10% frame.
     ctx.save();
     ctx.globalAlpha = 0.7;

@@ -5532,6 +5532,22 @@ html:has(.trading-desk) #app {
 .trading-desk[data-layout="senior"] .td-tradebar {
   bottom: calc(56px + var(--td-hairline) + env(safe-area-inset-bottom));
 }
+/* 「已前進至…請核對下方紀錄」 pushed the 江波圖 down a line or two on phones, about a record that is not on the page: the
+   clock, 快訊 and the fill notice already say it, and fills are announced for screen readers (2026-11-04). */
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-feedback {
+  display: none;
+}
+/* The narrowest phones: 江波／放大／K線 and the data label on one row, the label in two lines (broken after its 「／」,
+   never inside a name) and without the date (2026-11-04). */
+@media (max-width: 379px) {
+  .trading-desk[data-layout="phone"] .td-chartbar-date {
+    display: none;
+  }
+  .trading-desk[data-layout="phone"] .td-chartbar-source .td-chip {
+    white-space: normal;
+    word-break: keep-all;
+  }
+}
 /* 4-inch phones (568px tall): a slimmer bar (44px buttons, the least a finger needs) and a smaller price. */
 @media (max-height: 600px) {
   .trading-desk[data-layout="phone"] .td-tradebar {
