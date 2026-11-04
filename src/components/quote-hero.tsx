@@ -283,7 +283,10 @@ export function ChartToolbar({
             ))}
           </span>
         </span>
-        <span className="td-chartbar-date">{catalog.date} 台北時間</span>
+        <span className="td-chartbar-date">
+          {catalog.date}
+          <span className="td-chartbar-tz"> 台北時間</span>
+        </span>
       </p>
     </div>
   );

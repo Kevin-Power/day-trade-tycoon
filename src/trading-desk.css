@@ -5548,6 +5548,16 @@ html:has(.trading-desk) #app {
     word-break: keep-all;
   }
 }
+/* Desks up to 1365px wide: with 江波／放大／K線 the chart bar keeps one row (the data label wrapping under itself on
+   1280px took 10–16px from the chart): tighter buttons, and the date without 「台北時間」 (2026-11-04). */
+.trading-desk:is([data-layout="desktop"], [data-layout="tablet"]) .td-chartbar .td-segment button {
+  padding-inline: 10px;
+}
+@media (max-width: 1365px) {
+  .trading-desk:is([data-layout="desktop"], [data-layout="tablet"]) .td-chartbar-tz {
+    display: none;
+  }
+}
 /* 4-inch phones (568px tall): a slimmer bar (44px buttons, the least a finger needs) and a smaller price. */
 @media (max-height: 600px) {
   .trading-desk[data-layout="phone"] .td-tradebar {
