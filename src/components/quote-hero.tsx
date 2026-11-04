@@ -1,10 +1,11 @@
-import type { ReactNode, RefObject } from "react";
+import { Fragment, type ReactNode, type RefObject } from "react";
 import { ChevronLeft, ChevronRight } from "@/lib/icons";
 import type { MorningBookCell, MorningCatalog } from "@/lib/morning";
 import { lastTrade, shownBook, type LiveMorningState } from "@/lib/morning-live";
 import { bestQuotes, quoteSummary } from "@/lib/morning-quote";
 import { holdingText } from "@/lib/morning-notices";
 import { formatPrice } from "@/lib/market/ticks";
+import type { DeskScale } from "@/lib/market/chart-data";
 import { formatTime } from "@/lib/utils";
 import { useTickFlash } from "@/components/use-tick-flash";
 
@@ -184,22 +185,36 @@ export function QuoteLine({
   );
 }
 
-/** Chart toolbar: stock stepper, 江波／K線 and the lesson's data source (富邦逐筆／證交所大盤) with its date. */
+/** The chart's views: 江波 at ±10%, 江波 放大, K線. */
+const CHART_VIEWS = [
+  ["quote", "fixed", "江波", "江波圖：固定昨收上下 10%"],
+  ["quote", "zoom", "放大", "江波圖放大：依當天漲跌放大，昨收在中間"],
+  ["chart", null, "K線", "一分鐘 K 線"],
+] as const;
+
+/**
+ * Chart toolbar: stock stepper, 江波／放大／K線 and the lesson's data source (富邦逐筆／證交所大盤) with its date.
+ */
 export function ChartToolbar({
   catalog,
   code,
   mode,
+  scale,
   source,
   onMode,
+  onScale,
   onSelect,
   stepper = true,
 }: {
   catalog: MorningCatalog;
   code: string;
   mode: "quote" | "chart";
+  /** The 江波圖's scale: 放大 or ±10% (2026-11-04). */
+  scale: DeskScale;
   /** The data source named in the chip (dataSourceLabel): 證交所大盤 only when the run has the index. */
   source: string;
   onMode: (mode: "quote" | "chart") => void;
+  onScale: (scale: DeskScale) => void;
   onSelect: (code: string) => void;
   /** Phones step from the quote block's ◀ ▶ instead. */
   stepper?: boolean;
@@ -236,18 +251,17 @@ export function ChartToolbar({
         </div>
       )}
       <nav aria-label="看盤分頁" className="td-segment">
-        {(
-          [
-            ["quote", "江波"],
-            ["chart", "K線"],
-          ] as const
-        ).map(([value, label]) => (
+        {CHART_VIEWS.map(([value, view, label, hint]) => (
           <button
-            key={value}
+            key={label}
             type="button"
-            aria-pressed={mode === value}
-            data-coach={`mode-${value}`}
-            onClick={() => onMode(value)}
+            title={hint}
+            aria-pressed={mode === value && (view === null || scale === view)}
+            data-coach={view === "zoom" ? "mode-zoom" : `mode-${value}`}
+            onClick={() => {
+              onMode(value);
+              if (view) onScale(view);
+            }}
           >
             {label}
           </button>
@@ -255,9 +269,24 @@ export function ChartToolbar({
       </nav>
       <p className="td-chartbar-source">
         <span className="td-chip" data-kind="real">
-          {source}
+          {/* The narrowest phones break 「富邦逐筆／證交所大盤」 after the 「／」, so the chart bar stays one row. */}
+          <span>
+            {source.split("／").map((part, index) => (
+              <Fragment key={index}>
+                {index > 0 && (
+                  <>
+                    ／<wbr />
+                  </>
+                )}
+                {part}
+              </Fragment>
+            ))}
+          </span>
         </span>
-        <span>{catalog.date} 台北時間</span>
+        <span className="td-chartbar-date">
+          {catalog.date}
+          <span className="td-chartbar-tz"> 台北時間</span>
+        </span>
       </p>
     </div>
   );

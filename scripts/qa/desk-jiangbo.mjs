@@ -777,7 +777,8 @@ await check("8-phone", async () => {
   // The 放大／±10% buttons must not squeeze the title onto two lines or cut the list's note (when the run has one).
   if (head.titleLines !== 1) problems.push(`「自選報價」 takes ${head.titleLines} lines`);
   if (head.noteCut) problems.push(`the list's note is cut off (${head.note})`);
-  if (mode !== "江波") problems.push(`行情 opens on 「${mode}」`);
+  // 2026-11-04: phones open the 江波圖 on 放大 (±10% leaves a 1–2% day a flat ribbon on a phone).
+  if (mode !== "放大") problems.push(`行情 opens on 「${mode}」, not 放大`);
   if (header !== "江波") problems.push(`自選's last column is 「${header}」`);
   if (!bar || bar.height > 70) problems.push(`the chart bar takes ${bar?.height}px (wraps onto a second row)`);
   // Phone rows are 52px tall: the 江波圖 mini uses 40px of them.
@@ -810,6 +811,8 @@ await check("14-phone-line-start", async () => {
     await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 3000 }).catch(() => {});
     await rest(page);
     await page.getByRole("navigation", { name: "主要分頁" }).getByRole("button", { name: /行情/ }).first().click({ timeout: 4000 });
+    // The ±10% view (phones open on 放大): its 漲停 line locates the plot.
+    await page.locator(".td-chartbar").getByRole("button", { name: "江波", exact: true }).click({ timeout: 4000 });
     await page.waitForTimeout(600);
     const png = await chart(page).screenshot();
     writeFileSync(`${out}phone-line-start.png`, png);

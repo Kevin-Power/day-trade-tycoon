@@ -14,7 +14,8 @@
 //   4. Once (390×844): the bar's 買進 sends a 市價 1 張 order at once and 行情 stays, the bar saying the waiting
 //      order with 撤回; the next minute fills it; the fill is then said across the top (taps go through it) and goes
 //      by itself, 本輪損益 shows under 庫存, the quote block says the holding with its 成本, the bar's 賣出 the
-//      whole holding, and the chart names its 成本 line.
+//      whole holding, and the chart names its 成本 line. Before it, the 江波圖 opens on 放大 (2026-11-04), 江波 brings
+//      the ±10% scale back and the device remembers it; after the next minute no feedback line pushes the page down.
 // Runs in chromium or webkit (Safari's engine). Usage: node scripts/qa/desk-phone.mjs <baseUrl> <label> [chromium|webkit]
 import { chromium, webkit } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -187,6 +188,29 @@ for (const [width, height, senior] of sizes) {
     if (name === "390x844") {
       await page.getByRole("navigation", { name: "主要分頁" }).getByRole("button", { name: /行情/ }).click();
       await page.waitForTimeout(300);
+      // The 江波圖 opens on 放大 on phones; 江波 (±10%) is one tap away and the device remembers it (data-band: the
+      // scale the chart drew).
+      const views = page.locator('nav[aria-label="看盤分頁"]');
+      const bandOf = () => page.locator('main canvas[role="img"]').first().getAttribute("data-band");
+      const pressedView = async () => ((await views.locator('button[aria-pressed="true"]').first().textContent()) ?? "").trim();
+      result.scale = { opens: await pressedView(), band: await bandOf() };
+      if (result.scale.opens !== "放大" || !(Number(result.scale.band) > 0 && Number(result.scale.band) < 0.1))
+        fail(`行情's 江波圖 opens on 「${result.scale.opens}」 at ±${result.scale.band}, not 放大`);
+      await page.screenshot({ path: `${out}${name}-zoom.png` });
+      await views.getByRole("button", { name: "江波", exact: true }).click();
+      await page
+        .waitForFunction(() => document.querySelector('main canvas[role="img"]')?.dataset.band === "0.1", null, { timeout: 3000 })
+        .catch(() => {});
+      result.scale.fixed = await bandOf();
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.locator('main canvas[role="img"]').first().waitFor({ timeout: 20000 });
+      await page.locator(".td-notice").getByRole("button", { name: "知道了" }).click({ timeout: 2000 }).catch(() => {});
+      await page.waitForTimeout(600);
+      result.scale.afterReload = await pressedView();
+      if (result.scale.fixed !== "0.1" || result.scale.afterReload !== "江波")
+        fail(`江波 draws ±${result.scale.fixed}; after a reload 行情 opens on 「${result.scale.afterReload}」`);
+      await views.getByRole("button", { name: "放大", exact: true }).click();
+      await page.waitForTimeout(400);
       const tradeBar = page.locator(".td-tradebar");
       const lots = ((await tradeBar.locator("output").textContent()) ?? "").replace(/\s+/g, "");
       if (lots !== "1張") fail(`the trade bar's lots read 「${lots}」, not 1 張`);
@@ -206,6 +230,9 @@ for (const [width, height, senior] of sizes) {
       await dock.getByRole("button", { name: /下單/ }).click();
       await page.getByText(/成交 · 買進 .* 1 張 @/).first().waitFor({ timeout: 12000 });
       result.sent = "委託成功 → 成交";
+      // 「已前進至…請核對下方紀錄」 pushed the 江波圖 down, about a record a phone's 行情 does not have.
+      const feedback = await page.locator(".td-feedback").evaluateAll((nodes) => nodes.filter((node) => node.getClientRects().length).length);
+      if (feedback) fail("a feedback line shows above the desk after the next minute");
       await page.screenshot({ path: `${out}${name}-filled.png` });
       // 2026-11-02: once the replay reaches the fill it is said across the top, where taps go through it; 本輪損益 is
       // under 庫存 on every tab; the held stock's quote block says the holding; the notice goes by itself.

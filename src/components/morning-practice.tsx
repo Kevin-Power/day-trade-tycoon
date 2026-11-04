@@ -43,7 +43,7 @@ import { PlanForm } from "@/components/morning-plan-form";
 import { CARD, INPUT, PRIMARY, SECONDARY } from "@/components/morning-styles";
 import { CoachMarks } from "@/components/coach-marks";
 import { readCoachSeen, writeCoachSeen } from "@/lib/coach-steps";
-import { browserStorage } from "@/lib/device-storage";
+import { browserStorage, readDeviceValue, writeDeviceValue } from "@/lib/device-storage";
 import { useSay } from "@/components/use-speech";
 import { fillAnnouncement, SPEECH_TEXT } from "@/lib/speech";
 import { openingRevealDelay } from "@/lib/opening-reveal";
@@ -100,7 +100,10 @@ import {
   DESK_EMA_PERIODS,
   JIANGBO_BAND,
   candleWindow,
+  chartZoomBand,
+  parseDeskScale,
   showVolumeAndAverage,
+  type DeskScale,
 } from "@/lib/market/chart-data";
 import { deriveSwingHighs } from "@/lib/market/swing-highs";
 import {
@@ -112,6 +115,8 @@ import {
 /** Phone and large-text tabs; the chart mode (江波／K線) is separate and shared by every layout. */
 type MorningPane = "market" | "watch" | "trade" | "positions";
 type ChartMode = "quote" | "chart";
+/** Each device remembers its own 江波圖 scale (2026-11-04: 放大 by default on phones, ±10% on desks). */
+const DESK_SCALE_KEY = "day-tycoon-desk-scale-v1";
 
 /** The classroom has no daily lessons (none here, or none yet): the sentence to show, and the learner's records. */
 const isUnavailable = (reply: MorningReply): reply is MorningUnavailable => "unavailable" in reply;
@@ -574,6 +579,14 @@ function MorningLesson({
       ? session!.plan.focusCode
       : (catalog?.symbols[0]?.code ?? "");
   const singlePane = layout === "phone" || layout === "senior";
+  // The 江波圖's scale: the device's own choice once mounted, else 放大 on phones and ±10% on desks.
+  const [storedScale, setStoredScale] = useState<string | null>(null);
+  useEffect(() => setStoredScale(readDeviceValue(browserStorage(), DESK_SCALE_KEY)), []);
+  const deskScale = parseDeskScale(storedScale, singlePane);
+  const chooseScale = (next: DeskScale) => {
+    setStoredScale(next);
+    writeDeviceValue(browserStorage(), DESK_SCALE_KEY, next);
+  };
   // The stock whose recorded books the next advance asks for, read when the auto-advance timer fires (so picking
   // another stock never restarts the wait). Its books come with the advance after the pick; until then the desk
   // shows the real best bid and ask.
@@ -1024,8 +1037,10 @@ function MorningLesson({
       catalog={catalog}
       code={code}
       mode={chartMode}
+      scale={deskScale}
       source={dataSourceLabel(indexState)}
       onMode={setChartMode}
+      onScale={chooseScale}
       onSelect={setSelected}
       stepper={!singlePane}
     />
@@ -1381,6 +1396,7 @@ function MorningLesson({
                           session={liveMarket}
                           code={code}
                           candles={chartMode === "chart"}
+                          zoom={deskScale === "zoom"}
                         />
                       </div>
                     )}
@@ -1940,11 +1956,14 @@ function MorningChart({
   session,
   code,
   candles,
+  zoom,
 }: {
   catalog: MorningCatalog;
   session: LiveMorningState | null;
   code: string;
   candles: boolean;
+  /** 江波 放大: the smallest ±1/2/3/5/10% that holds the day so far and the holding's levels; else ±10%. */
+  zoom: boolean;
 }) {
   const symbol = catalog.symbols.find((item) => item.code === code) ?? catalog.symbols[0];
   if (!symbol) return null;
@@ -1972,6 +1991,14 @@ function MorningChart({
   // A holding: its 成本 as a solid accent line, its 自動出場 停利 (up colour) and 停損 (down colour) as dashed ones.
   const held = session?.positions.find((position) => position.code === symbol.code && position.shares > 0);
   const levels = holdingLevels(held);
+  const band = candles
+    ? undefined
+    : zoom
+      ? chartZoomBand(symbol.previousClose, [
+          ...bars.flatMap((bar) => [bar.h, bar.l]),
+          ...levels.map((level) => level.price),
+        ])
+      : JIANGBO_BAND;
   const sourceBacked = showVolumeAndAverage(catalog.volumeUnit, bars);
   return (
     <section className="td-chart" data-coach="chart" aria-label={symbol.name + "歷史分鐘行情"}>
@@ -1999,10 +2026,10 @@ function MorningChart({
             showVolumeReadout={sourceBacked}
             appendCurrentQuote={false}
             completedBarSeconds={60}
-            priceBand={candles ? undefined : JIANGBO_BAND}
+            priceBand={band}
             emaPeriods={DESK_EMA_PERIODS}
             interactive
-            ariaLabel={`${catalog.date} ${code} ${symbol.name}歷史${candles ? "一分鐘K線" : "江波圖（昨收上下 10%）"}，含 EMA11、EMA24（一分鐘收盤價），只包含已揭露分鐘，最新一分鐘依富邦的真實逐筆成交重播，播完時是這分鐘的收盤價，${sourceBacked ? "含均價與成交量（張）" : "不顯示成交量或均價"}。${held ? `庫存 ${held.shares / 1000} 張，成本 ${fillPriceText(held.averageCost)}。` : ""}${lastComplete ? `最新完整分鐘 ${formatTime(lastComplete.t).slice(0, 5)} 開 ${formatPrice(lastComplete.o)} 高 ${formatPrice(lastComplete.h)} 低 ${formatPrice(lastComplete.l)} 收 ${formatPrice(lastComplete.c)}。` : "第一分鐘重播中。"}`}
+            ariaLabel={`${catalog.date} ${code} ${symbol.name}歷史${band ? `江波圖（昨收上下 ${Math.round(band * 100)}%${zoom ? "，放大" : ""}）` : "一分鐘K線"}，含 EMA11、EMA24（一分鐘收盤價），只包含已揭露分鐘，最新一分鐘依富邦的真實逐筆成交重播，播完時是這分鐘的收盤價，${sourceBacked ? "含均價與成交量（張）" : "不顯示成交量或均價"}。${held ? `庫存 ${held.shares / 1000} 張，成本 ${fillPriceText(held.averageCost)}。` : ""}${lastComplete ? `最新完整分鐘 ${formatTime(lastComplete.t).slice(0, 5)} 開 ${formatPrice(lastComplete.o)} 高 ${formatPrice(lastComplete.h)} 低 ${formatPrice(lastComplete.l)} 收 ${formatPrice(lastComplete.c)}。` : "第一分鐘重播中。"}`}
           />
         ) : (
           <div className="td-chart-waiting">

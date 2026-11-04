@@ -394,6 +394,43 @@ export function miniZoomBand(previous: number, bars: readonly Pick<Bar, "c">[]):
   return MINI_ZOOM_STEPS.find((step) => reach <= step + 1e-9) ?? JIANGBO_BAND;
 }
 
+/**
+ * The desk's 江波圖 scale (2026-11-04): 放大 (zoomed to the day so far, the default on phones, where ±10% leaves a
+ * 1–2% day a flat ribbon) or the fixed ±10% (the default on desks). Each device remembers its own choice.
+ */
+export type DeskScale = "zoom" | "fixed";
+
+/** The device's stored choice, else 放大 on phones and ±10% on desks. */
+export function parseDeskScale(stored: string | null, phone: boolean): DeskScale {
+  return stored === "zoom" || stored === "fixed" ? stored : phone ? "zoom" : "fixed";
+}
+
+/**
+ * The desk's 放大: the smallest of the 自選 steps (±1/2/3/5/10%) that holds every price given — the revealed highs and
+ * lows and the holding's levels — within nine tenths of it, so nothing sits on the frame. The previous close stays in
+ * the middle. Only revealed minutes are passed in, so the scale never gives away the rest of the day.
+ */
+export function chartZoomBand(previous: number, prices: readonly number[]): number {
+  if (!positive(previous)) return JIANGBO_BAND;
+  const reach = Math.max(0, ...prices.filter(positive).map((price) => Math.abs(price / previous - 1)));
+  return MINI_ZOOM_STEPS.find((step) => reach <= step * 0.9 + 1e-9) ?? JIANGBO_BAND;
+}
+
+/** Grid steps of a zoomed band, finest first: each row a whole step from the previous close. */
+const ZOOM_GRID_STEPS = [0.0025, 0.005, 0.01, 0.02, 0.025, 0.05] as const;
+
+/**
+ * Grid rows of a band chart: ±10% keeps the 江波 rows (2% or 5%); a zoomed band takes the most rows, up to 10, whose
+ * step is a whole 0.25/0.5/1/2/2.5/5% and whose rows are each 2.2 lines tall, else 2.
+ */
+export function bandGridRows(band: number, plotHeight: number, fontSize: number): number {
+  if (band >= JIANGBO_BAND) return jiangboGridRows(plotHeight, fontSize);
+  const choices = ZOOM_GRID_STEPS.map((step) => (2 * band) / step).filter(
+    (rows) => Math.abs(rows - Math.round(rows)) < 1e-9 && Math.round(rows) % 2 === 0 && rows >= 2 && rows <= 10,
+  );
+  return Math.round(choices.find((rows) => plotHeight >= rows * fontSize * 2.2) ?? 2);
+}
+
 /** The mini's tooltip: which scale it is drawn on. */
 export function miniScaleLabel(band: number): string {
   return `刻度：昨收 ±${Math.round(band * 100)}%`;
