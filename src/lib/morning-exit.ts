@@ -31,9 +31,30 @@ export function holdingLevels(position: { averageCost: number; exit?: MorningPos
   const exit = position.exit;
   return [
     { price: position.averageCost, label: "成本", tone: "accent", solid: true, priceText: fillPriceText(position.averageCost) },
-    ...(exit?.takeProfit == null ? [] : [{ price: exit.takeProfit, label: "停利", tone: "up" as const }]),
-    ...(exit?.stopLoss == null ? [] : [{ price: exit.stopLoss, label: "停損", tone: "down" as const }]),
+    ...(exit?.takeProfit == null ? [] : [{ price: exit.takeProfit, label: "停利觸價", tone: "up" as const }]),
+    ...(exit?.stopLoss == null ? [] : [{ price: exit.stopLoss, label: "停損觸價", tone: "down" as const }]),
   ];
+}
+
+/** A holding's waiting 觸價單: when a trade reaches `price`, the classroom sells the whole holding at market. */
+export type TriggerOrder = { code: string; kind: ExitKind; name: string; price: number; shares: number; fromMs: number };
+
+/**
+ * The 自動出場 as the 觸價單 a real system would show (2026-11-06, 石大哥: 「下單後，直接會設觸價單來停損、停利嗎?」):
+ * each holding's 停利觸價單 then 停損觸價單, set when its buy filled. The first one reached sells the whole holding and
+ * the other goes with it. A side past 漲停／跌停 has no price (exitPrices), so no 觸價單.
+ */
+export function triggerOrders(
+  positions: readonly { code: string; shares: number; exit?: MorningPositionExit }[],
+): TriggerOrder[] {
+  return positions.flatMap(({ code, shares, exit }) =>
+    exit && shares > 0
+      ? (["takeProfit", "stopLoss"] as const).flatMap((kind) => {
+          const price = exit[kind];
+          return price === null ? [] : [{ code, kind, name: `${EXIT_NAME[kind]}觸價單`, price, shares, fromMs: exit.fromMs }];
+        })
+      : [],
+  );
 }
 
 /**

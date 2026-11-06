@@ -3,7 +3,7 @@
 // this visit. Reports come from the run's own records; nothing here changes an order.
 import type { MorningState } from "./morning.ts";
 import { commission, formatPrice } from "./market/ticks.ts";
-import { EXIT_NAME } from "./morning-exit.ts";
+import { EXIT_NAME, triggerOrders } from "./morning-exit.ts";
 import { fillPriceText } from "./morning-ledger.ts";
 import { formatTime } from "./utils.ts";
 
@@ -131,14 +131,18 @@ export type OrderReport = {
   key: string;
   /** HH:MM, or null when the run did not record when it happened (a cancel or a turned-down order). */
   time: string | null;
-  tone: "sent" | "filled" | "closed" | "failed" | "unknown";
+  /** armed: a holding's 觸價單 waiting for its price. */
+  tone: "armed" | "sent" | "filled" | "closed" | "failed" | "unknown";
   text: string;
 };
 
 const clock = (seconds: number) => formatTime(seconds).slice(0, 5);
 const LEARNER_CANCEL = "由學員取消";
 
-/** The run's order events and this visit's failed sends, newest first, at most `limit`. */
+/**
+ * The holding's waiting 觸價單 first (2026-11-06: so the 自動出場 a buy set is seen as two orders), then the run's
+ * order events and this visit's failed sends, newest first, at most `limit` of them.
+ */
 export function orderReports(
   state: MorningState | null,
   names: Record<string, string>,
@@ -153,8 +157,8 @@ export function orderReports(
   const events: { cursor: number; report: OrderReport }[] = [];
   for (const order of state?.orders ?? []) {
     const lots = order.shares / 1000;
-    // The classroom's 自動出場 sell names itself in each of its lines.
-    const auto = order.auto ? `自動${EXIT_NAME[order.auto]} · ` : "";
+    // The classroom's 自動出場 sell is the 觸價單 that fired: it names itself in each of its lines.
+    const auto = order.auto ? `${EXIT_NAME[order.auto]}觸價單 · ` : "";
     const subject = `${auto}${what(order.side, order.code, lots)}`;
     events.push({
       cursor: order.submittedCursor,
@@ -163,7 +167,7 @@ export function orderReports(
         time: clock(order.submittedCursor * 60),
         tone: "sent",
         text: order.auto
-          ? `${subject} 市價（成交價到 ${formatPrice(order.triggerPrice ?? 0)}）`
+          ? `${EXIT_NAME[order.auto]}觸價單觸發 · 成交價到 ${formatPrice(order.triggerPrice ?? 0)} · 市價${what(order.side, order.code, lots)}`
           : `委託成功 · ${order.entryMode === "lightning" ? "閃電 · " : ""}${subject} ${how(order.limitPrice)}${
               order.limitPrice === undefined ? "（量夠才成交，用平均價）" : ""
             }`,
@@ -217,5 +221,15 @@ export function orderReports(
     merged.push(event.report);
   }
   while (next < failed.length) merged.push(failed[next++].report);
-  return merged.reverse().slice(0, limit);
+  const armed: OrderReport[] = triggerOrders(state?.positions ?? []).map((trigger) => ({
+    key: `trigger:${trigger.code}:${trigger.kind}`,
+    time: clock(Math.floor(trigger.fromMs / 1000)),
+    tone: "armed",
+    text: `${trigger.name} · 成交價 ${trigger.kind === "takeProfit" ? "≥" : "≤"} ${formatPrice(trigger.price)} 市價${what(
+      "sell",
+      trigger.code,
+      trigger.shares / 1000,
+    )} · 等待觸發`,
+  }));
+  return [...armed, ...merged.reverse().slice(0, limit)];
 }

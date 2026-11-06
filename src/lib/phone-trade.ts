@@ -86,7 +86,7 @@ export function phoneTrade(input: PhoneTradeInput): PhoneTradeView {
       (sending === "buy"
         ? "送出中…"
         : exiting
-          ? "自動出場中"
+          ? "觸價賣出中"
           : short
             ? "資金不足"
             : large && armed && amount !== null
@@ -104,7 +104,7 @@ export function phoneTrade(input: PhoneTradeInput): PhoneTradeView {
       (sending === "sell"
         ? "送出中…"
         : exiting?.auto
-          ? `自動${EXIT_NAME[exiting.auto]}中`
+          ? `${EXIT_NAME[exiting.auto]}觸發中`
           : holdingLots === 0
             ? "沒有庫存"
             : missed === "sell"

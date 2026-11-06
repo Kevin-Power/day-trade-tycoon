@@ -1,9 +1,10 @@
-import { AlertCircle, CircleCheck, Clock3, Minus, TriangleAlert } from "@/lib/icons";
+import { AlertCircle, CircleCheck, Clock3, Minus, Target, TriangleAlert } from "@/lib/icons";
 import type { IconComponent } from "@/lib/icons/icon";
 import type { OrderReport } from "@/lib/morning-orders";
 
 /** Each state's mark beside its colour, so a report never depends on colour alone. */
 const MARKS: Record<OrderReport["tone"], IconComponent> = {
+  armed: Target,
   sent: Clock3,
   filled: CircleCheck,
   closed: Minus,

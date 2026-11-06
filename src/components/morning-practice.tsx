@@ -1988,7 +1988,7 @@ function MorningChart({
   const fills = (session?.fills ?? [])
     .filter((fill) => fill.code === symbol.code)
     .map((fill) => ({ t: fill.t, p: fill.price, side: fill.side }));
-  // A holding: its 成本 as a solid accent line, its 自動出場 停利 (up colour) and 停損 (down colour) as dashed ones.
+  // A holding: its 成本 as a solid accent line, its 停利／停損觸價單 (up and down colours) as dashed ones.
   const held = session?.positions.find((position) => position.code === symbol.code && position.shares > 0);
   const levels = holdingLevels(held);
   const band = candles
@@ -2158,7 +2158,7 @@ function SavedPlan({ plan, catalog }: { plan: MorningPlan; catalog: MorningCatal
           { label: "觀察理由", value: plan.reason },
           { label: "等待的操作條件", value: plan.entry },
           { label: "計畫失效／停止條件", value: plan.stop },
-          { label: "自動出場", value: plan.exit ? exitPlanText(plan.exit) : "關閉，自己按賣出" },
+          { label: "觸價單", value: plan.exit ? exitPlanText(plan.exit) : "不送，自己按賣出" },
         ].map((item) => (
           <div key={item.label}>
             <dt className="text-sm text-muted">{item.label}</dt>

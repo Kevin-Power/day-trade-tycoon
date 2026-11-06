@@ -17,6 +17,15 @@ test("ledgerSummary counts holdings, orders, pending orders and fills", () => {
   assert.deepEqual(ledgerSummary({ positions: [], orders: [], fills: [] }), {
     positions: 0, orders: 0, pending: 0, fills: 0,
   });
+  // A holding's waiting 觸價單 are listed under 委託, so they count there; they are not 待撮合 (2026-11-06).
+  assert.deepEqual(
+    ledgerSummary({
+      positions: [{ code: "2330", shares: 1000, averageCost: 1465, exit: { takeProfit: 1490, stopLoss: 1450, fromMs: 0 } }],
+      orders: [order("filled")],
+      fills: [],
+    }),
+    { positions: 1, orders: 3, pending: 0, fills: 0 },
+  );
 });
 
 test("a fill shows the second of its real trade; a run made before the trades were kept still shows its minute", () => {

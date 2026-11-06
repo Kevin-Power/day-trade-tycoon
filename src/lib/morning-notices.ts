@@ -3,7 +3,8 @@
 // price is reached the screen should say 成交 at once; during a trade there is no time to keep opening 庫存 or 委託.
 // Pure: the caller passes two views of the run, the last one announced and the one now.
 import type { MorningState } from "./morning.ts";
-import { EXIT_CANCEL, EXIT_NAME } from "./morning-exit.ts";
+import { EXIT_CANCEL, EXIT_NAME, triggerOrders } from "./morning-exit.ts";
+import { formatPrice } from "./market/ticks.ts";
 import { fillPriceText } from "./morning-ledger.ts";
 import { positionMark, type QuoteTone } from "./morning-quote.ts";
 import { formatMoney } from "./utils.ts";
@@ -18,6 +19,8 @@ export type OrderNotice = {
   text: string;
   /** A sell's result: 「這筆 +38,422」, fees and tax included. */
   result?: { text: string; tone: QuoteTone };
+  /** A buy that set the holding's 觸價單: 「已送出觸價單：停利 1805／停損 1755」 (2026-11-06, 石大哥). */
+  note?: string;
 };
 
 /**
@@ -95,10 +98,18 @@ export function orderNotices(
       continue;
     }
     const holding = after.positions.find((position) => position.code === fill.code);
+    const triggers = holding ? triggerOrders([holding]) : [];
     notices.push({
       id: fill.id,
       label: "成交",
       text: holding ? `${text} · 庫存 ${holding.shares / 1000} 張 成本 ${fillPriceText(holding.averageCost)}` : text,
+      ...(triggers.length
+        ? {
+            note: `已送出觸價單：${triggers
+              .map((trigger) => `${EXIT_NAME[trigger.kind]} ${formatPrice(trigger.price)}`)
+              .join("／")}`,
+          }
+        : {}),
     });
   }
   const waiting = new Set(before.orders.filter((order) => order.status === "pending").map((order) => order.id));

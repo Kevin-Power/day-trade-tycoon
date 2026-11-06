@@ -13,7 +13,7 @@ import { OrderReports } from "@/components/order-reports";
 import { MinuteTable, QuoteDetailGrid, StockTabs } from "@/components/stock-detail";
 import { TradeTape } from "@/components/trade-tape";
 import { exceedsCash, isLargeOrder, orderReports, type LocalOrderFailure } from "@/lib/morning-orders";
-import { EXIT_NAME } from "@/lib/morning-exit";
+import { EXIT_NAME, triggerOrders } from "@/lib/morning-exit";
 
 export function AccountSummary({ session }: { session: MorningState }) {
   const profit = session.equity - session.startingCash;
@@ -759,7 +759,7 @@ export function PaperOrder({
                   onChange={changeLots}
                 />
                 {/* Right under the side and the lots that cause it, so the smallest phones show it without scrolling. */}
-                {exiting && <p className="sim-ticket-message">這檔正在自動出場，等它成交後才能再下這檔。</p>}
+                {exiting && <p className="sim-ticket-message">這檔的觸價單已觸發、正在市價賣出，成交後才能再下這檔。</p>}
                 {invalidSell && (
                   <p className="sim-ticket-message">
                     {holdingLots
@@ -1045,7 +1045,7 @@ function ledgerRecords(
           ...(item.exit
             ? [
                 {
-                  label: "自動出場",
+                  label: "觸價單",
                   // None past 漲停／跌停 (morning-exit.ts).
                   value: `停利 ${item.exit.takeProfit === null ? "—" : formatPrice(item.exit.takeProfit)}／停損 ${
                     item.exit.stopLoss === null ? "—" : formatPrice(item.exit.stopLoss)
@@ -1057,50 +1057,74 @@ function ledgerRecords(
       };
     });
   if (pane === "orders")
-    return session.orders
-      .slice()
-      .reverse()
-      .map((item) => ({
-        key: item.id,
-        name: name(item.code),
-        sub: `${item.code} · ${formatTime(item.submittedCursor * 60).slice(0, 5)}${item.entryMode === "lightning" ? " · 閃電" : ""}${item.auto ? ` · 自動${EXIT_NAME[item.auto]}` : ""}`,
+    return [
+      // The holding's waiting 觸價單 first (2026-11-06, 石大哥): the 自動出場 its buy set, as a real system lists it.
+      ...triggerOrders(session.positions).map((trigger) => ({
+        key: `trigger:${trigger.code}:${trigger.kind}`,
+        name: name(trigger.code),
+        sub: `${trigger.code} · ${formatTime(Math.floor(trigger.fromMs / 1000)).slice(0, 5)} · ${trigger.name}`,
         cells: [
-          {
-            label: "方向 / 張數",
-            value: `${item.side === "buy" ? "買進" : "賣出"} ${item.shares / 1000} 張`,
-            className: `sim-${item.side}`,
-          },
+          { label: "方向 / 張數", value: `賣出 ${trigger.shares / 1000} 張`, className: "sim-sell" },
           {
             label: "委託價",
-            value: item.limitPrice === undefined ? "市價" : formatPrice(item.limitPrice),
+            value: `觸價 ${trigger.kind === "takeProfit" ? "≥" : "≤"} ${formatPrice(trigger.price)} · 市價`,
           },
-          { label: "成交價", value: item.price === undefined ? "—" : fillPriceText(item.price) },
+          { label: "成交價", value: "—" },
           {
             label: "狀態",
             value: (
-              <>
-                <span className="sim-status" data-status={item.status}>
-                  {ORDER_STATUS[item.status]}
-                </span>
-                {item.status === "pending" && (
-                  <small className="sim-record-progress">{lotProgress(item)}</small>
-                )}
-                {item.status === "pending" && !item.auto && !session.completed && (
-                  <button
-                    type="button"
-                    className="sim-cancel"
-                    disabled={busy}
-                    onClick={() => void onCancel(item.id)}
-                  >
-                    撤回委託
-                  </button>
-                )}
-                {item.reason && <small className="sim-record-reason">{item.reason}</small>}
-              </>
+              <span className="sim-status" data-status="armed">
+                等待觸發
+              </span>
             ),
           },
         ],
-      }));
+      })),
+      ...session.orders
+        .slice()
+        .reverse()
+        .map((item) => ({
+          key: item.id,
+          name: name(item.code),
+          sub: `${item.code} · ${formatTime(item.submittedCursor * 60).slice(0, 5)}${item.entryMode === "lightning" ? " · 閃電" : ""}${item.auto ? ` · ${EXIT_NAME[item.auto]}觸價單` : ""}`,
+          cells: [
+            {
+              label: "方向 / 張數",
+              value: `${item.side === "buy" ? "買進" : "賣出"} ${item.shares / 1000} 張`,
+              className: `sim-${item.side}`,
+            },
+            {
+              label: "委託價",
+              value: item.limitPrice === undefined ? "市價" : formatPrice(item.limitPrice),
+            },
+            { label: "成交價", value: item.price === undefined ? "—" : fillPriceText(item.price) },
+            {
+              label: "狀態",
+              value: (
+                <>
+                  <span className="sim-status" data-status={item.status}>
+                    {ORDER_STATUS[item.status]}
+                  </span>
+                  {item.status === "pending" && (
+                    <small className="sim-record-progress">{lotProgress(item)}</small>
+                  )}
+                  {item.status === "pending" && !item.auto && !session.completed && (
+                    <button
+                      type="button"
+                      className="sim-cancel"
+                      disabled={busy}
+                      onClick={() => void onCancel(item.id)}
+                    >
+                      撤回委託
+                    </button>
+                  )}
+                  {item.reason && <small className="sim-record-reason">{item.reason}</small>}
+                </>
+              ),
+            },
+          ],
+        })),
+    ];
   return session.fills
     .slice()
     .reverse()

@@ -1668,6 +1668,9 @@ html:has(.trading-desk) #app {
 .trading-desk .sim-status[data-status="pending"] {
   color: var(--td-prev);
 }
+.trading-desk .sim-status[data-status="armed"] {
+  color: var(--td-warn);
+}
 .trading-desk .sim-status[data-status="rejected"] {
   color: var(--td-alert-fg);
 }
@@ -2948,6 +2951,16 @@ html:has(.trading-desk) #app {
 .trading-desk .td-order-notice[data-label="closed"] strong {
   color: #1a1300;
   background: var(--td-warn);
+}
+/* A buy that set 觸價單 says so on a line of its own under the fill (2026-11-06). */
+.trading-desk .td-order-notice small {
+  flex-basis: 100%;
+  color: #ffd38a;
+  font-size: 13px;
+  font-weight: 600;
+}
+.trading-desk[data-layout="senior"] .td-order-notice small {
+  font-size: 16px;
 }
 .trading-desk .td-order-notice b {
   color: var(--td-tone);
@@ -4736,6 +4749,10 @@ html:has(.trading-desk) #app {
   height: 15px;
   margin-top: 1px;
   color: var(--td-report, var(--td-muted));
+}
+/* A holding's waiting 觸價單 (2026-11-06): amber with its target mark, until its price is reached. */
+.trading-desk .sim-reports li[data-tone="armed"] {
+  --td-report: var(--td-warn);
 }
 .trading-desk .sim-reports li[data-tone="sent"] {
   --td-report: var(--td-accent);
