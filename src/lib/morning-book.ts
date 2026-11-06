@@ -133,6 +133,22 @@ export function bookPressure(book: {
   return { bidLots, askLots, bidShare: total > 0 ? bidLots / total : 0.5 };
 }
 
+/**
+ * 外盤／內盤 among `trades`: the lots traded at the ask of the time (buyers took the offer) and at the bid (sellers hit
+ * it); a trade between them, or without a recorded bid and ask, counts for neither. `askShare` is null with no sided
+ * trade. The phone's 五檔 beside the 江波圖 says it for the latest trades the desk holds (2026-11-06, 石大哥).
+ */
+export function tradeSides(trades: readonly Pick<LiveTrade, "size" | "side">[]): {
+  askLots: number;
+  bidLots: number;
+  askShare: number | null;
+} {
+  const askLots = trades.reduce((sum, trade) => sum + (trade.side === "ask" ? trade.size : 0), 0);
+  const bidLots = trades.reduce((sum, trade) => sum + (trade.side === "bid" ? trade.size : 0), 0);
+  const total = askLots + bidLots;
+  return { askLots, bidLots, askShare: total > 0 ? askLots / total : null };
+}
+
 /** 左買右賣 (the 10/20 meeting): a left (委買) cell buys at its price, a right (委賣) cell sells at its price. */
 export function bookCellOrder(cell: "bid" | "ask"): "buy" | "sell" {
   return cell === "bid" ? "buy" : "sell";

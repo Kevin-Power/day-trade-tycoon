@@ -33,6 +33,7 @@ import { IndexPanel } from "@/components/index-panel";
 import { WatchTable } from "@/components/watch-table";
 import { ChartToolbar, QuoteHero, QuoteLine } from "@/components/quote-hero";
 import { PhoneTradeBar } from "@/components/phone-trade-bar";
+import { SideBook } from "@/components/side-book";
 import { useGuestBootstrap } from "@/components/use-guest-bootstrap";
 import { AccessCard } from "@/components/access-card";
 import { GuestBanner, GuestSaveCard, LinkNoticeBanner } from "@/components/guest-prompts";
@@ -1390,7 +1391,7 @@ function MorningLesson({
                   <div className="td-pane">
                     {singlePane && activePane === "market" && indexView && indexPanel}
                     {(!singlePane || (activePane === "market" && !indexView)) && (
-                      <div className="td-chart-row">
+                      <div className="td-chart-row" data-side-book={layout === "phone" || undefined}>
                         <MorningChart
                           catalog={catalog}
                           session={liveMarket}
@@ -1398,6 +1399,9 @@ function MorningLesson({
                           candles={chartMode === "chart"}
                           zoom={deskScale === "zoom"}
                         />
+                        {layout === "phone" && (
+                          <SideBook catalog={catalog} session={liveMarket} book={deskBook} code={code} />
+                        )}
                       </div>
                     )}
                     {singlePane && activePane === "market" && !indexView && (

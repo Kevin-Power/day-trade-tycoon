@@ -1019,3 +1019,20 @@ test("parseDeskScale: a device's own choice, else 放大 on phones and ±10% on 
   assert.equal(parseDeskScale(null, false), "fixed");
   assert.equal(parseDeskScale("something", true), "zoom");
 });
+
+test("a narrow chart's readout (the phone's 江波圖 beside its 五檔) leaves out the change and names the EMAs by period", () => {
+  // The quote above the chart says the change; the swatch's colour says which EMA.
+  assert.deepEqual(
+    terminalReadout({ bar: minute, previousClose: 2575, candles: false, intervalSeconds: 60, withVolume: true, compact: true }),
+    [
+      { text: "09:26–09:27", tone: "muted" },
+      { text: "價 2580", tone: "fg" },
+      { text: "均 2581.23", tone: "average" },
+      { text: "量 12 張", tone: "fg" },
+    ],
+  );
+  assert.deepEqual(emaReadout([{ period: 11, value: 1480.454 }, { period: 24, value: 1476.92 }], { compact: true }), [
+    { text: "11 1480.45", tone: "emaFast", legend: true },
+    { text: "24 1476.92", tone: "emaSlow", legend: true },
+  ]);
+});

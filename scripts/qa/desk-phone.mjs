@@ -7,6 +7,7 @@
 //      above the bottom tabs, and without scrolling at least 240px of the 江波圖 above the bar (200px on screens up to
 //      700px tall, 100px up to 600px, 160px in 大字); 快訊 in at most two lines, no sideways scroll, every button at
 //      least 44px (大字 56px).
+//      Phones (not 大字) show the 五檔 beside the 江波圖, ten levels as tall as it (2026-11-06, 走勢＋五檔並排).
 //   2. 自選: one card a stock, its 江波圖 at least 70px tall and four tenths of the card wide.
 //   3. 下單 (the full ticket, from the tabs) opens on 買進 with 市價 chosen and 核對模擬買進 on screen without
 //      scrolling (pinned above the tabs); 賣出 likewise, or, when it cannot be pressed (no holdings), the line saying
@@ -114,6 +115,18 @@ for (const [width, height, senior] of sizes) {
     // How much of the 江波圖 shows above the trade bar as the page opens, without scrolling.
     const shown = Math.round(Math.min(chart.bottom, await chartFloor(page)) - chart.top);
     const need = senior ? 160 : height <= 600 ? 100 : height <= 700 ? 200 : 240;
+    // 走勢＋五檔並排: the 五檔 to the right of the 江波圖, from its top, ten levels; 大字 keeps the 五檔 tab only.
+    const side = (await page.locator(".td-side-book").count()) ? await box(page.locator(".td-side-book")) : null;
+    const levels = await page.locator(".td-side-levels li").count();
+    result.sideBook = side && { left: Math.round(side.left), top: Math.round(side.top), width: Math.round(side.width), levels };
+    if (senior) {
+      if (side) fail("大字 shows the 五檔 beside the 江波圖");
+    } else if (!side) fail("行情 has no 五檔 beside the 江波圖");
+    else {
+      if (side.left < chart.left + chart.width - 1 || Math.abs(side.top - chart.top) > 2)
+        fail(`the 五檔 is not right of the 江波圖 (五檔 ${Math.round(side.left)},${Math.round(side.top)}; chart ends at ${Math.round(chart.left + chart.width)}, top ${Math.round(chart.top)})`);
+      if (levels !== 10) fail(`the 五檔 beside the 江波圖 has ${levels} levels`);
+    }
     const bar = (await page.locator(".td-tradebar").count()) ? await box(page.locator(".td-tradebar")) : null;
     const tabs = await dockTop(page);
     result.tradeBar = bar && { top: Math.round(bar.top), height: Math.round(bar.height), aboveTabs: Math.round(tabs - bar.top - bar.height) };

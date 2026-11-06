@@ -5615,3 +5615,91 @@ html:has(.trading-desk) #app {
   font-size: 16px;
 }
 
+/* Phones' 行情: 走勢＋五檔並排 like a broker app's quote page (2026-11-06, 石大哥: 「急急樂的重點就是讓學員知道如何看N字
+   攻擊、內外盤5檔價格，的下單時機」; the owner chose it). The 五檔 column is as tall as the 江波圖: 委賣 five above, 委買
+   five below, then 委買／委賣 of those levels and 外盤／內盤 of the latest trades. */
+.trading-desk[data-layout="phone"] .td-chart-row[data-side-book] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(104px, 30vw, 128px);
+}
+.trading-desk .td-side-book {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  min-height: 0;
+  padding: 4px 6px 6px;
+  overflow: hidden;
+  background: var(--td-panel);
+  border-left: var(--td-hairline) solid var(--td-line);
+}
+.trading-desk .td-side-head {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  color: var(--td-muted);
+  font: 500 11px/1.4 var(--font-sans);
+}
+.trading-desk .td-side-levels {
+  display: grid;
+  flex: 1;
+  grid-template-rows: repeat(10, minmax(0, 1fr));
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trading-desk .td-side-levels li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-height: 0;
+  padding: 0 3px;
+  font: 600 13px/1 var(--font-mono);
+}
+/* The best 委賣 and 委買 meet in the middle, on either side of one line. */
+.trading-desk .td-side-levels li:nth-child(5) {
+  border-bottom: 1px solid var(--td-line-strong);
+}
+.trading-desk .td-side-levels li[data-best][data-side="ask"] {
+  background: rgb(49 209 138 / 0.1);
+}
+.trading-desk .td-side-levels li[data-best][data-side="bid"] {
+  background: rgb(255 92 102 / 0.1);
+}
+.trading-desk .td-side-levels [data-tone="up"] {
+  color: var(--td-up);
+}
+.trading-desk .td-side-levels [data-tone="down"] {
+  color: var(--td-down);
+}
+.trading-desk .td-side-levels li span + span {
+  color: var(--td-muted);
+  font-weight: 500;
+}
+.trading-desk .td-side-bar {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  height: 18px;
+  padding: 0 4px;
+  overflow: hidden;
+  background: var(--td-down-wash);
+  border-radius: 2px;
+}
+.trading-desk .td-side-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: rgb(255 59 59 / 0.35);
+}
+.trading-desk .td-side-bar small {
+  position: relative;
+  font: 500 11px/1 var(--font-mono);
+}
+.trading-desk .td-side-note {
+  color: var(--td-muted);
+  font: 11px/1.3 var(--font-sans);
+}
