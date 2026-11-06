@@ -341,8 +341,12 @@ function paint(
         : bars.find((bar) => bar.t + (interval ?? 0) === pointed.t)
       : undefined;
   // The desk draws its readout in a strip above the plot, so it never covers the line or axis text.
-  // On narrow screens the strip wraps onto more lines rather than dropping fields.
-  const readoutGap = 14;
+  // On narrow screens the strip wraps onto more lines rather than dropping fields. A narrow chart (the phone's 江波圖
+  // beside its 五檔, 2026-11-06) leaves out the change the quote above says, names the EMAs by period and uses the
+  // strip's whole width, so it stays two lines.
+  const compactReadout = deskChart && w < 300;
+  const readoutLeft = compactReadout ? 4 : padL;
+  const readoutGap = compactReadout ? 10 : 14;
   const readoutStep = c.fontSize + 6;
   const readoutLinesFor = (bar: Bar | undefined) =>
     bar
@@ -354,11 +358,12 @@ function paint(
               candles: isCandles,
               intervalSeconds: interval ?? 60,
               withVolume: opt.showVolume === true && opt.showVolumeReadout !== false,
+              compact: compactReadout,
             }),
-            ...emaReadout(emaAt.get(bar.t) ?? []),
+            ...emaReadout(emaAt.get(bar.t) ?? [], { compact: compactReadout }),
           ],
           (text) => ctx.measureText(text).width,
-          w - 4 - padL,
+          w - 4 - readoutLeft,
           readoutGap,
         )
       : [];
@@ -1100,7 +1105,7 @@ function paint(
     ctx.textBaseline = "middle";
     readoutLines.forEach((line, row) => {
       const y = 2 + row * readoutStep + readoutStep / 2;
-      let x = padL;
+      let x = readoutLeft;
       for (const field of line) {
         ctx.fillStyle = tones[field.tone];
         if (field.legend) {

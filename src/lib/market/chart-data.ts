@@ -617,7 +617,8 @@ export const LEGEND_SWATCH = 14;
 /**
  * Fields of the desk chart's readout strip for one completed minute: its interval, its price (or
  * OHLC for candles), the change from the previous close and, only when the source supports them,
- * the source session average and volume in lots.
+ * the source session average and volume in lots. A narrow chart (`compact`: the phone's 江波圖 beside its 五檔)
+ * leaves out the change, which the quote above it says.
  */
 export function terminalReadout(input: {
   bar: Bar;
@@ -625,6 +626,7 @@ export function terminalReadout(input: {
   candles: boolean;
   intervalSeconds: number;
   withVolume: boolean;
+  compact?: boolean;
 }): ReadoutField[] {
   const { bar, previousClose } = input;
   const fields: ReadoutField[] = [
@@ -638,7 +640,7 @@ export function terminalReadout(input: {
       { text: `收 ${formatPrice(bar.c)}`, tone: "fg" },
     );
   else fields.push({ text: `價 ${formatPrice(bar.c)}`, tone: "fg" });
-  if (positive(previousClose)) {
+  if (positive(previousClose) && !input.compact) {
     const change = bar.c - previousClose;
     const size = Math.abs(change).toLocaleString("zh-TW", { maximumFractionDigits: 2 });
     fields.push({
@@ -655,12 +657,16 @@ export function terminalReadout(input: {
 }
 
 /** Readout fields for the EMA lines, e.g. 「EMA11 256.38」: the first is the fast line, the second the slow one. */
-export function emaReadout(values: readonly { period: number; value: number }[]): ReadoutField[] {
+export function emaReadout(
+  values: readonly { period: number; value: number }[],
+  { compact = false }: { compact?: boolean } = {},
+): ReadoutField[] {
   const tones: ReadoutTone[] = ["emaFast", "emaSlow"];
   return values.flatMap((item, index) => {
     const tone = tones[index];
+    // A narrow chart names each by its period beside the swatch of its colour.
     return tone && Number.isFinite(item.value)
-      ? [{ text: `EMA${item.period} ${item.value.toFixed(2)}`, tone, legend: true }]
+      ? [{ text: `${compact ? "" : "EMA"}${item.period} ${item.value.toFixed(2)}`, tone, legend: true }]
       : [];
   });
 }

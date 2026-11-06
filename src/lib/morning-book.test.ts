@@ -8,6 +8,7 @@ import {
   bookCellLabel,
   bookCellOrder,
   bookPressure,
+  tradeSides,
   bookView,
   displayBook,
   validMorningLimit,
@@ -279,4 +280,16 @@ test("each cell says its side, level and price, and what a click does", () => {
     bookCellLabel({ cell: "ask", level: 1, price: "2580", lots: 1, trading: false }),
     "賣1 2580，點擊帶入下單（賣出）",
   );
+});
+
+test("tradeSides: lots traded at the ask (外盤) and at the bid (內盤) among the trades given (2026-11-06, 石大哥)", () => {
+  const trade = (size: number, side: "ask" | "bid" | null) => ({ size, side });
+  assert.deepEqual(tradeSides([trade(3, "ask"), trade(2, "bid"), trade(5, null), trade(1, "ask")]), {
+    askLots: 4,
+    bidLots: 2,
+    askShare: 4 / 6,
+  });
+  // A trade between the bid and ask, or with none recorded, counts for neither; with no sided trade there is no share.
+  assert.deepEqual(tradeSides([trade(5, null)]), { askLots: 0, bidLots: 0, askShare: null });
+  assert.deepEqual(tradeSides([]), { askLots: 0, bidLots: 0, askShare: null });
 });
