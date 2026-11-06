@@ -6,6 +6,7 @@ import {
   exitPrices,
   exitTrigger,
   holdingLevels,
+  triggerOrders,
   STOP_LOSS_CHOICES,
   TAKE_PROFIT_CHOICES,
 } from "./morning-exit.ts";
@@ -60,14 +61,29 @@ test("a trade at or over 停利, or at or under 停損, fires; one between does 
 test("a holding's chart levels: 成本 as a solid line, then its 停利 and 停損 (2026-11-04, the owner)", () => {
   assert.deepEqual(holdingLevels({ averageCost: 1462.5, exit: { takeProfit: 1485, stopLoss: 1445, fromMs: 0 } }), [
     { price: 1462.5, label: "成本", tone: "accent", solid: true, priceText: "1462.50" },
-    { price: 1485, label: "停利", tone: "up" },
-    { price: 1445, label: "停損", tone: "down" },
+    { price: 1485, label: "停利觸價", tone: "up" },
+    { price: 1445, label: "停損觸價", tone: "down" },
   ]);
   // Past the day's limit an exit has no price, and a run without 自動出場 has none at all.
   assert.deepEqual(holdingLevels({ averageCost: 100, exit: { takeProfit: null, stopLoss: 99, fromMs: 0 } }), [
     { price: 100, label: "成本", tone: "accent", solid: true, priceText: "100.0" },
-    { price: 99, label: "停損", tone: "down" },
+    { price: 99, label: "停損觸價", tone: "down" },
   ]);
   assert.deepEqual(holdingLevels({ averageCost: 100 }), [{ price: 100, label: "成本", tone: "accent", solid: true, priceText: "100.0" }]);
   assert.deepEqual(holdingLevels(undefined), []);
+});
+
+test("a holding's 觸價單: 停利 then 停損, each selling the whole holding, armed from its buy fill (2026-11-06, 石大哥)", () => {
+  const exit = { takeProfit: 1490, stopLoss: 1450, fromMs: 60_734 };
+  assert.deepEqual(triggerOrders([{ code: "2330", shares: 2000, exit }]), [
+    { code: "2330", kind: "takeProfit", name: "停利觸價單", price: 1490, shares: 2000, fromMs: 60_734 },
+    { code: "2330", kind: "stopLoss", name: "停損觸價單", price: 1450, shares: 2000, fromMs: 60_734 },
+  ]);
+  // A side past 漲停／跌停 has no price, so no 觸價單; no 自動出場, or nothing held, none at all.
+  assert.deepEqual(
+    triggerOrders([{ code: "2330", shares: 1000, exit: { takeProfit: null, stopLoss: 99, fromMs: 0 } }]).map((order) => order.kind),
+    ["stopLoss"],
+  );
+  assert.deepEqual(triggerOrders([{ code: "2330", shares: 1000 }]), []);
+  assert.deepEqual(triggerOrders([{ code: "2330", shares: 0, exit }]), []);
 });

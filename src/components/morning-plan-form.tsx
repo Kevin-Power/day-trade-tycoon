@@ -49,7 +49,8 @@ export function PlanForm({
       stop: "",
     }),
   );
-  // 自動出場 (2026-11-02, 石大哥): set before the run, on by default; the engine sells at 停利 or 停損 by itself.
+  // 自動出場 (2026-11-02, 石大哥): set before the run, on by default; the engine sells at 停利 or 停損 by itself. Shown
+  // as the two 觸價單 a buy sets (2026-11-06, 石大哥: 「下單後，直接會設觸價單來停損、停利嗎?」).
   const [exitOn, setExitOn] = useState(true);
   const [exit, setExit] = useState<MorningExitPlan>(DEFAULT_EXIT);
   const [invalid, setInvalid] = useState("");
@@ -103,10 +104,10 @@ export function PlanForm({
   );
   const exitChoice = (
     <fieldset className="td-exit-plan min-w-0">
-      <legend className="sr-only">自動出場</legend>
+      <legend className="sr-only">觸價單（成交後自動停利、停損）</legend>
       <label className="td-exit-on">
         <input type="checkbox" checked={exitOn} onChange={(event) => setExitOn(event.target.checked)} className="size-5 shrink-0" />
-        <span>自動出場</span>
+        <span>觸價單</span>
       </label>
       <label className="td-exit-pick">
         <span>停利</span>
@@ -137,7 +138,9 @@ export function PlanForm({
         </select>
       </label>
       <small className="td-exit-hint">
-        {exitOn ? "買進成交後，價格碰到停利或停損，就自動用市價全部賣出。" : "關閉：出場要自己按「賣出」。"}
+        {exitOn
+          ? "買進成交後，系統自動送出停利、停損兩張觸價單：成交價碰到其中一張，就用市價全部賣出，另一張自動取消。"
+          : "關閉：不送觸價單，出場要自己按「賣出」。"}
       </small>
     </fieldset>
   );

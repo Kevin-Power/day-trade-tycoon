@@ -303,7 +303,7 @@ test("an order filled from several trades reports their average; one still waiti
   );
 });
 
-test("自動出場 says it is the classroom's: 停利／停損 at the trade price that fired it", () => {
+test("a fired 觸價單 says so: 停利／停損 at the trade price that fired it", () => {
   const exit = run({
     orders: [
       { id: "A", code: "2330", side: "buy", shares: 1000, status: "filled", submittedCursor: 20, price: 2575 },
@@ -327,8 +327,26 @@ test("自動出場 says it is the classroom's: 停利／停損 at the trade pric
   assert.deepEqual(
     orderReports(exit, NAMES, []).slice(0, 2).map(({ tone, time, text }) => ({ tone, time, text })),
     [
-      { tone: "filled", time: "09:31", text: "成交 · 自動停利 · 賣出 台積電 1 張 @ 2615" },
-      { tone: "sent", time: "09:31", text: "自動停利 · 賣出 台積電 1 張 市價（成交價到 2615）" },
+      { tone: "filled", time: "09:31", text: "成交 · 停利觸價單 · 賣出 台積電 1 張 @ 2615" },
+      { tone: "sent", time: "09:31", text: "停利觸價單觸發 · 成交價到 2615 · 市價賣出 台積電 1 張" },
     ],
   );
+});
+
+test("the holding's waiting 觸價單 head 委託回報 (on top of its latest five events), from the minute they were set", () => {
+  const held = run({
+    orders: [{ id: "A", code: "2330", side: "buy", shares: 2000, status: "filled", submittedCursor: 1, price: 1465 }],
+    fills: [{ id: "A", code: "2330", side: "buy", shares: 2000, price: 1465, fee: 4175, tax: 0, t: 60 }],
+    positions: [{ code: "2330", shares: 2000, averageCost: 1465, exit: { takeProfit: 1490, stopLoss: 1450, fromMs: 60_734 } }],
+  });
+  const reports = orderReports(held, NAMES, [], 1);
+  assert.deepEqual(
+    reports.map(({ tone, time, text }) => ({ tone, time, text })),
+    [
+      { tone: "armed", time: "09:01", text: "停利觸價單 · 成交價 ≥ 1490 市價賣出 台積電 2 張 · 等待觸發" },
+      { tone: "armed", time: "09:01", text: "停損觸價單 · 成交價 ≤ 1450 市價賣出 台積電 2 張 · 等待觸發" },
+      { tone: "filled", time: "09:01", text: "成交 · 買進 台積電 2 張 @ 1465" },
+    ],
+  );
+  assert.equal(new Set(reports.map((report) => report.key)).size, 3, "keys are unique");
 });

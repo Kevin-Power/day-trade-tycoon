@@ -8,9 +8,15 @@ export type LedgerSummary = { positions: number; orders: number; pending: number
 export function ledgerSummary(
   session: Pick<MorningState, "positions" | "orders" | "fills">,
 ): LedgerSummary {
+  // A holding's waiting 觸價單 (morning-exit.ts triggerOrders: a side past the limit has none) are listed under 委託.
+  const triggers = session.positions.reduce(
+    (count, { shares, exit }) =>
+      count + (exit && shares > 0 ? [exit.takeProfit, exit.stopLoss].filter((price) => price !== null).length : 0),
+    0,
+  );
   return {
     positions: session.positions.length,
-    orders: session.orders.length,
+    orders: session.orders.length + triggers,
     pending: session.orders.filter((order) => order.status === "pending").length,
     fills: session.fills.length,
   };

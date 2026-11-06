@@ -16,6 +16,7 @@ export function OrderNoticeToast({ notice }: { notice: OrderNotice | null }) {
       <strong>{notice.label}</strong>
       <span>{notice.text}</span>
       {notice.result && <b data-tone={notice.result.tone}>{notice.result.text}</b>}
+      {notice.note && <small>{notice.note}</small>}
     </p>
   );
 }

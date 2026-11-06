@@ -61,7 +61,9 @@ test("while the classroom's 自動出場 sell of the stock waits, neither button
   })));
   assert.equal(view.buy.enabled, false);
   assert.equal(view.sell.enabled, false);
-  assert.equal(view.sell.sub, "自動停利中");
+  // The 觸價單 that fired is selling the holding (2026-11-06: the 自動出場 is shown as 觸價單).
+  assert.equal(view.sell.sub, "停利觸發中");
+  assert.equal(view.buy.sub, "觸價賣出中");
   // Another stock's 自動出場 does not lock this one.
   const other = ready(phoneTrade(input({ code: "3037" }, { orders: [order({ id: "auto", side: "sell", auto: "stopLoss" })] })));
   assert.equal(other.buy.enabled, true);
