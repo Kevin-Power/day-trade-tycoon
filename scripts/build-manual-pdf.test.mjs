@@ -122,6 +122,31 @@ test("web manual names today's plan and replay buttons", () => {
   for (const term of ["用這個計畫開始", "+1 分", "播放"]) assert.ok(page.includes(term), term);
   assert.doesNotMatch(page, /按「前進 1 分鐘」/);
 });
+test("both manuals tell the 觸價單 a buy fill sends and the phone's 五檔 beside the 江波圖", () => {
+  // 2026-11-06 石大哥: 「下單後，直接會設觸價單來停損、停利嗎?」 (morning-exit.ts triggerOrders, live 20261106T152333301Z)
+  // and 走勢＋五檔並排 on phones (side-book.tsx, live 20261106T160057714Z). The user: 「說明書也一起更新觸價單和五檔」.
+  const pdfText = JSON.stringify(source);
+  const webPage = readFileSync(join(root, "src", "components", "manual-page.tsx"), "utf8");
+  for (const [name, text] of [["PDF", pdfText], ["web", webPage]]) {
+    for (const term of [
+      "觸價單",
+      "停利 +1.5%",
+      "停損 -1%",
+      "市價賣出這檔全部庫存",
+      "另一張自動取消",
+      "停利觸價",
+      "停損觸價",
+      "江波圖右邊並排五檔",
+      "最近 40 筆成交",
+      "外盤",
+      "內盤",
+      "放大",
+    ])
+      assert.ok(text.includes(term), `${name}: ${term}`);
+    // Before the 11/04 trade bar, 行情's 買進／賣出 jumped to 下單; before 11/02 the plan's 停止條件 was only words.
+    assert.doesNotMatch(text, /直接到下單|不是自動停損/, name);
+  }
+});
 test("README names the current manual revision", () => {
   const readme = readFileSync(join(root, "README.md"), "utf8");
   assert.ok(readme.includes(`修訂 \`${source.version}\``), source.version);
