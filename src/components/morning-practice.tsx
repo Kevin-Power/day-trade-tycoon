@@ -1945,8 +1945,8 @@ function Background({
             </a>
           ) : (
             <p className="mt-5 rounded-xl bg-bg p-3 text-base leading-relaxed text-muted">
-              本課尚未提供當日盤前影音，先使用以上文字教材。交易台的 EMA11、EMA24
-              以一分鐘收盤價畫線，只供觀察；不會自動判斷 N 字條件或產生買賣訊號。
+              本課尚未提供當日盤前影音，先使用以上文字教材。交易台只標出前高與過前高，
+              不會自動判斷 N 字條件或產生買賣訊號。
             </p>
           )}
         </div>
@@ -2033,7 +2033,7 @@ function MorningChart({
             priceBand={band}
             emaPeriods={DESK_EMA_PERIODS}
             interactive
-            ariaLabel={`${catalog.date} ${code} ${symbol.name}歷史${band ? `江波圖（昨收上下 ${Math.round(band * 100)}%${zoom ? "，放大" : ""}）` : "一分鐘K線"}，含 EMA11、EMA24（一分鐘收盤價），只包含已揭露分鐘，最新一分鐘依富邦的真實逐筆成交重播，播完時是這分鐘的收盤價，${sourceBacked ? "含均價與成交量（張）" : "不顯示成交量或均價"}。${held ? `庫存 ${held.shares / 1000} 張，成本 ${fillPriceText(held.averageCost)}。` : ""}${lastComplete ? `最新完整分鐘 ${formatTime(lastComplete.t).slice(0, 5)} 開 ${formatPrice(lastComplete.o)} 高 ${formatPrice(lastComplete.h)} 低 ${formatPrice(lastComplete.l)} 收 ${formatPrice(lastComplete.c)}。` : "第一分鐘重播中。"}`}
+            ariaLabel={`${catalog.date} ${code} ${symbol.name}歷史${band ? `江波圖（昨收上下 ${Math.round(band * 100)}%${zoom ? "，放大" : ""}）` : "一分鐘K線"}，只包含已揭露分鐘，最新一分鐘依富邦的真實逐筆成交重播，播完時是這分鐘的收盤價，${sourceBacked ? "含均價與成交量（張）" : "不顯示成交量或均價"}。${held ? `庫存 ${held.shares / 1000} 張，成本 ${fillPriceText(held.averageCost)}。` : ""}${lastComplete ? `最新完整分鐘 ${formatTime(lastComplete.t).slice(0, 5)} 開 ${formatPrice(lastComplete.o)} 高 ${formatPrice(lastComplete.h)} 低 ${formatPrice(lastComplete.l)} 收 ${formatPrice(lastComplete.c)}。` : "第一分鐘重播中。"}`}
           />
         ) : (
           <div className="td-chart-waiting">
@@ -2119,7 +2119,7 @@ function MorningDataDetails({
           </div>
         )}
         <p>
-          K 線直接使用富邦 1 分 K 的開高低收，該分鐘完成後才揭露。揭露後，交易台把這一分鐘內富邦的真實逐筆成交，照它們真實的秒數在幾秒內重播，播完時收在這分鐘的收盤價。撮合只看委託送出之後才揭露的真實成交。江波圖只連接各分鐘收價，點位標在分鐘結束時間，刻度固定為昨收上下 10%；沒有成交的分鐘保持原價。EMA11、EMA24 以已揭露的一分鐘收盤價計算，從 09:00 第一分鐘起算，只供觀察。點按圖表或用左右方向鍵查看資料。
+          K 線直接使用富邦 1 分 K 的開高低收，該分鐘完成後才揭露。揭露後，交易台把這一分鐘內富邦的真實逐筆成交，照它們真實的秒數在幾秒內重播，播完時收在這分鐘的收盤價。撮合只看委託送出之後才揭露的真實成交。江波圖只連接各分鐘收價，點位標在分鐘結束時間，刻度固定為昨收上下 10%；沒有成交的分鐘保持原價。點按圖表或用左右方向鍵查看資料。
         </p>
         <p>{detailsSourceNote(indexState)}</p>
         <p>

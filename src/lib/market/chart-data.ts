@@ -5,8 +5,12 @@ export type ChartRange = { start: number; end?: number };
 
 /** The desk's 江波 view and its watch-list minis span the previous close ±10%. */
 export const JIANGBO_BAND = 0.1;
-/** EMA periods drawn on the desk charts (the course's 快樂小馬 line is EMA11). */
-export const DESK_EMA_PERIODS = [11, 24] as const;
+/**
+ * EMA periods drawn on the desk charts: none since 2026-11-08 (石大哥: 「EMA11和24要拉掉，常態班的學生沒學過」，「在急急樂中，
+ * 也不需要看到EMA11、24，我們直接讓他練習N字擊就好」). The charts still draw any periods given here (EMA11 was the course's
+ * 快樂小馬 line), so a class that has learnt them can have [11, 24] back.
+ */
+export const DESK_EMA_PERIODS: readonly number[] = [];
 
 export function chartWindow(input: {
   startT: number;

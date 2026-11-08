@@ -18,7 +18,7 @@ import { MAX_RUN_CODES } from "./lessons/default-codes.ts";
 import { endReason, matchOrder, tradesBefore } from "./lessons/matching.ts";
 import { MAX_LOTS, MIN_LOTS } from "./morning-lots.ts";
 import { cellSlice, CELL_MS, type TradeRow } from "./lessons/trades.ts";
-import { EXIT_CANCEL, exitPrices, exitTrigger, STOP_LOSS_CHOICES, TAKE_PROFIT_CHOICES } from "./morning-exit.ts";
+import { EXIT_CANCEL, exitPrices, exitTrigger, holdingBuyFees, STOP_LOSS_CHOICES, TAKE_PROFIT_CHOICES } from "./morning-exit.ts";
 
 export const MORNING_STARTING_CASH = 10_000_000;
 export const MORNING_ADVANCE_INTERVAL = 1_000;
@@ -294,7 +294,9 @@ function armExit(state: MorningStoredState, source: MorningSource, code: string,
   const position = state.positions.find((item) => item.code === code);
   if (!state.plan.exit || !position) return;
   const previousClose = source.catalog.symbols.find((symbol) => symbol.code === code)!.previousClose;
-  position.exit = { ...exitPrices(position.averageCost, state.plan.exit, previousClose), fromMs };
+  // 最低獲利檔 counts the fees this holding's buys paid (2026-11-08).
+  const holding = { shares: position.shares, buyFees: holdingBuyFees(state.fills, code) };
+  position.exit = { ...exitPrices(position.averageCost, state.plan.exit, previousClose, holding), fromMs };
 }
 /**
  * A trade at `price` fired the holding's exit: the learner's waiting order of the stock gives way (a sell would sell

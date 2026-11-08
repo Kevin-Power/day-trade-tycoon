@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { breakoutsOf, deriveMorningAlerts } from "./morning-alerts.ts";
+import { breakoutsOf, deriveMorningAlerts, freshBreakout } from "./morning-alerts.ts";
 import type { MorningCatalog, MorningState } from "./morning.ts";
 
 const catalog: MorningCatalog = {
@@ -169,4 +169,20 @@ test("a 自動出場 sell is announced as the classroom's 停利／停損, not a
   const run = state(2, bars, [fill]);
   run.orders = [{ id: "x", code: "2330", side: "sell", shares: 1000, status: "filled", submittedCursor: 1, price: 1015, auto: "takeProfit", triggerPrice: 1015 }];
   assert.equal(deriveMorningAlerts(catalog, run).at(-1)?.text, "自動停利成交：台積電 賣出 1 張 @ 1015");
+});
+
+test("a breakout is fresh for five minutes after its minute completes, so the 行情 can flag 過前高 where the thumb is", () => {
+  const breakouts = [
+    { t: 600, p: 1010, high: 1005 },
+    { t: 1200, p: 1030, high: 1020 },
+  ];
+  // 09:20 completed at 1260; at 09:25 (1500) it is 240 s old: fresh, and the latest wins.
+  assert.deepEqual(freshBreakout(breakouts, 1500), { t: 1200, p: 1030, high: 1020 });
+  assert.deepEqual(freshBreakout(breakouts, 1260), { t: 1200, p: 1030, high: 1020 });
+  // Five minutes exactly still counts; a second more does not.
+  assert.deepEqual(freshBreakout(breakouts, 1560), { t: 1200, p: 1030, high: 1020 });
+  assert.equal(freshBreakout(breakouts, 1561), null);
+  // Before the minute completes nothing is known of it.
+  assert.equal(freshBreakout(breakouts, 1259), null);
+  assert.equal(freshBreakout([], 1500), null);
 });

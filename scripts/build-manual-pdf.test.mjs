@@ -73,8 +73,10 @@ test("static PDF exists for the learner manual download", () => {
 });
 test("manual source describes today's trading desk, not the old one", () => {
   const text = JSON.stringify(source);
-  for (const term of ["江波圖", "EMA11", "EMA24", "加權指數", "限價", "閃電即送", "大額委託", "委託回報", "教學模擬"])
+  for (const term of ["江波圖", "加權指數", "限價", "閃電即送", "大額委託", "委託回報", "教學模擬"])
     assert.ok(text.includes(term), term);
+  // 2026-11-08, 石大哥: 「EMA11和24要拉掉，常態班的學生沒學過」 — the desk no longer draws them.
+  assert.doesNotMatch(text, /EMA/);
   assert.doesNotMatch(text, /沒有掛限價|閃電下單也不在|自動播放 · 每 2 秒 1 分鐘|收價連線|暫停重播/);
 });
 test("manual PDF version matches the web manual's", () => {
@@ -130,8 +132,9 @@ test("both manuals tell the 觸價單 a buy fill sends and the phone's 五檔 be
   for (const [name, text] of [["PDF", pdfText], ["web", webPage]]) {
     for (const term of [
       "觸價單",
-      "停利 +1.5%",
-      "停損 -1%",
+      "最低獲利檔",
+      "手續費和當沖證交稅",
+      "停損 -2%",
       "市價賣出這檔全部庫存",
       "另一張自動取消",
       "停利觸價",
@@ -145,6 +148,8 @@ test("both manuals tell the 觸價單 a buy fill sends and the phone's 五檔 be
       assert.ok(text.includes(term), `${name}: ${term}`);
     // Before the 11/04 trade bar, 行情's 買進／賣出 jumped to 下單; before 11/02 the plan's 停止條件 was only words.
     assert.doesNotMatch(text, /直接到下單|不是自動停損/, name);
+    // Until 2026-11-08 the default 停利 was +1.5%; 石大哥 asked for 「最低的tick(可cover手續費和證交稅)」.
+    assert.doesNotMatch(text, /預設開啟（停利 \+1\.5%|預設 \+1\.5%/, name);
   }
 });
 test("README names the current manual revision", () => {

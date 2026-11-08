@@ -124,9 +124,9 @@ test("a buy whose fill set 觸價單 says so under it: 已送出觸價單：停�
     positions: [{ code: "3533", shares: 1000, averageCost: 1775, exit: { takeProfit: 1805, stopLoss: 1755, fromMs: 1_600_000 } }],
   });
   assert.deepEqual(orderNotices(before, after, NAMES), [
-    { id: "A", label: "成交", text: "買進 嘉澤 1 張 @ 1775 · 庫存 1 張 成本 1775", note: "已送出觸價單：停利 1805／停損 1755" },
+    { id: "A", label: "成交", text: "買進 嘉澤 1 張 @ 1775 · 庫存 1 張 成本 1775", note: "已送出觸價單：停利 1805（+6 檔）／停損 1755（-4 檔）" },
   ]);
   // One side past its limit: only the other is said.
   const oneSide = view({ ...after, positions: [{ code: "3533", shares: 1000, averageCost: 1775, exit: { takeProfit: null, stopLoss: 1755, fromMs: 0 } }] });
-  assert.equal(orderNotices(before, oneSide, NAMES)[0].note, "已送出觸價單：停損 1755");
+  assert.equal(orderNotices(before, oneSide, NAMES)[0].note, "已送出觸價單：停損 1755（-4 檔）");
 });

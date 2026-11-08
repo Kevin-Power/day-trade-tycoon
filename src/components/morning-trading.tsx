@@ -13,7 +13,7 @@ import { OrderReports } from "@/components/order-reports";
 import { MinuteTable, QuoteDetailGrid, StockTabs } from "@/components/stock-detail";
 import { TradeTape } from "@/components/trade-tape";
 import { exceedsCash, isLargeOrder, orderReports, type LocalOrderFailure } from "@/lib/morning-orders";
-import { EXIT_NAME, triggerOrders } from "@/lib/morning-exit";
+import { EXIT_NAME, exitTicksText, triggerOrders, triggerTicks } from "@/lib/morning-exit";
 
 export function AccountSummary({ session }: { session: MorningState }) {
   const profit = session.equity - session.startingCash;
@@ -1046,9 +1046,15 @@ function ledgerRecords(
             ? [
                 {
                   label: "觸價單",
-                  // None past 漲停／跌停 (morning-exit.ts).
-                  value: `停利 ${item.exit.takeProfit === null ? "—" : formatPrice(item.exit.takeProfit)}／停損 ${
-                    item.exit.stopLoss === null ? "—" : formatPrice(item.exit.stopLoss)
+                  // None past 漲停／跌停 (morning-exit.ts). Each with its ticks from the cost (2026-11-08, 石大哥).
+                  value: `停利 ${
+                    item.exit.takeProfit === null
+                      ? "—"
+                      : `${formatPrice(item.exit.takeProfit)}${exitTicksText(item.averageCost, item.exit.takeProfit)}`
+                  }／停損 ${
+                    item.exit.stopLoss === null
+                      ? "—"
+                      : `${formatPrice(item.exit.stopLoss)}${exitTicksText(item.averageCost, item.exit.stopLoss)}`
                   }`,
                 },
               ]
@@ -1067,7 +1073,7 @@ function ledgerRecords(
           { label: "方向 / 張數", value: `賣出 ${trigger.shares / 1000} 張`, className: "sim-sell" },
           {
             label: "委託價",
-            value: `觸價 ${trigger.kind === "takeProfit" ? "≥" : "≤"} ${formatPrice(trigger.price)} · 市價`,
+            value: `觸價 ${trigger.kind === "takeProfit" ? "≥" : "≤"} ${formatPrice(trigger.price)}${triggerTicks(trigger)} · 市價`,
           },
           { label: "成交價", value: "—" },
           {

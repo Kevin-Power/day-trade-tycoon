@@ -9,13 +9,16 @@
 //      停利觸價 and 停損觸價; 行情 says the holding.
 //   3. 前進 1 分鐘 on the desk: once the replay reaches it, 停利出場／停損出場 is said across the top with what the sell
 //      made, 委託回報 says 成交 · 停利觸價單／停損觸價單 and no 觸價單 waits any more, and 行情 no longer says a holding.
-//   4. The run given up, the plan card offers its 觸價單 on, 停利 +1.5%, 停損 -1%, in 16px menus.
+//   4. The run given up, the plan card offers its 觸價單 on, 停利 最低獲利檔, 停損 -2% (since 2026-11-08), in 16px menus.
 // Usage: node scripts/qa/desk-exit.mjs <baseUrl> <label> [chromium|webkit]
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium, webkit } from "playwright";
+import { breakoutsOf, freshBreakout } from "../../src/lib/morning-alerts.ts";
+import { deriveSwingHighs } from "../../src/lib/market/swing-highs.ts";
+import { formatPrice } from "../../src/lib/market/ticks.ts";
 
 const [base = "http://127.0.0.1:18886", label = "exit", engineName = "chromium"] = process.argv.slice(2);
 const out = fileURLToPath(new URL(`../../artifacts/trading-desk-qa/${label}/`, import.meta.url));
@@ -103,7 +106,7 @@ try {
     await bought.waitFor({ timeout: 15000 }).catch(() => {});
     const boughtText = clean(await bought.textContent().catch(() => ""));
     results.buyNotice = boughtText;
-    if (!/^成交 ?買進 .+ 1 張 @ [\d.]+ · 庫存 1 張 成本 [\d.]+ ?已送出觸價單：停利 [\d.]+／停損 [\d.]+$/.test(boughtText))
+    if (!/^成交 ?買進 .+ 1 張 @ [\d.]+ · 庫存 1 張 成本 [\d.]+ ?已送出觸價單：停利 [\d.]+（\+\d+ 檔）／停損 [\d.]+（-\d+ 檔）$/.test(boughtText))
       fail(`the buy's fill notice reads 「${boughtText}」, without the 觸價單 it set`);
     await page.screenshot({ path: `${out}buy-notice.png` });
 
@@ -119,7 +122,8 @@ try {
     await dock.getByRole("button", { name: /^庫存/ }).click();
     await page.waitForTimeout(400);
     const card = clean(await page.locator(".trading-desk").textContent());
-    const shown = card.match(/觸價單 ?停利 ([\d.]+)／停損 ([\d.]+)/);
+    // 2026-11-08: each price with its ticks from the cost, 「停利 996（+5 檔）／停損 986（-5 檔）」.
+    const shown = card.match(/觸價單 ?停利 ([\d.]+)（\+\d+ 檔）／停損 ([\d.]+)（-\d+ 檔）/);
     results.card = shown?.[0] ?? null;
     if (!shown) fail("庫存 does not show the holding's 觸價單 prices");
     else if (held?.exit && (Number(shown[1]) !== held.exit.takeProfit || Number(shown[2]) !== held.exit.stopLoss))
@@ -129,7 +133,7 @@ try {
     await page.locator(".trading-desk").getByRole("button", { name: /^委託/ }).first().click();
     await page.waitForTimeout(300);
     const listed = clean(await page.locator(".trading-desk").textContent());
-    const armedRows = [...listed.matchAll(/(停利|停損)觸價單.{0,40}?觸價 (≥|≤) ([\d.]+) · 市價.{0,12}?等待觸發/g)].map((m) => `${m[1]} ${m[2]} ${m[3]}`);
+    const armedRows = [...listed.matchAll(/(停利|停損)觸價單.{0,40}?觸價 (≥|≤) ([\d.]+)（[+-]\d+ 檔） · 市價.{0,12}?等待觸發/g)].map((m) => `${m[1]} ${m[2]} ${m[3]}`);
     results.armedRows = armedRows;
     if (held?.exit && armedRows.join(", ") !== `停利 ≥ ${held.exit.takeProfit}, 停損 ≤ ${held.exit.stopLoss}`)
       fail(`委託 lists 觸價單 「${armedRows.join(", ")}」, the run has 停利 ${held.exit.takeProfit}／停損 ${held.exit.stopLoss}`);
@@ -144,6 +148,11 @@ try {
     await page.screenshot({ path: `${out}armed-reports.png` });
     await dock.getByRole("button", { name: /行情/ }).click();
     await page.locator(".td-hero").getByText(/^庫存 1 張$/).first().waitFor({ timeout: 4000 }).catch(() => fail("行情 does not say the holding"));
+    // 2026-11-08: the stamp under 成本 names the waiting 觸價單, on the one phone screen.
+    const stampText = clean(await page.locator(".td-hero-stamp[data-holding]").first().textContent().catch(() => ""));
+    results.armedStamp = stampText;
+    if (held?.exit && !stampText.includes(`停利 ${held.exit.takeProfit}／停損 ${held.exit.stopLoss}`))
+      fail(`行情's stamp reads 「${stampText}」, without 停利 ${held.exit.takeProfit}／停損 ${held.exit.stopLoss}`);
     // data-levels: what the chart drew (it paints on the next frame).
     await page
       .waitForFunction(() => document.querySelector('main canvas[role="img"]')?.dataset.levels?.includes("觸價"), null, { timeout: 3000 })
@@ -153,6 +162,21 @@ try {
     if (held?.exit && !(levels.includes(`停利觸價 ${held.exit.takeProfit}`) && levels.includes(`停損觸價 ${held.exit.stopLoss}`)))
       fail(`the 江波圖 draws ${levels.join(", ")}, not 停利觸價／停損觸價`);
     await page.screenshot({ path: `${out}armed-chart.png` });
+    // 2026-11-08: 過前高 beside the price exactly when a breakout's minute completed within the last five minutes —
+    // the desk's own rule, worked out here from the API's bars, so the flag is checked present and absent alike.
+    // (An advance answers with the new cell only; the GET the desk reloads from carries every revealed minute.)
+    const shownState = (await call()).state;
+    const settledBars = (shownState.bars?.[found.code] ?? []).filter((bar) => bar.t + 60 <= shownState.cursor * 60).sort((a, b) => a.t - b.t);
+    const expectedBreakout = freshBreakout(
+      breakoutsOf(settledBars, deriveSwingHighs(settledBars, shownState.cursor * 60, 0, 90 * 60).confirmed),
+      shownState.cursor * 60,
+    );
+    const expectedFlag = expectedBreakout ? formatPrice(expectedBreakout.high) : null;
+    const shownFlag = await page.locator(".td-hero").first().getAttribute("data-breakout");
+    results.breakoutFlag = { expected: expectedFlag, shown: shownFlag };
+    if (expectedFlag !== shownFlag) fail(`行情 flags 過前高 「${shownFlag}」, the bars say 「${expectedFlag ?? "none"}」`);
+    if (expectedFlag && !clean(await page.locator(".td-hero-flag").textContent().catch(() => "")).includes(`過前高 ${expectedFlag}`))
+      fail("the 過前高 flag is not shown beside the price");
 
     // 3. The minute it fires, on the desk.
     await page.getByRole("button", { name: "前進 1 分鐘" }).click();
@@ -186,7 +210,9 @@ try {
   }));
   results.plan = plan;
   if (plan.on !== true) fail("自動出場 is not on by default");
-  if (plan.picks.map((pick) => pick.value).join(" ") !== "1.5 1") fail(`the plan card offers ${plan.picks.map((pick) => pick.value).join(" / ")}, not 停利 1.5 / 停損 1`);
+  if (plan.picks.map((pick) => pick.value).join(" ") !== "0 2") fail(`the plan card offers ${plan.picks.map((pick) => pick.value).join(" / ")}, not 停利 最低獲利檔 (0) / 停損 2`);
+  if (!plan.text?.includes("最低獲利檔")) fail(`the plan card does not name 最低獲利檔: 「${plan.text}」`);
+  if (!plan.text?.includes("手續費和當沖證交稅")) fail("the plan card does not say what 最低獲利檔 covers");
   if (plan.picks.some((pick) => pick.size < 16)) fail("a 自動出場 menu is under 16px");
   await row.screenshot({ path: `${out}plan-row.png` });
 } catch (error) {
