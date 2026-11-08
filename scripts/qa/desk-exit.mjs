@@ -16,6 +16,9 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium, webkit } from "playwright";
+import { breakoutsOf, freshBreakout } from "../../src/lib/morning-alerts.ts";
+import { deriveSwingHighs } from "../../src/lib/market/swing-highs.ts";
+import { formatPrice } from "../../src/lib/market/ticks.ts";
 
 const [base = "http://127.0.0.1:18886", label = "exit", engineName = "chromium"] = process.argv.slice(2);
 const out = fileURLToPath(new URL(`../../artifacts/trading-desk-qa/${label}/`, import.meta.url));
@@ -144,6 +147,11 @@ try {
     await page.screenshot({ path: `${out}armed-reports.png` });
     await dock.getByRole("button", { name: /行情/ }).click();
     await page.locator(".td-hero").getByText(/^庫存 1 張$/).first().waitFor({ timeout: 4000 }).catch(() => fail("行情 does not say the holding"));
+    // 2026-11-08: the stamp under 成本 names the waiting 觸價單, on the one phone screen.
+    const stampText = clean(await page.locator(".td-hero-stamp[data-holding]").first().textContent().catch(() => ""));
+    results.armedStamp = stampText;
+    if (held?.exit && !stampText.includes(`停利 ${held.exit.takeProfit}／停損 ${held.exit.stopLoss}`))
+      fail(`行情's stamp reads 「${stampText}」, without 停利 ${held.exit.takeProfit}／停損 ${held.exit.stopLoss}`);
     // data-levels: what the chart drew (it paints on the next frame).
     await page
       .waitForFunction(() => document.querySelector('main canvas[role="img"]')?.dataset.levels?.includes("觸價"), null, { timeout: 3000 })
@@ -153,6 +161,21 @@ try {
     if (held?.exit && !(levels.includes(`停利觸價 ${held.exit.takeProfit}`) && levels.includes(`停損觸價 ${held.exit.stopLoss}`)))
       fail(`the 江波圖 draws ${levels.join(", ")}, not 停利觸價／停損觸價`);
     await page.screenshot({ path: `${out}armed-chart.png` });
+    // 2026-11-08: 過前高 beside the price exactly when a breakout's minute completed within the last five minutes —
+    // the desk's own rule, worked out here from the API's bars, so the flag is checked present and absent alike.
+    // (An advance answers with the new cell only; the GET the desk reloads from carries every revealed minute.)
+    const shownState = (await call()).state;
+    const settledBars = (shownState.bars?.[found.code] ?? []).filter((bar) => bar.t + 60 <= shownState.cursor * 60).sort((a, b) => a.t - b.t);
+    const expectedBreakout = freshBreakout(
+      breakoutsOf(settledBars, deriveSwingHighs(settledBars, shownState.cursor * 60, 0, 90 * 60).confirmed),
+      shownState.cursor * 60,
+    );
+    const expectedFlag = expectedBreakout ? formatPrice(expectedBreakout.high) : null;
+    const shownFlag = await page.locator(".td-hero").first().getAttribute("data-breakout");
+    results.breakoutFlag = { expected: expectedFlag, shown: shownFlag };
+    if (expectedFlag !== shownFlag) fail(`行情 flags 過前高 「${shownFlag}」, the bars say 「${expectedFlag ?? "none"}」`);
+    if (expectedFlag && !clean(await page.locator(".td-hero-flag").textContent().catch(() => "")).includes(`過前高 ${expectedFlag}`))
+      fail("the 過前高 flag is not shown beside the price");
 
     // 3. The minute it fires, on the desk.
     await page.getByRole("button", { name: "前進 1 分鐘" }).click();

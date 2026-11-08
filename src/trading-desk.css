@@ -1109,6 +1109,58 @@ html:has(.trading-desk) #app {
   margin: 0;
   line-height: 13px;
 }
+/* Under the holding (2026-11-08, the owner: the phone's one screen should say where the system sells): the waiting
+   觸價單 「停利 1485／停損 1448」 in the chart lines' tones, or 「停利觸發 · 市價賣出中」 while its sell waits. */
+.trading-desk .td-hero-exit {
+  color: var(--td-muted);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.trading-desk .td-hero-exit [data-tone] {
+  color: var(--td-tone);
+}
+.trading-desk .td-hero-exit[data-firing] {
+  font-weight: 600;
+}
+/* 過前高 beside the change for five minutes after the breakout's minute completes: amber like the chart's mark and
+   the 快訊 chip, its own line under ▲20 +1.37% on phones. */
+.trading-desk .td-hero-flag {
+  align-self: flex-start;
+  padding: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--td-warn) 60%, transparent);
+  border-radius: 4px;
+  color: var(--td-warn);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  white-space: nowrap;
+}
+/* Desktops: the word alone, no wider than the ▲20／+1.37% column, so the price keeps its 16px from 買進／賣出 at
+   1200px (the price is in the tooltip and on the chart's mark). */
+.trading-desk[data-layout="desktop"] .td-hero-flag-price {
+  display: none;
+}
+.trading-desk .td-hero-flag-break {
+  display: none;
+}
+/* Phones' change is a row: a zero-height break sends the flag to its own line, where it keeps its own width. */
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-change {
+  flex-wrap: wrap;
+  row-gap: 3px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-flag-break {
+  display: block;
+  flex-basis: 100%;
+  height: 0;
+  margin-top: -3px;
+}
+.trading-desk:is([data-layout="phone"], [data-layout="senior"]) .td-hero-flag {
+  flex: none;
+  align-self: auto;
+  font-size: 12px;
+  line-height: 18px;
+}
 .trading-desk .td-hero-price {
   grid-area: price;
   display: flex;

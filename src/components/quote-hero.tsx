@@ -1,9 +1,12 @@
-import { Fragment, type ReactNode, type RefObject } from "react";
+import { Fragment, useMemo, type ReactNode, type RefObject } from "react";
 import { ChevronLeft, ChevronRight } from "@/lib/icons";
 import type { MorningBookCell, MorningCatalog } from "@/lib/morning";
-import { lastTrade, shownBook, type LiveMorningState } from "@/lib/morning-live";
+import { lastTrade, shownBook, withoutNewestMinute, type LiveMorningState } from "@/lib/morning-live";
 import { bestQuotes, quoteSummary } from "@/lib/morning-quote";
 import { holdingText } from "@/lib/morning-notices";
+import { breakoutsOf, freshBreakout } from "@/lib/morning-alerts";
+import { exitStampParts } from "@/lib/morning-exit";
+import { deriveSwingHighs } from "@/lib/market/swing-highs";
 import { formatPrice } from "@/lib/market/ticks";
 import type { DeskScale } from "@/lib/market/chart-data";
 import { formatTime } from "@/lib/utils";
@@ -48,6 +51,23 @@ export function QuoteHero({
     symbol ? session?.bars[symbol.code]?.at(-1)?.c : null,
     symbol?.code ?? "",
   );
+  // 過前高 beside the price for five minutes after the breakout's minute completes (N 字攻擊's entry, where the thumb
+  // is; the 快訊 above names other stocks too). Completed minutes only, as the chart's marks: the replay's source
+  // minus the minute playing. Memoised on that source, which only changes when a minute is revealed, not per tick.
+  const source = session?.replay?.source ?? session ?? null;
+  const replaying = Boolean(session?.replay);
+  const flagCode = symbol?.code ?? "";
+  const maxCursor = catalog.maxCursor;
+  const breakout = useMemo(() => {
+    if (!source || !flagCode) return null;
+    const settled = replaying ? withoutNewestMinute(source) : source;
+    const settledBars = settled.bars[flagCode] ?? [];
+    const settledNow = settled.cursor * 60;
+    return freshBreakout(
+      breakoutsOf(settledBars, deriveSwingHighs(settledBars, settledNow, 0, maxCursor * 60).confirmed),
+      settledNow,
+    );
+  }, [source, replaying, flagCode, maxCursor]);
   if (!symbol) return null;
   const bars = session?.bars[symbol.code] ?? [];
   const quote = quoteSummary(bars, symbol.previousClose);
@@ -56,6 +76,10 @@ export function QuoteHero({
   // Held: the stamp says the holding instead of the time (the clock above has it), so it is seen while trading.
   const position = session?.positions.find((item) => item.code === symbol.code && item.shares > 0);
   const holding = position ? holdingText(position, quote.last ?? undefined, session?.fills ?? []) : null;
+  // Under the holding (2026-11-08): where the system sells — the waiting 觸價單, or the one firing.
+  const firing =
+    session?.orders.find((order) => order.status === "pending" && order.auto && order.code === symbol.code)?.auto ?? null;
+  const exitParts = position ? exitStampParts(position.exit, firing) : [];
   const toneOf = (value: number | null) =>
     value === null || value === symbol.previousClose
       ? "flat"
@@ -77,6 +101,7 @@ export function QuoteHero({
       data-tone={quote.tone}
       data-stepper={Boolean(onSelect)}
       data-compact={compactBook || undefined}
+      data-breakout={breakout ? formatPrice(breakout.high) : undefined}
     >
       <div className="td-hero-id">
         {onSelect ? (
@@ -100,6 +125,19 @@ export function QuoteHero({
                 <>
                   {" "}
                   <b data-tone={holding.result.tone}>{holding.result.text}</b>
+                </>
+              )}
+              {exitParts.length > 0 && (
+                <>
+                  {" "}
+                  <span className="td-hero-exit" data-firing={firing ?? undefined} aria-label="觸價單">
+                    {exitParts.map((part, index) => (
+                      <Fragment key={part.kind}>
+                        {index > 0 && "／"}
+                        <span data-tone={part.kind === "takeProfit" ? "up" : "down"}>{part.text}</span>
+                      </Fragment>
+                    ))}
+                  </span>
                 </>
               )}
             </>
@@ -130,6 +168,15 @@ export function QuoteHero({
               {quote.changeText}
             </span>
             <span>{quote.percentText}</span>
+            {breakout && <span className="td-hero-flag-break" aria-hidden />}
+            {breakout && (
+              <span
+                className="td-hero-flag"
+                title={`剛過前高 ${formatPrice(breakout.high)}：完成的分鐘收在已確認的前高之上（只描述價格，不是進場訊號）`}
+              >
+                過前高<span className="td-hero-flag-price"> {formatPrice(breakout.high)}</span>
+              </span>
+            )}
           </span>
         )}
       </p>

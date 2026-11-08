@@ -95,3 +95,23 @@ export function deriveMorningAlerts(catalog: MorningCatalog, state: MorningState
     (a, b) => visibleAt(a) - visibleAt(b) || PRIORITY[a.kind] - PRIORITY[b.kind],
   );
 }
+
+/** How long a 過前高 stays flagged on the 行情 after its minute completes: five minutes. */
+export const FRESH_BREAKOUT_SECONDS = 300;
+
+/**
+ * The latest of `breakouts` (from breakoutsOf, in time order) whose minute completed within `withinSec` of the
+ * session clock `cursorSec`, else null: the 行情 flags it beside the price while the entry it marks is still near.
+ */
+export function freshBreakout<T extends { t: number }>(
+  breakouts: readonly T[],
+  cursorSec: number,
+  withinSec = FRESH_BREAKOUT_SECONDS,
+): T | null {
+  for (let index = breakouts.length - 1; index >= 0; index--) {
+    const done = breakouts[index]!.t + 60;
+    if (done > cursorSec) continue;
+    return cursorSec - done <= withinSec ? breakouts[index]! : null;
+  }
+  return null;
+}

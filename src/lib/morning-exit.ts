@@ -1,7 +1,7 @@
 // 自動出場 (2026-11-02, 石大哥 via the owner): the plan sets 停利 and 停損 before the run starts; once a buy fills,
 // the classroom sells the whole holding at market when a real trade reaches either price. Pure: no I/O, no clock.
 import type { MorningExitPlan, MorningPositionExit } from "./morning.ts";
-import { limitDown, limitUp, roundToTick, stepTick } from "./market/ticks.ts";
+import { formatPrice, limitDown, limitUp, roundToTick, stepTick } from "./market/ticks.ts";
 import { fillPriceText } from "./morning-ledger.ts";
 
 export const TAKE_PROFIT_CHOICES = [0.5, 1, 1.5, 2, 3] as const;
@@ -87,4 +87,21 @@ export function exitTrigger(
   if (exit.takeProfit !== null && price >= exit.takeProfit) return "takeProfit";
   if (exit.stopLoss !== null && price <= exit.stopLoss) return "stopLoss";
   return null;
+}
+
+/**
+ * The 行情 stamp's line under a holding's 成本 (2026-11-08, the owner: the phone's one screen should say where the
+ * system sells): the waiting 觸價單 as 「停利 1485」「停損 1448」, or, while one has fired and its market sell waits
+ * for volume, 「停利觸發 · 市價賣出中」. Nothing without an exit.
+ */
+export function exitStampParts(
+  exit: MorningPositionExit | undefined,
+  firing: ExitKind | null | undefined,
+): { kind: ExitKind; text: string }[] {
+  if (firing) return [{ kind: firing, text: `${EXIT_NAME[firing]}觸發 · 市價賣出中` }];
+  if (!exit) return [];
+  return [
+    ...(exit.takeProfit == null ? [] : [{ kind: "takeProfit" as const, text: `停利 ${formatPrice(exit.takeProfit)}` }]),
+    ...(exit.stopLoss == null ? [] : [{ kind: "stopLoss" as const, text: `停損 ${formatPrice(exit.stopLoss)}` }]),
+  ];
 }

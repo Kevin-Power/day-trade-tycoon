@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_EXIT,
   exitPlanText,
+  exitStampParts,
   exitPrices,
   exitTrigger,
   holdingLevels,
@@ -86,4 +87,17 @@ test("a holding's 觸價單: 停利 then 停損, each selling the whole holding,
   );
   assert.deepEqual(triggerOrders([{ code: "2330", shares: 1000 }]), []);
   assert.deepEqual(triggerOrders([{ code: "2330", shares: 0, exit }]), []);
+});
+
+test("the 行情 stamp names a holding's waiting 觸價單, or the one firing (2026-11-08: the owner, 手機一個畫面就看到系統在哪裡賣)", () => {
+  const exit = { takeProfit: 1485, stopLoss: 1448, fromMs: 0 };
+  assert.deepEqual(exitStampParts(exit, null), [
+    { kind: "takeProfit", text: "停利 1485" },
+    { kind: "stopLoss", text: "停損 1448" },
+  ]);
+  // Bought at 漲停: no 停利 can be reached, only the 停損 waits.
+  assert.deepEqual(exitStampParts({ takeProfit: null, stopLoss: 108.5, fromMs: 0 }, null), [{ kind: "stopLoss", text: "停損 108.5" }]);
+  // The 停利 fired: its market sell is waiting for volume.
+  assert.deepEqual(exitStampParts(exit, "takeProfit"), [{ kind: "takeProfit", text: "停利觸發 · 市價賣出中" }]);
+  assert.deepEqual(exitStampParts(undefined, null), []);
 });
