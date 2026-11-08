@@ -1079,7 +1079,8 @@ test("matching never reads a trade the advance does not reveal: a source cut aft
 });
 
 // 自動出場 (2026-11-02): the plan's 停利／停損 sell the whole holding at market once a real trade reaches either.
-const exitPlan: MorningPlan = { ...plan, exit: { ...DEFAULT_EXIT } };
+// The percentage plan the 自動出場 tests were written for (the default became 最低獲利檔 on 2026-11-08).
+const exitPlan: MorningPlan = { ...plan, exit: { takeProfitPct: 1.5, stopLossPct: 1 } };
 const beginExit = (source: MorningSource, codes = Object.keys(source.trades!)) =>
   createMorningState(randomUUID(), exitPlan, source, 0, codes);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -1123,7 +1124,7 @@ test("a buy fill arms the plan's exit at the holding's average, on the tick grid
   state = order(state, source, { code: "2330", side: "buy", lots: 2 });
   state = advance(state, source);
   assert.deepEqual(state.positions, [
-    { code: "2330", shares: 2000, averageCost: 100.5, exit: { ...exitPrices(100.5, DEFAULT_EXIT, 100), fromMs: CELL + 20_000 } },
+    { code: "2330", shares: 2000, averageCost: 100.5, exit: { ...exitPrices(100.5, exitPlan.exit!, 100), fromMs: CELL + 20_000 } },
   ]);
   assert.deepEqual(state.positions[0].exit, { takeProfit: 102.5, stopLoss: 99.4, fromMs: CELL + 20_000 });
   // 100–101 never reaches either: nothing is sold by itself.
@@ -1362,4 +1363,31 @@ test("with 自動出場 matching still never reads a trade the advance does not 
     state.orders.map((item) => item.auto ?? "learner"),
     ["learner", "stopLoss", "learner"],
   );
+});
+
+test("with the default 最低獲利檔 a buy arms 停利 at the first tick that pays both fees and the tax, and sells there", () => {
+  // 2026-11-08, 石大哥: 「請改最低的tick(可cover手續費和證交稅)」. 1 lot at 100 (fee 86): 100.5 nets 100,263 > 100,086.
+  const source = runFixture(dayTrades());
+  let state = advance(createMorningState(randomUUID(), { ...plan, exit: { ...DEFAULT_EXIT } }, source, 0, Object.keys(source.trades!)), source);
+  state = order(state, source, { code: "2330", side: "buy", lots: 1 });
+  state = advance(state, source);
+  assert.equal(state.fills[0].price, 100);
+  // 09:01:20 trades at 101, over 100.5: sold at once, the round trip after fees and tax in the black.
+  assert.equal(state.orders[1]?.auto, "takeProfit");
+  assert.equal(state.orders[1]?.triggerPrice, 101);
+  assert.deepEqual(state.positions, []);
+  assert.ok(state.cash > 10_000_000, `cash ${state.cash}`);
+});
+
+test("最低獲利檔 is figured from the fees the holding paid: a second buy at another price moves it", () => {
+  // 1 lot at 100.5 at 09:02:45 (a limit), fee 86: 停利 101 (100.5 nets 100,263 − 100,586 short; 101 nets 100,762).
+  const trades = dayTrades();
+  trades["2330"] = trades["2330"].map((row) => (row[0] >= 3 * CELL ? ([row[0], 100.5, row[2], 100, 100.5] as const) : row));
+  const source = runFixture(trades);
+  let state = advanceTo(createMorningState(randomUUID(), { ...plan, exit: { ...DEFAULT_EXIT } }, source, 0, ["2330"]), source, 3);
+  state = order(state, source, { code: "2330", side: "buy", lots: 1 });
+  state = advance(state, source);
+  assert.equal(state.positions[0].averageCost, 100.5);
+  assert.equal(state.positions[0].exit?.takeProfit, exitPrices(100.5, DEFAULT_EXIT, 100, { shares: 1000, buyFees: state.fills[0].fee }).takeProfit);
+  assert.equal(state.positions[0].exit?.takeProfit, 101);
 });

@@ -106,7 +106,7 @@ test("a fill's time is shown to the second from the real trade", () => {
 
 test("the manual and the plan form say what the lessons are now", () => {
   const manual = source("src/components/manual-page.tsx");
-  assert.match(manual, /MANUAL_VERSION = "2026-11-07-class4"/);
+  assert.match(manual, /MANUAL_VERSION = "2026-11-08-class5"/);
   for (const phrase of [
     "富邦逐筆",
     "證交所",
@@ -136,4 +136,13 @@ test("the manual and the plan form say what the lessons are now", () => {
   // The list is never called a recommendation, a win rate or the radar (decision D of the list design).
   const text = source("src/components/manual-page.tsx");
   for (const word of ["推薦", "勝率", "漲停雷達"]) assert.ok(!text.includes(word), `manual says ${word}`);
+});
+
+test("急急樂 draws no EMA11／EMA24 and no page names them (2026-11-08, 石大哥: 「EMA11和24要拉掉，常態班的學生沒學過」)", async () => {
+  // 「在急急樂中，也不需要看到EMA11、24，我們直接讓他練習N字擊就好」: the desk passes no EMA periods, so neither the
+  // 江波圖 nor K線 draws them and the readout has none; the chart can still draw them for another class.
+  const { DESK_EMA_PERIODS } = await import("./market/chart-data.ts");
+  assert.deepEqual([...DESK_EMA_PERIODS], []);
+  for (const path of ["src/components/morning-practice.tsx", "src/components/manual-page.tsx", "docs/pdf-source.json"])
+    assert.doesNotMatch(source(path), /EMA ?11|EMA ?24/, path);
 });

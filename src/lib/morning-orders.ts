@@ -3,7 +3,7 @@
 // this visit. Reports come from the run's own records; nothing here changes an order.
 import type { MorningState } from "./morning.ts";
 import { commission, formatPrice } from "./market/ticks.ts";
-import { EXIT_NAME, triggerOrders } from "./morning-exit.ts";
+import { EXIT_NAME, triggerOrders, triggerTicks } from "./morning-exit.ts";
 import { fillPriceText } from "./morning-ledger.ts";
 import { formatTime } from "./utils.ts";
 
@@ -225,7 +225,7 @@ export function orderReports(
     key: `trigger:${trigger.code}:${trigger.kind}`,
     time: clock(Math.floor(trigger.fromMs / 1000)),
     tone: "armed",
-    text: `${trigger.name} · 成交價 ${trigger.kind === "takeProfit" ? "≥" : "≤"} ${formatPrice(trigger.price)} 市價${what(
+    text: `${trigger.name} · 成交價 ${trigger.kind === "takeProfit" ? "≥" : "≤"} ${formatPrice(trigger.price)}${triggerTicks(trigger)}市價${what(
       "sell",
       trigger.code,
       trigger.shares / 1000,

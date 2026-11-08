@@ -1,8 +1,8 @@
-// 江波 ±10% and EMA11/EMA24 on a disposable classroom after desk-seed (09:27, 台積電 held): the desk
-// opens on 江波; both EMAs are drawn on 江波 and K線; the 漲停／跌停 lines frame the ±10% plot; the
+// 江波 ±10% on a disposable classroom after desk-seed (09:27, 台積電 held): the desk opens on 江波; no EMA is
+// drawn on 江波 or K線 (2026-11-08, 石大哥: 「EMA11和24要拉掉」); the 漲停／跌停 lines frame the ±10% plot; the
 // watch table's 江波圖 minis open on 放大 (each row zoomed to its own moves) and switch to the fixed ±10% scale,
-// which the device remembers; the crosshair readout lists the EMAs; phones
-// open on 江波 too; replaying a minute moves the EMAs on with the revealed closes and raises no page
+// which the device remembers; the crosshair readout names no EMA; phones
+// open on 江波 too; replaying a minute moves the readout to the next minute and raises no page
 // error; a price just under 漲停 stays visible where the 漲停 label sits, which keeps its own background under the
 // line; a 前高 level at that height stays off the label; and on a phone nothing covers the line's first minutes.
 // Usage: node scripts/qa/desk-jiangbo.mjs <baseUrl> <label>
@@ -134,9 +134,6 @@ async function newestReadout(page) {
   const ema = (period) => Number(text.match(new RegExp(`EMA${period} (-?\\d+\\.\\d+)`))?.[1]);
   return { text, minute: text.match(/\b\d{2}:\d{2}\b/)?.[0], ema11: ema(11), ema24: ema(24) };
 }
-// EMA as the spec defines it: seeded with the first close, α = 2/(N+1).
-const emaOf = (closes, period) =>
-  closes.reduce((average, close, index) => (index ? average + (2 / (period + 1)) * (close - average) : close), 0);
 // TWSE price ticks and the ±10% limits, rounded inside the band.
 const tickOf = (price) => (price < 10 ? 0.01 : price < 50 ? 0.05 : price < 100 ? 0.1 : price < 500 ? 0.5 : price < 1000 ? 1 : 5);
 const limitOf = (previous, factor, round) => {
@@ -177,11 +174,12 @@ await check("2-watch-header", async () => {
   if (header !== "江波圖") throw new Error(`the watch table's last column is 「${header}」`);
 });
 
-await check("3-ema-lines", async () => {
+// Before 2026-11-08 both EMAs were drawn (15+ pixels each); now none may be.
+await check("3-no-ema-lines", async () => {
   const png = await chart(desktop).screenshot();
   writeFileSync(`${out}jiangbo-chart.png`, png);
   const [fast, slow] = await colourCounts(desktop, png, [colours.fast, colours.slow]);
-  if (fast < 15 || slow < 15) throw new Error(`EMA pixels on 江波: EMA11 ${fast}, EMA24 ${slow}`);
+  if (fast >= 15 || slow >= 15) throw new Error(`EMA-coloured pixels on 江波: EMA11 ${fast}, EMA24 ${slow}`);
   return { fast, slow };
 });
 
@@ -245,7 +243,7 @@ await check("10-prev-label-clear", async () => {
   return counts;
 });
 
-await check("5-kline-ema", async () => {
+await check("5-kline-no-ema", async () => {
   await desktop.getByRole("button", { name: "K線", exact: true }).first().click();
   await desktop.waitForTimeout(600);
   const png = await chart(desktop).screenshot();
@@ -253,7 +251,7 @@ await check("5-kline-ema", async () => {
   const [fast, slow] = await colourCounts(desktop, png, [colours.fast, colours.slow]);
   await desktop.getByRole("button", { name: "江波", exact: true }).first().click().catch(() => {});
   await desktop.waitForTimeout(400);
-  if (fast < 15 || slow < 15) throw new Error(`EMA pixels on K線: EMA11 ${fast}, EMA24 ${slow}`);
+  if (fast >= 15 || slow >= 15) throw new Error(`EMA-coloured pixels on K線: EMA11 ${fast}, EMA24 ${slow}`);
   return { fast, slow };
 });
 
@@ -467,13 +465,13 @@ await check("6b-mini-sharp", async () => {
   return report;
 });
 
-await check("7-readout-ema", async () => {
+await check("7-readout-no-ema", async () => {
   await chart(desktop).focus();
   await desktop.keyboard.press("ArrowLeft");
   await desktop.waitForTimeout(300);
   const text = (await desktop.locator(".td-chart output").first().textContent()) ?? "";
   await desktop.keyboard.press("Escape");
-  if (!text.includes("EMA11") || !text.includes("EMA24")) throw new Error(`the readout says 「${text}」`);
+  if (/EMA/.test(text)) throw new Error(`the readout still names an EMA: 「${text}」`);
   return text;
 });
 
@@ -489,20 +487,12 @@ await check("9-replay", async () => {
   const hero = (await desktop.locator(".td-hero").first().textContent()) ?? "";
   if (/NaN|undefined/.test(after.text + hero)) throw new Error(`after the replay: 「${after.text}」 / 「${hero}」`);
   if (pageErrors.length) throw new Error(pageErrors.join("; "));
-  // The EMAs follow the replay: the newest completed minute moved on, and its EMAs are those of every
-  // close the classroom has revealed up to it, never the minute still being replayed.
-  const data = await api();
-  const symbol = await shownCode(desktop, data.catalog.symbols);
-  if (!symbol) throw new Error("cannot tell which stock the chart shows");
-  const closes = (data.state.bars[symbol.code] ?? []).filter((bar) => bar.t + 60 <= data.state.cursor * 60).map((bar) => bar.c);
-  const expected = { ema11: emaOf(closes, 11), ema24: emaOf(closes, 24) };
+  // The readout follows the replay to the newest completed minute, and names no EMA.
   const problems = [];
   if (!before.minute || before.minute === after.minute) problems.push(`the newest minute stayed at ${after.minute}`);
-  for (const key of ["ema11", "ema24"])
-    if (!(Math.abs(after[key] - expected[key]) <= 0.006))
-      problems.push(`${key} reads ${after[key]}, the revealed closes give ${expected[key].toFixed(2)}`);
+  if (/EMA/.test(after.text)) problems.push("the readout names an EMA");
   if (problems.length) throw new Error(`${problems.join("; ")} (readout 「${after.text}」)`);
-  return { before: before.minute, after: after.minute, ema11: after.ema11, ema24: after.ema24 };
+  return { before: before.minute, after: after.minute };
 });
 
 // Where the 漲停 label sits on an unmodified chart: the 漲停 and 跌停 lines (rows), and the label's text box
@@ -736,8 +726,8 @@ await check("13-limit-label-clear-of-level-lines", async () => {
   }
 });
 
-await check("11-ema-copy", async () => {
-  // Students read 教材 → 先讀背景與教材規則; it must agree with the EMA lines the desk now draws.
+await check("11-no-ema-copy", async () => {
+  // Students read 教材 → 先讀背景與教材規則; it must agree with the desk, which draws no EMA since 2026-11-08.
   const button = desktop.getByRole("button", { name: "教材" }).first();
   await button.click({ timeout: 4000 });
   const drawer = desktop.locator("#td-resources");
@@ -746,7 +736,7 @@ await check("11-ema-copy", async () => {
   await button.click({ timeout: 4000 }).catch(() => {});
   const stale = text.match(/[^。]*(尚未計算|僅作教材說明)[^。]*。?/);
   if (stale) throw new Error(`the 教材 drawer still says 「${stale[0]}」`);
-  if (!text.includes("EMA11") || !text.includes("EMA24")) throw new Error("the 教材 drawer does not describe EMA11 and EMA24");
+  if (/EMA/.test(text)) throw new Error("the 教材 drawer still describes an EMA");
 });
 
 /* ── phone 390×844 ── */
@@ -889,4 +879,4 @@ console.log(JSON.stringify(results, null, 2));
 if (failures.length) {
   console.log(`FAILURES:\n${failures.join("\n")}`);
   process.exitCode = 1;
-} else console.log("江波 ±10%, EMA and mini scale: all checks pass.");
+} else console.log("江波 ±10%, no EMA and mini scale: all checks pass.");

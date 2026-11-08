@@ -343,8 +343,8 @@ test("the holding's waiting 觸價單 head 委託回報 (on top of its latest fi
   assert.deepEqual(
     reports.map(({ tone, time, text }) => ({ tone, time, text })),
     [
-      { tone: "armed", time: "09:01", text: "停利觸價單 · 成交價 ≥ 1490 市價賣出 台積電 2 張 · 等待觸發" },
-      { tone: "armed", time: "09:01", text: "停損觸價單 · 成交價 ≤ 1450 市價賣出 台積電 2 張 · 等待觸發" },
+      { tone: "armed", time: "09:01", text: "停利觸價單 · 成交價 ≥ 1490（+5 檔）市價賣出 台積電 2 張 · 等待觸發" },
+      { tone: "armed", time: "09:01", text: "停損觸價單 · 成交價 ≤ 1450（-3 檔）市價賣出 台積電 2 張 · 等待觸發" },
       { tone: "filled", time: "09:01", text: "成交 · 買進 台積電 2 張 @ 1465" },
     ],
   );

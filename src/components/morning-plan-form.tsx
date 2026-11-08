@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } 
 import { ArrowRight } from "@/lib/icons";
 import type { MorningExitPlan, MorningPlan } from "@/lib/morning";
 import { GUEST_TERMS_TEXT } from "@/lib/morning-access";
-import { DEFAULT_EXIT, STOP_LOSS_CHOICES, TAKE_PROFIT_CHOICES } from "@/lib/morning-exit";
+import { COVER_TICK, DEFAULT_EXIT, STOP_LOSS_CHOICES, TAKE_PROFIT_CHOICES, takeProfitText } from "@/lib/morning-exit";
 import {
   applyPlanTemplate,
   DEFAULT_PLAN_TEMPLATE,
@@ -118,7 +118,7 @@ export function PlanForm({
         >
           {TAKE_PROFIT_CHOICES.map((value) => (
             <option key={value} value={value}>
-              +{value}%
+              {takeProfitText(value)}
             </option>
           ))}
         </select>
@@ -139,7 +139,11 @@ export function PlanForm({
       </label>
       <small className="td-exit-hint">
         {exitOn
-          ? "買進成交後，系統自動送出停利、停損兩張觸價單：成交價碰到其中一張，就用市價全部賣出，另一張自動取消。"
+          ? `買進成交後，系統自動送出停利、停損兩張觸價單：成交價碰到其中一張，就用市價全部賣出，另一張自動取消。${
+              exit.takeProfitPct === COVER_TICK
+                ? "最低獲利檔：成本加上買進、賣出手續費和當沖證交稅之後，第一個賺得到錢的價位。"
+                : ""
+            }`
           : "關閉：不送觸價單，出場要自己按「賣出」。"}
       </small>
     </fieldset>
