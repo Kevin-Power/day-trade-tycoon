@@ -2,7 +2,14 @@ import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } 
 import { ArrowRight } from "@/lib/icons";
 import type { MorningExitPlan, MorningPlan } from "@/lib/morning";
 import { GUEST_TERMS_TEXT } from "@/lib/morning-access";
-import { COVER_TICK, DEFAULT_EXIT, STOP_LOSS_CHOICES, TAKE_PROFIT_CHOICES, takeProfitText } from "@/lib/morning-exit";
+import {
+  DEFAULT_EXIT,
+  STOP_LOSS_TICK_CHOICES,
+  stopLossExampleText,
+  TAKE_PROFIT_TICK_CHOICES,
+  takeProfitExampleText,
+  takeProfitText,
+} from "@/lib/morning-exit";
 import {
   applyPlanTemplate,
   DEFAULT_PLAN_TEMPLATE,
@@ -112,11 +119,11 @@ export function PlanForm({
       <label className="td-exit-pick">
         <span>停利</span>
         <select
-          value={exit.takeProfitPct}
+          value={exit.takeProfitTicks}
           disabled={!exitOn}
-          onChange={(event) => setExit({ ...exit, takeProfitPct: Number(event.target.value) })}
+          onChange={(event) => setExit({ ...exit, takeProfitTicks: Number(event.target.value) })}
         >
-          {TAKE_PROFIT_CHOICES.map((value) => (
+          {TAKE_PROFIT_TICK_CHOICES.map((value) => (
             <option key={value} value={value}>
               {takeProfitText(value)}
             </option>
@@ -126,24 +133,23 @@ export function PlanForm({
       <label className="td-exit-pick">
         <span>停損</span>
         <select
-          value={exit.stopLossPct}
+          value={exit.stopLossTicks}
           disabled={!exitOn}
-          onChange={(event) => setExit({ ...exit, stopLossPct: Number(event.target.value) })}
+          onChange={(event) => setExit({ ...exit, stopLossTicks: Number(event.target.value) })}
         >
-          {STOP_LOSS_CHOICES.map((value) => (
+          {STOP_LOSS_TICK_CHOICES.map((value) => (
             <option key={value} value={value}>
-              -{value}%
+              -{value} 檔
             </option>
           ))}
         </select>
       </label>
       <small className="td-exit-hint">
         {exitOn
-          ? `買進成交後，系統自動送出停利、停損兩張觸價單：成交價碰到其中一張，就用市價全部賣出，另一張自動取消。${
-              exit.takeProfitPct === COVER_TICK
-                ? "最低獲利檔：成本加上買進、賣出手續費和當沖證交稅之後，第一個賺得到錢的價位。"
-                : ""
-            }`
+          ? // 2026-11-09, the owner: ticks for both, with what they mean in % beside them.
+            `買進成交後，系統自動送出停利、停損兩張觸價單：成交價碰到其中一張，就用市價全部賣出，另一張自動取消。最低獲利檔：成本加上買進、賣出手續費和當沖證交稅之後，第一個賺得到錢的價位；行情好可以多加幾檔。${takeProfitExampleText(
+              exit.takeProfitTicks,
+            )}${stopLossExampleText(exit.stopLossTicks)}`
           : "關閉：不送觸價單，出場要自己按「賣出」。"}
       </small>
     </fieldset>
