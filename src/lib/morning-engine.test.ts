@@ -1102,10 +1102,21 @@ test("a plan's 自動出場 is optional and takes only the listed ticks", () => 
     { takeProfitTicks: 2.5, stopLossTicks: 10 },
     { takeProfitTicks: 3 },
     { takeProfitTicks: 3, stopLossTicks: 10, trailing: true },
-    // The percentages before 2026-11-09 are no longer taken.
-    { takeProfitPct: 1.5, stopLossPct: 1 },
+    { takeProfitPct: 1.2, stopLossPct: 1 },
+    { takeProfitPct: 0, stopLossPct: 2, trailing: true },
   ])
     assert.throws(() => parseMorningAction({ ...start, plan: { ...plan, exit } }), { status: 400 });
+});
+
+test("a page still open from before 2026-11-09 sends the old percentages: the run starts with the default ticks", () => {
+  // The plan card offered 停利 最低獲利檔 (0) or +0.5%…+3%, 停損 −0.5%…−2% until the switch to ticks.
+  for (const exit of [
+    { takeProfitPct: 0, stopLossPct: 2 },
+    { takeProfitPct: 1.5, stopLossPct: 0.5 },
+  ]) {
+    const start = { action: "start", requestId: randomUUID(), plan: { ...plan, exit }, codes: ["2330"] };
+    assert.deepEqual(parseMorningAction(start), { ...start, plan: { ...plan, exit: DEFAULT_EXIT } });
+  }
 });
 
 test("buying at 漲停 arms no 停利, so nothing is sold at once at a loss", () => {

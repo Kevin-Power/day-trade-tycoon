@@ -19,6 +19,7 @@ import { endReason, matchOrder, tradesBefore } from "./lessons/matching.ts";
 import { MAX_LOTS, MIN_LOTS } from "./morning-lots.ts";
 import { cellSlice, CELL_MS, type TradeRow } from "./lessons/trades.ts";
 import {
+  DEFAULT_EXIT,
   EXIT_CANCEL,
   exitPlanOf,
   exitPrices,
@@ -79,11 +80,22 @@ export const planSchema = z
     entry: text,
     stop: text,
     exit: z
-      .object({
-        takeProfitTicks: z.number().refine((value) => (TAKE_PROFIT_TICK_CHOICES as readonly number[]).includes(value)),
-        stopLossTicks: z.number().refine((value) => (STOP_LOSS_TICK_CHOICES as readonly number[]).includes(value)),
-      })
-      .strict()
+      .union([
+        z
+          .object({
+            takeProfitTicks: z.number().refine((value) => (TAKE_PROFIT_TICK_CHOICES as readonly number[]).includes(value)),
+            stopLossTicks: z.number().refine((value) => (STOP_LOSS_TICK_CHOICES as readonly number[]).includes(value)),
+          })
+          .strict(),
+        // A page still open from before 2026-11-09 sends the percentages it offered: the run takes the default ticks.
+        z
+          .object({
+            takeProfitPct: z.number().refine((value) => [0, 0.5, 1, 1.5, 2, 3].includes(value)),
+            stopLossPct: z.number().refine((value) => [0.5, 1, 1.5, 2].includes(value)),
+          })
+          .strict()
+          .transform(() => ({ ...DEFAULT_EXIT })),
+      ])
       .optional(),
   })
   .strict();
