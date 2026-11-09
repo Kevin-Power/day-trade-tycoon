@@ -134,6 +134,17 @@ try {
       const expected = `觸價單 停利 ${formatPrice(takeProfit)}${exitNote("takeProfit", held.averageCost, takeProfit, takeProfitTicks)}／停損 ${formatPrice(stopLoss)}${exitNote("stopLoss", held.averageCost, stopLoss)}`;
       if (shown[0].replace(/^觸價單 ?/, "觸價單 ") !== expected) fail(`庫存 shows 「${shown[0]}」, the run's is 「${expected}」`);
     }
+    // On the phone card the 觸價單 takes the full width, 停利 and 停損 each on a line (2026-11-09).
+    const wide = await page.evaluate(() => {
+      const cell = document.querySelector(".sim-card dl > [data-wide]");
+      const lines = [...(cell?.querySelectorAll(".sim-exit-line") ?? [])].map((line) => line.getBoundingClientRect());
+      const list = cell?.parentElement?.getBoundingClientRect();
+      return cell && list ? { cell: cell.getBoundingClientRect().width, list: list.width, tops: lines.map((line) => line.top), lefts: lines.map((line) => line.left) } : null;
+    });
+    results.wideExit = wide;
+    if (!wide) fail("the phone card has no full-width 觸價單");
+    else if (Math.abs(wide.cell - wide.list) > 1 || wide.tops.length !== 2 || !(wide.tops[1] > wide.tops[0]) || Math.abs(wide.lefts[0] - wide.lefts[1]) > 1)
+      fail(`the phone card's 觸價單 is not full width with 停利 and 停損 on their own lines: ${JSON.stringify(wide)}`);
     await page.screenshot({ path: `${out}armed-positions.png` });
     // 委託 lists the two 觸價單 as 等待觸發, 停利 first.
     await page.locator(".trading-desk").getByRole("button", { name: /^委託/ }).first().click();
