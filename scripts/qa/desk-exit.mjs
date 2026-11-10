@@ -1,6 +1,6 @@
 // 自動出場 (2026-11-02, 石大哥 via the owner): a plan's 停利／停損 sell the whole holding at market by themselves.
 // Disposable QA run of the owner on the newest day (it gives up any unfinished run first), on a phone (390×844):
-//   1. A first run, by the API only, finds the minute an exit fires: 停利 +0.5%／停損 -0.5% on 1 張 bought at 09:01,
+//   1. A first run, by the API only, finds the minute an exit fires: 停利 最低獲利檔／停損 3 檔 on 1 張 bought at 09:01,
 //      tried stock by stock (the hot five) until one fires. It is given up.
 //   1b. The same run, its buy sent and waiting: 前進 1 分鐘 on the desk fills it, and the fill said across the top
 //      says the 觸價單 it set (2026-11-06, 石大哥: 「下單後，直接會設觸價單來停損、停利嗎?」).
@@ -9,7 +9,8 @@
 //      停利觸價 and 停損觸價; 行情 says the holding.
 //   3. 前進 1 分鐘 on the desk: once the replay reaches it, 停利出場／停損出場 is said across the top with what the sell
 //      made, 委託回報 says 成交 · 停利觸價單／停損觸價單 and no 觸價單 waits any more, and 行情 no longer says a holding.
-//   4. The run given up, the plan card offers its 觸價單 on, 停利 最低獲利檔, 停損 -2% (since 2026-11-08), in 16px menus.
+//   4. The run given up, the plan card offers its 觸價單 on, 停利 最低獲利檔, 停損 10 檔 (ticks since 2026-11-09), in 16px
+//      menus, and says about what % the chosen ticks are; picking +2 檔／6 檔 changes what it says.
 // Usage: node scripts/qa/desk-exit.mjs <baseUrl> <label> [chromium|webkit]
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -19,12 +20,13 @@ import { chromium, webkit } from "playwright";
 import { breakoutsOf, freshBreakout } from "../../src/lib/morning-alerts.ts";
 import { deriveSwingHighs } from "../../src/lib/market/swing-highs.ts";
 import { formatPrice } from "../../src/lib/market/ticks.ts";
+import { exitNote, stopLossExampleText, takeProfitExampleText } from "../../src/lib/morning-exit.ts";
 
 const [base = "http://127.0.0.1:18886", label = "exit", engineName = "chromium"] = process.argv.slice(2);
 const out = fileURLToPath(new URL(`../../artifacts/trading-desk-qa/${label}/`, import.meta.url));
 mkdirSync(out, { recursive: true });
 const HOT = ["2308", "2317", "2330", "2382", "2454"];
-const EXIT = { takeProfitPct: 0.5, stopLossPct: 0.5 };
+const EXIT = { takeProfitTicks: 0, stopLossTicks: 3 };
 const failures = [];
 const results = {};
 const fail = (text) => failures.push(text);
@@ -58,7 +60,7 @@ async function runTo(code, until = 90) {
       bias: "bullish",
       reason: "驗收自動出場。",
       entry: "09:01 市價買進 1 張。",
-      stop: "停利 +0.5%、停損 -0.5% 由教室自動賣出。",
+      stop: "停利最低獲利檔、停損 3 檔由教室自動賣出。",
       exit: EXIT,
     },
   });
@@ -83,7 +85,7 @@ for (const code of HOT) {
   }
 }
 results.found = found;
-if (!found) fail("no hot stock's 自動出場 fired at ±0.5% on the newest day");
+if (!found) fail("no hot stock's 自動出場 (最低獲利檔／3 檔) fired on the newest day");
 else if (!found.filled) fail(`${found.code}'s exit at cell ${found.cursor} did not fill in its minute`);
 
 const browser =
@@ -106,7 +108,8 @@ try {
     await bought.waitFor({ timeout: 15000 }).catch(() => {});
     const boughtText = clean(await bought.textContent().catch(() => ""));
     results.buyNotice = boughtText;
-    if (!/^成交 ?買進 .+ 1 張 @ [\d.]+ · 庫存 1 張 成本 [\d.]+ ?已送出觸價單：停利 [\d.]+（\+\d+ 檔）／停損 [\d.]+（-\d+ 檔）$/.test(boughtText))
+    // 2026-11-09: 「停利 X（最低獲利檔，約 +0.5%）／停損 Y（-3 檔，約 -0.6%）」.
+    if (!/^成交 ?買進 .+ 1 張 @ [\d.]+ · 庫存 1 張 成本 [\d.]+ ?已送出觸價單：停利 [\d.]+（最低獲利檔，約 \+[\d.]+%）／停損 [\d.]+（-3 檔，約 -[\d.]+%）$/.test(boughtText))
       fail(`the buy's fill notice reads 「${boughtText}」, without the 觸價單 it set`);
     await page.screenshot({ path: `${out}buy-notice.png` });
 
@@ -122,18 +125,32 @@ try {
     await dock.getByRole("button", { name: /^庫存/ }).click();
     await page.waitForTimeout(400);
     const card = clean(await page.locator(".trading-desk").textContent());
-    // 2026-11-08: each price with its ticks from the cost, 「停利 996（+5 檔）／停損 986（-5 檔）」.
-    const shown = card.match(/觸價單 ?停利 ([\d.]+)（\+\d+ 檔）／停損 ([\d.]+)（-\d+ 檔）/);
+    // 2026-11-09: each price with its ticks and about what % they are, from the API's prices and cost.
+    const shown = card.match(/觸價單 ?停利 ([\d.]+)（最低獲利檔，約 \+[\d.]+%）／停損 ([\d.]+)（-\d+ 檔，約 -[\d.]+%）/);
     results.card = shown?.[0] ?? null;
     if (!shown) fail("庫存 does not show the holding's 觸價單 prices");
-    else if (held?.exit && (Number(shown[1]) !== held.exit.takeProfit || Number(shown[2]) !== held.exit.stopLoss))
-      fail(`庫存 shows ${shown[0]}, the run has 停利 ${held.exit.takeProfit}／停損 ${held.exit.stopLoss}`);
+    else if (held?.exit) {
+      const { takeProfit, stopLoss, takeProfitTicks } = held.exit;
+      const expected = `觸價單 停利 ${formatPrice(takeProfit)}${exitNote("takeProfit", held.averageCost, takeProfit, takeProfitTicks)}／停損 ${formatPrice(stopLoss)}${exitNote("stopLoss", held.averageCost, stopLoss)}`;
+      if (shown[0].replace(/^觸價單 ?/, "觸價單 ") !== expected) fail(`庫存 shows 「${shown[0]}」, the run's is 「${expected}」`);
+    }
+    // On the phone card the 觸價單 takes the full width, 停利 and 停損 each on a line (2026-11-09).
+    const wide = await page.evaluate(() => {
+      const cell = document.querySelector(".sim-card dl > [data-wide]");
+      const lines = [...(cell?.querySelectorAll(".sim-exit-line") ?? [])].map((line) => line.getBoundingClientRect());
+      const list = cell?.parentElement?.getBoundingClientRect();
+      return cell && list ? { cell: cell.getBoundingClientRect().width, list: list.width, tops: lines.map((line) => line.top), lefts: lines.map((line) => line.left) } : null;
+    });
+    results.wideExit = wide;
+    if (!wide) fail("the phone card has no full-width 觸價單");
+    else if (Math.abs(wide.cell - wide.list) > 1 || wide.tops.length !== 2 || !(wide.tops[1] > wide.tops[0]) || Math.abs(wide.lefts[0] - wide.lefts[1]) > 1)
+      fail(`the phone card's 觸價單 is not full width with 停利 and 停損 on their own lines: ${JSON.stringify(wide)}`);
     await page.screenshot({ path: `${out}armed-positions.png` });
     // 委託 lists the two 觸價單 as 等待觸發, 停利 first.
     await page.locator(".trading-desk").getByRole("button", { name: /^委託/ }).first().click();
     await page.waitForTimeout(300);
     const listed = clean(await page.locator(".trading-desk").textContent());
-    const armedRows = [...listed.matchAll(/(停利|停損)觸價單.{0,40}?觸價 (≥|≤) ([\d.]+)（[+-]\d+ 檔） · 市價.{0,12}?等待觸發/g)].map((m) => `${m[1]} ${m[2]} ${m[3]}`);
+    const armedRows = [...listed.matchAll(/(停利|停損)觸價單.{0,40}?觸價 (≥|≤) ([\d.]+)（(?:最低獲利檔(?: \+\d+ 檔)?|-\d+ 檔)，約 [+-][\d.]+%） · 市價.{0,12}?等待觸發/g)].map((m) => `${m[1]} ${m[2]} ${m[3]}`);
     results.armedRows = armedRows;
     if (held?.exit && armedRows.join(", ") !== `停利 ≥ ${held.exit.takeProfit}, 停損 ≤ ${held.exit.stopLoss}`)
       fail(`委託 lists 觸價單 「${armedRows.join(", ")}」, the run has 停利 ${held.exit.takeProfit}／停損 ${held.exit.stopLoss}`);
@@ -210,11 +227,22 @@ try {
   }));
   results.plan = plan;
   if (plan.on !== true) fail("自動出場 is not on by default");
-  if (plan.picks.map((pick) => pick.value).join(" ") !== "0 2") fail(`the plan card offers ${plan.picks.map((pick) => pick.value).join(" / ")}, not 停利 最低獲利檔 (0) / 停損 2`);
+  if (plan.picks.map((pick) => pick.value).join(" ") !== "0 10") fail(`the plan card offers ${plan.picks.map((pick) => pick.value).join(" / ")}, not 停利 最低獲利檔 (0) / 停損 10 檔`);
   if (!plan.text?.includes("最低獲利檔")) fail(`the plan card does not name 最低獲利檔: 「${plan.text}」`);
   if (!plan.text?.includes("手續費和當沖證交稅")) fail("the plan card does not say what 最低獲利檔 covers");
+  if (!plan.text?.includes(takeProfitExampleText(0)) || !plan.text?.includes(stopLossExampleText(10)))
+    fail(`the plan card does not say what 最低獲利檔／10 檔 are in %: 「${plan.text}」`);
   if (plan.picks.some((pick) => pick.size < 16)) fail("a 自動出場 menu is under 16px");
   await row.screenshot({ path: `${out}plan-row.png` });
+  // Picking 最低獲利檔 +2 檔 and 6 檔 changes what the card says they are.
+  const menus = row.locator("select");
+  await menus.nth(0).selectOption("2");
+  await menus.nth(1).selectOption("6");
+  const picked = await row.evaluate((node) => node.textContent?.replace(/\s+/g, " ").trim());
+  results.planPicked = picked;
+  if (!picked?.includes(takeProfitExampleText(2)) || !picked?.includes(stopLossExampleText(6)))
+    fail(`after picking +2 檔／6 檔 the plan card reads 「${picked}」`);
+  await row.screenshot({ path: `${out}plan-row-picked.png` });
 } catch (error) {
   fail(String(error.message ?? error).split("\n")[0]);
   await page.screenshot({ path: `${out}error.png` }).catch(() => {});

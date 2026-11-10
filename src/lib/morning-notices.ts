@@ -3,7 +3,7 @@
 // price is reached the screen should say 成交 at once; during a trade there is no time to keep opening 庫存 or 委託.
 // Pure: the caller passes two views of the run, the last one announced and the one now.
 import type { MorningState } from "./morning.ts";
-import { EXIT_CANCEL, EXIT_NAME, triggerOrders, triggerTicks } from "./morning-exit.ts";
+import { EXIT_CANCEL, EXIT_NAME, triggerOrders } from "./morning-exit.ts";
 import { formatPrice } from "./market/ticks.ts";
 import { fillPriceText } from "./morning-ledger.ts";
 import { positionMark, type QuoteTone } from "./morning-quote.ts";
@@ -106,7 +106,7 @@ export function orderNotices(
       ...(triggers.length
         ? {
             note: `已送出觸價單：${triggers
-              .map((trigger) => `${EXIT_NAME[trigger.kind]} ${formatPrice(trigger.price)}${triggerTicks(trigger)}`)
+              .map((trigger) => `${EXIT_NAME[trigger.kind]} ${formatPrice(trigger.price)}${trigger.note}`)
               .join("／")}`,
           }
         : {}),

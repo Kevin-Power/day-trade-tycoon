@@ -134,7 +134,9 @@ test("both manuals tell the 觸價單 a buy fill sends and the phone's 五檔 be
       "觸價單",
       "最低獲利檔",
       "手續費和當沖證交稅",
-      "停損 -2%",
+      "停損 10 檔",
+      "多加幾檔",
+      "約幾 %",
       "市價賣出這檔全部庫存",
       "另一張自動取消",
       "停利觸價",
@@ -150,6 +152,8 @@ test("both manuals tell the 觸價單 a buy fill sends and the phone's 五檔 be
     assert.doesNotMatch(text, /直接到下單|不是自動停損/, name);
     // Until 2026-11-08 the default 停利 was +1.5%; 石大哥 asked for 「最低的tick(可cover手續費和證交稅)」.
     assert.doesNotMatch(text, /預設開啟（停利 \+1\.5%|預設 \+1\.5%/, name);
+    // Until 2026-11-09 停損 was −2% and both could be percentages; the owner: 停利 標準tick + 幾個tick, 停損 in ticks.
+    assert.doesNotMatch(text, /停損 -2%|-2%）|改成百分比|選百分比|停利百分比|停損百分比|\+0\.5% 到 \+3%/, name);
   }
 });
 test("README names the current manual revision", () => {

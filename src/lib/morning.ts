@@ -4,8 +4,11 @@ import type { BookLevels } from "./lessons/books.ts";
 import type { TradeRow } from "./lessons/trades.ts";
 import type { LessonPicker, RunRecord } from "./lessons/types.ts";
 
-/** 自動出場: percent from a holding's average cost (morning-exit.ts). */
-export type MorningExitPlan = { takeProfitPct: number; stopLossPct: number };
+/**
+ * 自動出場 in ticks (morning-exit.ts, since 2026-11-09; percentages before): 停利 is 最低獲利檔 plus `takeProfitTicks`,
+ * 停損 `stopLossTicks` under the holding's cost.
+ */
+export type MorningExitPlan = { takeProfitTicks: number; stopLossTicks: number };
 export type MorningPlan = {
   exerciseId?: string;
   bias: "observe" | "bullish" | "bearish";
@@ -20,7 +23,13 @@ export type MorningPlan = {
  * A holding's 自動出場 prices, figured at its latest buy fill; only trades after `fromMs` (ms after 09:00) fire them.
  * null: past the day's 漲停／跌停, so none.
  */
-export type MorningPositionExit = { takeProfit: number | null; stopLoss: number | null; fromMs: number };
+export type MorningPositionExit = {
+  takeProfit: number | null;
+  stopLoss: number | null;
+  fromMs: number;
+  /** The plan's ticks over 最低獲利檔 the 停利 was set with; none on a holding armed before 2026-11-09. */
+  takeProfitTicks?: number;
+};
 export type MorningCatalog = {
   lessonId: string;
   title: string;

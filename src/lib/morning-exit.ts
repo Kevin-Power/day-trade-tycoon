@@ -5,31 +5,41 @@ import { commission, DAYTRADE_TAX, formatPrice, LOT_SHARES, limitDown, limitUp, 
 import { fillPriceText } from "./morning-ledger.ts";
 
 /**
- * 停利 at 最低獲利檔 (2026-11-08, 石大哥: 「請改最低的tick(可cover手續費和證交稅)，這樣更接近教學系統與下單軟體的策略」):
- * the plan's `takeProfitPct` 0 means the first tick whose sale pays the buy fee, its own fee and the day-trade tax
- * and still gains (coverPrice), not a percentage.
+ * 停利 and 停損 in ticks (2026-11-09, the owner: 「停利上是可用"標準tick(保證可cover手續、證交稅)+幾個tick(行情好，使用者可多加
+ * 幾個tick)，停損也用tick來計算只是ticks旁邊備注幾%」): 停利 is 最低獲利檔 (2026-11-08, 石大哥: 「請改最低的tick(可cover手續費和
+ * 證交稅)」, coverPrice) moved up `takeProfitTicks`; 停損 is `stopLossTicks` under the cost. A tick's size depends on the
+ * price band, so one percentage is a different number of ticks on every stock.
  */
-export const COVER_TICK = 0;
-export const TAKE_PROFIT_CHOICES = [COVER_TICK, 0.5, 1, 1.5, 2, 3] as const;
-export const STOP_LOSS_CHOICES = [0.5, 1, 1.5, 2] as const;
-/**
- * On by default: 停利 最低獲利檔, 停損 −2% (2026-11-08; +1.5%／−1% before). The owner, for the Tuesday class: 「先抓寬一點，
- * 讓他們知道N字攻擊突破後，有很大的成功率可保本和賺到退傭，停損抓大一點，也是好的，讓他們知道，若停損抓太大，有時他們風險的成本會很高」.
- */
-export const DEFAULT_EXIT: MorningExitPlan = { takeProfitPct: COVER_TICK, stopLossPct: 2 };
+export const TAKE_PROFIT_TICK_CHOICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+export const STOP_LOSS_TICK_CHOICES = [3, 4, 5, 6, 8, 10, 12, 15, 20] as const;
+/** On by default: 停利 最低獲利檔, 停損 10 檔 (the owner, 2026-11-09: 「好，停損預設 10 檔」; −2% the day before). */
+export const DEFAULT_EXIT: MorningExitPlan = { takeProfitTicks: 0, stopLossTicks: 10 };
 export type ExitKind = "takeProfit" | "stopLoss";
 export const EXIT_NAME = { takeProfit: "停利", stopLoss: "停損" } as const satisfies Record<ExitKind, string>;
 /** A learner's waiting order of a stock gives way when the stock's exit fires. */
 export const EXIT_CANCEL = "自動出場時取消這檔的委託";
 
-/** 「最低獲利檔」 or 「+1.5%」 */
-export function takeProfitText(pct: number): string {
-  return pct === COVER_TICK ? "最低獲利檔" : `+${pct}%`;
+/**
+ * The plan's exit as the ticks it takes: a plan saved with the percentages before 2026-11-09 (or anything off the
+ * choices) counts as the default.
+ */
+export function exitPlanOf(exit: MorningExitPlan): MorningExitPlan {
+  const { takeProfitTicks, stopLossTicks } = exit ?? {};
+  return (TAKE_PROFIT_TICK_CHOICES as readonly unknown[]).includes(takeProfitTicks) &&
+    (STOP_LOSS_TICK_CHOICES as readonly unknown[]).includes(stopLossTicks)
+    ? { takeProfitTicks, stopLossTicks }
+    : { ...DEFAULT_EXIT };
 }
 
-/** 「停利 最低獲利檔／停損 -1%」, 「停利 +1.5%／停損 -1%」 */
+/** 「最低獲利檔」 or 「最低獲利檔 +2 檔」 */
+export function takeProfitText(ticks: number): string {
+  return ticks === 0 ? "最低獲利檔" : `最低獲利檔 +${ticks} 檔`;
+}
+
+/** 「停利 最低獲利檔／停損 -10 檔」, 「停利 最低獲利檔 +2 檔／停損 -6 檔」 */
 export function exitPlanText(exit: MorningExitPlan): string {
-  return `停利 ${takeProfitText(exit.takeProfitPct)}／停損 -${exit.stopLossPct}%`;
+  const plan = exitPlanOf(exit);
+  return `停利 ${takeProfitText(plan.takeProfitTicks)}／停損 -${plan.stopLossTicks} 檔`;
 }
 
 /**
@@ -104,21 +114,51 @@ export function exitTicks(averageCost: number, price: number): number {
   return ticks;
 }
 
-/** 「（+2 檔）」 over the cost, 「（-6 檔）」 under it. */
-export function exitTicksText(averageCost: number, price: number): string {
-  return `（${price > averageCost ? "+" : "-"}${exitTicks(averageCost, price)} 檔）`;
+/** About how far `price` is from the cost, one decimal: 「約 -1.8%」, 「約 +0.5%」. */
+export function exitPercentText(averageCost: number, price: number): string {
+  const pct = ((price - averageCost) / averageCost) * 100;
+  return `約 ${price > averageCost ? "+" : "-"}${Math.abs(pct).toFixed(1)}%`;
 }
 
 /**
- * A holding's waiting 觸價單: when a trade reaches `price`, the classroom sells the whole holding at market. `ticks`
- * is how far `price` is from the holding's cost (exitTicks).
+ * What a 觸價單 says beside its price (2026-11-09, the owner: 「ticks旁邊備注幾%(例:6ticks=3%，讓使用者比較了解參數的
+ * 實際效應)」): 停利 by the plan's ticks over 最低獲利檔, 「（最低獲利檔 +2 檔，約 +0.9%）」; 停損 by its ticks under the cost,
+ * 「（-10 檔，約 -1.8%）」. A 停利 armed without the plan's ticks (before 2026-11-09) says its own ticks from the cost.
+ */
+export function exitNote(kind: ExitKind, averageCost: number, price: number, takeProfitTicks?: number): string {
+  const ticks =
+    kind === "takeProfit" && takeProfitTicks !== undefined
+      ? takeProfitText(takeProfitTicks)
+      : `${price > averageCost ? "+" : "-"}${exitTicks(averageCost, price)} 檔`;
+  return `（${ticks}，${exitPercentText(averageCost, price)}）`;
+}
+
+/** Prices in three bands (0.05, 0.5 and 5 元 a tick) the plan card turns the chosen ticks into percentages at. */
+const EXAMPLE_PRICES = [26.55, 224.5, 1055] as const;
+const EXAMPLE_BUY = 224.5;
+
+/** 「停損 10 檔約等於：26.55 元 -1.9%、224.5 元 -2.2%、1055 元 -4.7%（價位不同，每檔大小不同）。」 */
+export function stopLossExampleText(ticks: number): string {
+  const parts = EXAMPLE_PRICES.map((price) => `${formatPrice(price)} 元 ${exitPercentText(price, stepTick(price, -ticks)).slice(2)}`);
+  return `停損 ${ticks} 檔約等於：${parts.join("、")}（價位不同，每檔大小不同）。`;
+}
+
+/** 「例：224.5 元買 1 張，停利 226.5（約 +0.9%）。」: 最低獲利檔 of one lot and its fee, moved up `ticks`. */
+export function takeProfitExampleText(ticks: number): string {
+  const price = exitPrices(EXAMPLE_BUY, { takeProfitTicks: ticks, stopLossTicks: DEFAULT_EXIT.stopLossTicks }, EXAMPLE_BUY).takeProfit!;
+  return `例：${formatPrice(EXAMPLE_BUY)} 元買 1 張，停利 ${formatPrice(price)}（${exitPercentText(EXAMPLE_BUY, price)}）。`;
+}
+
+/**
+ * A holding's waiting 觸價單: when a trade reaches `price`, the classroom sells the whole holding at market. `note`
+ * is what is said beside its price (exitNote).
  */
 export type TriggerOrder = {
   code: string;
   kind: ExitKind;
   name: string;
   price: number;
-  ticks: number;
+  note: string;
   shares: number;
   fromMs: number;
 };
@@ -137,17 +177,28 @@ export function triggerOrders(
           const price = exit[kind];
           return price === null
             ? []
-            : [{ code, kind, name: `${EXIT_NAME[kind]}觸價單`, price, ticks: exitTicks(averageCost, price), shares, fromMs: exit.fromMs }];
+            : [
+                {
+                  code,
+                  kind,
+                  name: `${EXIT_NAME[kind]}觸價單`,
+                  price,
+                  note: exitNote(kind, averageCost, price, exit.takeProfitTicks),
+                  shares,
+                  fromMs: exit.fromMs,
+                },
+              ];
         })
       : [],
   );
 }
 
 /**
- * A holding's two prices from its average cost: 停利 is the first price on the tick grid at or over the target
- * (with 最低獲利檔, coverPrice of the holding's `shares` and paid `buyFees`; without them, one lot and its own fee),
- * 停損 the last one at or under it. One past the day's 漲停／跌停 cannot be reached, so there is none (null): pulled
- * back to the limit it could be the average itself, and sell at once at a loss.
+ * A holding's two prices from its average cost: 停利 is 最低獲利檔 (coverPrice of the holding's `shares` and paid
+ * `buyFees`; without them, one lot and its own fee) moved up the plan's ticks; 停損 is the plan's ticks under the
+ * first tick at or over the cost, so it is exactly that many ticks away (exitTicks). Both step across price bands.
+ * One past the day's 漲停／跌停 cannot be reached, so there is none (null): pulled back to the limit it could be the
+ * average itself, and sell at once at a loss.
  */
 export function exitPrices(
   averageCost: number,
@@ -155,27 +206,17 @@ export function exitPrices(
   previousClose: number,
   holding?: { shares: number; buyFees: number },
 ): { takeProfit: number | null; stopLoss: number | null } {
-  const down = (averageCost * (100 - exit.stopLossPct)) / 100;
-  let takeProfit: number;
-  if (exit.takeProfitPct === COVER_TICK) {
-    const shares = holding?.shares ?? LOT_SHARES;
-    takeProfit = coverPrice(averageCost, shares, holding?.buyFees ?? commission(averageCost * shares));
-  } else {
-    const up = (averageCost * (100 + exit.takeProfitPct)) / 100;
-    takeProfit = roundToTick(up);
-    if (takeProfit < up - 1e-9) takeProfit = stepTick(takeProfit, 1);
-  }
-  let stopLoss = roundToTick(down);
-  if (stopLoss > down + 1e-9) stopLoss = stepTick(stopLoss, -1);
+  const plan = exitPlanOf(exit);
+  const shares = holding?.shares ?? LOT_SHARES;
+  const cover = coverPrice(averageCost, shares, holding?.buyFees ?? commission(averageCost * shares));
+  const takeProfit = plan.takeProfitTicks === 0 ? cover : stepTick(cover, plan.takeProfitTicks);
+  let from = roundToTick(averageCost);
+  if (from < averageCost - 1e-9) from = stepTick(from, 1);
+  const stopLoss = stepTick(from, -plan.stopLossTicks);
   return {
     takeProfit: takeProfit > limitUp(previousClose) ? null : takeProfit,
     stopLoss: stopLoss < limitDown(previousClose) ? null : stopLoss,
   };
-}
-
-/** A waiting 觸價單's distance from the cost as said beside its price: 「（+5 檔）」, 「（-3 檔）」. */
-export function triggerTicks(trigger: Pick<TriggerOrder, "kind" | "ticks">): string {
-  return `（${trigger.kind === "takeProfit" ? "+" : "-"}${trigger.ticks} 檔）`;
 }
 
 /** Which exit a trade at `price` fires, if any. */

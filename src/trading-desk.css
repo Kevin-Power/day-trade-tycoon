@@ -1691,6 +1691,18 @@ html:has(.trading-desk) #app {
 .trading-desk .sim-card dd.sim-mark {
   color: var(--td-tone);
 }
+/* 2026-11-09: a holding's 觸價單 says ticks and % for each side, so it takes the card's full width, 停利 and 停損
+   each on a line (the ／ between them stays in the text for the table and screen readers). */
+.trading-desk .sim-card dl > [data-wide] {
+  grid-column: 1 / -1;
+}
+.trading-desk .sim-exit-line {
+  display: block;
+  flex-basis: 100%;
+}
+.trading-desk .sim-exit-sep {
+  display: none;
+}
 .trading-desk .sim-card .sim-cancel {
   margin-left: 0;
 }

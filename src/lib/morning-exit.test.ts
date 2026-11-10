@@ -1,65 +1,71 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import type { MorningExitPlan } from "./morning.ts";
 import {
-  COVER_TICK,
   coverPrice,
   DEFAULT_EXIT,
+  exitNote,
+  exitPercentText,
+  exitPlanOf,
   exitPlanText,
   exitStampParts,
   exitPrices,
   exitTicks,
-  exitTicksText,
   exitTrigger,
   holdingBuyFees,
   holdingLevels,
+  stopLossExampleText,
+  takeProfitExampleText,
   triggerOrders,
-  STOP_LOSS_CHOICES,
-  TAKE_PROFIT_CHOICES,
+  STOP_LOSS_TICK_CHOICES,
+  TAKE_PROFIT_TICK_CHOICES,
   takeProfitText,
 } from "./morning-exit.ts";
 
-const PCT_EXIT = { takeProfitPct: 1.5, stopLossPct: 1 };
+const TICK_EXIT = { takeProfitTicks: 2, stopLossTicks: 6 };
 
-test("the default is 停利 最低獲利檔 and 停損 −2% (2026-11-08, 石大哥 and the owner); the percentages stay among the choices", () => {
-  // The owner: 「先抓寬一點，讓他們知道N字攻擊突破後，有很大的成功率可保本和賺到退傭，停損抓大一點…」
-  assert.deepEqual(DEFAULT_EXIT, { takeProfitPct: COVER_TICK, stopLossPct: 2 });
-  assert.equal(COVER_TICK, 0);
-  assert.deepEqual(TAKE_PROFIT_CHOICES, [0, 0.5, 1, 1.5, 2, 3]);
-  assert.deepEqual(STOP_LOSS_CHOICES, [0.5, 1, 1.5, 2]);
-  assert.equal(takeProfitText(COVER_TICK), "最低獲利檔");
-  assert.equal(takeProfitText(1.5), "+1.5%");
-  assert.equal(exitPlanText(DEFAULT_EXIT), "停利 最低獲利檔／停損 -2%");
-  assert.equal(exitPlanText(PCT_EXIT), "停利 +1.5%／停損 -1%");
+test("停利 is 最低獲利檔 plus the ticks a learner adds, 停損 a number of ticks; by default 最低獲利檔 and 10 檔 (2026-11-09)", () => {
+  // The owner: 「停利上是可用"標準tick(保證可cover手續、證交稅)+幾個tick…停損也用tick來計算」; 「好，停損預設 10 檔」.
+  assert.deepEqual(DEFAULT_EXIT, { takeProfitTicks: 0, stopLossTicks: 10 });
+  assert.deepEqual(TAKE_PROFIT_TICK_CHOICES, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.deepEqual(STOP_LOSS_TICK_CHOICES, [3, 4, 5, 6, 8, 10, 12, 15, 20]);
+  assert.equal(takeProfitText(0), "最低獲利檔");
+  assert.equal(takeProfitText(2), "最低獲利檔 +2 檔");
+  assert.equal(exitPlanText(DEFAULT_EXIT), "停利 最低獲利檔／停損 -10 檔");
+  assert.equal(exitPlanText(TICK_EXIT), "停利 最低獲利檔 +2 檔／停損 -6 檔");
 });
 
-test("停利 is the first tick at or over the target, 停損 the last tick at or under it", () => {
-  // 中砂 at 854 (tick 1): 866.81 → 867, 845.46 → 845.
-  assert.deepEqual(exitPrices(854, PCT_EXIT, 867), { takeProfit: 867, stopLoss: 845 });
-  // 100.5: 102.0075 on the 0.5 grid → 102.5; 99.495 is under 100, on the 0.1 grid → 99.4.
-  assert.deepEqual(exitPrices(100.5, PCT_EXIT, 100), { takeProfit: 102.5, stopLoss: 99.4 });
-  // A target already on the grid stays: 200 × 1.015 = 203, 200 × 0.99 = 198.
-  assert.deepEqual(exitPrices(200, PCT_EXIT, 200), { takeProfit: 203, stopLoss: 198 });
-  // Across the 1000 band (tick 5 above): 990 × 1.015 = 1004.85 → 1005.
-  assert.equal(exitPrices(990, PCT_EXIT, 990).takeProfit, 1005);
+test("a plan saved with the old percentages counts as the default", () => {
+  const old = { takeProfitPct: 1.5, stopLossPct: 1 } as unknown as MorningExitPlan;
+  assert.deepEqual(exitPlanOf(old), DEFAULT_EXIT);
+  assert.deepEqual(exitPlanOf(TICK_EXIT), TICK_EXIT);
+  assert.deepEqual(exitPlanOf({ takeProfitTicks: 2.5, stopLossTicks: 6 }), DEFAULT_EXIT);
+  assert.deepEqual(exitPlanOf({ takeProfitTicks: 2, stopLossTicks: 7 }), DEFAULT_EXIT);
+  assert.equal(exitPlanText(old), "停利 最低獲利檔／停損 -10 檔");
+  assert.deepEqual(exitPrices(216.5, old, 210, { shares: 1000, buyFees: 185 }), { takeProfit: 217.5, stopLoss: 211.5 });
 });
 
-test("each exit follows its own price band's tick", () => {
-  // 10.01 × 1.005 = 10.06005 on a 0.05 grid → 10.1; × 0.995 = 9.95995 on a 0.01 grid → 9.95.
-  assert.deepEqual(exitPrices(10.01, { takeProfitPct: 0.5, stopLossPct: 0.5 }, 10), { takeProfit: 10.1, stopLoss: 9.95 });
+test("停利 is 最低獲利檔 moved up the added ticks; 停損 the plan's ticks under the cost, across price bands", () => {
+  // 鴻海 1 lot at 216.5, fee 185: 最低獲利檔 217.5; +2 ticks of 0.5 → 218.5; 6 ticks under → 213.5; 10 → 211.5.
+  assert.deepEqual(exitPrices(216.5, TICK_EXIT, 210, { shares: 1000, buyFees: 185 }), { takeProfit: 218.5, stopLoss: 213.5 });
+  assert.deepEqual(exitPrices(216.5, DEFAULT_EXIT, 210, { shares: 1000, buyFees: 185 }), { takeProfit: 217.5, stopLoss: 211.5 });
+  // 1 lot at 99.5, fee 85: 最低獲利檔 99.9; +2 crosses 100 → 100, 100.5. 6 under 100.5: 100, 99.9 … 99.5.
+  assert.equal(exitPrices(99.5, TICK_EXIT, 99.5, { shares: 1000, buyFees: 85 }).takeProfit, 100.5);
+  assert.equal(exitPrices(100.5, TICK_EXIT, 100).stopLoss, 99.5);
+  // An average off the grid counts from the first tick over it, so the 停損 is exactly its ticks away (exitTicks).
+  assert.equal(exitPrices(301 / 3, DEFAULT_EXIT, 100).stopLoss, 99.1);
+  assert.equal(exitTicks(301 / 3, 99.1), 10);
 });
 
 test("a 停利 past 漲停, or a 停損 past 跌停, cannot be reached: there is none, never one at the limit", () => {
-  // Bought at 漲停 110 (from 100): 停利 111.65 is past it. Pulled down to 110 it would sell at once, at a loss.
-  assert.deepEqual(exitPrices(110, PCT_EXIT, 100), { takeProfit: null, stopLoss: 108.5 });
-  // 109 × 1.015 = 110.635: past 漲停 too; 109.5 × 1.005 = 110.0475 as well.
-  assert.equal(exitPrices(109, PCT_EXIT, 100).takeProfit, null);
-  assert.equal(exitPrices(109.5, { takeProfitPct: 0.5, stopLossPct: 1 }, 100).takeProfit, null);
-  // Exactly at 漲停 is reachable: 108 × 1.015 = 109.62 → 110.
-  assert.equal(exitPrices(108, PCT_EXIT, 100).takeProfit, 110);
-  // Bought at 跌停 90: 停損 89.1 is past it; 停利 91.35 on the 0.1 grid → 91.4.
-  assert.deepEqual(exitPrices(90, PCT_EXIT, 100), { takeProfit: 91.4, stopLoss: null });
-  assert.equal(exitTrigger({ takeProfit: null, stopLoss: 108.5 }, 110), null);
-  assert.equal(exitTrigger({ takeProfit: 91.4, stopLoss: null }, 90), null);
+  // Bought at 漲停 110 (from 100): no 停利 over it; 10 ticks of 0.5 under → 105.
+  assert.deepEqual(exitPrices(110, DEFAULT_EXIT, 100, { shares: 1000, buyFees: 94 }), { takeProfit: null, stopLoss: 105 });
+  // 109.5: 最低獲利檔 is 漲停 110 itself; two more ticks are past it.
+  assert.equal(exitPrices(109.5, TICK_EXIT, 100).takeProfit, null);
+  // Bought at 跌停 90 (fee 77): 10 under is past 跌停; 最低獲利檔 90.3.
+  assert.deepEqual(exitPrices(90, DEFAULT_EXIT, 100), { takeProfit: 90.3, stopLoss: null });
+  assert.equal(exitTrigger({ takeProfit: null, stopLoss: 105 }, 110), null);
+  assert.equal(exitTrigger({ takeProfit: 90.3, stopLoss: null }, 90), null);
 });
 
 test("a trade at or over 停利, or at or under 停損, fires; one between does not", () => {
@@ -88,12 +94,16 @@ test("a holding's chart levels: 成本 as a solid line, then its 停利 and 停�
 });
 
 test("a holding's 觸價單: 停利 then 停損, each selling the whole holding, armed from its buy fill (2026-11-06, 石大哥)", () => {
-  const exit = { takeProfit: 1490, stopLoss: 1450, fromMs: 60_734 };
-  // Bought at 1465: 1490 is 5 ticks of 5 元 over it, 1450 is 3 under (2026-11-08: 石大哥 counts in ticks).
+  const exit = { takeProfit: 1490, stopLoss: 1450, fromMs: 60_734, takeProfitTicks: 4 };
+  // Bought at 1465 with 停利 最低獲利檔 +4 檔: 1490 is +1.7%; 1450 is 3 ticks of 5 元 under, −1.0% (2026-11-09: the owner
+  // wants the ticks with what they mean in %).
   assert.deepEqual(triggerOrders([{ code: "2330", shares: 2000, averageCost: 1465, exit }]), [
-    { code: "2330", kind: "takeProfit", name: "停利觸價單", price: 1490, ticks: 5, shares: 2000, fromMs: 60_734 },
-    { code: "2330", kind: "stopLoss", name: "停損觸價單", price: 1450, ticks: 3, shares: 2000, fromMs: 60_734 },
+    { code: "2330", kind: "takeProfit", name: "停利觸價單", price: 1490, note: "（最低獲利檔 +4 檔，約 +1.7%）", shares: 2000, fromMs: 60_734 },
+    { code: "2330", kind: "stopLoss", name: "停損觸價單", price: 1450, note: "（-3 檔，約 -1.0%）", shares: 2000, fromMs: 60_734 },
   ]);
+  // A holding armed before 2026-11-09 has no 停利 ticks: its distance from the cost is said instead.
+  const { takeProfitTicks: _old, ...armedBefore } = exit;
+  assert.equal(triggerOrders([{ code: "2330", shares: 2000, averageCost: 1465, exit: armedBefore }])[0].note, "（+5 檔，約 +1.7%）");
   // A side past 漲停／跌停 has no price, so no 觸價單; no 自動出場, or nothing held, none at all.
   assert.deepEqual(
     triggerOrders([{ code: "2330", shares: 1000, averageCost: 100, exit: { takeProfit: null, stopLoss: 99, fromMs: 0 } }]).map((order) => order.kind),
@@ -129,10 +139,10 @@ test("最低獲利檔 is the first tick whose sale pays the buy fee, its own fee
 });
 
 test("with 最低獲利檔 the holding's shares and paid buy fees set 停利; without them, one lot and its own fee", () => {
-  assert.deepEqual(exitPrices(216.5, DEFAULT_EXIT, 210, { shares: 1000, buyFees: 185 }), { takeProfit: 217.5, stopLoss: 212 });
-  // −2%: 212.17 → 212 on the 0.5 grid.
-  assert.deepEqual(exitPrices(216.5, DEFAULT_EXIT, 210), { takeProfit: 217.5, stopLoss: 212 });
-  // Past 漲停 it cannot be reached: none, as with the percentages.
+  assert.deepEqual(exitPrices(216.5, DEFAULT_EXIT, 210, { shares: 1000, buyFees: 185 }), { takeProfit: 217.5, stopLoss: 211.5 });
+  // Without them: one lot's own fee, 185 again.
+  assert.deepEqual(exitPrices(216.5, DEFAULT_EXIT, 210), { takeProfit: 217.5, stopLoss: 211.5 });
+  // Past 漲停 it cannot be reached: none.
   assert.equal(exitPrices(110, DEFAULT_EXIT, 100, { shares: 1000, buyFees: 94 }).takeProfit, null);
 });
 
@@ -157,6 +167,25 @@ test("a 觸價單 says how many ticks it is from the cost, across price bands (2
   assert.equal(exitTicks(99.5, 101), 7);
   // An average off the grid counts the ticks to pass it: 100.333… → 101 is 101, 100.5 → 2.
   assert.equal(exitTicks(301 / 3, 101), 2);
-  assert.equal(exitTicksText(28.05, 27.75), "（-6 檔）");
-  assert.equal(exitTicksText(216.5, 217.5), "（+2 檔）");
+});
+
+test("beside its price a 觸價單 says its ticks and about what % they are (2026-11-09, the owner: 「ticks旁邊備注幾%」)", () => {
+  // From the cost, one decimal: 台泥 28.05 → 27.55 is −1.78%, 鴻海 216.5 → 217.5 is +0.46%.
+  assert.equal(exitPercentText(28.05, 27.55), "約 -1.8%");
+  assert.equal(exitPercentText(216.5, 217.5), "約 +0.5%");
+  // 停利 by the plan's ticks over 最低獲利檔; 停損 by its ticks under the cost.
+  assert.equal(exitNote("takeProfit", 216.5, 217.5, 0), "（最低獲利檔，約 +0.5%）");
+  assert.equal(exitNote("takeProfit", 216.5, 218.5, 2), "（最低獲利檔 +2 檔，約 +0.9%）");
+  assert.equal(exitNote("stopLoss", 28.05, 27.55), "（-10 檔，約 -1.8%）");
+  // Without the plan's ticks (armed before 2026-11-09), the 停利's own ticks from the cost.
+  assert.equal(exitNote("takeProfit", 1465, 1490), "（+5 檔，約 +1.7%）");
+});
+
+test("the plan card says about what % the chosen ticks are at a few prices (2026-11-09, the owner: 「例:6ticks=3%」)", () => {
+  // 26.55 (0.05 a tick) → 26.05; 224.5 (0.5) → 219.5; 1055 (5) → 1005.
+  assert.equal(stopLossExampleText(10), "停損 10 檔約等於：26.55 元 -1.9%、224.5 元 -2.2%、1055 元 -4.7%（價位不同，每檔大小不同）。");
+  assert.equal(stopLossExampleText(3), "停損 3 檔約等於：26.55 元 -0.6%、224.5 元 -0.7%、1055 元 -1.4%（價位不同，每檔大小不同）。");
+  // 224.5 × 1 lot, fee 192: 最低獲利檔 225.5; +2 ticks → 226.5.
+  assert.equal(takeProfitExampleText(0), "例：224.5 元買 1 張，停利 225.5（約 +0.4%）。");
+  assert.equal(takeProfitExampleText(2), "例：224.5 元買 1 張，停利 226.5（約 +0.9%）。");
 });

@@ -13,7 +13,7 @@ import { OrderReports } from "@/components/order-reports";
 import { MinuteTable, QuoteDetailGrid, StockTabs } from "@/components/stock-detail";
 import { TradeTape } from "@/components/trade-tape";
 import { exceedsCash, isLargeOrder, orderReports, type LocalOrderFailure } from "@/lib/morning-orders";
-import { EXIT_NAME, exitTicksText, triggerOrders, triggerTicks } from "@/lib/morning-exit";
+import { EXIT_NAME, exitNote, triggerOrders } from "@/lib/morning-exit";
 
 export function AccountSummary({ session }: { session: MorningState }) {
   const profit = session.equity - session.startingCash;
@@ -941,7 +941,7 @@ export function Ledger({
                 </div>
                 <dl>
                   {record.cells.map((cell) => (
-                    <div key={cell.label}>
+                    <div key={cell.label} data-wide={cell.wide || undefined}>
                       <dt>{cell.label}</dt>
                       <dd data-tone={cell.tone} className={cell.className}>
                         {cell.value}
@@ -1004,7 +1004,8 @@ function ColumnLabel({ text }: { text: string }) {
   );
 }
 
-type LedgerCell = { label: string; value: ReactNode; tone?: string; className?: string };
+/** `wide`: the cell takes a phone card's full width. */
+type LedgerCell = { label: string; value: ReactNode; tone?: string; className?: string; wide?: boolean };
 type LedgerRecord = { key: string; name: string; sub: string; cells: LedgerCell[] };
 
 /** One row per position, order or fill; the desk shows them as a table, phones as cards. */
@@ -1046,16 +1047,28 @@ function ledgerRecords(
             ? [
                 {
                   label: "觸價單",
-                  // None past 漲停／跌停 (morning-exit.ts). Each with its ticks from the cost (2026-11-08, 石大哥).
-                  value: `停利 ${
-                    item.exit.takeProfit === null
-                      ? "—"
-                      : `${formatPrice(item.exit.takeProfit)}${exitTicksText(item.averageCost, item.exit.takeProfit)}`
-                  }／停損 ${
-                    item.exit.stopLoss === null
-                      ? "—"
-                      : `${formatPrice(item.exit.stopLoss)}${exitTicksText(item.averageCost, item.exit.stopLoss)}`
-                  }`,
+                  // None past 漲停／跌停 (morning-exit.ts). Each with its ticks and about what % they are (2026-11-09),
+                  // on a line of its own across the whole card on phones.
+                  wide: true,
+                  value: (
+                    <>
+                      <span className="sim-exit-line">
+                        停利{" "}
+                        {item.exit.takeProfit === null
+                          ? "—"
+                          : `${formatPrice(item.exit.takeProfit)}${exitNote("takeProfit", item.averageCost, item.exit.takeProfit, item.exit.takeProfitTicks)}`}
+                      </span>
+                      <span className="sim-exit-sep" aria-hidden>
+                        ／
+                      </span>
+                      <span className="sim-exit-line">
+                        停損{" "}
+                        {item.exit.stopLoss === null
+                          ? "—"
+                          : `${formatPrice(item.exit.stopLoss)}${exitNote("stopLoss", item.averageCost, item.exit.stopLoss)}`}
+                      </span>
+                    </>
+                  ),
                 },
               ]
             : []),
@@ -1073,7 +1086,7 @@ function ledgerRecords(
           { label: "方向 / 張數", value: `賣出 ${trigger.shares / 1000} 張`, className: "sim-sell" },
           {
             label: "委託價",
-            value: `觸價 ${trigger.kind === "takeProfit" ? "≥" : "≤"} ${formatPrice(trigger.price)}${triggerTicks(trigger)} · 市價`,
+            value: `觸價 ${trigger.kind === "takeProfit" ? "≥" : "≤"} ${formatPrice(trigger.price)}${trigger.note} · 市價`,
           },
           { label: "成交價", value: "—" },
           {
