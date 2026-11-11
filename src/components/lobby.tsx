@@ -34,6 +34,7 @@ import { ProvenanceBadge, ProvenanceMicro, SimChip } from "@/components/provenan
 import { WEEK_SESSIONS, formatIndex } from "@/lib/market/week";
 import { useGate } from "@/lib/gate/context";
 import { ClassroomAccount } from "@/components/classroom-account";
+import { AccountReminder } from "@/components/account-reminder";
 import { DisplayControls } from "@/components/display-controls";
 import { BrandMark } from "@/components/brand-mark";
 import { RealCandlesLink } from "@/components/real-candles-entry";
@@ -162,6 +163,7 @@ export function Lobby() {
         className="academy-container mx-auto w-full max-w-7xl px-4 pb-12 sm:px-6 lg:px-8"
       >
         {/* Today's next step comes first, so a phone shows it without scrolling. */}
+        {!CLASSROOM_OFFLINE && !userId && <AccountReminder />}
         {!CLASSROOM_OFFLINE && <DailyCard />}
         {!CLASSROOM_OFFLINE && <TodayCard />}
         {!CLASSROOM_OFFLINE && <LevelStrip />}

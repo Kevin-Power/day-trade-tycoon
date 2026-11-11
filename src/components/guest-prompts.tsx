@@ -20,11 +20,11 @@ export function GuestBanner({ compact = false }: { compact?: boolean }) {
   }
   return (
     <div role="status" className="td-banner td-guest" data-compact={compact}>
-      <p>{compact ? "目前是訪客，建立帳號才會保存練習" : "目前是訪客，建立帳號才會保存練習與之後的連續天數"}</p>
+      <p>{compact ? "目前是訪客，申請帳號才會保存練習" : "目前是訪客，練習不會保存；申請帳號後，下次登入就能接著練"}</p>
       <div className="td-banner-actions">
         <a className="td-button" data-variant="primary" href={SIGN_UP}>
           <UserPlus aria-hidden />
-          建立帳號
+          申請帳號
         </a>
         <button type="button" className="td-button" disabled={switching} onClick={() => void switchLearner()}>
           {switching ? "正在換人…" : "換人練習"}
@@ -40,11 +40,11 @@ export function GuestSaveCard() {
   if (hidden) return null;
   return (
     <section className="td-guest-save" aria-labelledby="guest-save-title">
-      <h2 id="guest-save-title">建立帳號，保存這次的練習</h2>
-      <p>現在建立帳號，這一輪的計畫、操作與復盤都會搬進你的帳號。</p>
+      <h2 id="guest-save-title">申請帳號，保存這次的練習</h2>
+      <p>現在申請帳號，這一輪的計畫、操作與復盤都會搬進你的帳號，下次登入就能接著練。</p>
       <div className="td-banner-actions">
         <a className="td-button" data-variant="primary" href={SIGN_UP}>
-          建立帳號
+          申請帳號
         </a>
         <button type="button" className="td-button" onClick={() => setHidden(true)}>
           之後再說

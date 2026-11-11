@@ -96,6 +96,9 @@ export function GateScreen({ onOpen, submit }: Props) {
           {busy ? "正在核對入場碼…" : "進入教室"}
           {!busy ? <ArrowRight aria-hidden="true" /> : null}
         </button>
+        <p className="mt-3 text-pretty text-sm leading-6 text-muted">
+          進教室後請先登入，第一次來請申請帳號：練習紀錄才會保存，下次登入就能接著練。
+        </p>
       </form>
 
       {/* Students bring the teacher's code, so the guest trial is the quieter way in, after the form. */}

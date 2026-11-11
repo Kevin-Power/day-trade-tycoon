@@ -187,7 +187,7 @@ for (const item of cases) {
     await page.getByRole("button", { name: "復盤", exact: true }).click();
     await page.locator("textarea").last().fill("第一次練習，先看懂畫面。");
     await page.getByRole("button", { name: "保存復盤，完成這一輪" }).click();
-    const save = page.getByRole("heading", { name: "建立帳號，保存這次的練習" });
+    const save = page.getByRole("heading", { name: "申請帳號，保存這次的練習" });
     await save.waitFor({ timeout: 15000 });
     await save.scrollIntoViewIfNeeded();
     await check("saved");

@@ -322,6 +322,44 @@ html[data-reading-mode="senior"] .access-column {
   }
 }
 
+/* Lobby: the first card for a visitor who is not logged in (apply for an account so practice is kept) */
+.account-reminder {
+  display: grid;
+  gap: 10px;
+  margin-block: 16px 0;
+  padding: 16px 20px;
+  background: color-mix(in srgb, var(--color-brand) 7%, var(--color-surface));
+  border: 1px solid var(--color-brand);
+  border-radius: 16px;
+}
+.account-reminder h2 {
+  font-size: 19px;
+  font-weight: 700;
+}
+.account-reminder p {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-fg);
+}
+.account-reminder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.account-reminder-actions a {
+  min-height: 48px;
+  padding-inline: 24px;
+  font-size: 17px;
+}
+@media (max-width: 767px) {
+  .account-reminder {
+    padding: 16px;
+  }
+  .account-reminder-actions a {
+    flex: 1 1 0;
+  }
+}
+
 /* Lobby: today's three steps with one next-step button */
 .today-card {
   display: grid;

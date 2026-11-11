@@ -105,7 +105,7 @@ function AccountContents({ userId, name }: { userId: string | null; name: string
         <div className="flex flex-wrap items-center gap-2">
           {!userId || (profileLoaded && !profile) ? (
             <Link to="/login" className="academy-button-secondary">
-              {userId ? "完成班級資料" : "登入／建立帳號"}
+              {userId ? "完成班級資料" : "登入／申請帳號"}
               <ArrowRight aria-hidden="true" />
             </Link>
           ) : null}
