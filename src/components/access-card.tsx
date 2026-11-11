@@ -26,7 +26,7 @@ export function AccessCard({
               再試一次
             </button>
             <a href={loginHref({ next: PRACTICE_PATH, mode: "up" })} className={SECONDARY}>
-              登入／建立帳號
+              登入／申請帳號
             </a>
           </>
         )}
